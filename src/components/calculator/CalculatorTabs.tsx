@@ -123,7 +123,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
             <TabsContent 
               key={calc.id} 
               value={index.toString()} 
-              className="space-y-4 mt-4 border rounded-lg p-4 bg-card"
+              className="space-y-4 mt-4 border rounded-lg p-2 bg-card"
             >
               <div className="space-y-2">
                 <Label htmlFor={`calc-${calc.id}`}>Калькулятор</Label>
@@ -166,7 +166,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                               onChange={(e) => handleUpdateCalculator(index, { 
                                 operationQuantity: parseInt(e.target.value) || 1 
                               })}
-                              className="w-20"
+                              className="w-20 max-w-[80px]"
                             />
                             <span className="text-sm text-muted-foreground w-[40px] text-right">
                               ед.
@@ -215,7 +215,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                               onChange={(e) => handleUpdateCalculator(index, { 
                                 materialQuantity: parseInt(e.target.value) || 1 
                               })}
-                              className="w-20"
+                              className="w-20 max-w-[80px]"
                             />
                             <span className="text-sm text-muted-foreground w-[40px] text-right">
                               {calculatorDef.fields.material?.quantityUnit || 'шт.'}
@@ -260,7 +260,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                                     [option.code]: parseFloat(e.target.value) || option.default,
                                   }
                                 })}
-                                className="flex-1"
+                                className="flex-1 max-w-[80px]"
                               />
                               <span className="text-sm text-muted-foreground w-[40px] text-right">
                                 {option.label.includes('мм') ? 'мм' : option.label.includes('%') ? '%' : ''}

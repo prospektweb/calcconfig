@@ -17,22 +17,16 @@ interface DetailCardProps {
 }
 
 export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, onDragEnd }: DetailCardProps) {
-  const [isEditingName, setIsEditingName] = useState(false)
-  const [editName, setEditName] = useState(detail.name)
-
-  const handleSaveName = () => {
-    if (editName.trim()) {
-      onUpdate({ name: editName.trim() })
-      setIsEditingName(false)
-    }
-  }
-
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !detail.isExpanded })
   }
   
   const handleOpenInBitrix = () => {
     window.open(`#detail-${detail.id}`, '_blank')
+  }
+  
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdate({ name: e.target.value })
   }
 
   return (
@@ -55,28 +49,16 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
             </span>
           </div>
           <div className="flex-shrink-0">
-            <span className="text-xs font-medium text-muted-foreground px-2 py-0.5 bg-muted rounded">
+            <span className="text-xs font-medium text-primary-foreground px-2 py-0.5 bg-primary rounded">
               Деталь
             </span>
           </div>
-          {isEditingName ? (
-            <Input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              className="h-6 flex-1 max-w-xs text-sm min-w-[120px]"
-              onBlur={handleSaveName}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveName()
-                if (e.key === 'Escape') {
-                  setEditName(detail.name)
-                  setIsEditingName(false)
-                }
-              }}
-              autoFocus
-            />
-          ) : (
-            <span className="font-medium flex-1 text-sm truncate min-w-[120px]">{detail.name}</span>
-          )}
+          <Input
+            value={detail.name}
+            onChange={handleNameChange}
+            className="h-6 text-sm font-medium bg-transparent border-none px-3 focus-visible:ring-1 focus-visible:ring-ring flex-1 min-w-[120px]"
+            placeholder="Название детали"
+          />
           <div className="flex-shrink-0">
             <span className="text-xs font-mono text-muted-foreground">
               ID:{detail.id.split('_')[1]?.slice(0, 5) || 'N/A'}

@@ -82,7 +82,7 @@ export function BindingCard({
           <Input
             value={binding.name}
             onChange={handleNameChange}
-            className="h-6 text-sm font-medium bg-transparent border-none px-1 focus-visible:ring-1 focus-visible:ring-ring flex-1 min-w-[120px]"
+            className="h-6 text-sm font-medium bg-transparent border-none px-3 focus-visible:ring-1 focus-visible:ring-ring flex-1 min-w-[120px]"
             placeholder="Название группы скрепления"
           />
           <div className="flex-shrink-0">

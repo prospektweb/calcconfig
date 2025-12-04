@@ -209,7 +209,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                         <Badge
                           key={detail.id}
                           variant="secondary"
-                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors"
+                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
                           draggable
                           onDragStart={handleDetailDragStart(detail.id, detail.name)}
                         >
@@ -218,7 +218,28 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                           </div>
                           <span className="font-mono text-xs">[{detail.id}]</span>
                           <span className="font-medium">{detail.name}</span>
-                          <span className="text-xs text-muted-foreground">{detail.width}×{detail.length}</span>
+                          <span className="text-xs font-mono">{detail.width}×{detail.length}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.open(`#detail-${detail.id}`, '_blank')
+                            }}
+                          >
+                            <ArrowSquareOut className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                            }}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
                         </Badge>
                       ))}
                     </div>
@@ -230,9 +251,12 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                     <Badge
                       key={element.id}
                       variant="secondary"
-                      className="px-3 py-1.5 flex items-center gap-2 cursor-grab max-w-[250px]"
+                      className="px-3 py-2 flex items-center gap-2 cursor-grab max-w-[300px] hover:bg-accent hover:text-accent-foreground transition-colors group"
                       draggable
                     >
+                      <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                        <DotsSixVertical className="w-4 h-4" />
+                      </div>
                       <span className="font-mono text-xs">[{element.itemId}]</span>
                       <span className="truncate flex-1" title={element.name}>
                         {element.name}
@@ -240,7 +264,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-5 w-5 p-0 flex-shrink-0 hover:bg-accent hover:text-accent-foreground"
+                        className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
                         onClick={(e) => {
                           e.stopPropagation()
                           window.open(`#item-${element.itemId}`, '_blank')
@@ -251,7 +275,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-5 w-5 p-0 flex-shrink-0 hover:bg-destructive hover:text-destructive-foreground"
+                        className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleRemoveElement(element.id)
