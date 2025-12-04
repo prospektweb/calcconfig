@@ -111,13 +111,17 @@ function App() {
 
   const handleCreateBinding = (detailIndex: number) => {
     const safeDetails = details || []
+    const safeBindings = bindings || []
+    
     if (detailIndex >= safeDetails.length - 1) return
     
     const detail1 = safeDetails[detailIndex]
     const detail2 = safeDetails[detailIndex + 1]
     
-    const existingBinding = (bindings || []).find(b => 
-      b.detailIds.includes(detail1.id) || b.detailIds.includes(detail2.id)
+    if (!detail1 || !detail2) return
+    
+    const existingBinding = safeBindings.find(b => 
+      b.detailIds && (b.detailIds.includes(detail1.id) || b.detailIds.includes(detail2.id))
     )
     
     if (existingBinding) {
@@ -125,7 +129,7 @@ function App() {
         setBindings(prev => 
           (prev || []).map(b => 
             b.id === existingBinding.id 
-              ? { ...b, detailIds: [...b.detailIds, detail1.id] }
+              ? { ...b, detailIds: [...(b.detailIds || []), detail1.id] }
               : b
           )
         )
@@ -134,7 +138,7 @@ function App() {
         setBindings(prev => 
           (prev || []).map(b => 
             b.id === existingBinding.id 
-              ? { ...b, detailIds: [...b.detailIds, detail2.id] }
+              ? { ...b, detailIds: [...(b.detailIds || []), detail2.id] }
               : b
           )
         )
@@ -221,7 +225,7 @@ function App() {
 
         <main className="flex-1 p-4 overflow-auto">
           <div className="space-y-2">
-            {(details || []).filter(d => !(bindings || []).some(b => b.detailIds.includes(d.id))).map((detail, index) => {
+            {(details || []).filter(d => !(bindings || []).some(b => b.detailIds && b.detailIds.includes(d.id))).map((detail, index) => {
               const actualIndex = (details || []).indexOf(detail)
               
               return (
@@ -256,8 +260,8 @@ function App() {
             })}
             
             {(bindings || []).map((binding, bindingIndex) => {
-              const bindingDetails = (details || []).filter(d => binding.detailIds.includes(d.id))
-              const detailStartIndex = (details || []).findIndex(d => d.id === binding.detailIds[0])
+              const bindingDetails = (details || []).filter(d => binding.detailIds && binding.detailIds.includes(d.id))
+              const detailStartIndex = (details || []).findIndex(d => binding.detailIds && binding.detailIds.length > 0 && d.id === binding.detailIds[0])
               
               return (
                 <BindingCard
@@ -275,7 +279,7 @@ function App() {
                   }}
                   onUpdateDetail={handleUpdateDetail}
                   orderNumber={bindingIndex + 1}
-                  detailStartIndex={detailStartIndex}
+                  detailStartIndex={detailStartIndex >= 0 ? detailStartIndex : 0}
                 />
               )
             })}

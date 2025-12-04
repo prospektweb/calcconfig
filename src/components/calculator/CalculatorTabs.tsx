@@ -24,15 +24,17 @@ interface CalculatorTabsProps {
 
 export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
   const [activeTab, setActiveTab] = useState(0)
+  
+  const safeCalculators = calculators || []
 
   const handleAddCalculator = () => {
     const newCalc = createEmptyCalculator()
-    onChange([...calculators, newCalc])
-    setActiveTab(calculators.length)
+    onChange([...safeCalculators, newCalc])
+    setActiveTab(safeCalculators.length)
   }
 
   const handleRemoveCalculator = (index: number) => {
-    const newCalculators = calculators.filter((_, i) => i !== index)
+    const newCalculators = safeCalculators.filter((_, i) => i !== index)
     onChange(newCalculators)
     if (activeTab >= newCalculators.length) {
       setActiveTab(Math.max(0, newCalculators.length - 1))
@@ -40,7 +42,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
   }
 
   const handleUpdateCalculator = (index: number, updates: Partial<CalculatorInstance>) => {
-    const newCalculators = calculators.map((calc, i) => 
+    const newCalculators = safeCalculators.map((calc, i) => 
       i === index ? { ...calc, ...updates } : calc
     )
     onChange(newCalculators)
@@ -53,7 +55,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
   const getAvailableEquipment = (operationId: number | null) => {
     if (!operationId) return []
     const operation = mockOperations.find(w => w.id === operationId)
-    if (!operation) return []
+    if (!operation || !operation.equipmentIds) return []
     return mockEquipment.filter(e => operation.equipmentIds.includes(e.id))
   }
 
@@ -62,12 +64,12 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
       <Tabs value={activeTab.toString()} onValueChange={(v) => setActiveTab(parseInt(v))}>
         <div className="flex items-center gap-2">
           <TabsList className="flex-1">
-            {calculators.map((calc, index) => (
+            {safeCalculators.map((calc, index) => (
               <div key={calc.id} className="relative flex items-center">
                 <TabsTrigger value={index.toString()} className="pr-7">
                   Калькулятор #{index + 1}
                 </TabsTrigger>
-                {calculators.length > 1 && (
+                {safeCalculators.length > 1 && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -93,7 +95,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
           </Button>
         </div>
 
-        {calculators.map((calc, index) => {
+        {safeCalculators.map((calc, index) => {
           const calculatorDef = getCalculatorByCode(calc.calculatorCode)
           const availableEquipment = getAvailableEquipment(calc.operationId)
 
@@ -135,7 +137,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
 
               {calculatorDef && (
                 <>
-                  {calculatorDef.fields.operation?.visible && (
+                  {calculatorDef.fields?.operation?.visible && (
                     <div className="space-y-2">
                       <Label>Операция</Label>
                       <div className="flex gap-2">
@@ -172,7 +174,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                     </div>
                   )}
 
-                  {calculatorDef.fields.equipment?.visible && (
+                  {calculatorDef.fields?.equipment?.visible && (
                     <div className="space-y-2">
                       <Label>Оборудование</Label>
                       <Select
@@ -196,7 +198,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                     </div>
                   )}
 
-                  {calculatorDef.fields.material?.visible && (
+                  {calculatorDef.fields?.material?.visible && (
                     <div className="space-y-2">
                       <Label>Материал</Label>
                       <div className="flex gap-2">
@@ -237,7 +239,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                     </div>
                   )}
 
-                  {calculatorDef.extraOptions.length > 0 && (
+                  {calculatorDef.extraOptions && calculatorDef.extraOptions.length > 0 && (
                     <div className="space-y-3 border-t border-border pt-3">
                       {calculatorDef.extraOptions.map(option => (
                         <div key={option.code} className="space-y-2">
@@ -246,10 +248,10 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                             <div className="flex items-center gap-2">
                               <Checkbox
                                 id={`${calc.id}-${option.code}`}
-                                checked={calc.extraOptions[option.code] ?? option.default}
+                                checked={calc.extraOptions?.[option.code] ?? option.default}
                                 onCheckedChange={(checked) => handleUpdateCalculator(index, {
                                   extraOptions: {
-                                    ...calc.extraOptions,
+                                    ...(calc.extraOptions || {}),
                                     [option.code]: checked,
                                   }
                                 })}
@@ -263,10 +265,10 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                               type="number"
                               min={option.min}
                               max={option.max}
-                              value={calc.extraOptions[option.code] ?? option.default}
+                              value={calc.extraOptions?.[option.code] ?? option.default}
                               onChange={(e) => handleUpdateCalculator(index, {
                                 extraOptions: {
-                                  ...calc.extraOptions,
+                                  ...(calc.extraOptions || {}),
                                   [option.code]: parseFloat(e.target.value) || option.default,
                                 }
                               })}

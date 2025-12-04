@@ -75,18 +75,25 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage }: Hea
   }
 
   const handleResetTab = () => {
-    setHeaderTabs(prev => ({
-      ...prev,
-      [activeTab]: []
-    }))
+    setHeaderTabs(prev => {
+      const safePrev = prev || { materials: [], operations: [], equipment: [], details: [] }
+      return {
+        ...safePrev,
+        [activeTab]: []
+      }
+    })
     addInfoMessage('info', `Сброшен таб: ${activeTab}`)
   }
 
   const handleRemoveElement = (id: string) => {
-    setHeaderTabs(prev => ({
-      ...prev,
-      [activeTab]: prev[activeTab].filter((el: HeaderElement) => el.id !== id)
-    }))
+    setHeaderTabs(prev => {
+      const safePrev = prev || { materials: [], operations: [], equipment: [], details: [] }
+      const currentTab = safePrev[activeTab] || []
+      return {
+        ...safePrev,
+        [activeTab]: currentTab.filter((el: HeaderElement) => el.id !== id)
+      }
+    })
   }
 
   const getTabLabel = (type: HeaderTabType) => {
@@ -134,7 +141,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage }: Hea
 
             <ScrollArea style={{ height: `${headerHeight - 80}px` }}>
               <div className="p-3 flex flex-wrap gap-2">
-                {headerTabs[tabType].length === 0 ? (
+                {(!headerTabs || !headerTabs[tabType] || headerTabs[tabType].length === 0) ? (
                   <p className="text-sm text-muted-foreground">Нет элементов. Нажмите "Выбрать" для добавления.</p>
                 ) : (
                   headerTabs[tabType].map((element: HeaderElement) => (

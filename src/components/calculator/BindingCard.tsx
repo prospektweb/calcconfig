@@ -24,7 +24,7 @@ export function BindingCard({ binding, details, onUpdate, onDelete, onUpdateDeta
   const handleToggleFinishing = (checked: boolean) => {
     onUpdate({ 
       hasFinishing: checked,
-      finishingCalculators: checked ? binding.finishingCalculators : []
+      finishingCalculators: checked ? (binding.finishingCalculators || []) : []
     })
   }
   
@@ -78,14 +78,14 @@ export function BindingCard({ binding, details, onUpdate, onDelete, onUpdateDeta
           <div>
             <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Калькуляторы скрепления</h4>
             <CalculatorTabs
-              calculators={binding.calculators}
+              calculators={binding.calculators || []}
               onChange={(calculators) => onUpdate({ calculators })}
             />
           </div>
 
           <div className="space-y-1">
             <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Детали в скреплении</h4>
-            {details.map((detail, index) => (
+            {(details || []).map((detail, index) => (
               <DetailCard
                 key={detail.id}
                 detail={detail}
@@ -115,7 +115,7 @@ export function BindingCard({ binding, details, onUpdate, onDelete, onUpdateDeta
             <div>
               <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Калькуляторы финишной обработки</h4>
               <CalculatorTabs
-                calculators={binding.finishingCalculators}
+                calculators={binding.finishingCalculators || []}
                 onChange={(finishingCalculators) => onUpdate({ finishingCalculators })}
               />
             </div>
