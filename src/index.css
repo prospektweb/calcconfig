@@ -83,6 +83,10 @@ body {
   font-family: var(--font-family-sans);
 }
 
+html {
+  overflow-y: scroll;
+}
+
 .font-mono {
   font-family: var(--font-family-mono);
 }
