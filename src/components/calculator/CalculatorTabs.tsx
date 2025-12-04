@@ -87,7 +87,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                   <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
                     <DotsSixVertical className="w-3.5 h-3.5" />
                   </div>
-                  Калькулятор #{index + 1}
+                  #{index + 1}
                 </TabsTrigger>
                 {safeCalculators.length > 1 && (
                   <Button
@@ -126,7 +126,6 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
               className="space-y-4 mt-4 border rounded-lg p-2 bg-card"
             >
               <div className="space-y-2">
-                <Label htmlFor={`calc-${calc.id}`}>Калькулятор</Label>
                 <MultiLevelSelect
                   items={calculatorsHierarchy}
                   value={calc.calculatorCode || null}

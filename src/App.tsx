@@ -64,6 +64,9 @@ function App() {
   const [calculationProgress, setCalculationProgress] = useState(0)
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null)
   const [draggedHeaderDetail, setDraggedHeaderDetail] = useState<{id: number, name: string} | null>(null)
+  const [draggedHeaderMaterial, setDraggedHeaderMaterial] = useState<{id: number, name: string} | null>(null)
+  const [draggedHeaderOperation, setDraggedHeaderOperation] = useState<{id: number, name: string} | null>(null)
+  const [draggedHeaderEquipment, setDraggedHeaderEquipment] = useState<{id: number, name: string} | null>(null)
   const [dropTarget, setDropTarget] = useState<number | null>(null)
   const [isGabVesActive, setIsGabVesActive] = useState(false)
   const [isGabVesPanelExpanded, setIsGabVesPanelExpanded] = useState(false)
@@ -185,6 +188,9 @@ function App() {
             
             addInfoMessage('success', `Добавлена деталь: ${data.detailName}`)
             setDraggedHeaderDetail(null)
+            setDraggedHeaderMaterial(null)
+            setDraggedHeaderOperation(null)
+            setDraggedHeaderEquipment(null)
             return
           }
         }
@@ -205,6 +211,10 @@ function App() {
     }
     
     setDraggedItem(null)
+    setDraggedHeaderDetail(null)
+    setDraggedHeaderMaterial(null)
+    setDraggedHeaderOperation(null)
+    setDraggedHeaderEquipment(null)
   }
   
   const handleMainAreaDragOver = (e: React.DragEvent) => {
@@ -237,10 +247,25 @@ function App() {
     }
     
     setDraggedHeaderDetail(null)
+    setDraggedHeaderMaterial(null)
+    setDraggedHeaderOperation(null)
+    setDraggedHeaderEquipment(null)
   }
   
   const handleHeaderDetailDragStart = (detailId: number, detailName: string) => {
     setDraggedHeaderDetail({ id: detailId, name: detailName })
+  }
+  
+  const handleHeaderMaterialDragStart = (materialId: number, materialName: string) => {
+    setDraggedHeaderMaterial({ id: materialId, name: materialName })
+  }
+  
+  const handleHeaderOperationDragStart = (operationId: number, operationName: string) => {
+    setDraggedHeaderOperation({ id: operationId, name: operationName })
+  }
+  
+  const handleHeaderEquipmentDragStart = (equipmentId: number, equipmentName: string) => {
+    setDraggedHeaderEquipment({ id: equipmentId, name: equipmentName })
   }
   
   const getAllItemsInOrder = (): Array<{type: 'detail' | 'binding', id: string, item: Detail | Binding}> => {
@@ -353,6 +378,9 @@ function App() {
             addInfoMessage={addInfoMessage}
             onOpenMenu={() => setIsMenuOpen(true)}
             onDetailDragStart={handleHeaderDetailDragStart}
+            onMaterialDragStart={handleHeaderMaterialDragStart}
+            onOperationDragStart={handleHeaderOperationDragStart}
+            onEquipmentDragStart={handleHeaderEquipmentDragStart}
           />
         </header>
 
@@ -366,20 +394,20 @@ function App() {
               <div
                 className={cn(
                   "h-32 border-2 border-dashed rounded-lg flex items-center justify-center transition-all",
-                  draggedHeaderDetail 
+                  (draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment)
                     ? "border-accent bg-accent/10" 
                     : "border-border bg-muted/30"
                 )}
               >
                 <p className="text-muted-foreground text-center">
-                  {draggedHeaderDetail 
+                  {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment)
                     ? "Отпустите для добавления детали" 
                     : "Перетащите деталь из шапки сюда"}
                 </p>
               </div>
             )}
             
-            {(draggedHeaderDetail || draggedItem) && dropTarget === 0 && (
+            {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || draggedItem) && dropTarget === 0 && (
               <div 
                 className="h-24 border-2 border-dashed border-accent bg-accent/10 rounded-lg flex items-center justify-center mb-2"
                 onDragOver={handleDragOver(0)}
@@ -427,7 +455,7 @@ function App() {
                   />
                 )}
                 
-                {(draggedHeaderDetail || draggedItem) && dropTarget === index + 1 && (
+                {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || draggedItem) && dropTarget === index + 1 && (
                   <div 
                     className="h-24 border-2 border-dashed border-accent bg-accent/10 rounded-lg flex items-center justify-center my-2"
                     onDragOver={handleDragOver(index + 1)}
@@ -438,7 +466,7 @@ function App() {
                   </div>
                 )}
                 
-                {index < allItems.length - 1 && !(draggedHeaderDetail || draggedItem) && (
+                {index < allItems.length - 1 && !(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || draggedItem) && (
                   <div className="flex justify-center -my-3 z-10 relative" style={{ marginTop: '-12px', marginBottom: '-12px' }}>
                     <Button
                       variant="ghost"

@@ -158,7 +158,7 @@ export const mockCalculators: Calculator[] = [
       material: { visible: true, required: true, quantityField: true, quantityUnit: 'л' },
     },
     extraOptions: [
-      { code: 'FIELD_MM', label: 'Припуски, мм', type: 'number', default: 2, min: 0 },
+      { code: 'FIELD_MM', label: 'Припуски', type: 'number', default: 2, min: 0 },
     ],
     canBeFirst: true,
   },

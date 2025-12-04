@@ -25,12 +25,15 @@ interface HeaderSectionProps {
   addInfoMessage: (type: InfoMessage['type'], message: string) => void
   onOpenMenu: () => void
   onDetailDragStart?: (detailId: number, detailName: string) => void
+  onMaterialDragStart?: (materialId: number, materialName: string) => void
+  onOperationDragStart?: (operationId: number, operationName: string) => void
+  onEquipmentDragStart?: (equipmentId: number, equipmentName: string) => void
 }
 
 const MIN_HEIGHT = 80
 const MAX_HEIGHT = 250
 
-export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onDetailDragStart }: HeaderSectionProps) {
+export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onDetailDragStart, onMaterialDragStart, onOperationDragStart, onEquipmentDragStart }: HeaderSectionProps) {
   const [activeTab, setActiveTab] = useState<HeaderTabType>(() => {
     const stored = localStorage.getItem('calc_active_header_tab')
     return (stored as HeaderTabType) || 'details'
@@ -127,6 +130,45 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     const detail = mockDetails.find(d => d.id === detailId)
     if (detail && onDetailDragStart) {
       onDetailDragStart(detailId, detailName)
+    }
+  }
+  
+  const handleMaterialDragStart = (materialId: number, materialName: string) => (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'copy'
+    e.dataTransfer.setData('application/json', JSON.stringify({ 
+      type: 'header-material', 
+      materialId,
+      materialName
+    }))
+    
+    if (onMaterialDragStart) {
+      onMaterialDragStart(materialId, materialName)
+    }
+  }
+  
+  const handleOperationDragStart = (operationId: number, operationName: string) => (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'copy'
+    e.dataTransfer.setData('application/json', JSON.stringify({ 
+      type: 'header-operation', 
+      operationId,
+      operationName
+    }))
+    
+    if (onOperationDragStart) {
+      onOperationDragStart(operationId, operationName)
+    }
+  }
+  
+  const handleEquipmentDragStart = (equipmentId: number, equipmentName: string) => (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'copy'
+    e.dataTransfer.setData('application/json', JSON.stringify({ 
+      type: 'header-equipment', 
+      equipmentId,
+      equipmentName
+    }))
+    
+    if (onEquipmentDragStart) {
+      onEquipmentDragStart(equipmentId, equipmentName)
     }
   }
 
@@ -244,10 +286,135 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                       ))}
                     </div>
                   </div>
-                ) : (!headerTabs || !headerTabs[tabType] || headerTabs[tabType].length === 0) ? (
+                ) : tabType === 'materials' ? (
+                  <div className="w-full space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {mockMaterials.map((material) => (
+                        <Badge
+                          key={material.id}
+                          variant="secondary"
+                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
+                          draggable
+                          onDragStart={handleMaterialDragStart(material.id, material.name)}
+                        >
+                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                            <DotsSixVertical className="w-4 h-4" />
+                          </div>
+                          <span className="font-mono text-xs">[{material.id}]</span>
+                          <span className="font-medium">{material.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.open(`#material-${material.id}`, '_blank')
+                            }}
+                          >
+                            <ArrowSquareOut className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                            }}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : tabType === 'operations' ? (
+                  <div className="w-full space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {mockOperations.map((operation) => (
+                        <Badge
+                          key={operation.id}
+                          variant="secondary"
+                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
+                          draggable
+                          onDragStart={handleOperationDragStart(operation.id, operation.name)}
+                        >
+                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                            <DotsSixVertical className="w-4 h-4" />
+                          </div>
+                          <span className="font-mono text-xs">[{operation.id}]</span>
+                          <span className="font-medium">{operation.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.open(`#operation-${operation.id}`, '_blank')
+                            }}
+                          >
+                            <ArrowSquareOut className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                            }}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : tabType === 'equipment' ? (
+                  <div className="w-full space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {mockEquipment.map((equipment) => (
+                        <Badge
+                          key={equipment.id}
+                          variant="secondary"
+                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
+                          draggable
+                          onDragStart={handleEquipmentDragStart(equipment.id, equipment.name)}
+                        >
+                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                            <DotsSixVertical className="w-4 h-4" />
+                          </div>
+                          <span className="font-mono text-xs">[{equipment.id}]</span>
+                          <span className="font-medium">{equipment.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.open(`#equipment-${equipment.id}`, '_blank')
+                            }}
+                          >
+                            <ArrowSquareOut className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                            }}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : tabType === 'materials' || tabType === 'operations' || tabType === 'equipment' ? (
+                  <p className="text-sm text-muted-foreground">Все элементы отображаются выше</p>
+                ) : (!headerTabs || !headerTabs[tabType] || (headerTabs[tabType] as HeaderElement[]).length === 0) ? (
                   <p className="text-sm text-muted-foreground">Нет элементов. Нажмите "Выбрать" для добавления.</p>
                 ) : (
-                  headerTabs[tabType].map((element: HeaderElement) => (
+                  (headerTabs[tabType] as HeaderElement[]).map((element: HeaderElement) => (
                     <Badge
                       key={element.id}
                       variant="secondary"
