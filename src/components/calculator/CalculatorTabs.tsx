@@ -16,6 +16,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, X, DotsSixVertical } from '@phosphor-icons/react'
 import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
 import { mockCalculators, mockCalculatorGroups, mockOperations, mockEquipment, mockMaterials } from '@/lib/mock-data'
+import { MultiLevelSelect } from './MultiLevelSelect'
+import { operationsHierarchy, materialsHierarchy } from '@/lib/hierarchical-data'
 
 interface CalculatorTabsProps {
   calculators: CalculatorInstance[]
@@ -169,24 +171,17 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                     <div className="space-y-2">
                       <Label>Операция</Label>
                       <div className="flex gap-2">
-                        <Select
-                          value={calc.operationId?.toString() || ''}
-                          onValueChange={(value) => handleUpdateCalculator(index, { 
-                            operationId: parseInt(value),
-                            equipmentId: null,
-                          })}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Выберите операцию..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {mockOperations.map(operation => (
-                              <SelectItem key={operation.id} value={operation.id.toString()}>
-                                [{operation.id}] {operation.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex-1">
+                          <MultiLevelSelect
+                            items={operationsHierarchy}
+                            value={calc.operationId?.toString() || null}
+                            onValueChange={(value) => handleUpdateCalculator(index, { 
+                              operationId: parseInt(value),
+                              equipmentId: null,
+                            })}
+                            placeholder="Выберите операцию..."
+                          />
+                        </div>
                         {calculatorDef.fields.operation?.quantityField && (
                           <Input
                             type="number"
@@ -230,23 +225,16 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                     <div className="space-y-2">
                       <Label>Материал</Label>
                       <div className="flex gap-2">
-                        <Select
-                          value={calc.materialId?.toString() || ''}
-                          onValueChange={(value) => handleUpdateCalculator(index, { 
-                            materialId: parseInt(value) 
-                          })}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Выберите материал..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {mockMaterials.map(material => (
-                              <SelectItem key={material.id} value={material.id.toString()}>
-                                [{material.id}] {material.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex-1">
+                          <MultiLevelSelect
+                            items={materialsHierarchy}
+                            value={calc.materialId?.toString() || null}
+                            onValueChange={(value) => handleUpdateCalculator(index, { 
+                              materialId: parseInt(value) 
+                            })}
+                            placeholder="Выберите материал..."
+                          />
+                        </div>
                         {calculatorDef.fields.material?.quantityField && (
                           <div className="flex gap-1 items-center">
                             <Input

@@ -12,7 +12,8 @@ import {
   Package,
   Wrench,
   Printer,
-  Notebook
+  Notebook,
+  DotsSixVertical
 } from '@phosphor-icons/react'
 import { AppState, HeaderElement, HeaderTabType, InfoMessage } from '@/lib/types'
 import { mockMaterials, mockOperations, mockEquipment, mockDetails } from '@/lib/mock-data'
@@ -23,12 +24,13 @@ interface HeaderSectionProps {
   setHeaderTabs: (tabs: AppState['headerTabs'] | ((prev: AppState['headerTabs']) => AppState['headerTabs'])) => void
   addInfoMessage: (type: InfoMessage['type'], message: string) => void
   onOpenMenu: () => void
+  onDetailDragStart?: (detailId: number, detailName: string) => void
 }
 
 const MIN_HEIGHT = 80
 const MAX_HEIGHT = 250
 
-export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu }: HeaderSectionProps) {
+export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onDetailDragStart }: HeaderSectionProps) {
   const [activeTab, setActiveTab] = useState<HeaderTabType>('materials')
   const [headerHeight, setHeaderHeight] = useState(() => {
     const stored = localStorage.getItem('calc_header_height')
@@ -84,11 +86,6 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     window.open('#catalog-placeholder', '_blank')
     addInfoMessage('info', 'Открыт каталог')
   }
-  
-  const handleCreateClick = () => {
-    toast.info('Создание нового элемента (заглушка)')
-    addInfoMessage('info', `Создание нового: ${activeTab}`)
-  }
 
   const handleResetTab = () => {
     setHeaderTabs(prev => {
@@ -110,6 +107,20 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
         [activeTab]: currentTab.filter((el: HeaderElement) => el.id !== id)
       }
     })
+  }
+  
+  const handleDetailDragStart = (detailId: number, detailName: string) => (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'copy'
+    e.dataTransfer.setData('application/json', JSON.stringify({ 
+      type: 'header-detail', 
+      detailId,
+      detailName
+    }))
+    
+    const detail = mockDetails.find(d => d.id === detailId)
+    if (detail && onDetailDragStart) {
+      onDetailDragStart(detailId, detailName)
+    }
   }
 
   const getTabLabel = (type: HeaderTabType) => {
@@ -174,10 +185,6 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                 Каталог
               </Button>
               <span className="text-muted-foreground text-[10px]">|</span>
-              <Button variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={handleCreateClick}>
-                Создать
-              </Button>
-              <span className="text-muted-foreground text-[10px]">|</span>
               <Button variant="link" size="sm" className="h-auto p-0 text-destructive text-[10px]" onClick={handleResetTab}>
                 Сбросить
               </Button>
@@ -185,7 +192,27 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
 
             <ScrollArea style={{ height: `${headerHeight - 80}px` }}>
               <div className="p-3 flex flex-wrap gap-2">
-                {(!headerTabs || !headerTabs[tabType] || headerTabs[tabType].length === 0) ? (
+                {tabType === 'details' && (!headerTabs || !headerTabs[tabType] || headerTabs[tabType].length === 0) ? (
+                  <div className="w-full space-y-2">
+                    <p className="text-sm text-muted-foreground mb-2">Перетащите деталь в основную область:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {mockDetails.map((detail) => (
+                        <Badge
+                          key={detail.id}
+                          variant="secondary"
+                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors"
+                          draggable
+                          onDragStart={handleDetailDragStart(detail.id, detail.name)}
+                        >
+                          <DotsSixVertical className="w-4 h-4" />
+                          <span className="font-mono text-xs">[{detail.id}]</span>
+                          <span className="font-medium">{detail.name}</span>
+                          <span className="text-xs text-muted-foreground">{detail.width}×{detail.length}</span>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : (!headerTabs || !headerTabs[tabType] || headerTabs[tabType].length === 0) ? (
                   <p className="text-sm text-muted-foreground">Нет элементов. Нажмите "Выбрать" для добавления.</p>
                 ) : (
                   headerTabs[tabType].map((element: HeaderElement) => (

@@ -11,6 +11,7 @@ import {
   CurrencyDollar
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { 
   AppState, 
   Detail, 
@@ -19,6 +20,7 @@ import {
   createEmptyDetail,
   createEmptyBinding
 } from '@/lib/types'
+import { mockDetails } from '@/lib/mock-data'
 import { HeaderSection } from '@/components/calculator/HeaderSection'
 import { VariantsFooter } from '@/components/calculator/VariantsFooter'
 import { DetailCard } from '@/components/calculator/DetailCard'
@@ -53,6 +55,8 @@ function App() {
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null)
+  const [draggedHeaderDetail, setDraggedHeaderDetail] = useState<{id: number, name: string} | null>(null)
+  const [dropTarget, setDropTarget] = useState<number | null>(null)
   const [isGabVesActive, setIsGabVesActive] = useState(false)
   const [isGabVesPanelExpanded, setIsGabVesPanelExpanded] = useState(false)
   const [gabVesMessages, setGabVesMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
@@ -96,32 +100,133 @@ function App() {
   const handleDragStart = (item: DragItem) => (e: React.DragEvent) => {
     setDraggedItem(item)
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', '')
-    
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.style.opacity = '0'
-    }
+    e.dataTransfer.setData('text/plain', JSON.stringify(item))
   }
   
   const handleDragEnd = (e: React.DragEvent) => {
     setDraggedItem(null)
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.style.opacity = '1'
-    }
+    setDropTarget(null)
   }
   
   const handleDragOver = (targetIndex: number) => (e: React.DragEvent) => {
     e.preventDefault()
-    if (!draggedItem) return
+    e.stopPropagation()
     
-    const allItems = getAllItemsInOrder()
-    const draggedIndex = allItems.findIndex(item => 
-      item.type === draggedItem.type && item.id === draggedItem.id
-    )
+    const dragData = e.dataTransfer.types.includes('application/json')
+    if (dragData || draggedItem) {
+      setDropTarget(targetIndex)
+    }
+  }
+  
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (e.currentTarget === e.target) {
+      setDropTarget(null)
+    }
+  }
+  
+  const handleDrop = (targetIndex: number) => (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDropTarget(null)
     
-    if (draggedIndex === -1 || draggedIndex === targetIndex) return
+    try {
+      const jsonData = e.dataTransfer.getData('application/json')
+      if (jsonData) {
+        const data = JSON.parse(jsonData)
+        
+        if (data.type === 'header-detail') {
+          const detail = mockDetails.find(d => d.id === data.detailId)
+          if (detail) {
+            const newDetail = createEmptyDetail(data.detailName)
+            newDetail.width = detail.width
+            newDetail.length = detail.length
+            
+            const allItems = getAllItemsInOrder()
+            const newDetails = [...(details || [])]
+            const newBindings = [...(bindings || [])]
+            
+            if (targetIndex === 0) {
+              setDetails([newDetail, ...newDetails])
+            } else if (targetIndex >= allItems.length) {
+              setDetails([...newDetails, newDetail])
+            } else {
+              const itemsBeforeTarget: string[] = []
+              const itemsAfterTarget: string[] = []
+              
+              allItems.forEach((item, idx) => {
+                if (idx < targetIndex) {
+                  if (item.type === 'detail') itemsBeforeTarget.push(item.id)
+                } else {
+                  if (item.type === 'detail') itemsAfterTarget.push(item.id)
+                }
+              })
+              
+              const reorderedDetails = [
+                ...newDetails.filter(d => itemsBeforeTarget.includes(d.id)),
+                newDetail,
+                ...newDetails.filter(d => itemsAfterTarget.includes(d.id))
+              ]
+              setDetails(reorderedDetails)
+            }
+            
+            addInfoMessage('success', `Добавлена деталь: ${data.detailName}`)
+            setDraggedHeaderDetail(null)
+            return
+          }
+        }
+      }
+      
+      if (!draggedItem) return
+      
+      const allItems = getAllItemsInOrder()
+      const draggedIndex = allItems.findIndex(item => 
+        item.type === draggedItem.type && item.id === draggedItem.id
+      )
+      
+      if (draggedIndex === -1 || draggedIndex === targetIndex) return
+      
+      reorderItems(draggedIndex, targetIndex)
+    } catch (error) {
+      console.error('Drop error:', error)
+    }
     
-    reorderItems(draggedIndex, targetIndex)
+    setDraggedItem(null)
+  }
+  
+  const handleMainAreaDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+  
+  const handleMainAreaDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    try {
+      const jsonData = e.dataTransfer.getData('application/json')
+      if (jsonData) {
+        const data = JSON.parse(jsonData)
+        
+        if (data.type === 'header-detail') {
+          const detail = mockDetails.find(d => d.id === data.detailId)
+          if (detail) {
+            const newDetail = createEmptyDetail(data.detailName)
+            newDetail.width = detail.width
+            newDetail.length = detail.length
+            setDetails(prev => [...(prev || []), newDetail])
+            addInfoMessage('success', `Добавлена деталь: ${data.detailName}`)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Drop error:', error)
+    }
+    
+    setDraggedHeaderDetail(null)
+  }
+  
+  const handleHeaderDetailDragStart = (detailId: number, detailName: string) => {
+    setDraggedHeaderDetail({ id: detailId, name: detailName })
   }
   
   const getAllItemsInOrder = (): Array<{type: 'detail' | 'binding', id: string, item: Detail | Binding}> => {
@@ -233,11 +338,44 @@ function App() {
             setHeaderTabs={setHeaderTabs}
             addInfoMessage={addInfoMessage}
             onOpenMenu={() => setIsMenuOpen(true)}
+            onDetailDragStart={handleHeaderDetailDragStart}
           />
         </header>
 
-        <main className="flex-1 p-4 overflow-auto">
+        <main 
+          className="flex-1 p-4 overflow-auto"
+          onDragOver={handleMainAreaDragOver}
+          onDrop={handleMainAreaDrop}
+        >
           <div className="space-y-2">
+            {allItems.length === 0 && (
+              <div
+                className={cn(
+                  "h-32 border-2 border-dashed rounded-lg flex items-center justify-center transition-all",
+                  draggedHeaderDetail 
+                    ? "border-accent bg-accent/10" 
+                    : "border-border bg-muted/30"
+                )}
+              >
+                <p className="text-muted-foreground text-center">
+                  {draggedHeaderDetail 
+                    ? "Отпустите для добавления детали" 
+                    : "Перетащите деталь из шапки сюда"}
+                </p>
+              </div>
+            )}
+            
+            {(draggedHeaderDetail || draggedItem) && dropTarget === 0 && (
+              <div 
+                className="h-24 border-2 border-dashed border-accent bg-accent/10 rounded-lg flex items-center justify-center mb-2"
+                onDragOver={handleDragOver(0)}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop(0)}
+              >
+                <p className="text-accent-foreground font-medium">Вставить сюда</p>
+              </div>
+            )}
+            
             {allItems.map((item, index) => (
               <div key={item.id}>
                 {item.type === 'detail' ? (
@@ -273,16 +411,19 @@ function App() {
                   />
                 )}
                 
-                {index < allItems.length - 1 && (
+                {(draggedHeaderDetail || draggedItem) && dropTarget === index + 1 && (
+                  <div 
+                    className="h-24 border-2 border-dashed border-accent bg-accent/10 rounded-lg flex items-center justify-center my-2"
+                    onDragOver={handleDragOver(index + 1)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop(index + 1)}
+                  >
+                    <p className="text-accent-foreground font-medium">Вставить сюда</p>
+                  </div>
+                )}
+                
+                {index < allItems.length - 1 && !(draggedHeaderDetail || draggedItem) && (
                   <div className="flex justify-center -my-1 z-10 relative">
-                    <div 
-                      className="h-8 w-full absolute top-1/2 -translate-y-1/2"
-                      onDragOver={handleDragOver(index + 1)}
-                      style={{ 
-                        background: draggedItem ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
-                        border: draggedItem ? '2px dashed rgb(99, 102, 241)' : 'none'
-                      }}
-                    />
                     <Button
                       variant="ghost"
                       size="sm"
@@ -293,23 +434,18 @@ function App() {
                     </Button>
                   </div>
                 )}
+                
+                {!(draggedHeaderDetail || draggedItem) && index < allItems.length - 1 && (
+                  <div
+                    className="h-8 w-full opacity-0"
+                    onDragOver={handleDragOver(index + 1)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop(index + 1)}
+                  />
+                )}
               </div>
             ))}
           </div>
-          
-          {allItems.length === 0 && (
-            <Card className="p-8 text-center mt-8">
-              <Package className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">Нет деталей</h3>
-              <p className="text-muted-foreground mb-4">
-                Добавьте первую деталь для начала работы
-              </p>
-              <Button onClick={handleAddDetail}>
-                <Package className="w-4 h-4 mr-2" />
-                Добавить деталь
-              </Button>
-            </Card>
-          )}
         </main>
 
         {isCalculating && (
