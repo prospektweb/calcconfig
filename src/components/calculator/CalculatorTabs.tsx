@@ -262,7 +262,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                                 className="flex-1 max-w-[80px]"
                               />
                               <span className="text-sm text-muted-foreground w-[40px] text-right">
-                                {option.label.includes('мм') ? 'мм' : option.label.includes('%') ? '%' : ''}
+                                {option.code === 'FIELD_MM' ? 'мм' : option.label.includes('%') ? '%' : ''}
                               </span>
                             </div>
                           )}
