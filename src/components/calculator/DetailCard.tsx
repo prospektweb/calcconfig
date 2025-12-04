@@ -36,7 +36,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      <div className="bg-card border-b border-border px-3 py-2 flex items-center justify-between cursor-grab active:cursor-grabbing">
+      <div className="bg-primary/5 border-b border-border px-3 py-2 flex items-center justify-between cursor-grab active:cursor-grabbing">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {!isInBinding && (
             <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
