@@ -131,7 +131,7 @@ export function BindingCard({
           </div>
 
           {details && details.length > 0 && (
-            <div className="space-y-1">
+            <div className="space-y-1 py-3">
               <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Детали в скреплении</h4>
               {details.map((detail, index) => (
                 <DetailCard
