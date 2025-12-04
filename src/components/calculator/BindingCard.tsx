@@ -60,7 +60,7 @@ export function BindingCard({
           <DotsSixVertical className="w-4 h-4 text-muted-foreground" />
           <LinkIcon className="w-4 h-4 text-accent" weight="bold" />
           <span className="text-sm font-semibold text-foreground">
-            Скрепление #{orderNumber}
+            Группа скрепления #{orderNumber}
           </span>
           <span className="text-xs font-mono text-muted-foreground">
             ID:{binding.id.split('_')[1]?.slice(0, 5) || 'N/A'}

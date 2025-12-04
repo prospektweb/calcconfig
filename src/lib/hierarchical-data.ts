@@ -1,5 +1,64 @@
 import { MultiLevelItem } from '@/components/calculator/MultiLevelSelect'
 
+export const calculatorsHierarchy: MultiLevelItem[] = [
+  {
+    id: 'calculators',
+    label: 'Калькулятор',
+    children: [
+      {
+        id: 'digital-print',
+        label: 'Цифровая печать',
+        children: [
+          { id: 'digital-sheet', label: 'Листовая цифровая печать', value: 'digital_sheet' },
+        ]
+      },
+      {
+        id: 'offset-print',
+        label: 'Офсетная печать',
+        children: [
+          { id: 'offset-sheet', label: 'Листовая офсетная печать', value: 'offset_sheet' },
+        ]
+      }
+    ]
+  }
+]
+
+export const equipmentHierarchy: MultiLevelItem[] = [
+  {
+    id: 'equipment',
+    label: 'Оборудование',
+    children: [
+      {
+        id: 'laser-cpm',
+        label: 'Лазерные ЦПМ',
+        children: [
+          { id: 'km-2060', label: 'KM 2060', value: '401' },
+        ]
+      },
+      {
+        id: 'offset-machines',
+        label: 'Офсетные станки',
+        children: [
+          { id: 'ryoby-b3', label: 'Ryoby B3', value: '403' },
+        ]
+      },
+      {
+        id: 'cutting',
+        label: 'Резка',
+        children: [
+          {
+            id: 'bmr',
+            label: 'БМР',
+            children: [
+              { id: 'wohelenberg-76', label: 'Wohelenberg 76', value: '415' },
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
+
 export const operationsHierarchy: MultiLevelItem[] = [
   {
     id: 'operations',

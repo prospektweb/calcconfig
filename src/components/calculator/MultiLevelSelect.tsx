@@ -19,11 +19,12 @@ export interface MultiLevelItem {
 interface MultiLevelSelectProps {
   items: MultiLevelItem[]
   value: string | null
-  onValueChange: (value: string, label: string) => void
+  onValueChange: (value: string, label?: string) => void
   placeholder?: string
+  disabled?: boolean
 }
 
-export function MultiLevelSelect({ items, value, onValueChange, placeholder = 'Выберите...' }: MultiLevelSelectProps) {
+export function MultiLevelSelect({ items, value, onValueChange, placeholder = 'Выберите...', disabled = false }: MultiLevelSelectProps) {
   const [open, setOpen] = useState(false)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
@@ -37,20 +38,25 @@ export function MultiLevelSelect({ items, value, onValueChange, placeholder = '�
     setExpandedIds(newExpanded)
   }
 
-  const findLabel = (items: MultiLevelItem[], targetValue: string): string | null => {
+  const findPath = (items: MultiLevelItem[], targetValue: string, path: string[] = []): string[] | null => {
     for (const item of items) {
       if (item.value === targetValue) {
-        return item.label
+        return [...path, item.label]
       }
       if (item.children) {
-        const found = findLabel(item.children, targetValue)
+        const found = findPath(item.children, targetValue, [...path, item.label])
         if (found) return found
       }
     }
     return null
   }
 
-  const selectedLabel = value ? findLabel(items, value) : null
+  const getFullPath = (items: MultiLevelItem[], targetValue: string): string => {
+    const path = findPath(items, targetValue)
+    return path ? path.join(' → ') : ''
+  }
+
+  const selectedLabel = value ? getFullPath(items, value) : null
 
   const renderItem = (item: MultiLevelItem, level: number = 0) => {
     const hasChildren = item.children && item.children.length > 0
@@ -101,6 +107,7 @@ export function MultiLevelSelect({ items, value, onValueChange, placeholder = '�
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between"
+          disabled={disabled}
         >
           <span className="truncate">{selectedLabel || placeholder}</span>
           <CaretDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

@@ -143,19 +143,26 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
 
   return (
     <div className="relative">
-      <div className="flex items-center border-b border-border bg-card px-4 py-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onOpenMenu}
-          className="mr-2"
-        >
-          <List className="w-5 h-5" />
-        </Button>
+      <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpenMenu}
+            className="p-1.5"
+          >
+            <List className="w-5 h-5" />
+          </Button>
+          <span className="font-semibold text-foreground">prospekt.calc</span>
+        </div>
       </div>
       
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as HeaderTabType)} className="w-full">
         <TabsList className="w-full grid grid-cols-4 rounded-none h-auto bg-muted/30">
+          <TabsTrigger value="details" className="data-[state=active]:bg-card gap-2">
+            {getTabIcon('details')}
+            Детали
+          </TabsTrigger>
           <TabsTrigger value="materials" className="data-[state=active]:bg-card gap-2">
             {getTabIcon('materials')}
             Материалы
@@ -168,13 +175,9 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
             {getTabIcon('equipment')}
             Оборудование
           </TabsTrigger>
-          <TabsTrigger value="details" className="data-[state=active]:bg-card gap-2">
-            {getTabIcon('details')}
-            Детали
-          </TabsTrigger>
         </TabsList>
 
-        {(['materials', 'operations', 'equipment', 'details'] as HeaderTabType[]).map(tabType => (
+        {(['details', 'materials', 'operations', 'equipment'] as HeaderTabType[]).map(tabType => (
           <TabsContent key={tabType} value={tabType} className="mt-0 border-t border-border">
             <div className="px-4 py-2 bg-muted/30 flex gap-2">
               <Button variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={handleSelectClick}>
@@ -192,9 +195,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
 
             <ScrollArea style={{ height: `${headerHeight - 80}px` }}>
               <div className="p-3 flex flex-wrap gap-2">
-                {tabType === 'details' && (!headerTabs || !headerTabs[tabType] || headerTabs[tabType].length === 0) ? (
+                {tabType === 'details' ? (
                   <div className="w-full space-y-2">
-                    <p className="text-sm text-muted-foreground mb-2">Перетащите деталь в основную область:</p>
                     <div className="flex flex-wrap gap-2">
                       {mockDetails.map((detail) => (
                         <Badge

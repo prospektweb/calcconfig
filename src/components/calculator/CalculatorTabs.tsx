@@ -17,7 +17,7 @@ import { Plus, X, DotsSixVertical } from '@phosphor-icons/react'
 import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
 import { mockCalculators, mockCalculatorGroups, mockOperations, mockEquipment, mockMaterials } from '@/lib/mock-data'
 import { MultiLevelSelect } from './MultiLevelSelect'
-import { operationsHierarchy, materialsHierarchy } from '@/lib/hierarchical-data'
+import { operationsHierarchy, materialsHierarchy, calculatorsHierarchy, equipmentHierarchy } from '@/lib/hierarchical-data'
 
 interface CalculatorTabsProps {
   calculators: CalculatorInstance[]
@@ -77,16 +77,12 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
     <div className="space-y-4">
       <Tabs value={activeTab.toString()} onValueChange={(v) => setActiveTab(parseInt(v))}>
         <div className="flex items-center gap-2">
-          <TabsList className="flex-1 justify-start overflow-x-auto">
+          <TabsList className="flex-1 justify-start overflow-x-auto bg-muted/30">
             {safeCalculators.map((calc, index) => (
               <div key={calc.id} className="relative flex items-center">
                 <TabsTrigger 
                   value={index.toString()} 
-                  className="pr-8 gap-1 data-[state=active]:shadow-sm"
-                  style={{
-                    backgroundColor: activeTab === index ? getTabColor(index) : undefined,
-                    color: activeTab === index ? 'white' : undefined
-                  }}
+                  className="pr-8 gap-1 data-[state=active]:bg-muted-foreground/80 data-[state=active]:text-primary-foreground"
                 >
                   <DotsSixVertical className="w-3 h-3" />
                   Калькулятор #{index + 1}
@@ -106,15 +102,15 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                 )}
               </div>
             ))}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddCalculator}
+              className="flex-shrink-0 ml-1"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
           </TabsList>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddCalculator}
-            className="flex-shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
         </div>
 
         {safeCalculators.map((calc, index) => {
@@ -125,44 +121,21 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
             <TabsContent 
               key={calc.id} 
               value={index.toString()} 
-              className="space-y-4 mt-4 border rounded-lg p-4"
-              style={{
-                borderColor: getTabColor(index),
-                borderWidth: '2px'
-              }}
+              className="space-y-4 mt-4 border rounded-lg p-4 bg-card"
             >
               <div className="space-y-2">
                 <Label htmlFor={`calc-${calc.id}`}>Калькулятор</Label>
-                <Select
-                  value={calc.calculatorCode || ''}
+                <MultiLevelSelect
+                  items={calculatorsHierarchy}
+                  value={calc.calculatorCode || null}
                   onValueChange={(value) => handleUpdateCalculator(index, { 
                     calculatorCode: value,
                     operationId: null,
                     equipmentId: null,
                     materialId: null,
                   })}
-                >
-                  <SelectTrigger id={`calc-${calc.id}`}>
-                    <SelectValue placeholder="Выберите калькулятор..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockCalculatorGroups.map(group => {
-                      const groupCalcs = mockCalculators.filter(c => c.group === group.id)
-                      if (groupCalcs.length === 0) return null
-                      
-                      return (
-                        <SelectGroup key={group.id}>
-                          <SelectLabel>{group.title}</SelectLabel>
-                          {groupCalcs.map(c => (
-                            <SelectItem key={c.code} value={c.code}>
-                              {c.title}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
+                  placeholder="Выберите калькулятор..."
+                />
               </div>
 
               {calculatorDef && (
@@ -183,15 +156,20 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                           />
                         </div>
                         {calculatorDef.fields.operation?.quantityField && (
-                          <Input
-                            type="number"
-                            min="1"
-                            value={calc.operationQuantity}
-                            onChange={(e) => handleUpdateCalculator(index, { 
-                              operationQuantity: parseInt(e.target.value) || 1 
-                            })}
-                            className="w-20"
-                          />
+                          <div className="flex gap-1 items-center">
+                            <Input
+                              type="number"
+                              min="1"
+                              value={calc.operationQuantity}
+                              onChange={(e) => handleUpdateCalculator(index, { 
+                                operationQuantity: parseInt(e.target.value) || 1 
+                              })}
+                              className="w-20"
+                            />
+                            <span className="text-sm text-muted-foreground w-[40px] text-right">
+                              ед.
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -200,24 +178,15 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                   {calculatorDef.fields?.equipment?.visible && (
                     <div className="space-y-2">
                       <Label>Оборудование</Label>
-                      <Select
-                        value={calc.equipmentId?.toString() || ''}
+                      <MultiLevelSelect
+                        items={equipmentHierarchy}
+                        value={calc.equipmentId?.toString() || null}
                         onValueChange={(value) => handleUpdateCalculator(index, { 
                           equipmentId: parseInt(value) 
                         })}
+                        placeholder="Выберите оборудование..."
                         disabled={!calc.operationId}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Выберите оборудование..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableEquipment.map(equip => (
-                            <SelectItem key={equip.id} value={equip.id.toString()}>
-                              [{equip.id}] {equip.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      />
                     </div>
                   )}
 
@@ -246,7 +215,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                               })}
                               className="w-20"
                             />
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                            <span className="text-sm text-muted-foreground w-[40px] text-right">
                               {calculatorDef.fields.material?.quantityUnit || 'шт.'}
                             </span>
                           </div>
@@ -277,18 +246,24 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                               </label>
                             </div>
                           ) : (
-                            <Input
-                              type="number"
-                              min={option.min}
-                              max={option.max}
-                              value={calc.extraOptions?.[option.code] ?? option.default}
-                              onChange={(e) => handleUpdateCalculator(index, {
-                                extraOptions: {
-                                  ...(calc.extraOptions || {}),
-                                  [option.code]: parseFloat(e.target.value) || option.default,
-                                }
-                              })}
-                            />
+                            <div className="flex gap-1 items-center">
+                              <Input
+                                type="number"
+                                min={option.min}
+                                max={option.max}
+                                value={calc.extraOptions?.[option.code] ?? option.default}
+                                onChange={(e) => handleUpdateCalculator(index, {
+                                  extraOptions: {
+                                    ...(calc.extraOptions || {}),
+                                    [option.code]: parseFloat(e.target.value) || option.default,
+                                  }
+                                })}
+                                className="flex-1"
+                              />
+                              <span className="text-sm text-muted-foreground w-[40px] text-right">
+                                {option.label.includes('мм') ? 'мм' : option.label.includes('%') ? '%' : ''}
+                              </span>
+                            </div>
                           )}
                         </div>
                       ))}
