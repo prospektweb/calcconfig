@@ -2,23 +2,17 @@ import { MultiLevelItem } from '@/components/calculator/MultiLevelSelect'
 
 export const calculatorsHierarchy: MultiLevelItem[] = [
   {
-    id: 'calculators',
-    label: 'Калькулятор',
+    id: 'digital-print',
+    label: 'Цифровая печать',
     children: [
-      {
-        id: 'digital-print',
-        label: 'Цифровая печать',
-        children: [
-          { id: 'digital-sheet', label: 'Листовая цифровая печать', value: 'digital_sheet' },
-        ]
-      },
-      {
-        id: 'offset-print',
-        label: 'Офсетная печать',
-        children: [
-          { id: 'offset-sheet', label: 'Листовая офсетная печать', value: 'offset_sheet' },
-        ]
-      }
+      { id: 'digital-sheet', label: 'Листовая цифровая печать', value: 'digital_sheet' },
+    ]
+  },
+  {
+    id: 'offset-print',
+    label: 'Офсетная печать',
+    children: [
+      { id: 'offset-sheet', label: 'Листовая офсетная печать', value: 'offset_sheet' },
     ]
   }
 ]
