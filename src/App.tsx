@@ -439,7 +439,7 @@ function App() {
                 )}
                 
                 {index < allItems.length - 1 && !(draggedHeaderDetail || draggedItem) && (
-                  <div className="flex justify-center -my-1 z-10 relative">
+                  <div className="flex justify-center -my-3 z-10 relative">
                     <Button
                       variant="ghost"
                       size="sm"
