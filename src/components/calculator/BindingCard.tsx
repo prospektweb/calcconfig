@@ -121,7 +121,7 @@ export function BindingCard({
       </div>
 
       {binding.isExpanded && (
-        <div className="p-3 space-y-3">
+        <div className="px-3 py-3 space-y-3">
           <div>
             <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Калькуляторы скрепления</h4>
             <CalculatorTabs
