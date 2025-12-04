@@ -10,7 +10,19 @@ interface InfoPanelProps {
   onToggle: () => void
 }
 
+function formatTimestamp(timestamp: number): string {
+  const date = new Date(timestamp)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`
+}
+
 export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null
   const getMessageIcon = (type: InfoMessage['type']) => {
     switch (type) {
       case 'error':
@@ -42,8 +54,21 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
           onClick={onToggle}
           className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
         >
-          <span className="text-sm font-medium">Информация</span>
-          {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
+          <div className="flex items-center gap-2 flex-1">
+            <Badge className="bg-success text-success-foreground">{messages.length}</Badge>
+            <span className="text-sm font-medium">Информация</span>
+            {lastMessage && (
+              <>
+                <span className="text-sm text-muted-foreground flex-1 text-left ml-2">
+                  {lastMessage.message}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {formatTimestamp(lastMessage.timestamp)}
+                </span>
+              </>
+            )}
+          </div>
+          {isExpanded ? <CaretUp className="w-4 h-4 ml-2" /> : <CaretDown className="w-4 h-4 ml-2" />}
         </button>
         
         {isExpanded && (

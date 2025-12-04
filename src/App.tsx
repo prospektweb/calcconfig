@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -51,7 +51,15 @@ function App() {
   const [bindings, setBindings] = useKV<Binding[]>('calc_bindings', [])
   
   const [infoMessages, setInfoMessages] = useState<InfoMessage[]>([])
-  const [isInfoPanelExpanded, setIsInfoPanelExpanded] = useState(true)
+  const [isInfoPanelExpanded, setIsInfoPanelExpanded] = useState(() => {
+    const stored = localStorage.getItem('calc_info_panel_expanded')
+    return stored ? stored === 'true' : false
+  })
+  
+  useEffect(() => {
+    localStorage.setItem('calc_info_panel_expanded', isInfoPanelExpanded.toString())
+  }, [isInfoPanelExpanded])
+  
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null)

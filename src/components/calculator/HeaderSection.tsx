@@ -31,11 +31,18 @@ const MIN_HEIGHT = 80
 const MAX_HEIGHT = 250
 
 export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onDetailDragStart }: HeaderSectionProps) {
-  const [activeTab, setActiveTab] = useState<HeaderTabType>('materials')
+  const [activeTab, setActiveTab] = useState<HeaderTabType>(() => {
+    const stored = localStorage.getItem('calc_active_header_tab')
+    return (stored as HeaderTabType) || 'details'
+  })
   const [headerHeight, setHeaderHeight] = useState(() => {
     const stored = localStorage.getItem('calc_header_height')
     return stored ? parseInt(stored) : MIN_HEIGHT
   })
+  
+  useEffect(() => {
+    localStorage.setItem('calc_active_header_tab', activeTab)
+  }, [activeTab])
   const [isResizing, setIsResizing] = useState(false)
   const startYRef = useRef(0)
   const startHeightRef = useRef(0)
