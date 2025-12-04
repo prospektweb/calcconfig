@@ -35,6 +35,7 @@ export interface Binding {
   isExpanded: boolean
   calculators: CalculatorInstance[]
   detailIds: string[]
+  bindingIds: string[]
   hasFinishing: boolean
   finishingCalculators: CalculatorInstance[]
 }
@@ -92,6 +93,7 @@ export const createEmptyBinding = (): Binding => ({
   isExpanded: true,
   calculators: [createEmptyCalculator()],
   detailIds: [],
+  bindingIds: [],
   hasFinishing: false,
   finishingCalculators: [],
 })

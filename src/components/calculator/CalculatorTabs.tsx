@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, X } from '@phosphor-icons/react'
+import { Plus, X, DotsSixVertical } from '@phosphor-icons/react'
 import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
 import { mockCalculators, mockCalculatorGroups, mockOperations, mockEquipment, mockMaterials } from '@/lib/mock-data'
 
@@ -21,6 +21,14 @@ interface CalculatorTabsProps {
   calculators: CalculatorInstance[]
   onChange: (calculators: CalculatorInstance[]) => void
 }
+
+const TAB_COLORS = [
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+]
 
 export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
   const [activeTab, setActiveTab] = useState(0)
@@ -58,15 +66,27 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
     if (!operation || !operation.equipmentIds) return []
     return mockEquipment.filter(e => operation.equipmentIds.includes(e.id))
   }
+  
+  const getTabColor = (index: number) => {
+    return TAB_COLORS[index % TAB_COLORS.length]
+  }
 
   return (
     <div className="space-y-4">
       <Tabs value={activeTab.toString()} onValueChange={(v) => setActiveTab(parseInt(v))}>
         <div className="flex items-center gap-2">
-          <TabsList className="flex-1">
+          <TabsList className="flex-1 justify-start overflow-x-auto">
             {safeCalculators.map((calc, index) => (
               <div key={calc.id} className="relative flex items-center">
-                <TabsTrigger value={index.toString()} className="pr-7">
+                <TabsTrigger 
+                  value={index.toString()} 
+                  className="pr-8 gap-1 data-[state=active]:shadow-sm"
+                  style={{
+                    backgroundColor: activeTab === index ? getTabColor(index) : undefined,
+                    color: activeTab === index ? 'white' : undefined
+                  }}
+                >
+                  <DotsSixVertical className="w-3 h-3" />
                   Калькулятор #{index + 1}
                 </TabsTrigger>
                 {safeCalculators.length > 1 && (
@@ -100,7 +120,15 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
           const availableEquipment = getAvailableEquipment(calc.operationId)
 
           return (
-            <TabsContent key={calc.id} value={index.toString()} className="space-y-4 mt-4">
+            <TabsContent 
+              key={calc.id} 
+              value={index.toString()} 
+              className="space-y-4 mt-4 border rounded-lg p-4"
+              style={{
+                borderColor: getTabColor(index),
+                borderWidth: '2px'
+              }}
+            >
               <div className="space-y-2">
                 <Label htmlFor={`calc-${calc.id}`}>Калькулятор</Label>
                 <Select
@@ -141,17 +169,6 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                     <div className="space-y-2">
                       <Label>Операция</Label>
                       <div className="flex gap-2">
-                        {calculatorDef.fields.operation?.quantityField && (
-                          <Input
-                            type="number"
-                            min="1"
-                            value={calc.operationQuantity}
-                            onChange={(e) => handleUpdateCalculator(index, { 
-                              operationQuantity: parseInt(e.target.value) || 1 
-                            })}
-                            className="w-20"
-                          />
-                        )}
                         <Select
                           value={calc.operationId?.toString() || ''}
                           onValueChange={(value) => handleUpdateCalculator(index, { 
@@ -170,6 +187,17 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                             ))}
                           </SelectContent>
                         </Select>
+                        {calculatorDef.fields.operation?.quantityField && (
+                          <Input
+                            type="number"
+                            min="1"
+                            value={calc.operationQuantity}
+                            onChange={(e) => handleUpdateCalculator(index, { 
+                              operationQuantity: parseInt(e.target.value) || 1 
+                            })}
+                            className="w-20"
+                          />
+                        )}
                       </div>
                     </div>
                   )}
@@ -202,22 +230,6 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                     <div className="space-y-2">
                       <Label>Материал</Label>
                       <div className="flex gap-2">
-                        {calculatorDef.fields.material?.quantityField && (
-                          <div className="flex gap-1 items-center">
-                            <Input
-                              type="number"
-                              min="1"
-                              value={calc.materialQuantity}
-                              onChange={(e) => handleUpdateCalculator(index, { 
-                                materialQuantity: parseInt(e.target.value) || 1 
-                              })}
-                              className="w-20"
-                            />
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">
-                              {calculatorDef.fields.material?.quantityUnit || 'шт.'}
-                            </span>
-                          </div>
-                        )}
                         <Select
                           value={calc.materialId?.toString() || ''}
                           onValueChange={(value) => handleUpdateCalculator(index, { 
@@ -235,6 +247,22 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                             ))}
                           </SelectContent>
                         </Select>
+                        {calculatorDef.fields.material?.quantityField && (
+                          <div className="flex gap-1 items-center">
+                            <Input
+                              type="number"
+                              min="1"
+                              value={calc.materialQuantity}
+                              onChange={(e) => handleUpdateCalculator(index, { 
+                                materialQuantity: parseInt(e.target.value) || 1 
+                              })}
+                              className="w-20"
+                            />
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                              {calculatorDef.fields.material?.quantityUnit || 'шт.'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

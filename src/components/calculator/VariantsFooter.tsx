@@ -69,7 +69,7 @@ export function VariantsFooter({
                     variant={isTest ? "default" : "secondary"}
                     className={`
                       px-2 py-1 flex items-center gap-1.5 cursor-pointer transition-colors text-xs
-                      ${isTest ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'}
+                      ${isTest ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-accent-foreground'}
                     `}
                     onClick={() => handleVariantClick(id)}
                     title={variantName}
@@ -106,7 +106,7 @@ export function VariantsFooter({
             className="h-7"
           >
             <Plus className="w-3 h-3 mr-1" />
-            Добавить
+            Выбрать
           </Button>
           {selectedVariantIds.length > 5 && (
             <Button

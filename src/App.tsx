@@ -2,33 +2,19 @@ import { useState } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
 import { 
-  Plus, 
-  X, 
-  ArrowsOut, 
-  CaretDown, 
-  CaretUp,
   Calculator,
-  Gear,
   Package,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Cube,
+  CurrencyDollar
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { 
-  mockProductVariants, 
-  mockMaterials, 
-  mockOperations, 
-  mockEquipment, 
-  mockDetails 
-} from '@/lib/mock-data'
-import { 
   AppState, 
-  HeaderElement, 
   Detail, 
+  Binding,
   InfoMessage,
   createEmptyDetail,
   createEmptyBinding
@@ -38,10 +24,18 @@ import { VariantsFooter } from '@/components/calculator/VariantsFooter'
 import { DetailCard } from '@/components/calculator/DetailCard'
 import { BindingCard } from '@/components/calculator/BindingCard'
 import { InfoPanel } from '@/components/calculator/InfoPanel'
+import { GabVesPanel } from '@/components/calculator/GabVesPanel'
+import { SidebarMenu } from '@/components/calculator/SidebarMenu'
+
+type DragItem = {
+  type: 'detail' | 'binding'
+  index: number
+  id: string
+}
 
 function App() {
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [selectedVariantIds, setSelectedVariantIds] = useState<number[]>([525, 526, 527])
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [selectedVariantIds] = useState<number[]>(Array.from({ length: 15 }, (_, i) => 525 + i))
   const [testVariantId, setTestVariantId] = useState<number | null>(525)
   
   const [headerTabs, setHeaderTabs] = useKV<AppState['headerTabs']>('calc_header_tabs', {
@@ -52,13 +46,16 @@ function App() {
   })
   
   const [details, setDetails] = useKV<Detail[]>('calc_details', [])
-  const [bindings, setBindings] = useKV<AppState['bindings']>('calc_bindings', [])
+  const [bindings, setBindings] = useKV<Binding[]>('calc_bindings', [])
   
   const [infoMessages, setInfoMessages] = useState<InfoMessage[]>([])
   const [isInfoPanelExpanded, setIsInfoPanelExpanded] = useState(true)
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
-  const [draggedDetailIndex, setDraggedDetailIndex] = useState<number | null>(null)
+  const [draggedItem, setDraggedItem] = useState<DragItem | null>(null)
+  const [isGabVesActive, setIsGabVesActive] = useState(false)
+  const [isGabVesPanelExpanded, setIsGabVesPanelExpanded] = useState(false)
+  const [gabVesMessages, setGabVesMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
 
   const addInfoMessage = (type: InfoMessage['type'], message: string) => {
     const newMessage: InfoMessage = {
@@ -68,6 +65,15 @@ function App() {
       timestamp: Date.now(),
     }
     setInfoMessages((prev) => [...prev, newMessage])
+  }
+  
+  const addGabVesMessage = (message: string) => {
+    const newMessage = {
+      id: `gabves_${Date.now()}`,
+      timestamp: Date.now(),
+      message,
+    }
+    setGabVesMessages((prev) => [...prev, newMessage])
   }
 
   const handleAddDetail = () => {
@@ -87,72 +93,87 @@ function App() {
     )
   }
   
-  const handleDragStart = (index: number) => (e: React.DragEvent) => {
-    setDraggedDetailIndex(index)
+  const handleDragStart = (item: DragItem) => (e: React.DragEvent) => {
+    setDraggedItem(item)
     e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', '')
+    
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '0'
+    }
   }
   
-  const handleDragEnd = () => {
-    setDraggedDetailIndex(null)
+  const handleDragEnd = (e: React.DragEvent) => {
+    setDraggedItem(null)
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1'
+    }
   }
   
-  const handleDragOver = (index: number) => (e: React.DragEvent) => {
+  const handleDragOver = (targetIndex: number) => (e: React.DragEvent) => {
     e.preventDefault()
-    if (draggedDetailIndex === null || draggedDetailIndex === index) return
+    if (!draggedItem) return
     
-    const items = [...(details || [])]
-    const draggedItem = items[draggedDetailIndex]
-    items.splice(draggedDetailIndex, 1)
-    items.splice(index, 0, draggedItem)
+    const allItems = getAllItemsInOrder()
+    const draggedIndex = allItems.findIndex(item => 
+      item.type === draggedItem.type && item.id === draggedItem.id
+    )
     
-    setDetails(items)
-    setDraggedDetailIndex(index)
+    if (draggedIndex === -1 || draggedIndex === targetIndex) return
+    
+    reorderItems(draggedIndex, targetIndex)
   }
-
-  const handleCreateBinding = (detailIndex: number) => {
+  
+  const getAllItemsInOrder = (): Array<{type: 'detail' | 'binding', id: string, item: Detail | Binding}> => {
+    const result: Array<{type: 'detail' | 'binding', id: string, item: Detail | Binding}> = []
     const safeDetails = details || []
     const safeBindings = bindings || []
     
-    if (detailIndex >= safeDetails.length - 1) return
-    
-    const detail1 = safeDetails[detailIndex]
-    const detail2 = safeDetails[detailIndex + 1]
-    
-    if (!detail1 || !detail2) return
-    
-    const existingBinding = safeBindings.find(b => 
-      b.detailIds && (b.detailIds.includes(detail1.id) || b.detailIds.includes(detail2.id))
-    )
-    
-    if (existingBinding) {
-      if (!existingBinding.detailIds.includes(detail1.id)) {
-        setBindings(prev => 
-          (prev || []).map(b => 
-            b.id === existingBinding.id 
-              ? { ...b, detailIds: [...(b.detailIds || []), detail1.id] }
-              : b
-          )
-        )
-        addInfoMessage('success', `Деталь ${detail1.name} добавлена в существующее скрепление`)
-      } else if (!existingBinding.detailIds.includes(detail2.id)) {
-        setBindings(prev => 
-          (prev || []).map(b => 
-            b.id === existingBinding.id 
-              ? { ...b, detailIds: [...(b.detailIds || []), detail2.id] }
-              : b
-          )
-        )
-        addInfoMessage('success', `Деталь ${detail2.name} добавлена в существующее скрепление`)
-      } else {
-        addInfoMessage('warning', 'Обе детали уже в скреплении')
+    safeDetails.forEach(detail => {
+      const inBinding = safeBindings.some(b => b.detailIds?.includes(detail.id))
+      if (!inBinding) {
+        result.push({ type: 'detail', id: detail.id, item: detail })
       }
+    })
+    
+    safeBindings.forEach(binding => {
+      const inParentBinding = safeBindings.some(b => b.bindingIds?.includes(binding.id))
+      if (!inParentBinding) {
+        result.push({ type: 'binding', id: binding.id, item: binding })
+      }
+    })
+    
+    return result
+  }
+  
+  const reorderItems = (fromIndex: number, toIndex: number) => {
+    console.log('Reorder:', fromIndex, toIndex)
+  }
+
+  const handleCreateBinding = (index: number) => {
+    const allItems = getAllItemsInOrder()
+    
+    if (index >= allItems.length - 1) return
+    
+    const item1 = allItems[index]
+    const item2 = allItems[index + 1]
+    
+    const newBinding = createEmptyBinding()
+    
+    if (item1.type === 'detail') {
+      newBinding.detailIds.push(item1.id)
     } else {
-      const newBinding = createEmptyBinding()
-      newBinding.detailIds = [detail1.id, detail2.id]
-      
-      setBindings(prev => [...(prev || []), newBinding])
-      addInfoMessage('success', `Создано скрепление для ${detail1.name} и ${detail2.name}`)
+      newBinding.bindingIds.push(item1.id)
     }
+    
+    if (item2.type === 'detail') {
+      newBinding.detailIds.push(item2.id)
+    } else {
+      newBinding.bindingIds.push(item2.id)
+    }
+    
+    setBindings(prev => [...(prev || []), newBinding])
+    addInfoMessage('success', `Создано скрепление`)
   }
 
   const handleTestCalculation = async () => {
@@ -184,108 +205,99 @@ function App() {
     addInfoMessage('success', 'Полный расчёт завершён. Итого себестоимость: 1,250.00 руб')
     toast.success('Расчёт завершён успешно')
   }
-
-  const handleReset = () => {
-    setDetails([])
-    setBindings([])
-    setInfoMessages([])
-    addInfoMessage('info', 'Калькулятор сброшен')
+  
+  const handleToggleGabVes = () => {
+    setIsGabVesActive(!isGabVesActive)
+    if (!isGabVesActive) {
+      setIsGabVesPanelExpanded(true)
+      addGabVesMessage('Расчёт габаритов начат...')
+      setTimeout(() => {
+        addGabVesMessage('Ширина: 297мм, Длина: 420мм, Высота: 15мм')
+        addGabVesMessage('Вес: 0.85 кг')
+      }, 500)
+    } else {
+      setIsGabVesPanelExpanded(false)
+    }
   }
+  
+  const allItems = getAllItemsInOrder()
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      
       <div className="max-w-[1920px] mx-auto w-full flex flex-col min-h-screen">
         <header className="border-b border-border bg-card">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-            <h1 className="text-xl font-semibold">Калькулятор себестоимости</h1>
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsFullscreen(prev => !prev)}
-              >
-                <ArrowsOut className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => toast.info('Окно закрыто (демо)')}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-          
           <HeaderSection 
             headerTabs={headerTabs || { materials: [], operations: [], equipment: [], details: [] }}
             setHeaderTabs={setHeaderTabs}
             addInfoMessage={addInfoMessage}
+            onOpenMenu={() => setIsMenuOpen(true)}
           />
         </header>
 
         <main className="flex-1 p-4 overflow-auto">
           <div className="space-y-2">
-            {(details || []).filter(d => !(bindings || []).some(b => b.detailIds && b.detailIds.includes(d.id))).map((detail, index) => {
-              const actualIndex = (details || []).indexOf(detail)
-              
-              return (
-                <div 
-                  key={detail.id}
-                  onDragOver={handleDragOver(actualIndex)}
-                >
+            {allItems.map((item, index) => (
+              <div key={item.id}>
+                {item.type === 'detail' ? (
                   <DetailCard
-                    detail={detail}
-                    onUpdate={(updates) => handleUpdateDetail(detail.id, updates)}
-                    onDelete={() => handleDeleteDetail(detail.id)}
+                    detail={item.item as Detail}
+                    onUpdate={(updates) => handleUpdateDetail(item.id, updates)}
+                    onDelete={() => handleDeleteDetail(item.id)}
                     isInBinding={false}
-                    orderNumber={actualIndex + 1}
-                    onDragStart={handleDragStart(actualIndex)}
+                    orderNumber={index + 1}
+                    onDragStart={handleDragStart({ type: 'detail', index, id: item.id })}
                     onDragEnd={handleDragEnd}
                   />
-                  
-                  {actualIndex < (details || []).length - 1 && (
-                    <div className="flex justify-center -my-1 z-10">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="rounded-full h-8 w-8 p-0"
-                        onClick={() => handleCreateBinding(actualIndex)}
-                      >
-                        <LinkIcon className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-            
-            {(bindings || []).map((binding, bindingIndex) => {
-              const bindingDetails = (details || []).filter(d => binding.detailIds && binding.detailIds.includes(d.id))
-              const detailStartIndex = (details || []).findIndex(d => binding.detailIds && binding.detailIds.length > 0 && d.id === binding.detailIds[0])
-              
-              return (
-                <BindingCard
-                  key={binding.id}
-                  binding={binding}
-                  details={bindingDetails}
-                  onUpdate={(updates) => {
-                    setBindings(prev =>
-                      (prev || []).map(b => b.id === binding.id ? { ...b, ...updates } : b)
-                    )
-                  }}
-                  onDelete={() => {
-                    setBindings(prev => (prev || []).filter(b => b.id !== binding.id))
-                    addInfoMessage('info', 'Скрепление удалено')
-                  }}
-                  onUpdateDetail={handleUpdateDetail}
-                  orderNumber={bindingIndex + 1}
-                  detailStartIndex={detailStartIndex >= 0 ? detailStartIndex : 0}
-                />
-              )
-            })}
+                ) : (
+                  <BindingCard
+                    binding={item.item as Binding}
+                    details={(details || []).filter(d => (item.item as Binding).detailIds?.includes(d.id))}
+                    bindings={(bindings || []).filter(b => (item.item as Binding).bindingIds?.includes(b.id))}
+                    allDetails={details || []}
+                    onUpdate={(updates) => {
+                      setBindings(prev =>
+                        (prev || []).map(b => b.id === item.id ? { ...b, ...updates } : b)
+                      )
+                    }}
+                    onDelete={() => {
+                      setBindings(prev => (prev || []).filter(b => b.id !== item.id))
+                      addInfoMessage('info', 'Скрепление удалено')
+                    }}
+                    onUpdateDetail={handleUpdateDetail}
+                    orderNumber={index + 1}
+                    detailStartIndex={0}
+                    onDragStart={handleDragStart({ type: 'binding', index, id: item.id })}
+                    onDragEnd={handleDragEnd}
+                  />
+                )}
+                
+                {index < allItems.length - 1 && (
+                  <div className="flex justify-center -my-1 z-10 relative">
+                    <div 
+                      className="h-8 w-full absolute top-1/2 -translate-y-1/2"
+                      onDragOver={handleDragOver(index + 1)}
+                      style={{ 
+                        background: draggedItem ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                        border: draggedItem ? '2px dashed rgb(99, 102, 241)' : 'none'
+                      }}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full h-8 w-8 p-0 bg-background hover:bg-accent hover:text-accent-foreground relative z-10"
+                      onClick={() => handleCreateBinding(index)}
+                    >
+                      <LinkIcon className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
           
-          {((details || []).length === 0 && (bindings || []).length === 0) && (
+          {allItems.length === 0 && (
             <Card className="p-8 text-center mt-8">
               <Package className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-medium mb-2">Нет деталей</h3>
@@ -293,7 +305,7 @@ function App() {
                 Добавьте первую деталь для начала работы
               </p>
               <Button onClick={handleAddDetail}>
-                <Plus className="w-4 h-4 mr-2" />
+                <Package className="w-4 h-4 mr-2" />
                 Добавить деталь
               </Button>
             </Card>
@@ -313,12 +325,6 @@ function App() {
           </div>
         )}
 
-        <InfoPanel
-          messages={infoMessages}
-          isExpanded={isInfoPanelExpanded}
-          onToggle={() => setIsInfoPanelExpanded(!isInfoPanelExpanded)}
-        />
-        
         <VariantsFooter
           selectedVariantIds={selectedVariantIds}
           testVariantId={testVariantId}
@@ -326,18 +332,31 @@ function App() {
           addInfoMessage={addInfoMessage}
         />
 
+        <InfoPanel
+          messages={infoMessages}
+          isExpanded={isInfoPanelExpanded}
+          onToggle={() => setIsInfoPanelExpanded(!isInfoPanelExpanded)}
+        />
+        
+        {isGabVesActive && (
+          <GabVesPanel
+            messages={gabVesMessages}
+            isExpanded={isGabVesPanelExpanded}
+            onToggle={() => setIsGabVesPanelExpanded(!isGabVesPanelExpanded)}
+          />
+        )}
+
         <footer className="border-t border-border bg-card p-3">
           <div className="max-w-[1920px] mx-auto flex items-center justify-between">
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleAddDetail}>
-                <Plus className="w-4 h-4 mr-2" />
-                Добавить деталь
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => toast.info('Расчёт габаритов (заглушка)')}>
-                Габариты
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => toast.info('Расчёт веса (заглушка)')}>
-                Вес
+              <Button 
+                variant={isGabVesActive ? "default" : "outline"} 
+                size="sm" 
+                onClick={handleToggleGabVes}
+                className={isGabVesActive ? "bg-accent text-accent-foreground" : ""}
+              >
+                <Cube className="w-4 h-4 mr-2" />
+                Габариты/Вес
               </Button>
             </div>
             
@@ -348,15 +367,11 @@ function App() {
               </Button>
               <Button size="sm" onClick={handleFullCalculation} disabled={isCalculating}>
                 <Calculator className="w-4 h-4 mr-2" />
-                Выполнить расчёт
+                Рассчитать
               </Button>
               <Button variant="outline" size="sm" onClick={() => toast.info('Настройки цен (заглушка)')}>
-                <Gear className="w-4 h-4 mr-2" />
-                Настройки цен
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => toast.info('Глобальные настройки (заглушка)')}>
-                <Gear className="w-4 h-4 mr-2" />
-                Глоб. настройки
+                <CurrencyDollar className="w-4 h-4 mr-2" />
+                Цены
               </Button>
               <Button variant="outline" size="sm" onClick={() => toast.info('Закрыто (демо)')}>
                 Закрыть

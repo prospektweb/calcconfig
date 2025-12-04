@@ -80,11 +80,13 @@ export interface CalculatorGroup {
   order: number
 }
 
-export const mockProductVariants: ProductVariant[] = [
-  { id: 525, name: 'Календарь А3 100шт', tirage: 100, width: 297, length: 420 },
-  { id: 526, name: 'Календарь А3 200шт', tirage: 200, width: 297, length: 420 },
-  { id: 527, name: 'Календарь А3 500шт', tirage: 500, width: 297, length: 420 },
-]
+export const mockProductVariants: ProductVariant[] = Array.from({ length: 100 }, (_, i) => ({
+  id: 525 + i,
+  name: `Календарь А3 ${100 * (i + 1)}шт`,
+  tirage: 100 * (i + 1),
+  width: 297,
+  length: 420,
+}))
 
 export const mockMaterials: Material[] = [
   { id: 325, name: 'Мелованная бумага 300г/м2', width: 320, length: 450, height: 0.35, density: 300, price: 15.50 },

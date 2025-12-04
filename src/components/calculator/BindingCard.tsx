@@ -2,21 +2,37 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Binding, Detail } from '@/lib/types'
-import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut } from '@phosphor-icons/react'
+import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut, DotsSixVertical } from '@phosphor-icons/react'
 import { DetailCard } from './DetailCard'
 import { CalculatorTabs } from './CalculatorTabs'
 
 interface BindingCardProps {
   binding: Binding
   details: Detail[]
+  bindings?: Binding[]
+  allDetails?: Detail[]
   onUpdate: (updates: Partial<Binding>) => void
   onDelete: () => void
   onUpdateDetail: (detailId: string, updates: Partial<Detail>) => void
   orderNumber: number
   detailStartIndex: number
+  onDragStart?: (e: React.DragEvent) => void
+  onDragEnd?: (e: React.DragEvent) => void
 }
 
-export function BindingCard({ binding, details, onUpdate, onDelete, onUpdateDetail, orderNumber, detailStartIndex }: BindingCardProps) {
+export function BindingCard({ 
+  binding, 
+  details, 
+  bindings = [],
+  allDetails = [],
+  onUpdate, 
+  onDelete, 
+  onUpdateDetail, 
+  orderNumber, 
+  detailStartIndex,
+  onDragStart,
+  onDragEnd
+}: BindingCardProps) {
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !binding.isExpanded })
   }
@@ -33,9 +49,15 @@ export function BindingCard({ binding, details, onUpdate, onDelete, onUpdateDeta
   }
 
   return (
-    <Card className="overflow-hidden border-2 border-accent/30">
-      <div className="bg-accent/10 border-b border-border px-3 py-1.5 flex items-center justify-between">
+    <Card 
+      className="overflow-hidden border-2 border-accent/30"
+      draggable={true}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+    >
+      <div className="bg-accent/10 border-b border-border px-3 py-1.5 flex items-center justify-between cursor-grab active:cursor-grabbing">
         <div className="flex items-center gap-2">
+          <DotsSixVertical className="w-4 h-4 text-muted-foreground" />
           <LinkIcon className="w-4 h-4 text-accent" weight="bold" />
           <span className="text-sm font-semibold text-foreground">
             Скрепление #{orderNumber}
@@ -83,19 +105,42 @@ export function BindingCard({ binding, details, onUpdate, onDelete, onUpdateDeta
             />
           </div>
 
-          <div className="space-y-1">
-            <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Детали в скреплении</h4>
-            {(details || []).map((detail, index) => (
-              <DetailCard
-                key={detail.id}
-                detail={detail}
-                onUpdate={(updates) => onUpdateDetail(detail.id, updates)}
-                onDelete={() => {}}
-                isInBinding={true}
-                orderNumber={detailStartIndex + index + 1}
-              />
-            ))}
-          </div>
+          {details && details.length > 0 && (
+            <div className="space-y-1">
+              <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Детали в скреплении</h4>
+              {details.map((detail, index) => (
+                <DetailCard
+                  key={detail.id}
+                  detail={detail}
+                  onUpdate={(updates) => onUpdateDetail(detail.id, updates)}
+                  onDelete={() => {}}
+                  isInBinding={true}
+                  orderNumber={detailStartIndex + index + 1}
+                />
+              ))}
+            </div>
+          )}
+          
+          {bindings && bindings.length > 0 && (
+            <div className="space-y-1">
+              <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Вложенные скрепления</h4>
+              {bindings.map((nestedBinding, index) => (
+                <div key={nestedBinding.id} className="ml-4 border-l-2 border-accent/50 pl-2">
+                  <BindingCard
+                    binding={nestedBinding}
+                    details={allDetails.filter(d => nestedBinding.detailIds?.includes(d.id))}
+                    bindings={[]}
+                    allDetails={allDetails}
+                    onUpdate={(updates) => onUpdate({ ...binding, ...updates })}
+                    onDelete={() => {}}
+                    onUpdateDetail={onUpdateDetail}
+                    orderNumber={index + 1}
+                    detailStartIndex={0}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex items-center gap-2 border-t border-border pt-3">
             <Checkbox
