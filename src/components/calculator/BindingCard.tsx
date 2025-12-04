@@ -59,7 +59,7 @@ export function BindingCard({
 
   return (
     <Card 
-      className="overflow-hidden border-2 border-accent/30 mb-3"
+      className="overflow-hidden border-2 border-accent/30"
       draggable={true}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
