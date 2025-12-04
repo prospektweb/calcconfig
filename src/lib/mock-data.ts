@@ -25,6 +25,8 @@ export interface Work {
   price: number
 }
 
+export type Operation = Work
+
 export interface Equipment {
   id: number
   name: string
@@ -93,7 +95,7 @@ export const mockMaterials: Material[] = [
   { id: 480, name: 'Пружина пластиковая 10мм', width: null, length: null, height: 10, price: 8.50 },
 ]
 
-export const mockWorks: Work[] = [
+export const mockOperations: Operation[] = [
   { id: 338, name: 'Цифровая печать 4+0', maxWidth: 330, maxLength: 487, equipmentIds: [401, 402], price: 12.00 },
   { id: 339, name: 'Цифровая печать 4+4', maxWidth: 330, maxLength: 487, equipmentIds: [401, 402], price: 24.00 },
   { id: 357, name: 'Ламинирование матовое', maxWidth: 350, maxLength: null, equipmentIds: [410], price: 0.50 },
@@ -101,6 +103,8 @@ export const mockWorks: Work[] = [
   { id: 360, name: 'Установка пружины', maxWidth: null, maxLength: null, equipmentIds: [405], price: 15.00 },
   { id: 350, name: 'Подрезка в размер', maxWidth: null, maxLength: null, equipmentIds: [415], price: 5.00 },
 ]
+
+export const mockWorks = mockOperations
 
 export const mockEquipment: Equipment[] = [
   { id: 401, name: 'Xerox Versant 180', fields: '5,5,5,5', maxWidth: 330, maxLength: 487, startCost: 500 },

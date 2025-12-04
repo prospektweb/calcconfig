@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { X, ArrowSquareOut, Trash } from '@phosphor-icons/react'
+import { X, ArrowSquareOut, Trash, DotsNine } from '@phosphor-icons/react'
 import { AppState, HeaderElement, HeaderTabType, InfoMessage } from '@/lib/types'
-import { mockMaterials, mockWorks, mockEquipment, mockDetails } from '@/lib/mock-data'
+import { mockMaterials, mockOperations, mockEquipment, mockDetails } from '@/lib/mock-data'
 import { toast } from 'sonner'
 
 interface HeaderSectionProps {
@@ -14,8 +14,55 @@ interface HeaderSectionProps {
   addInfoMessage: (type: InfoMessage['type'], message: string) => void
 }
 
+const MIN_HEIGHT = 80
+const MAX_HEIGHT = 250
+
 export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage }: HeaderSectionProps) {
   const [activeTab, setActiveTab] = useState<HeaderTabType>('materials')
+  const [headerHeight, setHeaderHeight] = useState(() => {
+    const stored = localStorage.getItem('calc_header_height')
+    return stored ? parseInt(stored) : MIN_HEIGHT
+  })
+  const [isResizing, setIsResizing] = useState(false)
+  const startYRef = useRef(0)
+  const startHeightRef = useRef(0)
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return
+      const deltaY = e.clientY - startYRef.current
+      const newHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, startHeightRef.current + deltaY))
+      setHeaderHeight(newHeight)
+    }
+
+    const handleMouseUp = () => {
+      if (isResizing) {
+        setIsResizing(false)
+        localStorage.setItem('calc_header_height', headerHeight.toString())
+      }
+    }
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = 'ns-resize'
+      document.body.style.userSelect = 'none'
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isResizing, headerHeight])
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+    startYRef.current = e.clientY
+    startHeightRef.current = headerHeight
+  }
 
   const handleSelectClick = () => {
     toast.info('Открыто окно выбора элементов (заглушка)')
@@ -45,90 +92,99 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage }: Hea
   const getTabLabel = (type: HeaderTabType) => {
     switch (type) {
       case 'materials': return 'Материалы'
-      case 'works': return 'Операции'
+      case 'operations': return 'Операции'
       case 'equipment': return 'Оборудование'
       case 'details': return 'Детали'
     }
   }
 
   return (
-    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as HeaderTabType)} className="w-full">
-      <TabsList className="w-full grid grid-cols-4 rounded-none h-auto">
-        <TabsTrigger value="materials" className="data-[state=active]:bg-background">
-          Материалы
-        </TabsTrigger>
-        <TabsTrigger value="works" className="data-[state=active]:bg-background">
-          Операции
-        </TabsTrigger>
-        <TabsTrigger value="equipment" className="data-[state=active]:bg-background">
-          Оборудование
-        </TabsTrigger>
-        <TabsTrigger value="details" className="data-[state=active]:bg-background">
-          Детали
-        </TabsTrigger>
-      </TabsList>
+    <div className="relative">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as HeaderTabType)} className="w-full">
+        <TabsList className="w-full grid grid-cols-4 rounded-none h-auto">
+          <TabsTrigger value="materials" className="data-[state=active]:bg-background">
+            Материалы
+          </TabsTrigger>
+          <TabsTrigger value="operations" className="data-[state=active]:bg-background">
+            Операции
+          </TabsTrigger>
+          <TabsTrigger value="equipment" className="data-[state=active]:bg-background">
+            Оборудование
+          </TabsTrigger>
+          <TabsTrigger value="details" className="data-[state=active]:bg-background">
+            Детали
+          </TabsTrigger>
+        </TabsList>
 
-      {(['materials', 'works', 'equipment', 'details'] as HeaderTabType[]).map(tabType => (
-        <TabsContent key={tabType} value={tabType} className="mt-0 border-t border-border">
-          <div className="px-4 py-2 bg-muted/30 flex gap-2 text-sm">
-            <Button variant="link" size="sm" className="h-auto p-0" onClick={handleSelectClick}>
-              Выбрать
-            </Button>
-            <span className="text-muted-foreground">|</span>
-            <Button variant="link" size="sm" className="h-auto p-0" onClick={handleCatalogClick}>
-              Каталог
-            </Button>
-            <span className="text-muted-foreground">|</span>
-            <Button variant="link" size="sm" className="h-auto p-0 text-destructive" onClick={handleResetTab}>
-              Сбросить
-            </Button>
-          </div>
-
-          <ScrollArea className="h-[120px] hover:h-[300px] transition-all duration-300">
-            <div className="p-3 flex flex-wrap gap-2">
-              {headerTabs[tabType].length === 0 ? (
-                <p className="text-sm text-muted-foreground">Нет элементов. Нажмите "Выбрать" для добавления.</p>
-              ) : (
-                headerTabs[tabType].map((element: HeaderElement) => (
-                  <Badge
-                    key={element.id}
-                    variant="secondary"
-                    className="px-3 py-1.5 flex items-center gap-2 cursor-grab max-w-[250px]"
-                    draggable
-                  >
-                    <span className="font-mono text-xs">[{element.itemId}]</span>
-                    <span className="truncate flex-1" title={element.name}>
-                      {element.name}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0 hover:bg-accent"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        window.open(`#item-${element.itemId}`, '_blank')
-                      }}
-                    >
-                      <ArrowSquareOut className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleRemoveElement(element.id)
-                      }}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </Badge>
-                ))
-              )}
+        {(['materials', 'operations', 'equipment', 'details'] as HeaderTabType[]).map(tabType => (
+          <TabsContent key={tabType} value={tabType} className="mt-0 border-t border-border">
+            <div className="px-4 py-2 bg-muted/30 flex gap-2 text-sm">
+              <Button variant="link" size="sm" className="h-auto p-0" onClick={handleSelectClick}>
+                Выбрать
+              </Button>
+              <span className="text-muted-foreground">|</span>
+              <Button variant="link" size="sm" className="h-auto p-0" onClick={handleCatalogClick}>
+                Каталог
+              </Button>
+              <span className="text-muted-foreground">|</span>
+              <Button variant="link" size="sm" className="h-auto p-0 text-destructive" onClick={handleResetTab}>
+                Сбросить
+              </Button>
             </div>
-          </ScrollArea>
-        </TabsContent>
-      ))}
-    </Tabs>
+
+            <ScrollArea style={{ height: `${headerHeight - 80}px` }}>
+              <div className="p-3 flex flex-wrap gap-2">
+                {headerTabs[tabType].length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Нет элементов. Нажмите "Выбрать" для добавления.</p>
+                ) : (
+                  headerTabs[tabType].map((element: HeaderElement) => (
+                    <Badge
+                      key={element.id}
+                      variant="secondary"
+                      className="px-3 py-1.5 flex items-center gap-2 cursor-grab max-w-[250px]"
+                      draggable
+                    >
+                      <span className="font-mono text-xs">[{element.itemId}]</span>
+                      <span className="truncate flex-1" title={element.name}>
+                        {element.name}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 hover:bg-accent"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          window.open(`#item-${element.itemId}`, '_blank')
+                        }}
+                      >
+                        <ArrowSquareOut className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRemoveElement(element.id)
+                        }}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </Badge>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </TabsContent>
+        ))}
+      </Tabs>
+      
+      <div 
+        className="absolute bottom-0 left-0 right-0 h-2 bg-muted/50 hover:bg-accent/20 cursor-ns-resize flex items-center justify-center transition-colors border-t border-border"
+        onMouseDown={handleResizeStart}
+      >
+        <DotsNine className="w-4 h-4 text-muted-foreground" />
+      </div>
+    </div>
   )
 }

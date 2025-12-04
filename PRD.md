@@ -16,32 +16,32 @@ A sophisticated cost calculator for printing production that manages product var
 ## Essential Features
 
 ### Product Variant Selection
-- **Functionality**: Load and select from pre-defined product variants with specifications
+- **Functionality**: Select multiple product variants (trade offers) and designate one for test calculation
 - **Purpose**: Initialize calculator with base product parameters (dimensions, quantities)
-- **Trigger**: Application load or variant selector in header
-- **Progression**: Display variant IDs → Click ID to inspect → Select test variant → Load into calculator
-- **Success criteria**: Selected variants populate the calculator state and display in header
+- **Trigger**: Footer section with variant badges
+- **Progression**: Click variant badge → Toggle test marker → Click again to remove test marker → Hover to see variant name and actions → Open in Bitrix or remove from list
+- **Success criteria**: Selected variants display in footer, test variant clearly marked, collapsible list for many variants, add button opens Bitrix selection dialog
 
-### Material/Work/Equipment Header Tabs
+### Material/Operation/Equipment Header Tabs
 - **Functionality**: Four tabbed sections storing frequently used elements with drag-drop to fields
 - **Purpose**: Quick access to common materials/operations without repeated selection dialogs
 - **Trigger**: Click tab to view, drag elements to calculator fields
 - **Progression**: Click tab → View stored elements → Drag to detail field → Field populates → OR click "Select" → Picker modal opens → Choose element → Added to tab
-- **Success criteria**: Elements persist in localStorage, can be dragged to appropriate fields, visual feedback on valid/invalid drops
+- **Success criteria**: Elements persist in localStorage, can be dragged to appropriate fields, visual feedback on valid/invalid drops, header height adjustable between 80px and 250px
 
 ### Detail Cards with Calculator Tabs
-- **Functionality**: Accordion cards containing multiple calculator instances with operation/material/equipment selection
+- **Functionality**: Draggable accordion cards with sequential numbering containing multiple calculator instances
 - **Purpose**: Define each printed component with its production steps
 - **Trigger**: "Add Detail" button or drag detail from header
-- **Progression**: Add detail → Name it → Expand → Add calculator tab → Select calculator type → Fill operation → Select equipment → Add material → Configure options → Repeat for additional calculators
-- **Success criteria**: All required fields validated, calculator tabs can be reordered, details can be reordered via drag-drop
+- **Progression**: Add detail → Assigned sequential number → Name it → Drag header to reorder → Expand → Add calculator tab → Select calculator type → Fill operation → Select equipment → Add material → Configure options → Repeat for additional calculators
+- **Success criteria**: All required fields validated, calculator tabs can be reordered, details can be reordered via drag-drop, sequential numbers visible, ID and Bitrix link accessible
 
 ### Binding System
-- **Functionality**: Group multiple details together with binding operations and optional finishing
+- **Functionality**: Group multiple details together with sequential numbering, binding operations and optional finishing
 - **Purpose**: Model multi-part products (calendars, booklets) that require assembly
 - **Trigger**: Click link icon between details
-- **Progression**: Click link icon → Binding created → Adjacent details moved into binding → Add binding calculators → Optional: enable finishing → Add finishing calculators
-- **Success criteria**: Details visually grouped, binding calculators apply to group, details can be dragged in/out
+- **Progression**: Click link icon → Binding created with sequential number → Adjacent details moved into binding (avoiding duplicates) → Add binding calculators → Optional: enable finishing → Add finishing calculators
+- **Success criteria**: Details visually grouped, binding has sequential number, binding calculators apply to group, details can be dragged in/out, no duplicate details in same binding, ID and Bitrix link accessible
 
 ### Validation & Info Panel
 - **Functionality**: Real-time validation with color-coded messages and collapsible log

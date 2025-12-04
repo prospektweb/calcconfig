@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, X } from '@phosphor-icons/react'
 import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
-import { mockCalculators, mockCalculatorGroups, mockWorks, mockEquipment, mockMaterials } from '@/lib/mock-data'
+import { mockCalculators, mockCalculatorGroups, mockOperations, mockEquipment, mockMaterials } from '@/lib/mock-data'
 
 interface CalculatorTabsProps {
   calculators: CalculatorInstance[]
@@ -52,9 +52,9 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
 
   const getAvailableEquipment = (operationId: number | null) => {
     if (!operationId) return []
-    const work = mockWorks.find(w => w.id === operationId)
-    if (!work) return []
-    return mockEquipment.filter(e => work.equipmentIds.includes(e.id))
+    const operation = mockOperations.find(w => w.id === operationId)
+    if (!operation) return []
+    return mockEquipment.filter(e => operation.equipmentIds.includes(e.id))
   }
 
   return (
@@ -161,9 +161,9 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                             <SelectValue placeholder="Выберите операцию..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {mockWorks.map(work => (
-                              <SelectItem key={work.id} value={work.id.toString()}>
-                                [{work.id}] {work.name}
+                            {mockOperations.map(operation => (
+                              <SelectItem key={operation.id} value={operation.id.toString()}>
+                                [{operation.id}] {operation.name}
                               </SelectItem>
                             ))}
                           </SelectContent>

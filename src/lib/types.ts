@@ -1,6 +1,6 @@
 import { Material, Work, Equipment, DetailVariant } from './mock-data'
 
-export type HeaderTabType = 'materials' | 'works' | 'equipment' | 'details'
+export type HeaderTabType = 'materials' | 'operations' | 'equipment' | 'details'
 
 export interface HeaderElement {
   id: string
@@ -52,7 +52,7 @@ export interface AppState {
   isEditingTestId: boolean
   headerTabs: {
     materials: HeaderElement[]
-    works: HeaderElement[]
+    operations: HeaderElement[]
     equipment: HeaderElement[]
     details: HeaderElement[]
   }
