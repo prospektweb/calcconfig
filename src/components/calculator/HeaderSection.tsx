@@ -243,7 +243,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
             </div>
 
             <ScrollArea style={{ height: `${headerHeight - 80}px` }}>
-              <div className="p-3 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
                 {tabType === 'details' ? (
                   <div className="w-full space-y-2">
                     <div className="flex flex-wrap gap-2">
