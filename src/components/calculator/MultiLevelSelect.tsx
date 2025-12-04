@@ -68,9 +68,9 @@ export function MultiLevelSelect({ items, value, onValueChange, placeholder = 'Ð
         <div
           className={cn(
             'flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-sm transition-colors',
-            isSelected && 'bg-accent text-accent-foreground',
-            level > 0 && 'ml-4'
+            isSelected && 'bg-accent text-accent-foreground'
           )}
+          style={{ marginLeft: `${level * 16}px` }}
           onClick={() => {
             if (hasChildren) {
               toggleExpanded(item.id)
