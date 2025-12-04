@@ -31,7 +31,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
 
   return (
     <Card 
-      className={`overflow-hidden transition-all ${isInBinding ? 'ml-4' : ''}`}
+      className={`overflow-hidden transition-all ${isInBinding ? 'ml-4 mb-0' : 'mb-3'}`}
       draggable={!isInBinding}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}

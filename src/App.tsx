@@ -361,7 +361,7 @@ function App() {
           onDragOver={handleMainAreaDragOver}
           onDrop={handleMainAreaDrop}
         >
-          <div className="space-y-2">
+          <div className="space-y-0">
             {allItems.length === 0 && (
               <div
                 className={cn(
@@ -439,11 +439,11 @@ function App() {
                 )}
                 
                 {index < allItems.length - 1 && !(draggedHeaderDetail || draggedItem) && (
-                  <div className="flex justify-center -my-3 z-10 relative">
+                  <div className="flex justify-center -my-3 z-10 relative" style={{ marginTop: '-12px', marginBottom: '-12px' }}>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="rounded-full h-8 w-8 p-0 bg-background hover:bg-accent hover:text-accent-foreground relative z-10"
+                      className="rounded-full h-8 w-8 p-0 bg-background hover:bg-accent hover:text-accent-foreground relative z-10 border border-border shadow-sm"
                       onClick={() => handleCreateBinding(index)}
                     >
                       <LinkIcon className="w-4 h-4" />
