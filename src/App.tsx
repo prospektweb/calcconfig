@@ -97,6 +97,12 @@ function App() {
     )
   }
   
+  const handleUpdateBinding = (bindingId: string, updates: Partial<Binding>) => {
+    setBindings(prev =>
+      (prev || []).map(b => b.id === bindingId ? { ...b, ...updates } : b)
+    )
+  }
+  
   const handleDragStart = (item: DragItem) => (e: React.DragEvent) => {
     setDraggedItem(item)
     e.dataTransfer.effectAllowed = 'move'
@@ -394,6 +400,7 @@ function App() {
                     details={(details || []).filter(d => (item.item as Binding).detailIds?.includes(d.id))}
                     bindings={(bindings || []).filter(b => (item.item as Binding).bindingIds?.includes(b.id))}
                     allDetails={details || []}
+                    allBindings={bindings || []}
                     onUpdate={(updates) => {
                       setBindings(prev =>
                         (prev || []).map(b => b.id === item.id ? { ...b, ...updates } : b)
@@ -404,6 +411,7 @@ function App() {
                       addInfoMessage('info', 'Скрепление удалено')
                     }}
                     onUpdateDetail={handleUpdateDetail}
+                    onUpdateBinding={handleUpdateBinding}
                     orderNumber={index + 1}
                     detailStartIndex={0}
                     onDragStart={handleDragStart({ type: 'binding', index, id: item.id })}

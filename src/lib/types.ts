@@ -87,9 +87,9 @@ export const createEmptyDetail = (name: string = 'Новая деталь'): Det
   calculators: [createEmptyCalculator()],
 })
 
-export const createEmptyBinding = (): Binding => ({
+export const createEmptyBinding = (name: string = 'Новая группа скрепления'): Binding => ({
   id: `binding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-  name: 'Группа скрепления',
+  name,
   isExpanded: true,
   calculators: [createEmptyCalculator()],
   detailIds: [],
