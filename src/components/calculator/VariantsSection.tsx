@@ -88,8 +88,11 @@ export function VariantsSection({
               setIsEditingTestId(true)
               setEditValue(testVariantId?.toString() || '')
             }}
+            className="h-8"
           >
-            <Pencil className="w-3 h-3 mr-2" />
+            <div className="w-4 h-4 flex items-center justify-center mr-2">
+              <Pencil className="w-3.5 h-3.5" />
+            </div>
             {testVariantId || 'Не выбран'}
           </Button>
         )}

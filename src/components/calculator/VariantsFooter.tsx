@@ -76,11 +76,11 @@ export function VariantsFooter({
                   >
                     <span className="font-mono">{id}</span>
                     {isTest && <span className="text-[10px]">TEST</span>}
-                    <div className="hidden group-hover:flex items-center gap-1 ml-1">
+                    <div className="hidden group-hover:flex items-center gap-0.5 ml-1">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-3 w-3 p-0"
+                        className="h-4 w-4 p-0 hover:bg-accent hover:text-accent-foreground"
                         onClick={(e) => handleOpenVariant(id, e)}
                       >
                         <ArrowSquareOut className="w-3 h-3" />
@@ -88,7 +88,7 @@ export function VariantsFooter({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-3 w-3 p-0 hover:text-destructive"
+                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
                         onClick={(e) => handleRemoveVariant(id, e)}
                       >
                         <X className="w-3 h-3" />
@@ -103,9 +103,9 @@ export function VariantsFooter({
             variant="outline" 
             size="sm" 
             onClick={handleAddVariant}
-            className="h-7"
+            className="h-7 px-3"
           >
-            <Plus className="w-3 h-3 mr-1" />
+            <Plus className="w-4 h-4 mr-1" />
             Выбрать
           </Button>
           {selectedVariantIds.length > 5 && (
@@ -113,7 +113,7 @@ export function VariantsFooter({
               variant="ghost"
               size="sm"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="h-7 w-7 p-0"
+              className="h-7 w-7 p-0 hover:bg-accent hover:text-accent-foreground"
             >
               {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
             </Button>

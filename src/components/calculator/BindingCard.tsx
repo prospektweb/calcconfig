@@ -64,26 +64,39 @@ export function BindingCard({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      <div className="bg-accent/10 border-b border-border px-3 py-1.5 flex items-center justify-between cursor-grab active:cursor-grabbing">
-        <div className="flex items-center gap-2 flex-1">
-          <DotsSixVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-          <LinkIcon className="w-4 h-4 text-accent flex-shrink-0" weight="bold" />
+      <div className="bg-accent/10 border-b border-border px-3 py-2 flex items-center justify-between cursor-grab active:cursor-grabbing">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+            <DotsSixVertical className="w-4 h-4 text-muted-foreground" />
+          </div>
+          <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+            <span className="text-sm font-semibold text-foreground">
+              #{orderNumber}
+            </span>
+          </div>
+          <div className="flex-shrink-0">
+            <span className="text-xs font-medium text-accent px-2 py-0.5 bg-accent/20 rounded">
+              Группа
+            </span>
+          </div>
           <Input
             value={binding.name}
             onChange={handleNameChange}
-            className="h-6 text-sm font-semibold bg-transparent border-none px-1 focus-visible:ring-1 focus-visible:ring-ring flex-1 min-w-0"
+            className="h-6 text-sm font-medium bg-transparent border-none px-1 focus-visible:ring-1 focus-visible:ring-ring flex-1 min-w-[120px]"
             placeholder="Название группы скрепления"
           />
-          <span className="text-xs font-mono text-muted-foreground flex-shrink-0">
-            ID:{binding.id.split('_')[1]?.slice(0, 5) || 'N/A'}
-          </span>
+          <div className="flex-shrink-0">
+            <span className="text-xs font-mono text-muted-foreground">
+              ID:{binding.id.split('_')[1]?.slice(0, 5) || 'N/A'}
+            </span>
+          </div>
           <Button
             variant="ghost"
             size="sm"
-            className="h-4 w-4 p-0 flex-shrink-0"
+            className="h-6 w-6 p-0 flex-shrink-0 hover:bg-accent hover:text-accent-foreground"
             onClick={handleOpenInBitrix}
           >
-            <ArrowSquareOut className="w-3 h-3 text-muted-foreground" />
+            <ArrowSquareOut className="w-4 h-4" />
           </Button>
         </div>
 
@@ -91,7 +104,7 @@ export function BindingCard({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 w-6 p-0"
+            className="h-6 w-6 p-0 hover:bg-accent hover:text-accent-foreground"
             onClick={handleToggleExpand}
           >
             {binding.isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}

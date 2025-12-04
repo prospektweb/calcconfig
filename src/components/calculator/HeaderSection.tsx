@@ -141,10 +141,10 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
   
   const getTabIcon = (type: HeaderTabType) => {
     switch (type) {
-      case 'materials': return <Package className="w-4 h-4" />
-      case 'operations': return <Wrench className="w-4 h-4" />
-      case 'equipment': return <Printer className="w-4 h-4" />
-      case 'details': return <Notebook className="w-4 h-4" />
+      case 'materials': return <div className="w-4 h-4 flex items-center justify-center"><Package className="w-4 h-4" /></div>
+      case 'operations': return <div className="w-4 h-4 flex items-center justify-center"><Wrench className="w-4 h-4" /></div>
+      case 'equipment': return <div className="w-4 h-4 flex items-center justify-center"><Printer className="w-4 h-4" /></div>
+      case 'details': return <div className="w-4 h-4 flex items-center justify-center"><Notebook className="w-4 h-4" /></div>
     }
   }
 
@@ -156,7 +156,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
             variant="ghost"
             size="sm"
             onClick={onOpenMenu}
-            className="p-1.5"
+            className="h-8 w-8 p-0 hover:bg-accent hover:text-accent-foreground"
           >
             <List className="w-5 h-5" />
           </Button>
@@ -213,7 +213,9 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                           draggable
                           onDragStart={handleDetailDragStart(detail.id, detail.name)}
                         >
-                          <DotsSixVertical className="w-4 h-4" />
+                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                            <DotsSixVertical className="w-4 h-4" />
+                          </div>
                           <span className="font-mono text-xs">[{detail.id}]</span>
                           <span className="font-medium">{detail.name}</span>
                           <span className="text-xs text-muted-foreground">{detail.width}×{detail.length}</span>
@@ -238,24 +240,24 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-4 w-4 p-0 hover:bg-accent"
+                        className="h-5 w-5 p-0 flex-shrink-0 hover:bg-accent hover:text-accent-foreground"
                         onClick={(e) => {
                           e.stopPropagation()
                           window.open(`#item-${element.itemId}`, '_blank')
                         }}
                       >
-                        <ArrowSquareOut className="w-3 h-3" />
+                        <ArrowSquareOut className="w-3.5 h-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                        className="h-5 w-5 p-0 flex-shrink-0 hover:bg-destructive hover:text-destructive-foreground"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleRemoveElement(element.id)
                         }}
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-3.5 h-3.5" />
                       </Button>
                     </Badge>
                   ))

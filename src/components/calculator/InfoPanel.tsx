@@ -26,11 +26,11 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
   const getMessageIcon = (type: InfoMessage['type']) => {
     switch (type) {
       case 'error':
-        return <XIcon className="w-4 h-4" />
+        return <XIcon className="w-3.5 h-3.5" />
       case 'warning':
-        return <Warning className="w-4 h-4" />
+        return <Warning className="w-3.5 h-3.5" />
       default:
-        return <Info className="w-4 h-4" />
+        return <Info className="w-3.5 h-3.5" />
     }
   }
 
@@ -54,21 +54,23 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
           onClick={onToggle}
           className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
         >
-          <div className="flex items-center gap-2 flex-1">
-            <Badge className="bg-success text-success-foreground">{messages.length}</Badge>
-            <span className="text-sm font-medium">Информация</span>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Badge className="bg-success text-success-foreground flex-shrink-0">{messages.length}</Badge>
+            <span className="text-sm font-medium flex-shrink-0">Информация</span>
             {lastMessage && (
               <>
-                <span className="text-sm text-muted-foreground flex-1 text-left ml-2">
+                <span className="text-sm text-muted-foreground flex-1 text-left ml-2 truncate">
                   {lastMessage.message}
                 </span>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
                   {formatTimestamp(lastMessage.timestamp)}
                 </span>
               </>
             )}
           </div>
-          {isExpanded ? <CaretUp className="w-4 h-4 ml-2" /> : <CaretDown className="w-4 h-4 ml-2" />}
+          <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 ml-2">
+            {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
+          </div>
         </button>
         
         {isExpanded && (
@@ -79,9 +81,11 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
               ) : (
                 messages.map(msg => (
                   <div key={msg.id} className="flex items-start gap-2 py-1">
-                    <Badge className={getMessageColor(msg.type)}>
-                      {getMessageIcon(msg.type)}
-                    </Badge>
+                    <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+                      <Badge className={getMessageColor(msg.type)}>
+                        {getMessageIcon(msg.type)}
+                      </Badge>
+                    </div>
                     <span className="text-sm flex-1">{msg.message}</span>
                   </div>
                 ))

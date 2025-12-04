@@ -84,20 +84,22 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                   value={index.toString()} 
                   className="pr-8 gap-1 data-[state=active]:bg-muted-foreground/80 data-[state=active]:text-primary-foreground"
                 >
-                  <DotsSixVertical className="w-3 h-3" />
+                  <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                    <DotsSixVertical className="w-3.5 h-3.5" />
+                  </div>
                   Калькулятор #{index + 1}
                 </TabsTrigger>
                 {safeCalculators.length > 1 && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute right-1 h-4 w-4 p-0 rounded-full hover:bg-destructive hover:text-destructive-foreground z-10"
+                    className="absolute right-1 h-5 w-5 p-0 rounded-full hover:bg-destructive hover:text-destructive-foreground z-10"
                     onClick={(e) => {
                       e.stopPropagation()
                       handleRemoveCalculator(index)
                     }}
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3.5 h-3.5" />
                   </Button>
                 )}
               </div>
@@ -106,7 +108,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
               variant="outline"
               size="sm"
               onClick={handleAddCalculator}
-              className="flex-shrink-0 ml-1"
+              className="flex-shrink-0 ml-1 h-8 w-8 p-0"
             >
               <Plus className="w-4 h-4" />
             </Button>

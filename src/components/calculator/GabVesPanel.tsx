@@ -24,10 +24,14 @@ export function GabVesPanel({ messages, isExpanded, onToggle }: GabVesPanelProps
           className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
         >
           <span className="text-sm font-medium flex items-center gap-2">
-            <Cube className="w-4 h-4" />
+            <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+              <Cube className="w-4 h-4" />
+            </div>
             Габариты и Вес
           </span>
-          {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
+          <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+            {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
+          </div>
         </button>
         
         {isExpanded && (
@@ -38,9 +42,11 @@ export function GabVesPanel({ messages, isExpanded, onToggle }: GabVesPanelProps
               ) : (
                 messages.map(msg => (
                   <div key={msg.id} className="flex items-start gap-2 py-1">
-                    <Badge className="bg-accent text-accent-foreground">
-                      <Cube className="w-4 h-4" />
-                    </Badge>
+                    <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+                      <Badge className="bg-accent text-accent-foreground">
+                        <Cube className="w-3.5 h-3.5" />
+                      </Badge>
+                    </div>
                     <span className="text-sm flex-1">{msg.message}</span>
                   </div>
                 ))
