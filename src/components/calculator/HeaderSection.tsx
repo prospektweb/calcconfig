@@ -45,7 +45,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage }: Hea
   const getTabLabel = (type: HeaderTabType) => {
     switch (type) {
       case 'materials': return 'Материалы'
-      case 'works': return 'Работы'
+      case 'works': return 'Операции'
       case 'equipment': return 'Оборудование'
       case 'details': return 'Детали'
     }
@@ -58,7 +58,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage }: Hea
           Материалы
         </TabsTrigger>
         <TabsTrigger value="works" className="data-[state=active]:bg-background">
-          Работы
+          Операции
         </TabsTrigger>
         <TabsTrigger value="equipment" className="data-[state=active]:bg-background">
           Оборудование
