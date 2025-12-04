@@ -450,15 +450,6 @@ function App() {
                     </Button>
                   </div>
                 )}
-                
-                {!(draggedHeaderDetail || draggedItem) && index < allItems.length - 1 && (
-                  <div
-                    className="h-8 w-full opacity-0"
-                    onDragOver={handleDragOver(index + 1)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop(index + 1)}
-                  />
-                )}
               </div>
             ))}
           </div>
