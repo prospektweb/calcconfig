@@ -61,10 +61,13 @@ export function useBitrixBridge() {
     };
     
     const handleMessage = (event: MessageEvent) => {
-      // Валидация origin для безопасности
-      // В production следует проверять на конкретный домен Битрикс
-      // Для разработки принимаем любой origin
-      // if (event.origin !== 'https://your-bitrix-domain.com') return;
+      // ВАЖНО: Валидация origin для безопасности
+      // В production ОБЯЗАТЕЛЬНО проверяйте origin на конкретный домен Битрикс:
+      // if (event.origin !== 'https://your-bitrix-domain.com') {
+      //   console.warn('[BitrixBridge] Rejected message from untrusted origin:', event.origin);
+      //   return;
+      // }
+      // Для разработки и тестирования принимаем любой origin
       
       const data = event.data;
       
