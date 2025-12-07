@@ -47,13 +47,25 @@ export function useBitrixBridge() {
   const [isInBitrix, setIsInBitrix] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [initData, setInitData] = useState<BitrixInitData | null>(null);
-  const pendingRequests = useRef<Map<string, { resolve: Function; reject: Function }>>(new Map());
+  const pendingRequests = useRef<Map<string, { resolve: (value?: any) => void; reject: (reason?: any) => void }>>(new Map());
 
   useEffect(() => {
     // Проверяем, находимся ли мы в iframe
     const inIframe = window.self !== window.top;
     
+    // Функция для отправки сообщений родителю
+    const sendToParent = (type: CalcMessageType, payload: any) => {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type, payload }, '*');
+      }
+    };
+    
     const handleMessage = (event: MessageEvent) => {
+      // Валидация origin для безопасности
+      // В production следует проверять на конкретный домен Битрикс
+      // Для разработки принимаем любой origin
+      // if (event.origin !== 'https://your-bitrix-domain.com') return;
+      
       const data = event.data;
       
       if (!data || typeof data !== 'object' || !data.type) {
@@ -160,7 +172,7 @@ export function useBitrixBridge() {
     method: 'GET' | 'POST' = 'GET'
   ): Promise<T> => {
     return new Promise((resolve, reject) => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
       
       // Сохраняем промис для ответа
       pendingRequests.current.set(requestId, { resolve, reject });

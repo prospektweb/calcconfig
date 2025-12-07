@@ -39,10 +39,17 @@ type DragItem = {
 function App() {
   const { isInBitrix, initData, closeDialog, sendResult, isReady } = useBitrix()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [selectedVariantIds] = useState<number[]>(
-    initData?.offerIds || Array.from({ length: 15 }, (_, i) => 525 + i)
+  const [selectedVariantIds, setSelectedVariantIds] = useState<number[]>(
+    Array.from({ length: 15 }, (_, i) => 525 + i)
   )
   const [testVariantId, setTestVariantId] = useState<number | null>(525)
+  
+  // Обновляем selectedVariantIds когда приходят данные из Битрикс
+  useEffect(() => {
+    if (initData?.offerIds) {
+      setSelectedVariantIds(initData.offerIds)
+    }
+  }, [initData])
   
   const [headerTabs, setHeaderTabs] = useKV<AppState['headerTabs']>('calc_header_tabs', {
     materials: [],
