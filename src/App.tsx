@@ -28,6 +28,7 @@ import { BindingCard } from '@/components/calculator/BindingCard'
 import { InfoPanel } from '@/components/calculator/InfoPanel'
 import { GabVesPanel } from '@/components/calculator/GabVesPanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
+import { useBitrix } from '@/contexts/BitrixContext'
 
 type DragItem = {
   type: 'detail' | 'binding'
@@ -36,8 +37,11 @@ type DragItem = {
 }
 
 function App() {
+  const { isInBitrix, initData, closeDialog, sendResult, isReady } = useBitrix()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [selectedVariantIds] = useState<number[]>(Array.from({ length: 15 }, (_, i) => 525 + i))
+  const [selectedVariantIds] = useState<number[]>(
+    initData?.offerIds || Array.from({ length: 15 }, (_, i) => 525 + i)
+  )
   const [testVariantId, setTestVariantId] = useState<number | null>(525)
   
   const [headerTabs, setHeaderTabs] = useKV<AppState['headerTabs']>('calc_header_tabs', {
@@ -345,6 +349,18 @@ function App() {
       setCalculationProgress(i)
     }
     
+    const result = {
+      totalCost: 1250.00,
+      details: details,
+      bindings: bindings,
+      timestamp: Date.now()
+    }
+    
+    // Отправляем результат в Битрикс если мы в iframe
+    if (isInBitrix) {
+      sendResult(result)
+    }
+    
     setIsCalculating(false)
     addInfoMessage('success', 'Полный расчёт завершён. Итого себестоимость: 1,250.00 руб')
     toast.success('Расчёт завершён успешно')
@@ -365,6 +381,18 @@ function App() {
   }
   
   const allItems = getAllItemsInOrder()
+
+  // Показываем загрузку если не готово
+  if (!isReady) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Загрузка калькулятора...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -544,7 +572,13 @@ function App() {
                 <CurrencyDollar className="w-4 h-4 mr-2" />
                 Цены
               </Button>
-              <Button variant="outline" size="sm" onClick={() => toast.info('Закрыто (демо)')}>
+              <Button variant="outline" size="sm" onClick={() => {
+                if (isInBitrix) {
+                  closeDialog()
+                } else {
+                  toast.info('Закрыто (демо)')
+                }
+              }}>
                 Закрыть
               </Button>
             </div>
