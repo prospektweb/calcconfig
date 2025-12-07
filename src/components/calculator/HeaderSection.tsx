@@ -192,39 +192,35 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
 
   return (
     <div className="relative">
-      <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2">
-        <div className="flex items-center gap-3">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as HeaderTabType)} className="w-full">
+        <div className="flex items-center border-b border-border bg-muted/30">
           <Button
             variant="ghost"
             size="sm"
             onClick={onOpenMenu}
-            className="h-8 w-8 p-0 hover:bg-accent hover:text-accent-foreground"
+            className="h-10 w-10 p-0 hover:bg-accent hover:text-accent-foreground ml-2 flex-shrink-0"
           >
             <List className="w-5 h-5" />
           </Button>
-          <span className="font-semibold text-foreground">prospekt.calc</span>
+          <TabsList className="flex-1 grid grid-cols-4 rounded-none h-auto bg-transparent border-0">
+            <TabsTrigger value="details" className="data-[state=active]:bg-card gap-2">
+              {getTabIcon('details')}
+              Детали
+            </TabsTrigger>
+            <TabsTrigger value="materials" className="data-[state=active]:bg-card gap-2">
+              {getTabIcon('materials')}
+              Материалы
+            </TabsTrigger>
+            <TabsTrigger value="operations" className="data-[state=active]:bg-card gap-2">
+              {getTabIcon('operations')}
+              Операции
+            </TabsTrigger>
+            <TabsTrigger value="equipment" className="data-[state=active]:bg-card gap-2">
+              {getTabIcon('equipment')}
+              Оборудование
+            </TabsTrigger>
+          </TabsList>
         </div>
-      </div>
-      
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as HeaderTabType)} className="w-full">
-        <TabsList className="w-full grid grid-cols-4 rounded-none h-auto bg-muted/30">
-          <TabsTrigger value="details" className="data-[state=active]:bg-card gap-2">
-            {getTabIcon('details')}
-            Детали
-          </TabsTrigger>
-          <TabsTrigger value="materials" className="data-[state=active]:bg-card gap-2">
-            {getTabIcon('materials')}
-            Материалы
-          </TabsTrigger>
-          <TabsTrigger value="operations" className="data-[state=active]:bg-card gap-2">
-            {getTabIcon('operations')}
-            Операции
-          </TabsTrigger>
-          <TabsTrigger value="equipment" className="data-[state=active]:bg-card gap-2">
-            {getTabIcon('equipment')}
-            Оборудование
-          </TabsTrigger>
-        </TabsList>
 
         {(['details', 'materials', 'operations', 'equipment'] as HeaderTabType[]).map(tabType => (
           <TabsContent key={tabType} value={tabType} className="mt-0 border-t border-border">
