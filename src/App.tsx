@@ -8,7 +8,10 @@ import {
   Package,
   Link as LinkIcon,
   Cube,
-  CurrencyDollar
+  CurrencyDollar,
+  Tag,
+  FloppyDisk,
+  X
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -27,6 +30,8 @@ import { DetailCard } from '@/components/calculator/DetailCard'
 import { BindingCard } from '@/components/calculator/BindingCard'
 import { InfoPanel } from '@/components/calculator/InfoPanel'
 import { GabVesPanel } from '@/components/calculator/GabVesPanel'
+import { CostPanel } from '@/components/calculator/CostPanel'
+import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { usePostMessage } from '@/hooks/use-postmessage'
 import { CalculatorState } from '@/lib/postmessage-bridge'
@@ -73,6 +78,14 @@ function App() {
   const [isGabVesActive, setIsGabVesActive] = useState(false)
   const [isGabVesPanelExpanded, setIsGabVesPanelExpanded] = useState(false)
   const [gabVesMessages, setGabVesMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
+  
+  const [isCostActive, setIsCostActive] = useState(false)
+  const [isCostPanelExpanded, setIsCostPanelExpanded] = useState(false)
+  const [costMessages, setCostMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
+  
+  const [isPriceActive, setIsPriceActive] = useState(false)
+  const [isPricePanelExpanded, setIsPricePanelExpanded] = useState(false)
+  const [priceMessages, setPriceMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
 
   const getCurrentState = useCallback((): CalculatorState => {
     return {
@@ -141,6 +154,24 @@ function App() {
       message,
     }
     setGabVesMessages((prev) => [...prev, newMessage])
+  }
+  
+  const addCostMessage = (message: string) => {
+    const newMessage = {
+      id: `cost_${Date.now()}`,
+      timestamp: Date.now(),
+      message,
+    }
+    setCostMessages((prev) => [...prev, newMessage])
+  }
+  
+  const addPriceMessage = (message: string) => {
+    const newMessage = {
+      id: `price_${Date.now()}`,
+      timestamp: Date.now(),
+      message,
+    }
+    setPriceMessages((prev) => [...prev, newMessage])
   }
 
   const handleAddDetail = () => {
@@ -427,6 +458,37 @@ function App() {
     }
   }
   
+  const handleToggleCost = () => {
+    setIsCostActive(!isCostActive)
+    if (!isCostActive) {
+      setIsCostPanelExpanded(true)
+      addCostMessage('Расчёт себестоимости начат...')
+      setTimeout(() => {
+        addCostMessage('Материалы: 450.00 руб')
+        addCostMessage('Операции: 600.00 руб')
+        addCostMessage('Оборудование: 200.00 руб')
+        addCostMessage('Итого себестоимость: 1,250.00 руб')
+      }, 500)
+    } else {
+      setIsCostPanelExpanded(false)
+    }
+  }
+  
+  const handleTogglePrice = () => {
+    setIsPriceActive(!isPriceActive)
+    if (!isPriceActive) {
+      setIsPricePanelExpanded(true)
+      addPriceMessage('Расчёт отпускных цен начат...')
+      setTimeout(() => {
+        addPriceMessage('Себестоимость: 1,250.00 руб')
+        addPriceMessage('Наценка (20%): 250.00 руб')
+        addPriceMessage('Итого отпускная цена: 1,500.00 руб')
+      }, 500)
+    } else {
+      setIsPricePanelExpanded(false)
+    }
+  }
+  
   const allItems = getAllItemsInOrder()
 
   return (
@@ -579,6 +641,22 @@ function App() {
             onToggle={() => setIsGabVesPanelExpanded(!isGabVesPanelExpanded)}
           />
         )}
+        
+        {isCostActive && (
+          <CostPanel
+            messages={costMessages}
+            isExpanded={isCostPanelExpanded}
+            onToggle={() => setIsCostPanelExpanded(!isCostPanelExpanded)}
+          />
+        )}
+        
+        {isPriceActive && (
+          <PricePanel
+            messages={priceMessages}
+            isExpanded={isPricePanelExpanded}
+            onToggle={() => setIsPricePanelExpanded(!isPricePanelExpanded)}
+          />
+        )}
 
         <footer className="border-t border-border bg-card p-3">
           <div className="max-w-[1920px] mx-auto flex items-center justify-between">
@@ -592,6 +670,24 @@ function App() {
                 <Cube className="w-4 h-4 mr-2" />
                 Габариты/Вес
               </Button>
+              <Button 
+                variant={isCostActive ? "default" : "outline"} 
+                size="sm" 
+                onClick={handleToggleCost}
+                className={isCostActive ? "bg-accent text-accent-foreground" : ""}
+              >
+                <CurrencyDollar className="w-4 h-4 mr-2" />
+                Себестоимость
+              </Button>
+              <Button 
+                variant={isPriceActive ? "default" : "outline"} 
+                size="sm" 
+                onClick={handleTogglePrice}
+                className={isPriceActive ? "bg-accent text-accent-foreground" : ""}
+              >
+                <Tag className="w-4 h-4 mr-2" />
+                Отпускные цены
+              </Button>
             </div>
             
             <div className="flex gap-2">
@@ -603,11 +699,12 @@ function App() {
                 <Calculator className="w-4 h-4 mr-2" />
                 Рассчитать
               </Button>
-              <Button variant="outline" size="sm" onClick={() => toast.info('Настройки цен (заглушка)')}>
-                <CurrencyDollar className="w-4 h-4 mr-2" />
-                Цены
+              <Button variant="outline" size="sm" onClick={() => toast.success('Сохранено (демо)')}>
+                <FloppyDisk className="w-4 h-4 mr-2" />
+                Сохранить
               </Button>
               <Button variant="outline" size="sm" onClick={() => toast.info('Закрыто (демо)')}>
+                <X className="w-4 h-4 mr-2" />
                 Закрыть
               </Button>
             </div>
