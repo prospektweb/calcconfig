@@ -47,6 +47,37 @@ export interface InfoMessage {
   timestamp: number
 }
 
+export type CostingBasedOn = 'COMPONENT_PURCHASE' | 'COMPONENT_PURCHASE_PLUS_MARKUP' | 'COMPONENT_BASE'
+export type RoundingStep = 0 | 0.1 | 1 | 10 | 100
+export type CorrectionBase = 'RUN' | 'COST'
+export type MarkupUnit = '%' | 'RUB'
+export type PriceTypeCode = 'BASE_PRICE' | 'TRADE_PRICE'
+
+export interface PriceRange {
+  from: number
+  markupValue: number
+  markupUnit: MarkupUnit
+  prettyPriceLimitRub: number
+}
+
+export interface PriceTypeSettings {
+  correctionBase: CorrectionBase
+  prettyPriceEnabled: boolean
+  prettyPriceCommonLimitEnabled: boolean
+  prettyPriceCommonLimitRub: number
+  ranges: PriceRange[]
+}
+
+export interface CostingSettings {
+  basedOn: CostingBasedOn
+  roundingStep: RoundingStep
+}
+
+export interface SalePricesSettings {
+  selectedTypes: PriceTypeCode[]
+  types: Partial<Record<PriceTypeCode, PriceTypeSettings>>
+}
+
 export interface AppState {
   selectedVariantIds: number[]
   testVariantId: number | null
@@ -65,6 +96,8 @@ export interface AppState {
   calculationProgress: number
   calculationCurrentDetail: string | null
   isFullscreen: boolean
+  costingSettings?: CostingSettings
+  salePricesSettings?: SalePricesSettings
 }
 
 export const createEmptyCalculator = (): CalculatorInstance => ({

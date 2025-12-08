@@ -13,7 +13,8 @@ import {
   Wrench,
   Printer,
   Notebook,
-  DotsSixVertical
+  DotsSixVertical,
+  ArrowsClockwise
 } from '@phosphor-icons/react'
 import { AppState, HeaderElement, HeaderTabType, InfoMessage } from '@/lib/types'
 import { mockMaterials, mockOperations, mockEquipment, mockDetails } from '@/lib/mock-data'
@@ -24,6 +25,7 @@ interface HeaderSectionProps {
   setHeaderTabs: (tabs: AppState['headerTabs'] | ((prev: AppState['headerTabs']) => AppState['headerTabs'])) => void
   addInfoMessage: (type: InfoMessage['type'], message: string) => void
   onOpenMenu: () => void
+  onRefreshData?: () => void
   onDetailDragStart?: (detailId: number, detailName: string) => void
   onMaterialDragStart?: (materialId: number, materialName: string) => void
   onOperationDragStart?: (operationId: number, operationName: string) => void
@@ -33,7 +35,8 @@ interface HeaderSectionProps {
 const MIN_HEIGHT = 80
 const MAX_HEIGHT = 250
 
-export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onDetailDragStart, onMaterialDragStart, onOperationDragStart, onEquipmentDragStart }: HeaderSectionProps) {
+export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onRefreshData, onDetailDragStart, onMaterialDragStart, onOperationDragStart, onEquipmentDragStart }: HeaderSectionProps) {
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [activeTab, setActiveTab] = useState<HeaderTabType>(() => {
     const stored = localStorage.getItem('calc_active_header_tab')
     return (stored as HeaderTabType) || 'details'
@@ -106,6 +109,26 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
       }
     })
     addInfoMessage('info', `Сброшен таб: ${activeTab}`)
+  }
+
+  const handleRefreshData = async () => {
+    setIsRefreshing(true)
+    addInfoMessage('info', 'Обновление данных...')
+    
+    try {
+      if (onRefreshData) {
+        await onRefreshData()
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+      addInfoMessage('success', 'Данные обновлены')
+      toast.success('Данные обновлены')
+    } catch (error) {
+      addInfoMessage('error', 'Ошибка обновления данных')
+      toast.error('Не удалось обновить данные')
+    } finally {
+      setIsRefreshing(false)
+    }
   }
 
   const handleRemoveElement = (id: string) => {
@@ -199,8 +222,20 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
             size="sm"
             onClick={onOpenMenu}
             className="h-10 w-10 p-0 hover:bg-accent hover:text-accent-foreground ml-2 flex-shrink-0"
+            aria-label="Меню"
           >
             <List className="w-5 h-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefreshData}
+            disabled={isRefreshing}
+            className="h-10 w-10 p-0 hover:bg-accent hover:text-accent-foreground flex-shrink-0"
+            aria-label="Обновить данные"
+            title="Обновить данные"
+          >
+            <ArrowsClockwise className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
           <TabsList className="flex-1 grid grid-cols-4 rounded-none h-auto bg-transparent border-0">
             <TabsTrigger value="details" className="data-[state=active]:bg-card gap-2">

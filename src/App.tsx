@@ -20,6 +20,8 @@ import {
   Detail, 
   Binding,
   InfoMessage,
+  CostingSettings,
+  SalePricesSettings,
   createEmptyDetail,
   createEmptyBinding
 } from '@/lib/types'
@@ -87,6 +89,15 @@ function App() {
   const [isPricePanelExpanded, setIsPricePanelExpanded] = useState(false)
   const [priceMessages, setPriceMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
 
+  const [costingSettings, setCostingSettings] = useKV<CostingSettings>('calc_costing_settings', {
+    basedOn: 'COMPONENT_PURCHASE',
+    roundingStep: 1,
+  })
+
+  const [salePricesSettings, setSalePricesSettings] = useKV<SalePricesSettings>('calc_sale_prices_settings', {
+    selectedTypes: [],
+    types: {},
+  })
   const getCurrentState = useCallback((): CalculatorState => {
     return {
       selectedVariantIds,
@@ -488,6 +499,11 @@ function App() {
       setIsPricePanelExpanded(false)
     }
   }
+
+  const handleRefreshData = async () => {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    addInfoMessage('success', 'Данные обновлены')
+  }
   
   const allItems = getAllItemsInOrder()
 
@@ -502,6 +518,7 @@ function App() {
             setHeaderTabs={setHeaderTabs}
             addInfoMessage={addInfoMessage}
             onOpenMenu={() => setIsMenuOpen(true)}
+            onRefreshData={handleRefreshData}
             onDetailDragStart={handleHeaderDetailDragStart}
             onMaterialDragStart={handleHeaderMaterialDragStart}
             onOperationDragStart={handleHeaderOperationDragStart}
@@ -647,6 +664,8 @@ function App() {
             messages={costMessages}
             isExpanded={isCostPanelExpanded}
             onToggle={() => setIsCostPanelExpanded(!isCostPanelExpanded)}
+            settings={costingSettings || { basedOn: 'COMPONENT_PURCHASE', roundingStep: 1 }}
+            onSettingsChange={(newSettings) => setCostingSettings(newSettings)}
           />
         )}
         
@@ -655,6 +674,8 @@ function App() {
             messages={priceMessages}
             isExpanded={isPricePanelExpanded}
             onToggle={() => setIsPricePanelExpanded(!isPricePanelExpanded)}
+            settings={salePricesSettings || { selectedTypes: [], types: {} }}
+            onSettingsChange={(newSettings) => setSalePricesSettings(newSettings)}
           />
         )}
 

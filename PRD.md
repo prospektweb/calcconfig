@@ -51,11 +51,40 @@ A sophisticated cost calculator for printing production that manages product var
 - **Success criteria**: All error/warning/info states clearly differentiated, scrollable panel with max height, calculate buttons disabled when errors exist
 
 ### Cost Calculation with Progress
-- **Functionality**: Test and full calculation modes with animated progress bar
-- **Purpose**: Process complex calculations with user feedback
-- **Trigger**: "Test" or "Execute Calculation" buttons
+- **Functionality**: Test and full calculation modes with animated progress bar, plus configuration panels for costing and pricing settings
+- **Purpose**: Process complex calculations with user feedback and configure calculation parameters
+- **Trigger**: "Test" or "Execute Calculation" buttons, toggle buttons for Costing/Pricing panels
 - **Progression**: Click calculate → Progress bar appears → Steps process → Messages log to panel → Completion message → Results displayed
-- **Success criteria**: Progress accurately reflects calculation state, user can see which detail is processing, results appear in info panel
+- **Success criteria**: Progress accurately reflects calculation state, user can see which detail is processing, results appear in info panel, settings persist between sessions
+
+### Costing Settings Panel
+- **Functionality**: Collapsible panel for configuring cost calculation parameters
+- **Purpose**: Control how base costs are calculated and rounded
+- **Trigger**: "Себестоимость" toggle button in footer
+- **Progression**: Toggle active → Panel opens → Select basis (component purchase/purchase+markup/base price) → Select rounding step (none/0.1/1/10/100) → Settings auto-save
+- **Success criteria**: Settings persist in KV storage, panel contains only configuration UI within isolated container (panel-costing), scrollable with stable width
+
+### Sale Prices Settings Panel
+- **Functionality**: Multi-type price configuration with dynamic range management
+- **Purpose**: Define pricing rules for different customer types with markup ranges and pretty price rounding
+- **Trigger**: "Отпускные цены" toggle button in footer
+- **Progression**: Toggle active → Panel opens → Select price types (Base/Trade) → For each type: choose correction base (run/cost) → Enable pretty price option → Optionally enable common limit → Add/split ranges with + icon → Configure markup per range (% or RUB) → Settings auto-save
+- **Success criteria**: 
+  - Multi-select for price types shows/hides type-specific blocks
+  - Each price type has independent settings (correction base, pretty price toggles, ranges)
+  - Ranges calculate "to" automatically based on next range's "from"
+  - First range always from=0 (disabled), last range to=∞
+  - + icon splits mid-ranges at midpoint, adds new range at 2x for last range
+  - Pretty price limit can be common (one input) or per-range (multiple inputs)
+  - Settings persist in KV storage
+  - Panel is isolated within container (panel-sale-prices) and scrollable with stable width
+
+### Data Refresh Control
+- **Functionality**: Manual data refresh button in header
+- **Purpose**: Reload current context/variant data without full page refresh
+- **Trigger**: Refresh icon button next to menu button
+- **Progression**: Click refresh → Button shows loading spinner → Data fetches → Success/error notification → Button enabled
+- **Success criteria**: Icon rotates during load, disabled state prevents double-clicks, error handling with toast notifications
 
 ## Edge Case Handling
 
@@ -137,7 +166,7 @@ Animations should be functional and quick - indicating state changes and relatio
   - Drop zones with highlighted border and background on drag-over
   
 - **Icon Selection**: 
-  - Plus (add detail/calculator)
+  - Plus (add detail/calculator/range)
   - X (close/delete)
   - CaretDown/CaretUp (accordion toggle)
   - MagnifyingGlass (search in picker)
@@ -147,6 +176,8 @@ Animations should be functional and quick - indicating state changes and relatio
   - ArrowsOut (fullscreen)
   - Question (open picker)
   - DotsSixVertical (drag handle)
+  - ArrowsClockwise (refresh data)
+  - Trash (delete range)
   
 - **Spacing**: 
   - Cards: p-4 with gap-3 between sections
