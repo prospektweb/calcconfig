@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест интеграции калькулятора</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f5f5f5;
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 400px;
+            background: white;
+            border-right: 1px solid #e0e0e0;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #555;
+        }
+        
+        .section {
+            padding: 15px;
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        
+        button {
+            padding: 10px 16px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #1d4ed8;
+        }
+        
+        button:active {
+            background: #1e40af;
+        }
+        
+        button.secondary {
+            background: #6b7280;
+        }
+        
+        button.secondary:hover {
+            background: #4b5563;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px;
+            border-left: 3px solid transparent;
+        }
+        
+        .log-entry.info {
+            border-left-color: #3b82f6;
+        }
+        
+        .log-entry.success {
+            border-left-color: #10b981;
+        }
+        
+        .log-entry.error {
+            border-left-color: #ef4444;
+        }
+        
+        .log-entry .timestamp {
+            color: #6b7280;
+            margin-right: 10px;
+        }
+        
+        .log-entry .type {
+            color: #fbbf24;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        iframe {
+            flex: 1;
+            border: none;
+        }
+        
+        .state-display {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .status.connected {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status.disconnected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div>
+            <h1>🧪 Тест интеграции</h1>
+            <div class="status" id="status">Не подключено</div>
+        </div>
+        
+        <div class="section">
+            <h2>Управление</h2>
+            <div class="button-group">
+                <button onclick="requestState()">Запросить состояние</button>
+                <button onclick="loadTestState()">Загрузить тестовое состояние</button>
+                <button onclick="resetState()" class="secondary">Сбросить состояние</button>
+                <button onclick="clearLog()" class="secondary">Очистить лог</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Журнал событий</h2>
+            <div class="log" id="log">
+                <div class="log-entry info">
+                    <span class="timestamp">--:--:--</span>
+                    <span class="type">INFO</span>
+                    Ожидание подключения...
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Текущее состояние</h2>
+            <div class="state-display" id="state">
+                Нет данных
+            </div>
+        </div>
+    </div>
+    
+    <div class="main">
+        <iframe 
+            id="calculator" 
+            src="http://localhost:5173"
+        ></iframe>
+    </div>
+    
+    <script>
+        const iframe = document.getElementById('calculator');
+        const logEl = document.getElementById('log');
+        const stateEl = document.getElementById('state');
+        const statusEl = document.getElementById('status');
+        
+        let currentState = null;
+        let isConnected = false;
+        
+        function log(type, message, data) {
+            const timestamp = new Date().toLocaleTimeString('ru-RU');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            
+            let content = `<span class="timestamp">${timestamp}</span>`;
+            content += `<span class="type">${type.toUpperCase()}</span>`;
+            content += message;
+            
+            if (data) {
+                content += `<br><span style="color: #9ca3af; margin-left: 90px;">${JSON.stringify(data, null, 2)}</span>`;
+            }
+            
+            entry.innerHTML = content;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function updateStatus(connected) {
+            isConnected = connected;
+            statusEl.className = 'status ' + (connected ? 'connected' : 'disconnected');
+            statusEl.textContent = connected ? '✓ Подключено' : '✗ Не подключено';
+        }
+        
+        function updateStateDisplay() {
+            if (currentState) {
+                stateEl.textContent = JSON.stringify(currentState, null, 2);
+            } else {
+                stateEl.textContent = 'Нет данных';
+            }
+        }
+        
+        window.addEventListener('message', (event) => {
+            const payload = event.data;
+            
+            if (!payload || !payload.type) return;
+            
+            console.log('[Parent] Received:', payload);
+            
+            switch (payload.type) {
+                case 'INIT':
+                    updateStatus(true);
+                    log('success', 'Калькулятор инициализирован');
+                    break;
+                    
+                case 'STATE_UPDATE':
+                    currentState = payload.data;
+                    updateStateDisplay();
+                    log('info', 'Состояние обновлено', {
+                        details: payload.data.details?.length || 0,
+                        bindings: payload.data.bindings?.length || 0,
+                        variants: payload.data.selectedVariantIds?.length || 0
+                    });
+                    break;
+                    
+                case 'STATE_RESPONSE':
+                    currentState = payload.data;
+                    updateStateDisplay();
+                    log('success', 'Получен ответ с состоянием');
+                    break;
+                    
+                case 'DETAIL_ADDED':
+                    log('success', 'Добавлена деталь', {
+                        id: payload.data.detail.id,
+                        name: payload.data.detail.name
+                    });
+                    break;
+                    
+                case 'DETAIL_UPDATED':
+                    log('info', 'Деталь обновлена', {
+                        id: payload.data.detailId,
+                        updates: payload.data.updates
+                    });
+                    break;
+                    
+                case 'DETAIL_DELETED':
+                    log('info', 'Деталь удалена', {
+                        id: payload.data.detailId
+                    });
+                    break;
+                    
+                case 'BINDING_CREATED':
+                    log('success', 'Создано скрепление', {
+                        id: payload.data.binding.id,
+                        name: payload.data.binding.name
+                    });
+                    break;
+                    
+                case 'BINDING_UPDATED':
+                    log('info', 'Скрепление обновлено', {
+                        id: payload.data.bindingId
+                    });
+                    break;
+                    
+                case 'BINDING_DELETED':
+                    log('info', 'Скрепление удалено', {
+                        id: payload.data.bindingId
+                    });
+                    break;
+                    
+                case 'CALCULATION_START':
+                    log('info', `Запущен ${payload.data.type === 'test' ? 'тестовый' : 'полный'} расчёт`);
+                    break;
+                    
+                case 'CALCULATION_PROGRESS':
+                    log('info', `Прогресс расчёта: ${payload.data.progress}%`);
+                    break;
+                    
+                case 'CALCULATION_COMPLETE':
+                    log('success', 'Расчёт завершён', {
+                        type: payload.data.type,
+                        cost: payload.data.result?.cost
+                    });
+                    break;
+                    
+                case 'ERROR':
+                    log('error', 'Ошибка: ' + payload.data.error, payload.data);
+                    break;
+                    
+                default:
+                    log('info', 'Неизвестное сообщение: ' + payload.type);
+            }
+        });
+        
+        function sendMessage(type, data = {}) {
+            const payload = {
+                type,
+                data,
+                timestamp: Date.now()
+            };
+            
+            iframe.contentWindow.postMessage(payload, '*');
+            log('info', `Отправлено: ${type}`);
+        }
+        
+        function requestState() {
+            sendMessage('STATE_REQUEST');
+        }
+        
+        function loadTestState() {
+            const testState = {
+                selectedVariantIds: [525, 526, 527],
+                testVariantId: 525,
+                headerTabs: {
+                    materials: [],
+                    operations: [],
+                    equipment: [],
+                    details: []
+                },
+                details: [
+                    {
+                        id: 'detail_test_001',
+                        name: 'Тестовая деталь 1',
+                        width: 297,
+                        length: 420,
+                        isExpanded: true,
+                        calculators: []
+                    },
+                    {
+                        id: 'detail_test_002',
+                        name: 'Тестовая деталь 2',
+                        width: 210,
+                        length: 297,
+                        isExpanded: false,
+                        calculators: []
+                    }
+                ],
+                bindings: []
+            };
+            
+            sendMessage('STATE_RESPONSE', testState);
+            log('success', 'Загружено тестовое состояние');
+        }
+        
+        function resetState() {
+            const emptyState = {
+                selectedVariantIds: [],
+                testVariantId: null,
+                headerTabs: {
+                    materials: [],
+                    operations: [],
+                    equipment: [],
+                    details: []
+                },
+                details: [],
+                bindings: []
+            };
+            
+            sendMessage('STATE_RESPONSE', emptyState);
+            log('info', 'Состояние сброшено');
+        }
+        
+        function clearLog() {
+            logEl.innerHTML = '';
+            log('info', 'Журнал очищен');
+        }
+        
+        setTimeout(() => {
+            if (!isConnected) {
+                log('error', 'Не удалось подключиться к калькулятору');
+                log('info', 'Убедитесь, что калькулятор запущен на http://localhost:5173');
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

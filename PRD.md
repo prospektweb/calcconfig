@@ -127,6 +127,7 @@ Animations should be functional and quick - indicating state changes and relatio
   - Combined input fields (icon button + readonly input + clear button for pickers)
   - Link icon component between details for binding creation
   - Custom progress bar above info panel
+  - PostMessage API integration for parent window communication
   
 - **States**: 
   - Inputs with error/warning border colors
@@ -156,3 +157,14 @@ Animations should be functional and quick - indicating state changes and relatio
   
 - **Mobile**: 
   - Desktop-only (min-width 1280px), no responsive adaptations needed per requirements
+
+## PostMessage Integration
+
+The calculator integrates with parent windows (e.g., 1C-Bitrix) via postMessage API for bidirectional communication:
+
+- **Outgoing Events**: STATE_UPDATE, DETAIL_ADDED, DETAIL_UPDATED, DETAIL_DELETED, BINDING_CREATED, BINDING_UPDATED, BINDING_DELETED, CALCULATION_START, CALCULATION_PROGRESS, CALCULATION_COMPLETE
+- **Incoming Events**: STATE_REQUEST, STATE_RESPONSE for loading/setting calculator state
+- **Auto-sync**: State changes automatically sync to parent with 500ms debounce
+- **State Management**: Full calculator state (variants, details, bindings, header tabs) can be loaded/saved via messages
+
+See POSTMESSAGE_API.md for detailed integration documentation and examples.
