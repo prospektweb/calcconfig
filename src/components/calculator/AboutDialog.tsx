@@ -11,7 +11,7 @@ interface AboutDialogProps {
 export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[78.4rem] max-h-[90vh]">
+      <DialogContent className="max-w-[95rem] max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold">О программе - Калькулятор печатных изделий</DialogTitle>
           <DialogDescription>
