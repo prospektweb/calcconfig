@@ -181,7 +181,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="absolute right-1 h-5 w-5 p-0 rounded-full hover:bg-destructive hover:text-destructive-foreground z-10"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 p-0 rounded-full hover:bg-destructive hover:text-destructive-foreground z-10"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleRemoveCalculator(index)
