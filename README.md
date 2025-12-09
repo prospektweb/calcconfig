@@ -1,23 +1,28 @@
-# ✨ Welcome to Your Spark Template!
-You've just launched your brand-new Spark Template Codespace — everything’s fired up and ready for you to explore, build, and create with Spark!
+# Калькулятор себестоимости печатной продукции
 
-This template is your blank canvas. It comes with a minimal setup to help you get started quickly with Spark development.
+Автономное веб-приложение для расчета себестоимости печатной продукции с управлением деталями, материалами, операциями и скреплениями.
 
-🚀 What's Inside?
-- A clean, minimal Spark environment
-- Pre-configured for local development
-- Ready to scale with your ideas
-  
-🧠 What Can You Do?
+## Возможности
 
-Right now, this is just a starting point — the perfect place to begin building and testing your Spark applications.
+- 📊 Управление деталями и группами скрепления с drag-and-drop
+- 🧮 Расчет себестоимости и отпускных цен
+- 📐 Расчет габаритов и веса продукции
+- 🎨 Интуитивный интерфейс с валидацией в реальном времени
+- 💾 Автоматическое сохранение состояния
+- 📱 Оптимизировано для desktop (1280px+)
 
-🧹 Just Exploring?
-No problem! If you were just checking things out and don’t need to keep this code:
+## Технологии
 
-- Simply delete your Spark.
-- Everything will be cleaned up — no traces left behind.
+- React 19 + TypeScript
+- Vite для сборки
+- Tailwind CSS + shadcn/ui компоненты
+- Spark KV storage для хранения данных
+- Framer Motion для анимаций
 
-📄 License For Spark Template Resources 
+## Использование
 
-The Spark Template files and resources from GitHub are licensed under the terms of the MIT license, Copyright GitHub, Inc.
+Приложение работает полностью автономно - все данные хранятся локально в браузере. Откройте приложение и начните добавлять детали для расчета себестоимости.
+
+## Лицензия
+
+MIT License - Copyright GitHub, Inc.

@@ -1,17 +1,17 @@
 # Planning Guide
 
-A sophisticated cost calculator for printing production that manages product variants, materials, operations, equipment, and bindings with drag-and-drop functionality and real-time validation.
+Калькулятор себестоимости печатной продукции - автономное веб-приложение для управления деталями, материалами, операциями, оборудованием и скреплениями с drag-and-drop функциональностью и валидацией в реальном времени.
 
 **Experience Qualities**:
-1. **Professional** - Interface should feel like enterprise-grade software with clear hierarchy and precise controls
-2. **Efficient** - Minimize clicks and allow power users to work quickly through keyboard shortcuts and drag-drop
-3. **Transparent** - All calculations, validations, and pricing should be visible and traceable in real-time
+1. **Профессиональный** - Интерфейс должен ощущаться как корпоративное ПО с четкой иерархией и точными элементами управления
+2. **Эффективный** - Минимум кликов, возможность быстрой работы через горячие клавиши и drag-drop
+3. **Прозрачный** - Все расчеты, валидация и ценообразование должны быть видимыми и отслеживаемыми в реальном времени
 
-**Complexity Level**: Complex Application (advanced functionality, accounts)
-  - Multi-layered data model with details, bindings, calculators, materials, operations, and equipment
-  - Real-time validation with dependency checking
-  - Advanced drag-drop interactions across multiple contexts
-  - State persistence and calculation progress tracking
+**Complexity Level**: Комплексное приложение (продвинутая функциональность)
+  - Многоуровневая модель данных с деталями, скреплениями, калькуляторами, материалами, операциями и оборудованием
+  - Валидация в реальном времени с проверкой зависимостей
+  - Продвинутые drag-drop взаимодействия в разных контекстах
+  - Сохранение состояния и отслеживание прогресса расчетов
 
 ## Essential Features
 
@@ -80,11 +80,11 @@ A sophisticated cost calculator for printing production that manages product var
   - Panel is isolated within container (panel-sale-prices) and scrollable with stable width
 
 ### Data Refresh Control
-- **Functionality**: Manual data refresh button in header
-- **Purpose**: Reload current context/variant data without full page refresh
-- **Trigger**: Refresh icon button next to menu button
-- **Progression**: Click refresh → Button shows loading spinner → Data fetches → Success/error notification → Button enabled
-- **Success criteria**: Icon rotates during load, disabled state prevents double-clicks, error handling with toast notifications
+- **Functionality**: Кнопка обновления данных в шапке приложения
+- **Purpose**: Обновить текущий контекст без полной перезагрузки страницы
+- **Trigger**: Кнопка refresh в шапке рядом с кнопкой меню
+- **Progression**: Клик → Кнопка показывает спиннер → Данные обновляются → Уведомление об успехе/ошибке → Кнопка активна
+- **Success criteria**: Иконка вращается во время загрузки, состояние disabled предотвращает двойные клики, обработка ошибок с toast уведомлениями
 
 ## Edge Case Handling
 
@@ -187,15 +187,15 @@ Animations should be functional and quick - indicating state changes and relatio
   - Header tabs: p-3 with gap-2 for elements
   
 - **Mobile**: 
-  - Desktop-only (min-width 1280px), no responsive adaptations needed per requirements
+  - Приложение оптимизировано для desktop (min-width 1280px), адаптивные версии не предусмотрены
 
-## PostMessage Integration
+## Хранение данных
 
-The calculator integrates with parent windows (e.g., 1C-Bitrix) via postMessage API for bidirectional communication:
+Приложение использует встроенный механизм Spark KV storage для сохранения состояния:
 
-- **Outgoing Events**: STATE_UPDATE, DETAIL_ADDED, DETAIL_UPDATED, DETAIL_DELETED, BINDING_CREATED, BINDING_UPDATED, BINDING_DELETED, CALCULATION_START, CALCULATION_PROGRESS, CALCULATION_COMPLETE
-- **Incoming Events**: STATE_REQUEST, STATE_RESPONSE for loading/setting calculator state
-- **Auto-sync**: State changes automatically sync to parent with 500ms debounce
-- **State Management**: Full calculator state (variants, details, bindings, header tabs) can be loaded/saved via messages
+- **Детали и скрепления**: Сохраняются автоматически при изменении
+- **Настройки расчетов**: Настройки себестоимости и отпускных цен сохраняются в KV storage
+- **Состояние панелей**: Состояние развернутости информационных панелей
+- **Вкладки шапки**: Материалы, операции, оборудование и детали
 
-See POSTMESSAGE_API.md for detailed integration documentation and examples.
+Все данные сохраняются локально в браузере и сохраняются между сессиями.

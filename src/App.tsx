@@ -35,8 +35,6 @@ import { GabVesPanel } from '@/components/calculator/GabVesPanel'
 import { CostPanel } from '@/components/calculator/CostPanel'
 import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
-import { usePostMessage } from '@/hooks/use-postmessage'
-import { CalculatorState } from '@/lib/postmessage-bridge'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 
 type DragItem = {
@@ -102,56 +100,6 @@ function App() {
     selectedTypes: [],
     types: {},
   })
-  const getCurrentState = useCallback((): CalculatorState => {
-    return {
-      selectedVariantIds,
-      testVariantId,
-      headerTabs: headerTabs || {
-        materials: [],
-        operations: [],
-        equipment: [],
-        details: [],
-      },
-      details: details || [],
-      bindings: bindings || [],
-    }
-  }, [selectedVariantIds, testVariantId, headerTabs, details, bindings])
-
-  const handleStateResponse = useCallback((state: CalculatorState) => {
-    if (state.selectedVariantIds) {
-      
-    }
-    if (state.testVariantId !== undefined) {
-      setTestVariantId(state.testVariantId)
-    }
-    if (state.headerTabs) {
-      setHeaderTabs(state.headerTabs)
-    }
-    if (state.details) {
-      setDetails(state.details)
-    }
-    if (state.bindings) {
-      setBindings(state.bindings)
-    }
-    addInfoMessage('info', 'Состояние получено от родительского окна')
-  }, [setHeaderTabs, setDetails, setBindings])
-
-  const { syncState, syncStateImmediate, subscribe, sendMessage } = usePostMessage({
-    onStateRequest: getCurrentState,
-    onStateResponse: handleStateResponse,
-    syncDelay: 500,
-  })
-
-  useEffect(() => {
-    syncState(getCurrentState())
-  }, [selectedVariantIds, testVariantId, headerTabs, details, bindings])
-
-  useEffect(() => {
-    const unsubscribe = subscribe('*', (payload) => {
-      console.log('[App] Received message:', payload)
-    })
-    return unsubscribe
-  }, [subscribe])
   const addInfoMessage = (type: InfoMessage['type'], message: string) => {
     const newMessage: InfoMessage = {
       id: `msg_${Date.now()}`,
@@ -193,27 +141,23 @@ function App() {
     const newDetail = createEmptyDetail()
     setDetails(prev => [...(prev || []), newDetail])
     addInfoMessage('info', `Добавлена деталь: ${newDetail.name}`)
-    sendMessage('DETAIL_ADDED', { detail: newDetail })
   }
 
   const handleDeleteDetail = (detailId: string) => {
     setDetails(prev => (prev || []).filter(d => d.id !== detailId))
     addInfoMessage('info', 'Деталь удалена')
-    sendMessage('DETAIL_DELETED', { detailId })
   }
 
   const handleUpdateDetail = (detailId: string, updates: Partial<Detail>) => {
     setDetails(prev =>
       (prev || []).map(d => d.id === detailId ? { ...d, ...updates } : d)
     )
-    sendMessage('DETAIL_UPDATED', { detailId, updates })
   }
   
   const handleUpdateBinding = (bindingId: string, updates: Partial<Binding>) => {
     setBindings(prev =>
       (prev || []).map(b => b.id === bindingId ? { ...b, ...updates } : b)
     )
-    sendMessage('BINDING_UPDATED', { bindingId, updates })
   }
 
   useEffect(() => {
@@ -406,43 +350,36 @@ function App() {
     
     setBindings(prev => [...(prev || []), newBinding])
     addInfoMessage('success', `Создано скрепление`)
-    sendMessage('BINDING_CREATED', { binding: newBinding })
   }
 
   const handleTestCalculation = async () => {
     setIsCalculating(true)
     setCalculationProgress(0)
     addInfoMessage('info', 'Запущен тестовый расчёт...')
-    sendMessage('CALCULATION_START', { type: 'test' })
     
     for (let i = 0; i <= 100; i += 10) {
       await new Promise(resolve => setTimeout(resolve, 200))
       setCalculationProgress(i)
-      sendMessage('CALCULATION_PROGRESS', { progress: i, type: 'test' })
     }
     
     setIsCalculating(false)
     addInfoMessage('success', 'Тестовый расчёт завершён. Итого себестоимость: 1,250.00 руб')
     toast.success('Расчёт завершён успешно')
-    sendMessage('CALCULATION_COMPLETE', { type: 'test', result: { cost: 1250.00 } })
   }
 
   const handleFullCalculation = async () => {
     setIsCalculating(true)
     setCalculationProgress(0)
     addInfoMessage('info', 'Запущен полный расчёт...')
-    sendMessage('CALCULATION_START', { type: 'full' })
     
     for (let i = 0; i <= 100; i += 5) {
       await new Promise(resolve => setTimeout(resolve, 100))
       setCalculationProgress(i)
-      sendMessage('CALCULATION_PROGRESS', { progress: i, type: 'full' })
     }
     
     setIsCalculating(false)
-    addInfoMessage('success', 'П��лный расчёт завершён. Итого себ��стоимость: 1,250.00 руб')
+    addInfoMessage('success', 'Полный расчёт завершён. Итого себестоимость: 1,250.00 руб')
     toast.success('Расчёт завершён успешно')
-    sendMessage('CALCULATION_COMPLETE', { type: 'full', result: { cost: 1250.00 } })
   }
   
   const handleToggleGabVes = () => {
