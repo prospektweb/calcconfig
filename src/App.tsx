@@ -235,6 +235,12 @@ function App() {
     }
   }
   
+  const handleDropZoneDragOver = (targetIndex: number) => (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDropTarget(targetIndex)
+  }
+  
   const handleDragLeave = (e: React.DragEvent) => {
     if (e.currentTarget === e.target) {
       setDropTarget(null)
@@ -552,14 +558,23 @@ function App() {
               </div>
             )}
             
-            {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || draggedItem) && dropTarget === 0 && (
+            {allItems.length > 0 && (draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && (
               <div 
-                className="h-24 border-2 border-dashed border-accent bg-accent/10 rounded-lg flex items-center justify-center mb-2"
-                onDragOver={handleDragOver(0)}
+                className={cn(
+                  "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
+                  dropTarget === 0 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
+                )}
+                style={{ height: '43px' }}
+                onDragOver={handleDropZoneDragOver(0)}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop(0)}
               >
-                <p className="text-accent-foreground font-medium">Вставить сюда</p>
+                <p className={cn(
+                  "text-center text-sm",
+                  dropTarget === 0 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                )}>
+                  {dropTarget === 0 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда"}
+                </p>
               </div>
             )}
             
@@ -600,14 +615,23 @@ function App() {
                   />
                 )}
                 
-                {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || draggedItem) && dropTarget === index + 1 && (
+                {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && (
                   <div 
-                    className="h-24 border-2 border-dashed border-accent bg-accent/10 rounded-lg flex items-center justify-center my-2"
-                    onDragOver={handleDragOver(index + 1)}
+                    className={cn(
+                      "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",
+                      dropTarget === index + 1 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
+                    )}
+                    style={{ height: '43px' }}
+                    onDragOver={handleDropZoneDragOver(index + 1)}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop(index + 1)}
                   >
-                    <p className="text-accent-foreground font-medium">Вставить сюда</p>
+                    <p className={cn(
+                      "text-center text-sm",
+                      dropTarget === index + 1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                    )}>
+                      {dropTarget === index + 1 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда"}
+                    </p>
                   </div>
                 )}
                 
