@@ -80,73 +80,71 @@ export function CostPanel({ messages, isExpanded, onToggle, settings, onSettings
         {isExpanded && (
           <div className="border-t border-border overflow-y-scroll scrollbar-gutter-stable" style={{ maxHeight: '400px' }}>
             <div className="px-4 py-3 space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-end gap-2">
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="costing-based-on">Считать на основании</Label>
-                    <Select value={settings.basedOn} onValueChange={handleBasedOnChange}>
-                      <SelectTrigger id="costing-based-on">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {COSTING_BASED_ON_OPTIONS.map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {showMarkupFields && (
-                    <div className="flex items-end gap-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="markup-value">Наценка</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            id="markup-value"
-                            type="number"
-                            min="0"
-                            step="0.1"
-                            value={settings.markupValue || 0}
-                            onChange={handleMarkupValueChange}
-                            className="w-24"
-                          />
-                          <Select 
-                            value={settings.markupUnit || 'RUB'} 
-                            onValueChange={handleMarkupUnitChange}
-                          >
-                            <SelectTrigger className="w-24">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {MARKUP_UNIT_OPTIONS.map(option => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+              <div className="flex items-end gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="costing-based-on">Считать на основании</Label>
+                  <Select value={settings.basedOn} onValueChange={handleBasedOnChange}>
+                    <SelectTrigger id="costing-based-on" className="w-[400px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COSTING_BASED_ON_OPTIONS.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {showMarkupFields && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="markup-value">Наценка</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="markup-value"
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={settings.markupValue || 0}
+                          onChange={handleMarkupValueChange}
+                          className="w-24"
+                        />
+                        <Select 
+                          value={settings.markupUnit || 'RUB'} 
+                          onValueChange={handleMarkupUnitChange}
+                        >
+                          <SelectTrigger className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {MARKUP_UNIT_OPTIONS.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
-                  )}
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="rounding-step">Шаг округления</Label>
-                    <Select value={settings.roundingStep.toString()} onValueChange={handleRoundingStepChange}>
-                      <SelectTrigger id="rounding-step" className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ROUNDING_STEP_OPTIONS.map(option => (
-                          <SelectItem key={option.value} value={option.value.toString()}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  </>
+                )}
+                
+                <div className="space-y-2">
+                  <Label htmlFor="rounding-step">Шаг округления</Label>
+                  <Select value={settings.roundingStep.toString()} onValueChange={handleRoundingStepChange}>
+                    <SelectTrigger id="rounding-step" className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ROUNDING_STEP_OPTIONS.map(option => (
+                        <SelectItem key={option.value} value={option.value.toString()}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
