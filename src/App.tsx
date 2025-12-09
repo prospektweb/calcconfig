@@ -616,6 +616,20 @@ function App() {
               </div>
             )}
             
+            {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && allItems.length > 0 && (
+              <div 
+                className={cn(
+                  "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
+                  "border-accent bg-accent/10"
+                )}
+                style={{ height: '43px' }}
+              >
+                <p className="text-center text-sm text-accent-foreground font-medium">
+                  Перетащите деталь из шапки сюда
+                </p>
+              </div>
+            )}
+            
             {allItems.map((item, index) => {
               const isDraggingThis = dragState.isDragging && dragState.draggedItemId === item.id
               
@@ -674,6 +688,20 @@ function App() {
                       dragState.dropTargetIndex === index + 1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
                     )}>
                       Перетащите деталь сюда
+                    </p>
+                  </div>
+                )}
+                
+                {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && (
+                  <div 
+                    className={cn(
+                      "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",
+                      "border-accent bg-accent/10"
+                    )}
+                    style={{ height: '43px' }}
+                  >
+                    <p className="text-center text-sm text-accent-foreground font-medium">
+                      Перетащите деталь из шапки сюда
                     </p>
                   </div>
                 )}
