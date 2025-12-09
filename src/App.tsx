@@ -587,8 +587,8 @@ function App() {
               <div
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center transition-all",
-                  (draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment)
-                    ? "border-border bg-muted/30" 
+                  headerDropZoneHover === 0 
+                    ? "border-accent bg-accent/10" 
                     : "border-border bg-muted/30"
                 )}
                 style={{ height: '43px' }}
