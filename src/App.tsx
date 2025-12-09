@@ -73,9 +73,7 @@ function App() {
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
   const [draggedHeaderDetail, setDraggedHeaderDetail] = useState<{id: number, name: string} | null>(null)
-  const [draggedHeaderMaterial, setDraggedHeaderMaterial] = useState<{id: number, name: string} | null>(null)
-  const [draggedHeaderOperation, setDraggedHeaderOperation] = useState<{id: number, name: string} | null>(null)
-  const [draggedHeaderEquipment, setDraggedHeaderEquipment] = useState<{id: number, name: string} | null>(null)
+  const [activeHeaderTab, setActiveHeaderTab] = useState<string>('details')
   const [isGabVesActive, setIsGabVesActive] = useState(false)
   const [isGabVesPanelExpanded, setIsGabVesPanelExpanded] = useState(false)
   const [gabVesMessages, setGabVesMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
@@ -305,7 +303,7 @@ function App() {
       if (jsonData) {
         const data = JSON.parse(jsonData)
         
-        if (data.type === 'header-detail') {
+        if (data.type === 'header-detail' && activeHeaderTab === 'details') {
           const detail = mockDetails.find(d => d.id === data.detailId)
           if (detail) {
             const newDetail = createEmptyDetail(data.detailName)
@@ -321,9 +319,6 @@ function App() {
     }
     
     setDraggedHeaderDetail(null)
-    setDraggedHeaderMaterial(null)
-    setDraggedHeaderOperation(null)
-    setDraggedHeaderEquipment(null)
     setHeaderDropZoneHover(null)
   }
   
@@ -331,16 +326,9 @@ function App() {
     setDraggedHeaderDetail({ id: detailId, name: detailName })
   }
   
-  const handleHeaderMaterialDragStart = (materialId: number, materialName: string) => {
-    setDraggedHeaderMaterial({ id: materialId, name: materialName })
-  }
-  
-  const handleHeaderOperationDragStart = (operationId: number, operationName: string) => {
-    setDraggedHeaderOperation({ id: operationId, name: operationName })
-  }
-  
-  const handleHeaderEquipmentDragStart = (equipmentId: number, equipmentName: string) => {
-    setDraggedHeaderEquipment({ id: equipmentId, name: equipmentName })
+  const handleHeaderDetailDragEnd = () => {
+    setDraggedHeaderDetail(null)
+    setHeaderDropZoneHover(null)
   }
   
   const getAllItemsInOrder = (): Array<{type: 'detail' | 'binding', id: string, item: Detail | Binding}> => {
@@ -571,9 +559,8 @@ function App() {
             onOpenMenu={() => setIsMenuOpen(true)}
             onRefreshData={handleRefreshData}
             onDetailDragStart={handleHeaderDetailDragStart}
-            onMaterialDragStart={handleHeaderMaterialDragStart}
-            onOperationDragStart={handleHeaderOperationDragStart}
-            onEquipmentDragStart={handleHeaderEquipmentDragStart}
+            onDetailDragEnd={handleHeaderDetailDragEnd}
+            onActiveTabChange={setActiveHeaderTab}
           />
         </header>
 
@@ -583,7 +570,7 @@ function App() {
           onDrop={handleMainAreaDrop}
         >
           <div className="space-y-0">
-            {allItems.length === 0 && (
+            {allItems.length === 0 && draggedHeaderDetail && activeHeaderTab === 'details' && (
               <div
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center transition-all",
@@ -624,7 +611,7 @@ function App() {
               </div>
             )}
             
-            {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && allItems.length > 0 && (
+            {draggedHeaderDetail && activeHeaderTab === 'details' && allItems.length > 0 && (
               <div 
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
@@ -705,7 +692,7 @@ function App() {
                   </div>
                 )}
                 
-                {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && (
+                {draggedHeaderDetail && activeHeaderTab === 'details' && (
                   <div 
                     className={cn(
                       "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",
@@ -724,7 +711,7 @@ function App() {
                   </div>
                 )}
                 
-                {index < allItems.length - 1 && !dragState.isDragging && !(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && (
+                {index < allItems.length - 1 && !dragState.isDragging && !draggedHeaderDetail && (
                   <div className="flex justify-center -my-3 z-10 relative" style={{ marginTop: '-12px', marginBottom: '-12px' }}>
                     <Button
                       variant="ghost"

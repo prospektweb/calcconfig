@@ -27,15 +27,14 @@ interface HeaderSectionProps {
   onOpenMenu: () => void
   onRefreshData?: () => void
   onDetailDragStart?: (detailId: number, detailName: string) => void
-  onMaterialDragStart?: (materialId: number, materialName: string) => void
-  onOperationDragStart?: (operationId: number, operationName: string) => void
-  onEquipmentDragStart?: (equipmentId: number, equipmentName: string) => void
+  onDetailDragEnd?: () => void
+  onActiveTabChange?: (tab: string) => void
 }
 
 const MIN_HEIGHT = 80
 const MAX_HEIGHT = 250
 
-export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onRefreshData, onDetailDragStart, onMaterialDragStart, onOperationDragStart, onEquipmentDragStart }: HeaderSectionProps) {
+export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onRefreshData, onDetailDragStart, onDetailDragEnd, onActiveTabChange }: HeaderSectionProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [activeTab, setActiveTab] = useState<HeaderTabType>(() => {
     const stored = localStorage.getItem('calc_active_header_tab')
@@ -48,7 +47,10 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
   
   useEffect(() => {
     localStorage.setItem('calc_active_header_tab', activeTab)
-  }, [activeTab])
+    if (onActiveTabChange) {
+      onActiveTabChange(activeTab)
+    }
+  }, [activeTab, onActiveTabChange])
   const [isResizing, setIsResizing] = useState(false)
   const startYRef = useRef(0)
   const startHeightRef = useRef(0)
@@ -156,42 +158,9 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     }
   }
   
-  const handleMaterialDragStart = (materialId: number, materialName: string) => (e: React.DragEvent) => {
-    e.dataTransfer.effectAllowed = 'copy'
-    e.dataTransfer.setData('application/json', JSON.stringify({ 
-      type: 'header-material', 
-      materialId,
-      materialName
-    }))
-    
-    if (onMaterialDragStart) {
-      onMaterialDragStart(materialId, materialName)
-    }
-  }
-  
-  const handleOperationDragStart = (operationId: number, operationName: string) => (e: React.DragEvent) => {
-    e.dataTransfer.effectAllowed = 'copy'
-    e.dataTransfer.setData('application/json', JSON.stringify({ 
-      type: 'header-operation', 
-      operationId,
-      operationName
-    }))
-    
-    if (onOperationDragStart) {
-      onOperationDragStart(operationId, operationName)
-    }
-  }
-  
-  const handleEquipmentDragStart = (equipmentId: number, equipmentName: string) => (e: React.DragEvent) => {
-    e.dataTransfer.effectAllowed = 'copy'
-    e.dataTransfer.setData('application/json', JSON.stringify({ 
-      type: 'header-equipment', 
-      equipmentId,
-      equipmentName
-    }))
-    
-    if (onEquipmentDragStart) {
-      onEquipmentDragStart(equipmentId, equipmentName)
+  const handleDetailDragEnd = () => (e: React.DragEvent) => {
+    if (onDetailDragEnd) {
+      onDetailDragEnd()
     }
   }
 
@@ -285,6 +254,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                           className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
                           draggable
                           onDragStart={handleDetailDragStart(detail.id, detail.name)}
+                          onDragEnd={handleDetailDragEnd()}
                         >
                           <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
                             <DotsSixVertical className="w-4 h-4" />
@@ -324,13 +294,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                         <Badge
                           key={material.id}
                           variant="secondary"
-                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
-                          draggable
-                          onDragStart={handleMaterialDragStart(material.id, material.name)}
+                          className="px-3 py-2 flex items-center gap-2 hover:bg-accent hover:text-accent-foreground transition-colors group"
                         >
-                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                            <DotsSixVertical className="w-4 h-4" />
-                          </div>
                           <span className="font-mono text-xs">[{material.id}]</span>
                           <span className="font-medium">{material.name}</span>
                           <Button
@@ -365,13 +330,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                         <Badge
                           key={operation.id}
                           variant="secondary"
-                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
-                          draggable
-                          onDragStart={handleOperationDragStart(operation.id, operation.name)}
+                          className="px-3 py-2 flex items-center gap-2 hover:bg-accent hover:text-accent-foreground transition-colors group"
                         >
-                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                            <DotsSixVertical className="w-4 h-4" />
-                          </div>
                           <span className="font-mono text-xs">[{operation.id}]</span>
                           <span className="font-medium">{operation.name}</span>
                           <Button
@@ -406,13 +366,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                         <Badge
                           key={equipment.id}
                           variant="secondary"
-                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
-                          draggable
-                          onDragStart={handleEquipmentDragStart(equipment.id, equipment.name)}
+                          className="px-3 py-2 flex items-center gap-2 hover:bg-accent hover:text-accent-foreground transition-colors group"
                         >
-                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                            <DotsSixVertical className="w-4 h-4" />
-                          </div>
                           <span className="font-mono text-xs">[{equipment.id}]</span>
                           <span className="font-medium">{equipment.name}</span>
                           <Button
