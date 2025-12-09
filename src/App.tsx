@@ -607,7 +607,7 @@ function App() {
               </div>
             )}
             
-            {allItems.length > 0 && (draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || isReorderDragging) && (
+            {allItems.length > 0 && (draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && (
               <div 
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
@@ -622,12 +622,49 @@ function App() {
                   "text-center text-sm",
                   dropTarget === 0 ? "text-accent-foreground font-medium" : "text-muted-foreground"
                 )}>
-                  {isReorderDragging ? "Перетащите деталь сюда" : (dropTarget === 0 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда")}
+                  {dropTarget === 0 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда"}
                 </p>
               </div>
             )}
             
-            {allItems.map((item, index) => (
+            {allItems.length > 1 && isReorderDragging && draggedItem && (() => {
+              const draggedIndex = allItems.findIndex(item => 
+                item.type === draggedItem.type && item.id === draggedItem.id
+              )
+              const isFirst = draggedIndex === 0
+              const isLast = draggedIndex === allItems.length - 1
+              
+              const showBefore = isLast || (!isFirst && !isLast)
+              
+              return showBefore ? (
+                <div 
+                  className={cn(
+                    "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
+                    dropTarget === 0 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
+                  )}
+                  style={{ height: '43px' }}
+                  onDragOver={handleDropZoneDragOver(0)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop(0)}
+                >
+                  <p className={cn(
+                    "text-center text-sm",
+                    dropTarget === 0 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                  )}>
+                    Перетащите деталь сюда
+                  </p>
+                </div>
+              ) : null
+            })()}
+            
+            {allItems.map((item, index) => {
+              const draggedIdx = isReorderDragging && draggedItem ? allItems.findIndex(i => 
+                i.type === draggedItem.type && i.id === draggedItem.id
+              ) : -1
+              const isFirstDragged = draggedIdx === 0
+              const isLastDragged = draggedIdx === allItems.length - 1
+              
+              return (
               <div key={item.id}>
                 {item.type === 'detail' ? (
                   <DetailCard
@@ -666,7 +703,7 @@ function App() {
                   />
                 )}
                 
-                {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || isReorderDragging) && (
+                {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && (
                   <div 
                     className={cn(
                       "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",
@@ -681,10 +718,42 @@ function App() {
                       "text-center text-sm",
                       dropTarget === index + 1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
                     )}>
-                      {isReorderDragging ? "Перетащите деталь сюда" : (dropTarget === index + 1 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда")}
+                      {dropTarget === index + 1 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда"}
                     </p>
                   </div>
                 )}
+                
+                {allItems.length > 1 && isReorderDragging && draggedItem && draggedIdx !== -1 && (() => {
+                  let showAfterCurrent = false
+                  
+                  if (isFirstDragged) {
+                    showAfterCurrent = index >= draggedIdx
+                  } else if (isLastDragged) {
+                    showAfterCurrent = false
+                  } else {
+                    showAfterCurrent = index >= draggedIdx
+                  }
+                  
+                  return showAfterCurrent ? (
+                    <div 
+                      className={cn(
+                        "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",
+                        dropTarget === index + 1 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
+                      )}
+                      style={{ height: '43px' }}
+                      onDragOver={handleDropZoneDragOver(index + 1)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop(index + 1)}
+                    >
+                      <p className={cn(
+                        "text-center text-sm",
+                        dropTarget === index + 1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                      )}>
+                        Перетащите деталь сюда
+                      </p>
+                    </div>
+                  ) : null
+                })()}
                 
                 {index < allItems.length - 1 && !(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || draggedItem || isReorderDragging) && (
                   <div className="flex justify-center -my-3 z-10 relative" style={{ marginTop: '-12px', marginBottom: '-12px' }}>
@@ -699,7 +768,8 @@ function App() {
                   </div>
                 )}
               </div>
-            ))}
+            )
+            })}
           </div>
         </main>
 
