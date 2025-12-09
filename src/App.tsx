@@ -87,6 +87,8 @@ function App() {
   const [isPriceActive, setIsPriceActive] = useState(false)
   const [isPricePanelExpanded, setIsPricePanelExpanded] = useState(false)
   const [priceMessages, setPriceMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
+  
+  const [headerDropZoneHover, setHeaderDropZoneHover] = useState<number | null>(null)
 
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
@@ -322,6 +324,7 @@ function App() {
     setDraggedHeaderMaterial(null)
     setDraggedHeaderOperation(null)
     setDraggedHeaderEquipment(null)
+    setHeaderDropZoneHover(null)
   }
   
   const handleHeaderDetailDragStart = (detailId: number, detailName: string) => {
@@ -585,13 +588,18 @@ function App() {
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center transition-all",
                   (draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment)
-                    ? "border-accent bg-accent/10" 
+                    ? "border-border bg-muted/30" 
                     : "border-border bg-muted/30"
                 )}
                 style={{ height: '43px' }}
+                onDragEnter={() => setHeaderDropZoneHover(0)}
+                onDragLeave={() => setHeaderDropZoneHover(null)}
               >
-                <p className="text-muted-foreground text-center">
-                  {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment)
+                <p className={cn(
+                  "text-center",
+                  headerDropZoneHover === 0 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                )}>
+                  {headerDropZoneHover === 0
                     ? "Отпустите для добавления детали" 
                     : "Перетащите деталь из шапки сюда"}
                 </p>
@@ -620,12 +628,17 @@ function App() {
               <div 
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
-                  "border-accent bg-accent/10"
+                  headerDropZoneHover === -1 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
                 )}
                 style={{ height: '43px' }}
+                onDragEnter={() => setHeaderDropZoneHover(-1)}
+                onDragLeave={() => setHeaderDropZoneHover(null)}
               >
-                <p className="text-center text-sm text-accent-foreground font-medium">
-                  Перетащите деталь из шапки сюда
+                <p className={cn(
+                  "text-center text-sm",
+                  headerDropZoneHover === -1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                )}>
+                  {headerDropZoneHover === -1 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда"}
                 </p>
               </div>
             )}
@@ -696,12 +709,17 @@ function App() {
                   <div 
                     className={cn(
                       "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",
-                      "border-accent bg-accent/10"
+                      headerDropZoneHover === index + 1 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
                     )}
                     style={{ height: '43px' }}
+                    onDragEnter={() => setHeaderDropZoneHover(index + 1)}
+                    onDragLeave={() => setHeaderDropZoneHover(null)}
                   >
-                    <p className="text-center text-sm text-accent-foreground font-medium">
-                      Перетащите деталь из шапки сюда
+                    <p className={cn(
+                      "text-center text-sm",
+                      headerDropZoneHover === index + 1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                    )}>
+                      {headerDropZoneHover === index + 1 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда"}
                     </p>
                   </div>
                 )}
