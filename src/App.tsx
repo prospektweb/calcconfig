@@ -537,11 +537,12 @@ function App() {
             {allItems.length === 0 && (
               <div
                 className={cn(
-                  "h-32 border-2 border-dashed rounded-lg flex items-center justify-center transition-all",
+                  "border-2 border-dashed rounded-lg flex items-center justify-center transition-all",
                   (draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment)
                     ? "border-accent bg-accent/10" 
                     : "border-border bg-muted/30"
                 )}
+                style={{ height: '43px' }}
               >
                 <p className="text-muted-foreground text-center">
                   {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment)
