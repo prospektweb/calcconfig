@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, X, DotsSixVertical, Package } from '@phosphor-icons/react'
+import { Plus, X, DotsSixVertical, Package, Wrench, Hammer } from '@phosphor-icons/react'
 import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
 import { mockCalculators, mockCalculatorGroups, mockOperations, mockEquipment, mockMaterials } from '@/lib/mock-data'
 import { MultiLevelSelect } from './MultiLevelSelect'
@@ -40,6 +40,8 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
   const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
   const [materialDropZoneHover, setMaterialDropZoneHover] = useState<number | null>(null)
+  const [operationDropZoneHover, setOperationDropZoneHover] = useState<number | null>(null)
+  const [equipmentDropZoneHover, setEquipmentDropZoneHover] = useState<number | null>(null)
   
   const safeCalculators = calculators || []
 
@@ -266,6 +268,53 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                           placeholder="Выберите операцию..."
                         />
                       </div>
+                      <div
+                        className={cn(
+                          "w-[60px] h-10 border-2 border-dashed rounded flex items-center justify-center flex-shrink-0 transition-all",
+                          operationDropZoneHover === index
+                            ? "border-accent bg-accent/10"
+                            : "border-border bg-muted/30"
+                        )}
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setOperationDropZoneHover(index)
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setOperationDropZoneHover(null)
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setOperationDropZoneHover(null)
+                          
+                          try {
+                            const jsonData = e.dataTransfer.getData('application/json')
+                            if (jsonData) {
+                              const data = JSON.parse(jsonData)
+                              
+                              if (data.type === 'header-operation') {
+                                handleUpdateCalculator(index, { 
+                                  operationId: data.operationId,
+                                  equipmentId: null,
+                                })
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Operation drop error:', error)
+                          }
+                        }}
+                        title="Перетащите операцию из шапки сюда"
+                      >
+                        <Wrench className={cn(
+                          "w-5 h-5",
+                          operationDropZoneHover === index 
+                            ? "text-accent-foreground" 
+                            : "text-muted-foreground"
+                        )} />
+                      </div>
                       {calculatorDef.fields.operation?.quantityField && (
                         <div className="flex gap-1 items-center">
                           <Input
@@ -289,15 +338,65 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                 {calculatorDef && calculatorDef.fields?.equipment?.visible && (
                   <div className="flex-1 space-y-2">
                     <Label>Оборудование</Label>
-                    <MultiLevelSelect
-                      items={equipmentHierarchy}
-                      value={calc.equipmentId?.toString() || null}
-                      onValueChange={(value) => handleUpdateCalculator(index, { 
-                        equipmentId: parseInt(value) 
-                      })}
-                      placeholder="Выберите оборудование..."
-                      disabled={!calc.operationId}
-                    />
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <MultiLevelSelect
+                          items={equipmentHierarchy}
+                          value={calc.equipmentId?.toString() || null}
+                          onValueChange={(value) => handleUpdateCalculator(index, { 
+                            equipmentId: parseInt(value) 
+                          })}
+                          placeholder="Выберите оборудование..."
+                          disabled={!calc.operationId}
+                        />
+                      </div>
+                      <div
+                        className={cn(
+                          "w-[60px] h-10 border-2 border-dashed rounded flex items-center justify-center flex-shrink-0 transition-all",
+                          equipmentDropZoneHover === index
+                            ? "border-accent bg-accent/10"
+                            : "border-border bg-muted/30"
+                        )}
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setEquipmentDropZoneHover(index)
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setEquipmentDropZoneHover(null)
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setEquipmentDropZoneHover(null)
+                          
+                          try {
+                            const jsonData = e.dataTransfer.getData('application/json')
+                            if (jsonData) {
+                              const data = JSON.parse(jsonData)
+                              
+                              if (data.type === 'header-equipment') {
+                                handleUpdateCalculator(index, { 
+                                  equipmentId: data.equipmentId 
+                                })
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Equipment drop error:', error)
+                          }
+                        }}
+                        title="Перетащите оборудование из шапки сюда"
+                      >
+                        <Hammer className={cn(
+                          "w-5 h-5",
+                          equipmentDropZoneHover === index 
+                            ? "text-accent-foreground" 
+                            : "text-muted-foreground"
+                        )} />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

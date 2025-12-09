@@ -342,8 +342,20 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                         <Badge
                           key={operation.id}
                           variant="secondary"
-                          className="px-3 py-2 flex items-center gap-2 hover:bg-accent hover:text-accent-foreground transition-colors group"
+                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.effectAllowed = 'copy'
+                            e.dataTransfer.setData('application/json', JSON.stringify({ 
+                              type: 'header-operation', 
+                              operationId: operation.id,
+                              operationName: operation.name
+                            }))
+                          }}
                         >
+                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                            <DotsSixVertical className="w-4 h-4" />
+                          </div>
                           <span className="font-mono text-xs">[{operation.id}]</span>
                           <span className="font-medium">{operation.name}</span>
                           <Button
@@ -378,8 +390,20 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                         <Badge
                           key={equipment.id}
                           variant="secondary"
-                          className="px-3 py-2 flex items-center gap-2 hover:bg-accent hover:text-accent-foreground transition-colors group"
+                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.effectAllowed = 'copy'
+                            e.dataTransfer.setData('application/json', JSON.stringify({ 
+                              type: 'header-equipment', 
+                              equipmentId: equipment.id,
+                              equipmentName: equipment.name
+                            }))
+                          }}
                         >
+                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                            <DotsSixVertical className="w-4 h-4" />
+                          </div>
                           <span className="font-mono text-xs">[{equipment.id}]</span>
                           <span className="font-medium">{equipment.name}</span>
                           <Button
