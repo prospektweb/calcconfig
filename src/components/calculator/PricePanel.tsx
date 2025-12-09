@@ -109,7 +109,11 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
     let newFrom: number
     
     if (to === null) {
-      newFrom = currentRange.from * 2
+      if (currentRange.from === 0) {
+        newFrom = 10
+      } else {
+        newFrom = currentRange.from * 2
+      }
     } else {
       newFrom = Math.ceil((currentRange.from + to + 1) / 2)
       
@@ -295,10 +299,14 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                 value={range.from}
                                 onChange={(e) => {
                                   const newValue = parseFloat(e.target.value) || 0
+                                  updateRange(priceType, index, { from: newValue })
+                                }}
+                                onBlur={(e) => {
+                                  const newValue = parseFloat(e.target.value) || 0
                                   if (index > 0 && newValue >= 1) {
                                     const prevFrom = typeSettings.ranges[index - 1]?.from || 0
-                                    if (newValue > prevFrom) {
-                                      updateRange(priceType, index, { from: newValue })
+                                    if (newValue <= prevFrom) {
+                                      updateRange(priceType, index, { from: prevFrom + 1 })
                                     }
                                   }
                                 }}
