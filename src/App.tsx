@@ -72,6 +72,7 @@ function App() {
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null)
+  const [isReorderDragging, setIsReorderDragging] = useState(false)
   const [draggedHeaderDetail, setDraggedHeaderDetail] = useState<{id: number, name: string} | null>(null)
   const [draggedHeaderMaterial, setDraggedHeaderMaterial] = useState<{id: number, name: string} | null>(null)
   const [draggedHeaderOperation, setDraggedHeaderOperation] = useState<{id: number, name: string} | null>(null)
@@ -216,12 +217,26 @@ function App() {
   
   const handleDragStart = (item: DragItem) => (e: React.DragEvent) => {
     setDraggedItem(item)
+    setIsReorderDragging(true)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', JSON.stringify(item))
+    
+    if (item.type === 'detail') {
+      const detail = (details || []).find(d => d.id === item.id)
+      if (detail && detail.isExpanded) {
+        handleUpdateDetail(item.id, { isExpanded: false })
+      }
+    } else if (item.type === 'binding') {
+      const binding = (bindings || []).find(b => b.id === item.id)
+      if (binding && binding.isExpanded) {
+        handleUpdateBinding(item.id, { isExpanded: false })
+      }
+    }
   }
   
   const handleDragEnd = (e: React.DragEvent) => {
     setDraggedItem(null)
+    setIsReorderDragging(false)
     setDropTarget(null)
   }
   
@@ -238,7 +253,10 @@ function App() {
   const handleDropZoneDragOver = (targetIndex: number) => (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    setDropTarget(targetIndex)
+    
+    if (isReorderDragging && draggedItem) {
+      setDropTarget(targetIndex)
+    }
   }
   
   const handleDragLeave = (e: React.DragEvent) => {
@@ -252,75 +270,81 @@ function App() {
     e.stopPropagation()
     setDropTarget(null)
     
-    try {
-      const jsonData = e.dataTransfer.getData('application/json')
-      if (jsonData) {
-        const data = JSON.parse(jsonData)
-        
-        if (data.type === 'header-detail') {
-          const detail = mockDetails.find(d => d.id === data.detailId)
-          if (detail) {
-            const newDetail = createEmptyDetail(data.detailName)
-            newDetail.width = detail.width
-            newDetail.length = detail.length
-            
-            const allItems = getAllItemsInOrder()
-            const newDetails = [...(details || [])]
-            const newBindings = [...(bindings || [])]
-            
-            if (targetIndex === 0) {
-              setDetails([newDetail, ...newDetails])
-            } else if (targetIndex >= allItems.length) {
-              setDetails([...newDetails, newDetail])
-            } else {
-              const itemsBeforeTarget: string[] = []
-              const itemsAfterTarget: string[] = []
+    if (!isReorderDragging || !draggedItem) {
+      try {
+        const jsonData = e.dataTransfer.getData('application/json')
+        if (jsonData) {
+          const data = JSON.parse(jsonData)
+          
+          if (data.type === 'header-detail') {
+            const detail = mockDetails.find(d => d.id === data.detailId)
+            if (detail) {
+              const newDetail = createEmptyDetail(data.detailName)
+              newDetail.width = detail.width
+              newDetail.length = detail.length
               
-              allItems.forEach((item, idx) => {
-                if (idx < targetIndex) {
-                  if (item.type === 'detail') itemsBeforeTarget.push(item.id)
-                } else {
-                  if (item.type === 'detail') itemsAfterTarget.push(item.id)
-                }
-              })
+              const allItems = getAllItemsInOrder()
+              const newDetails = [...(details || [])]
+              const newBindings = [...(bindings || [])]
               
-              const reorderedDetails = [
-                ...newDetails.filter(d => itemsBeforeTarget.includes(d.id)),
-                newDetail,
-                ...newDetails.filter(d => itemsAfterTarget.includes(d.id))
-              ]
-              setDetails(reorderedDetails)
+              if (targetIndex === 0) {
+                setDetails([newDetail, ...newDetails])
+              } else if (targetIndex >= allItems.length) {
+                setDetails([...newDetails, newDetail])
+              } else {
+                const itemsBeforeTarget: string[] = []
+                const itemsAfterTarget: string[] = []
+                
+                allItems.forEach((item, idx) => {
+                  if (idx < targetIndex) {
+                    if (item.type === 'detail') itemsBeforeTarget.push(item.id)
+                  } else {
+                    if (item.type === 'detail') itemsAfterTarget.push(item.id)
+                  }
+                })
+                
+                const reorderedDetails = [
+                  ...newDetails.filter(d => itemsBeforeTarget.includes(d.id)),
+                  newDetail,
+                  ...newDetails.filter(d => itemsAfterTarget.includes(d.id))
+                ]
+                setDetails(reorderedDetails)
+              }
+              
+              addInfoMessage('success', `Добавлена деталь: ${data.detailName}`)
+              setDraggedHeaderDetail(null)
+              setDraggedHeaderMaterial(null)
+              setDraggedHeaderOperation(null)
+              setDraggedHeaderEquipment(null)
+              return
             }
-            
-            addInfoMessage('success', `Добавлена деталь: ${data.detailName}`)
-            setDraggedHeaderDetail(null)
-            setDraggedHeaderMaterial(null)
-            setDraggedHeaderOperation(null)
-            setDraggedHeaderEquipment(null)
-            return
           }
         }
+      } catch (error) {
+        console.error('Drop error:', error)
       }
       
-      if (!draggedItem) return
-      
-      const allItems = getAllItemsInOrder()
-      const draggedIndex = allItems.findIndex(item => 
-        item.type === draggedItem.type && item.id === draggedItem.id
-      )
-      
-      if (draggedIndex === -1 || draggedIndex === targetIndex) return
-      
-      reorderItems(draggedIndex, targetIndex)
-    } catch (error) {
-      console.error('Drop error:', error)
+      setDraggedHeaderDetail(null)
+      setDraggedHeaderMaterial(null)
+      setDraggedHeaderOperation(null)
+      setDraggedHeaderEquipment(null)
+      return
     }
     
+    const allItems = getAllItemsInOrder()
+    const draggedIndex = allItems.findIndex(item => 
+      item.type === draggedItem.type && item.id === draggedItem.id
+    )
+    
+    if (draggedIndex === -1 || draggedIndex === targetIndex) {
+      setDraggedItem(null)
+      setIsReorderDragging(false)
+      return
+    }
+    
+    reorderItems(draggedIndex, targetIndex)
     setDraggedItem(null)
-    setDraggedHeaderDetail(null)
-    setDraggedHeaderMaterial(null)
-    setDraggedHeaderOperation(null)
-    setDraggedHeaderEquipment(null)
+    setIsReorderDragging(false)
   }
   
   const handleMainAreaDragOver = (e: React.DragEvent) => {
@@ -397,7 +421,32 @@ function App() {
   }
   
   const reorderItems = (fromIndex: number, toIndex: number) => {
-    console.log('Reorder:', fromIndex, toIndex)
+    const allItems = getAllItemsInOrder()
+    
+    if (fromIndex === toIndex) return
+    
+    const reorderedItems = [...allItems]
+    const [movedItem] = reorderedItems.splice(fromIndex, 1)
+    
+    const adjustedToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex
+    reorderedItems.splice(adjustedToIndex, 0, movedItem)
+    
+    const newDetails: Detail[] = []
+    const newBindings: Binding[] = []
+    
+    reorderedItems.forEach((item) => {
+      if (item.type === 'detail') {
+        const detail = (details || []).find(d => d.id === item.id)
+        if (detail) newDetails.push(detail)
+      } else {
+        const binding = (bindings || []).find(b => b.id === item.id)
+        if (binding) newBindings.push(binding)
+      }
+    })
+    
+    setDetails(newDetails)
+    setBindings(newBindings)
+    addInfoMessage('success', 'Порядок элементов изменён')
   }
 
   const handleCreateBinding = (index: number) => {
@@ -558,7 +607,7 @@ function App() {
               </div>
             )}
             
-            {allItems.length > 0 && (draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && (
+            {allItems.length > 0 && (draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || isReorderDragging) && (
               <div 
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
@@ -573,7 +622,7 @@ function App() {
                   "text-center text-sm",
                   dropTarget === 0 ? "text-accent-foreground font-medium" : "text-muted-foreground"
                 )}>
-                  {dropTarget === 0 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда"}
+                  {isReorderDragging ? "Перетащите деталь сюда" : (dropTarget === 0 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда")}
                 </p>
               </div>
             )}
@@ -589,6 +638,7 @@ function App() {
                     orderNumber={index + 1}
                     onDragStart={handleDragStart({ type: 'detail', index, id: item.id })}
                     onDragEnd={handleDragEnd}
+                    isDragging={isReorderDragging && draggedItem?.id === item.id}
                   />
                 ) : (
                   <BindingCard
@@ -612,10 +662,11 @@ function App() {
                     detailStartIndex={0}
                     onDragStart={handleDragStart({ type: 'binding', index, id: item.id })}
                     onDragEnd={handleDragEnd}
+                    isDragging={isReorderDragging && draggedItem?.id === item.id}
                   />
                 )}
                 
-                {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && (
+                {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || isReorderDragging) && (
                   <div 
                     className={cn(
                       "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",
@@ -630,12 +681,12 @@ function App() {
                       "text-center text-sm",
                       dropTarget === index + 1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
                     )}>
-                      {dropTarget === index + 1 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда"}
+                      {isReorderDragging ? "Перетащите деталь сюда" : (dropTarget === index + 1 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда")}
                     </p>
                   </div>
                 )}
                 
-                {index < allItems.length - 1 && !(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || draggedItem) && (
+                {index < allItems.length - 1 && !(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || draggedItem || isReorderDragging) && (
                   <div className="flex justify-center -my-3 z-10 relative" style={{ marginTop: '-12px', marginBottom: '-12px' }}>
                     <Button
                       variant="ghost"

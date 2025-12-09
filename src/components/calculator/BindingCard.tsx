@@ -21,6 +21,7 @@ interface BindingCardProps {
   detailStartIndex: number
   onDragStart?: (e: React.DragEvent) => void
   onDragEnd?: (e: React.DragEvent) => void
+  isDragging?: boolean
 }
 
 export function BindingCard({ 
@@ -36,7 +37,8 @@ export function BindingCard({
   orderNumber, 
   detailStartIndex,
   onDragStart,
-  onDragEnd
+  onDragEnd,
+  isDragging = false
 }: BindingCardProps) {
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !binding.isExpanded })
@@ -56,17 +58,36 @@ export function BindingCard({
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onUpdate({ name: e.target.value })
   }
+  
+  const handleDragHandleMouseDown = (e: React.MouseEvent) => {
+    const card = e.currentTarget.closest('[data-binding-card]') as HTMLElement
+    if (card) {
+      card.setAttribute('draggable', 'true')
+    }
+  }
+  
+  const handleDragHandleMouseUp = (e: React.MouseEvent) => {
+    const card = e.currentTarget.closest('[data-binding-card]') as HTMLElement
+    if (card) {
+      card.setAttribute('draggable', 'false')
+    }
+  }
 
   return (
     <Card 
-      className="overflow-hidden border-2 border-accent/30"
-      draggable={true}
+      data-binding-card
+      className={`overflow-hidden border-2 border-accent/30 ${isDragging ? 'opacity-50' : ''}`}
+      draggable={false}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      <div className="bg-accent/10 border-b border-border px-3 py-2 flex items-center justify-between cursor-grab active:cursor-grabbing">
+      <div className="bg-accent/10 border-b border-border px-3 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+          <div 
+            className="flex-shrink-0 w-5 h-5 flex items-center justify-center cursor-grab active:cursor-grabbing"
+            onMouseDown={handleDragHandleMouseDown}
+            onMouseUp={handleDragHandleMouseUp}
+          >
             <DotsSixVertical className="w-4 h-4 text-muted-foreground" />
           </div>
           <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
@@ -120,7 +141,7 @@ export function BindingCard({
         </div>
       </div>
 
-      {binding.isExpanded && (
+      {binding.isExpanded && !isDragging && (
         <div className="px-3 py-3 space-y-3">
           <div>
             <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Этапы скрепления</h4>
