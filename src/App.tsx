@@ -513,7 +513,7 @@ function App() {
     <div className="min-h-screen bg-background flex flex-col">
       <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
       
-      <div className="max-w-[1920px] mx-auto w-full flex flex-col min-h-screen">
+      <div className="w-full flex flex-col min-h-screen">
         <header className="border-b border-border bg-card">
           <HeaderSection 
             headerTabs={headerTabs || { materials: [], operations: [], equipment: [], details: [] }}
@@ -629,13 +629,11 @@ function App() {
 
         {isCalculating && (
           <div className="px-4 py-2 border-t border-border bg-card">
-            <div className="max-w-[1920px] mx-auto">
-              <div className="flex items-center gap-3">
-                <Progress value={calculationProgress} className="flex-1" />
-                <span className="text-sm font-medium min-w-[4rem] text-right">
-                  {calculationProgress}%
-                </span>
-              </div>
+            <div className="flex items-center gap-3">
+              <Progress value={calculationProgress} className="flex-1" />
+              <span className="text-sm font-medium min-w-[4rem] text-right">
+                {calculationProgress}%
+              </span>
             </div>
           </div>
         )}
@@ -682,7 +680,7 @@ function App() {
         )}
 
         <footer className="border-t border-border bg-card p-3">
-          <div className="max-w-[1920px] mx-auto flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <div className="flex gap-2">
               <Button 
                 variant={isGabVesActive ? "default" : "outline"} 
