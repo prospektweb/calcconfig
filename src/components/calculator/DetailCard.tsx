@@ -12,12 +12,11 @@ interface DetailCardProps {
   onDelete: () => void
   isInBinding?: boolean
   orderNumber: number
-  onDragStart?: (e: React.DragEvent) => void
-  onDragEnd?: (e: React.DragEvent) => void
+  onDragStart?: (element: HTMLElement, e: React.MouseEvent) => void
   isDragging?: boolean
 }
 
-export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, onDragEnd, isDragging = false }: DetailCardProps) {
+export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, isDragging = false }: DetailCardProps) {
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !detail.isExpanded })
   }
@@ -31,26 +30,18 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
   }
   
   const handleDragHandleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
     const card = e.currentTarget.closest('[data-detail-card]') as HTMLElement
-    if (card) {
-      card.setAttribute('draggable', 'true')
-    }
-  }
-  
-  const handleDragHandleMouseUp = (e: React.MouseEvent) => {
-    const card = e.currentTarget.closest('[data-detail-card]') as HTMLElement
-    if (card) {
-      card.setAttribute('draggable', 'false')
+    if (card && onDragStart) {
+      onDragStart(card, e)
     }
   }
 
   return (
     <Card 
       data-detail-card
-      className={`overflow-hidden transition-all ${isInBinding ? 'ml-4' : ''} ${isDragging ? 'opacity-50' : ''}`}
-      draggable={false}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      data-detail-id={detail.id}
+      className={`overflow-hidden transition-all ${isInBinding ? 'ml-4' : ''} ${isDragging ? 'invisible' : ''}`}
     >
       <div className="bg-primary/5 border-b border-border px-3 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -58,7 +49,6 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
             <div 
               className="flex-shrink-0 w-5 h-5 flex items-center justify-center cursor-grab active:cursor-grabbing"
               onMouseDown={handleDragHandleMouseDown}
-              onMouseUp={handleDragHandleMouseUp}
             >
               <DotsSixVertical className="w-4 h-4 text-muted-foreground" />
             </div>

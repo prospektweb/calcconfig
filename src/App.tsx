@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -37,6 +37,7 @@ import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { usePostMessage } from '@/hooks/use-postmessage'
 import { CalculatorState } from '@/lib/postmessage-bridge'
+import { useCustomDrag } from '@/hooks/use-custom-drag'
 
 type DragItem = {
   type: 'detail' | 'binding'
@@ -71,13 +72,10 @@ function App() {
   
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
-  const [draggedItem, setDraggedItem] = useState<DragItem | null>(null)
-  const [isReorderDragging, setIsReorderDragging] = useState(false)
   const [draggedHeaderDetail, setDraggedHeaderDetail] = useState<{id: number, name: string} | null>(null)
   const [draggedHeaderMaterial, setDraggedHeaderMaterial] = useState<{id: number, name: string} | null>(null)
   const [draggedHeaderOperation, setDraggedHeaderOperation] = useState<{id: number, name: string} | null>(null)
   const [draggedHeaderEquipment, setDraggedHeaderEquipment] = useState<{id: number, name: string} | null>(null)
-  const [dropTarget, setDropTarget] = useState<number | null>(null)
   const [isGabVesActive, setIsGabVesActive] = useState(false)
   const [isGabVesPanelExpanded, setIsGabVesPanelExpanded] = useState(false)
   const [gabVesMessages, setGabVesMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
@@ -89,6 +87,9 @@ function App() {
   const [isPriceActive, setIsPriceActive] = useState(false)
   const [isPricePanelExpanded, setIsPricePanelExpanded] = useState(false)
   const [priceMessages, setPriceMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
+
+  const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
+  const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
 
   const [costingSettings, setCostingSettings] = useKV<CostingSettings>('calc_costing_settings', {
     basedOn: 'COMPONENT_PURCHASE',
@@ -214,137 +215,78 @@ function App() {
     )
     sendMessage('BINDING_UPDATED', { bindingId, updates })
   }
-  
-  const handleDragStart = (item: DragItem) => (e: React.DragEvent) => {
-    setDraggedItem(item)
-    setIsReorderDragging(true)
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', JSON.stringify(item))
-    
-    if (item.type === 'detail') {
-      const detail = (details || []).find(d => d.id === item.id)
-      if (detail && detail.isExpanded) {
-        handleUpdateDetail(item.id, { isExpanded: false })
+
+  useEffect(() => {
+    if (!dragState.isDragging) return
+
+    const handleMouseUp = (e: MouseEvent) => {
+      const allItems = getAllItemsInOrder()
+      const draggedItemIndex = dragState.draggedItemId 
+        ? allItems.findIndex(item => 
+            item.type === dragState.draggedItemType && item.id === dragState.draggedItemId
+          )
+        : -1
+
+      if (dragState.dropTargetIndex !== null && draggedItemIndex !== -1) {
+        reorderItems(draggedItemIndex, dragState.dropTargetIndex)
+        endDrag(true)
+        addInfoMessage('success', 'Порядок элементов изменён')
+      } else {
+        cancelDrag()
       }
-    } else if (item.type === 'binding') {
-      const binding = (bindings || []).find(b => b.id === item.id)
-      if (binding && binding.isExpanded) {
-        handleUpdateBinding(item.id, { isExpanded: false })
-      }
     }
-  }
-  
-  const handleDragEnd = (e: React.DragEvent) => {
-    setDraggedItem(null)
-    setIsReorderDragging(false)
-    setDropTarget(null)
-  }
-  
-  const handleDragOver = (targetIndex: number) => (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    const dragData = e.dataTransfer.types.includes('application/json')
-    if (dragData || draggedItem) {
-      setDropTarget(targetIndex)
-    }
-  }
-  
-  const handleDropZoneDragOver = (targetIndex: number) => (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    if (isReorderDragging && draggedItem) {
-      setDropTarget(targetIndex)
-    }
-  }
-  
-  const handleDragLeave = (e: React.DragEvent) => {
-    if (e.currentTarget === e.target) {
-      setDropTarget(null)
-    }
-  }
-  
-  const handleDrop = (targetIndex: number) => (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDropTarget(null)
-    
-    if (!isReorderDragging || !draggedItem) {
-      try {
-        const jsonData = e.dataTransfer.getData('application/json')
-        if (jsonData) {
-          const data = JSON.parse(jsonData)
-          
-          if (data.type === 'header-detail') {
-            const detail = mockDetails.find(d => d.id === data.detailId)
-            if (detail) {
-              const newDetail = createEmptyDetail(data.detailName)
-              newDetail.width = detail.width
-              newDetail.length = detail.length
-              
-              const allItems = getAllItemsInOrder()
-              const newDetails = [...(details || [])]
-              const newBindings = [...(bindings || [])]
-              
-              if (targetIndex === 0) {
-                setDetails([newDetail, ...newDetails])
-              } else if (targetIndex >= allItems.length) {
-                setDetails([...newDetails, newDetail])
-              } else {
-                const itemsBeforeTarget: string[] = []
-                const itemsAfterTarget: string[] = []
-                
-                allItems.forEach((item, idx) => {
-                  if (idx < targetIndex) {
-                    if (item.type === 'detail') itemsBeforeTarget.push(item.id)
-                  } else {
-                    if (item.type === 'detail') itemsAfterTarget.push(item.id)
-                  }
-                })
-                
-                const reorderedDetails = [
-                  ...newDetails.filter(d => itemsBeforeTarget.includes(d.id)),
-                  newDetail,
-                  ...newDetails.filter(d => itemsAfterTarget.includes(d.id))
-                ]
-                setDetails(reorderedDetails)
-              }
-              
-              addInfoMessage('success', `Добавлена деталь: ${data.detailName}`)
-              setDraggedHeaderDetail(null)
-              setDraggedHeaderMaterial(null)
-              setDraggedHeaderOperation(null)
-              setDraggedHeaderEquipment(null)
-              return
-            }
-          }
+
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => document.removeEventListener('mouseup', handleMouseUp)
+  }, [dragState])
+
+  useEffect(() => {
+    if (!dragState.isDragging) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      let nearestDropZone: number | null = null
+      let minDistance = Infinity
+
+      dropZoneRefs.current.forEach((element, index) => {
+        const rect = element.getBoundingClientRect()
+        const centerY = rect.top + rect.height / 2
+        const distance = Math.abs(e.clientY - centerY)
+        
+        if (distance < minDistance && distance < 100) {
+          minDistance = distance
+          nearestDropZone = index
         }
-      } catch (error) {
-        console.error('Drop error:', error)
-      }
-      
-      setDraggedHeaderDetail(null)
-      setDraggedHeaderMaterial(null)
-      setDraggedHeaderOperation(null)
-      setDraggedHeaderEquipment(null)
-      return
+      })
+
+      setDropTarget(nearestDropZone)
     }
-    
-    const allItems = getAllItemsInOrder()
-    const draggedIndex = allItems.findIndex(item => 
-      item.type === draggedItem.type && item.id === draggedItem.id
-    )
-    
-    if (draggedIndex === -1 || draggedIndex === targetIndex) {
-      setDraggedItem(null)
-      setIsReorderDragging(false)
-      return
+
+    document.addEventListener('mousemove', handleMouseMove)
+    return () => document.removeEventListener('mousemove', handleMouseMove)
+  }, [dragState.isDragging, setDropTarget])
+  
+  const handleDetailDragStart = (element: HTMLElement, e: React.MouseEvent) => {
+    const detailId = element.getAttribute('data-detail-id')
+    if (!detailId) return
+
+    const detail = (details || []).find(d => d.id === detailId)
+    if (detail && detail.isExpanded) {
+      handleUpdateDetail(detailId, { isExpanded: false })
     }
-    
-    reorderItems(draggedIndex, targetIndex)
-    setDraggedItem(null)
-    setIsReorderDragging(false)
+
+    startDrag(detailId, 'detail', element, e.clientX, e.clientY)
+  }
+  
+  const handleBindingDragStart = (element: HTMLElement, e: React.MouseEvent) => {
+    const bindingId = element.getAttribute('data-binding-id')
+    if (!bindingId) return
+
+    const binding = (bindings || []).find(b => b.id === bindingId)
+    if (binding && binding.isExpanded) {
+      handleUpdateBinding(bindingId, { isExpanded: false })
+    }
+
+    startDrag(bindingId, 'binding', element, e.clientX, e.clientY)
   }
   
   const handleMainAreaDragOver = (e: React.DragEvent) => {
@@ -563,10 +505,59 @@ function App() {
   }
   
   const allItems = getAllItemsInOrder()
+  
+  const getDraggedElement = () => {
+    if (!dragState.isDragging || !dragState.draggedItemId || !dragState.initialPosition) return null
+    
+    const item = allItems.find(i => i.id === dragState.draggedItemId)
+    if (!item) return null
+    
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          left: dragState.dragPosition.x,
+          top: dragState.dragPosition.y,
+          width: dragState.initialPosition.width,
+          zIndex: 9999,
+          pointerEvents: 'none',
+          opacity: 0.9,
+        }}
+      >
+        {item.type === 'detail' ? (
+          <DetailCard
+            detail={item.item as Detail}
+            onUpdate={() => {}}
+            onDelete={() => {}}
+            isInBinding={false}
+            orderNumber={allItems.findIndex(i => i.id === item.id) + 1}
+            isDragging={false}
+          />
+        ) : (
+          <BindingCard
+            binding={item.item as Binding}
+            details={(details || []).filter(d => (item.item as Binding).detailIds?.includes(d.id))}
+            bindings={(bindings || []).filter(b => (item.item as Binding).bindingIds?.includes(b.id))}
+            allDetails={details || []}
+            allBindings={bindings || []}
+            onUpdate={() => {}}
+            onDelete={() => {}}
+            onUpdateDetail={() => {}}
+            onUpdateBinding={() => {}}
+            orderNumber={allItems.findIndex(i => i.id === item.id) + 1}
+            detailStartIndex={0}
+            isDragging={false}
+          />
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      
+      {dragState.isDragging && getDraggedElement()}
       
       <div className="w-full flex flex-col min-h-screen">
         <header className="border-b border-border bg-card">
@@ -607,62 +598,26 @@ function App() {
               </div>
             )}
             
-            {allItems.length > 0 && (draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && (
+            {dragState.isDragging && allItems.length > 0 && (
               <div 
+                ref={(el) => { if (el) dropZoneRefs.current.set(0, el) }}
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
-                  dropTarget === 0 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
+                  dragState.dropTargetIndex === 0 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
                 )}
                 style={{ height: '43px' }}
-                onDragOver={handleDropZoneDragOver(0)}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop(0)}
               >
                 <p className={cn(
                   "text-center text-sm",
-                  dropTarget === 0 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                  dragState.dropTargetIndex === 0 ? "text-accent-foreground font-medium" : "text-muted-foreground"
                 )}>
-                  {dropTarget === 0 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда"}
+                  Перетащите деталь сюда
                 </p>
               </div>
             )}
             
-            {allItems.length > 1 && isReorderDragging && draggedItem && (() => {
-              const draggedIndex = allItems.findIndex(item => 
-                item.type === draggedItem.type && item.id === draggedItem.id
-              )
-              const isFirst = draggedIndex === 0
-              const isLast = draggedIndex === allItems.length - 1
-              
-              const showBefore = isLast || (!isFirst && !isLast)
-              
-              return showBefore ? (
-                <div 
-                  className={cn(
-                    "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
-                    dropTarget === 0 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
-                  )}
-                  style={{ height: '43px' }}
-                  onDragOver={handleDropZoneDragOver(0)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop(0)}
-                >
-                  <p className={cn(
-                    "text-center text-sm",
-                    dropTarget === 0 ? "text-accent-foreground font-medium" : "text-muted-foreground"
-                  )}>
-                    Перетащите деталь сюда
-                  </p>
-                </div>
-              ) : null
-            })()}
-            
             {allItems.map((item, index) => {
-              const draggedIdx = isReorderDragging && draggedItem ? allItems.findIndex(i => 
-                i.type === draggedItem.type && i.id === draggedItem.id
-              ) : -1
-              const isFirstDragged = draggedIdx === 0
-              const isLastDragged = draggedIdx === allItems.length - 1
+              const isDraggingThis = dragState.isDragging && dragState.draggedItemId === item.id
               
               return (
               <div key={item.id}>
@@ -673,9 +628,8 @@ function App() {
                     onDelete={() => handleDeleteDetail(item.id)}
                     isInBinding={false}
                     orderNumber={index + 1}
-                    onDragStart={handleDragStart({ type: 'detail', index, id: item.id })}
-                    onDragEnd={handleDragEnd}
-                    isDragging={isReorderDragging && draggedItem?.id === item.id}
+                    onDragStart={handleDetailDragStart}
+                    isDragging={isDraggingThis}
                   />
                 ) : (
                   <BindingCard
@@ -697,65 +651,30 @@ function App() {
                     onUpdateBinding={handleUpdateBinding}
                     orderNumber={index + 1}
                     detailStartIndex={0}
-                    onDragStart={handleDragStart({ type: 'binding', index, id: item.id })}
-                    onDragEnd={handleDragEnd}
-                    isDragging={isReorderDragging && draggedItem?.id === item.id}
+                    onDragStart={handleBindingDragStart}
+                    isDragging={isDraggingThis}
                   />
                 )}
                 
-                {(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && (
+                {dragState.isDragging && (
                   <div 
+                    ref={(el) => { if (el) dropZoneRefs.current.set(index + 1, el) }}
                     className={cn(
                       "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",
-                      dropTarget === index + 1 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
+                      dragState.dropTargetIndex === index + 1 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
                     )}
                     style={{ height: '43px' }}
-                    onDragOver={handleDropZoneDragOver(index + 1)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop(index + 1)}
                   >
                     <p className={cn(
                       "text-center text-sm",
-                      dropTarget === index + 1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                      dragState.dropTargetIndex === index + 1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
                     )}>
-                      {dropTarget === index + 1 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда"}
+                      Перетащите деталь сюда
                     </p>
                   </div>
                 )}
                 
-                {allItems.length > 1 && isReorderDragging && draggedItem && draggedIdx !== -1 && (() => {
-                  let showAfterCurrent = false
-                  
-                  if (isFirstDragged) {
-                    showAfterCurrent = index >= draggedIdx
-                  } else if (isLastDragged) {
-                    showAfterCurrent = false
-                  } else {
-                    showAfterCurrent = index >= draggedIdx
-                  }
-                  
-                  return showAfterCurrent ? (
-                    <div 
-                      className={cn(
-                        "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",
-                        dropTarget === index + 1 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
-                      )}
-                      style={{ height: '43px' }}
-                      onDragOver={handleDropZoneDragOver(index + 1)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop(index + 1)}
-                    >
-                      <p className={cn(
-                        "text-center text-sm",
-                        dropTarget === index + 1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
-                      )}>
-                        Перетащите деталь сюда
-                      </p>
-                    </div>
-                  ) : null
-                })()}
-                
-                {index < allItems.length - 1 && !(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment || draggedItem || isReorderDragging) && (
+                {index < allItems.length - 1 && !dragState.isDragging && !(draggedHeaderDetail || draggedHeaderMaterial || draggedHeaderOperation || draggedHeaderEquipment) && (
                   <div className="flex justify-center -my-3 z-10 relative" style={{ marginTop: '-12px', marginBottom: '-12px' }}>
                     <Button
                       variant="ghost"
