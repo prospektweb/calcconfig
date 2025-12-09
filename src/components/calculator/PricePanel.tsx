@@ -227,7 +227,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                     </div>
 
                     <div className="space-y-2">
-                      <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
                           <Checkbox
                             id={`pretty-price-${priceType}`}
