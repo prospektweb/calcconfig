@@ -619,6 +619,10 @@ function App() {
             {allItems.map((item, index) => {
               const isDraggingThis = dragState.isDragging && dragState.draggedItemId === item.id
               
+              if (isDraggingThis) {
+                return null
+              }
+              
               return (
               <div key={item.id}>
                 {item.type === 'detail' ? (
