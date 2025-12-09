@@ -458,7 +458,7 @@ function App() {
     }
     
     setIsCalculating(false)
-    addInfoMessage('success', 'Полный расчёт завершён. Итого себестоимость: 1,250.00 руб')
+    addInfoMessage('success', 'П��лный расчёт завершён. Итого себ��стоимость: 1,250.00 руб')
     toast.success('Расчёт завершён успешно')
     sendMessage('CALCULATION_COMPLETE', { type: 'full', result: { cost: 1250.00 } })
   }
