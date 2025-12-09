@@ -92,6 +92,8 @@ function App() {
   const [costingSettings, setCostingSettings] = useKV<CostingSettings>('calc_costing_settings', {
     basedOn: 'COMPONENT_PURCHASE',
     roundingStep: 1,
+    markupValue: 0,
+    markupUnit: 'RUB',
   })
 
   const [salePricesSettings, setSalePricesSettings] = useKV<SalePricesSettings>('calc_sale_prices_settings', {
@@ -664,7 +666,7 @@ function App() {
             messages={costMessages}
             isExpanded={isCostPanelExpanded}
             onToggle={() => setIsCostPanelExpanded(!isCostPanelExpanded)}
-            settings={costingSettings || { basedOn: 'COMPONENT_PURCHASE', roundingStep: 1 }}
+            settings={costingSettings || { basedOn: 'COMPONENT_PURCHASE', roundingStep: 1, markupValue: 0, markupUnit: 'RUB' }}
             onSettingsChange={(newSettings) => setCostingSettings(newSettings)}
           />
         )}

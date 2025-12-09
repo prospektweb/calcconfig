@@ -71,6 +71,8 @@ export interface PriceTypeSettings {
 export interface CostingSettings {
   basedOn: CostingBasedOn
   roundingStep: RoundingStep
+  markupValue?: number
+  markupUnit?: MarkupUnit
 }
 
 export interface SalePricesSettings {
