@@ -294,8 +294,20 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                         <Badge
                           key={material.id}
                           variant="secondary"
-                          className="px-3 py-2 flex items-center gap-2 hover:bg-accent hover:text-accent-foreground transition-colors group"
+                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.effectAllowed = 'copy'
+                            e.dataTransfer.setData('application/json', JSON.stringify({ 
+                              type: 'header-material', 
+                              materialId: material.id,
+                              materialName: material.name
+                            }))
+                          }}
                         >
+                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                            <DotsSixVertical className="w-4 h-4" />
+                          </div>
                           <span className="font-mono text-xs">[{material.id}]</span>
                           <span className="font-medium">{material.name}</span>
                           <Button

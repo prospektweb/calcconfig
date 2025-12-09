@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, X, DotsSixVertical } from '@phosphor-icons/react'
+import { Plus, X, DotsSixVertical, Package } from '@phosphor-icons/react'
 import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
 import { mockCalculators, mockCalculatorGroups, mockOperations, mockEquipment, mockMaterials } from '@/lib/mock-data'
 import { MultiLevelSelect } from './MultiLevelSelect'
@@ -39,6 +39,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
   const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
+  const [materialDropZoneHover, setMaterialDropZoneHover] = useState<number | null>(null)
   
   const safeCalculators = calculators || []
 
@@ -317,6 +318,52 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                             })}
                             placeholder="Выберите материал..."
                           />
+                        </div>
+                        <div
+                          className={cn(
+                            "w-[60px] h-10 border-2 border-dashed rounded flex items-center justify-center flex-shrink-0 transition-all",
+                            materialDropZoneHover === index
+                              ? "border-accent bg-accent/10"
+                              : "border-border bg-muted/30"
+                          )}
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setMaterialDropZoneHover(index)
+                          }}
+                          onDragLeave={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setMaterialDropZoneHover(null)
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setMaterialDropZoneHover(null)
+                            
+                            try {
+                              const jsonData = e.dataTransfer.getData('application/json')
+                              if (jsonData) {
+                                const data = JSON.parse(jsonData)
+                                
+                                if (data.type === 'header-material') {
+                                  handleUpdateCalculator(index, { 
+                                    materialId: data.materialId 
+                                  })
+                                }
+                              }
+                            } catch (error) {
+                              console.error('Material drop error:', error)
+                            }
+                          }}
+                          title="Перетащите материал из шапки сюда"
+                        >
+                          <Package className={cn(
+                            "w-5 h-5",
+                            materialDropZoneHover === index 
+                              ? "text-accent-foreground" 
+                              : "text-muted-foreground"
+                          )} />
                         </div>
                         {calculatorDef.fields.material?.quantityField && (
                           <div className="flex gap-1 items-center">
