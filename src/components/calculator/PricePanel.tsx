@@ -205,82 +205,80 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                   <div key={priceType} className="border border-border rounded-lg p-3 space-y-3 bg-muted/20">
                     <h3 className="font-medium text-sm">{priceTypeLabel}</h3>
 
-                    <div className="space-y-2">
-                      <Label htmlFor={`correction-base-${priceType}`}>Коррекция на основе</Label>
-                      <Select 
-                        value={typeSettings.correctionBase} 
-                        onValueChange={(value: CorrectionBase) => 
-                          updatePriceTypeSettings(priceType, { correctionBase: value })
-                        }
-                      >
-                        <SelectTrigger id={`correction-base-${priceType}`} className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CORRECTION_BASE_OPTIONS.map(option => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor={`correction-base-${priceType}`} className="whitespace-nowrap">Коррекция на основе</Label>
+                        <Select 
+                          value={typeSettings.correctionBase} 
+                          onValueChange={(value: CorrectionBase) => 
+                            updatePriceTypeSettings(priceType, { correctionBase: value })
+                          }
+                        >
+                          <SelectTrigger id={`correction-base-${priceType}`} className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CORRECTION_BASE_OPTIONS.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            id={`pretty-price-${priceType}`}
-                            checked={typeSettings.prettyPriceEnabled}
-                            onCheckedChange={(checked) => 
-                              updatePriceTypeSettings(priceType, { 
-                                prettyPriceEnabled: checked as boolean,
-                                prettyPriceCommonLimitEnabled: false,
-                              })
-                            }
-                          />
-                          <Label htmlFor={`pretty-price-${priceType}`} className="cursor-pointer">
-                            Подбор "красивой" цены
-                          </Label>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`pretty-price-${priceType}`}
+                          checked={typeSettings.prettyPriceEnabled}
+                          onCheckedChange={(checked) => 
+                            updatePriceTypeSettings(priceType, { 
+                              prettyPriceEnabled: checked as boolean,
+                              prettyPriceCommonLimitEnabled: false,
+                            })
+                          }
+                        />
+                        <Label htmlFor={`pretty-price-${priceType}`} className="cursor-pointer whitespace-nowrap">
+                          Подбор "красивой" цены
+                        </Label>
+                      </div>
 
-                        {typeSettings.prettyPriceEnabled && (
-                          <>
+                      {typeSettings.prettyPriceEnabled && (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id={`common-limit-${priceType}`}
+                              checked={typeSettings.prettyPriceCommonLimitEnabled}
+                              onCheckedChange={(checked) => 
+                                updatePriceTypeSettings(priceType, { 
+                                  prettyPriceCommonLimitEnabled: checked as boolean 
+                                })
+                              }
+                            />
+                            <Label htmlFor={`common-limit-${priceType}`} className="cursor-pointer whitespace-nowrap">
+                              Общее ограничение
+                            </Label>
+                          </div>
+
+                          {typeSettings.prettyPriceCommonLimitEnabled && (
                             <div className="flex items-center gap-2">
-                              <Checkbox
-                                id={`common-limit-${priceType}`}
-                                checked={typeSettings.prettyPriceCommonLimitEnabled}
-                                onCheckedChange={(checked) => 
+                              <Input
+                                type="number"
+                                value={typeSettings.prettyPriceCommonLimitRub}
+                                onChange={(e) => 
                                   updatePriceTypeSettings(priceType, { 
-                                    prettyPriceCommonLimitEnabled: checked as boolean 
+                                    prettyPriceCommonLimitRub: parseFloat(e.target.value) || 100 
                                   })
                                 }
+                                className="w-24"
+                                min={0}
+                                step={1}
                               />
-                              <Label htmlFor={`common-limit-${priceType}`} className="cursor-pointer">
-                                Общее ограничение
-                              </Label>
+                              <span className="text-sm text-muted-foreground">руб.</span>
                             </div>
-
-                            {typeSettings.prettyPriceCommonLimitEnabled && (
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  value={typeSettings.prettyPriceCommonLimitRub}
-                                  onChange={(e) => 
-                                    updatePriceTypeSettings(priceType, { 
-                                      prettyPriceCommonLimitRub: parseFloat(e.target.value) || 100 
-                                    })
-                                  }
-                                  className="w-24"
-                                  min={0}
-                                  step={1}
-                                />
-                                <span className="text-sm text-muted-foreground">руб.</span>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
+                          )}
+                        </>
+                      )}
                     </div>
 
                     <div className="space-y-2">
