@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -18,6 +18,8 @@ import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
 import { mockCalculators, mockCalculatorGroups, mockOperations, mockEquipment, mockMaterials } from '@/lib/mock-data'
 import { MultiLevelSelect } from './MultiLevelSelect'
 import { operationsHierarchy, materialsHierarchy, calculatorsHierarchy, equipmentHierarchy } from '@/lib/hierarchical-data'
+import { useCustomDrag } from '@/hooks/use-custom-drag'
+import { cn } from '@/lib/utils'
 
 interface CalculatorTabsProps {
   calculators: CalculatorInstance[]
@@ -34,6 +36,9 @@ const TAB_COLORS = [
 
 export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
   const [activeTab, setActiveTab] = useState(0)
+  const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
+  const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
+  const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
   
   const safeCalculators = calculators || []
 
@@ -58,6 +63,68 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
     onChange(newCalculators)
   }
 
+  const reorderStages = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return
+    
+    const reorderedCalculators = [...safeCalculators]
+    const [movedItem] = reorderedCalculators.splice(fromIndex, 1)
+    
+    const adjustedToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex
+    reorderedCalculators.splice(adjustedToIndex, 0, movedItem)
+    
+    onChange(reorderedCalculators)
+    setActiveTab(adjustedToIndex)
+  }
+
+  const handleStageDragStart = (element: HTMLElement, e: React.MouseEvent, index: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const calcId = safeCalculators[index]?.id
+    if (!calcId) return
+    startDrag(calcId, 'stage', element, e.clientX, e.clientY)
+  }
+
+  useEffect(() => {
+    if (!dragState.isDragging || dragState.draggedItemType !== 'stage') return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      let nearestDropZone: number | null = null
+      let minDistance = Infinity
+
+      tabRefs.current.forEach((element, index) => {
+        const rect = element.getBoundingClientRect()
+        const centerX = rect.left + rect.width / 2
+        const distance = Math.abs(e.clientX - centerX)
+        
+        if (distance < minDistance && distance < 100) {
+          minDistance = distance
+          nearestDropZone = index
+        }
+      })
+
+      setDropTarget(nearestDropZone)
+    }
+
+    const handleMouseUp = (e: MouseEvent) => {
+      const draggedIndex = safeCalculators.findIndex(calc => calc.id === dragState.draggedItemId)
+      
+      if (dragState.dropTargetIndex !== null && draggedIndex !== -1) {
+        reorderStages(draggedIndex, dragState.dropTargetIndex)
+        endDrag(true)
+      } else {
+        cancelDrag()
+      }
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [dragState, safeCalculators, setDropTarget, endDrag, cancelDrag])
+
   const getCalculatorByCode = (code: string | null) => {
     return mockCalculators.find(c => c.code === code)
   }
@@ -78,32 +145,55 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
       <Tabs value={activeTab.toString()} onValueChange={(v) => setActiveTab(parseInt(v))}>
         <div className="flex items-center gap-2">
           <TabsList className="flex-1 justify-start overflow-x-auto bg-muted/30">
-            {safeCalculators.map((calc, index) => (
-              <div key={calc.id} className="relative flex items-center">
-                <TabsTrigger 
-                  value={index.toString()} 
-                  className="pr-8 gap-1 data-[state=active]:bg-muted-foreground/80 data-[state=active]:text-primary-foreground"
-                >
-                  <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                    <DotsSixVertical className="w-3.5 h-3.5" />
-                  </div>
-                  Этап #{index + 1}
-                </TabsTrigger>
-                {safeCalculators.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-1 h-5 w-5 p-0 rounded-full hover:bg-destructive hover:text-destructive-foreground z-10"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRemoveCalculator(index)
-                    }}
+            {safeCalculators.map((calc, index) => {
+              const isDraggingThis = dragState.isDragging && dragState.draggedItemId === calc.id
+              const isDropTarget = dragState.dropTargetIndex === index
+              
+              return (
+                <div key={calc.id} className="relative flex items-center">
+                  <div
+                    data-tab-item
+                    ref={(el) => { if (el) tabRefs.current.set(index, el) }}
+                    className={cn(
+                      "relative transition-all",
+                      isDraggingThis && "opacity-30",
+                      isDropTarget && "ring-2 ring-accent rounded"
+                    )}
                   >
-                    <X className="w-3.5 h-3.5" />
-                  </Button>
-                )}
-              </div>
-            ))}
+                    <TabsTrigger 
+                      value={index.toString()} 
+                      className="pr-8 gap-1 data-[state=active]:bg-muted-foreground/80 data-[state=active]:text-primary-foreground"
+                    >
+                      <div 
+                        className="w-4 h-4 flex items-center justify-center flex-shrink-0 cursor-grab active:cursor-grabbing"
+                        onMouseDown={(e) => {
+                          const tabElement = e.currentTarget.closest('[data-tab-item]') as HTMLElement
+                          if (tabElement) {
+                            handleStageDragStart(tabElement, e, index)
+                          }
+                        }}
+                      >
+                        <DotsSixVertical className="w-3.5 h-3.5" />
+                      </div>
+                      Этап #{index + 1}
+                    </TabsTrigger>
+                    {safeCalculators.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 h-5 w-5 p-0 rounded-full hover:bg-destructive hover:text-destructive-foreground z-10"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRemoveCalculator(index)
+                        }}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
             <Button
               variant="outline"
               size="sm"
@@ -114,6 +204,25 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
             </Button>
           </TabsList>
         </div>
+
+        {dragState.isDragging && dragState.draggedItemType === 'stage' && dragState.draggedItemId && (
+          <div
+            style={{
+              position: 'fixed',
+              left: dragState.dragPosition.x,
+              top: dragState.dragPosition.y,
+              width: dragState.initialPosition?.width || 120,
+              zIndex: 9999,
+              pointerEvents: 'none',
+              opacity: 0.9,
+            }}
+          >
+            <div className="px-3 py-2 bg-muted-foreground/80 text-primary-foreground rounded flex items-center gap-1">
+              <DotsSixVertical className="w-3.5 h-3.5" />
+              Этап #{safeCalculators.findIndex(calc => calc.id === dragState.draggedItemId) + 1}
+            </div>
+          </div>
+        )}
 
         {safeCalculators.map((calc, index) => {
           const calculatorDef = getCalculatorByCode(calc.calculatorCode)

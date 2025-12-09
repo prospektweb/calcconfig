@@ -8,7 +8,7 @@ interface DragPosition {
 interface DragState {
   isDragging: boolean
   draggedItemId: string | null
-  draggedItemType: 'detail' | 'binding' | null
+  draggedItemType: 'detail' | 'binding' | 'stage' | null
   dragPosition: DragPosition
   initialPosition: DOMRect | null
   dropTargetIndex: number | null
@@ -29,7 +29,7 @@ export function useCustomDrag() {
 
   const startDrag = useCallback((
     itemId: string,
-    itemType: 'detail' | 'binding',
+    itemType: 'detail' | 'binding' | 'stage',
     element: HTMLElement,
     clientX: number,
     clientY: number
