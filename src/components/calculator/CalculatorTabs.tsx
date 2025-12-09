@@ -87,7 +87,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                   <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
                     <DotsSixVertical className="w-3.5 h-3.5" />
                   </div>
-                  #{index + 1}
+                  Шаг #{index + 1}
                 </TabsTrigger>
                 {safeCalculators.length > 1 && (
                   <Button
