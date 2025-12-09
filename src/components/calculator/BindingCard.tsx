@@ -123,7 +123,7 @@ export function BindingCard({
       {binding.isExpanded && (
         <div className="px-3 py-3 space-y-3">
           <div>
-            <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Калькуляторы скрепления</h4>
+            <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Этапы скрепления</h4>
             <CalculatorTabs
               calculators={binding.calculators || []}
               onChange={(calculators) => onUpdate({ calculators })}
@@ -194,7 +194,7 @@ export function BindingCard({
 
           {binding.hasFinishing && (
             <div>
-              <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Калькуляторы финишной обработки</h4>
+              <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Этапы финишной обработки</h4>
               <CalculatorTabs
                 calculators={binding.finishingCalculators || []}
                 onChange={(finishingCalculators) => onUpdate({ finishingCalculators })}
