@@ -125,71 +125,75 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
               value={index.toString()} 
               className="space-y-4 mt-4 border rounded-lg p-2 bg-card"
             >
-              <div className="space-y-2">
-                <MultiLevelSelect
-                  items={calculatorsHierarchy}
-                  value={calc.calculatorCode || null}
-                  onValueChange={(value) => handleUpdateCalculator(index, { 
-                    calculatorCode: value,
-                    operationId: null,
-                    equipmentId: null,
-                    materialId: null,
-                  })}
-                  placeholder="Выберите калькулятор..."
-                />
+              <div className="flex gap-2 items-start">
+                <div className="flex-1 space-y-2">
+                  <Label>Калькулятор</Label>
+                  <MultiLevelSelect
+                    items={calculatorsHierarchy}
+                    value={calc.calculatorCode || null}
+                    onValueChange={(value) => handleUpdateCalculator(index, { 
+                      calculatorCode: value,
+                      operationId: null,
+                      equipmentId: null,
+                      materialId: null,
+                    })}
+                    placeholder="Выберите калькулятор..."
+                  />
+                </div>
+
+                {calculatorDef && calculatorDef.fields?.operation?.visible && (
+                  <div className="flex-1 space-y-2">
+                    <Label>Операция</Label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <MultiLevelSelect
+                          items={operationsHierarchy}
+                          value={calc.operationId?.toString() || null}
+                          onValueChange={(value) => handleUpdateCalculator(index, { 
+                            operationId: parseInt(value),
+                            equipmentId: null,
+                          })}
+                          placeholder="Выберите операцию..."
+                        />
+                      </div>
+                      {calculatorDef.fields.operation?.quantityField && (
+                        <div className="flex gap-1 items-center">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={calc.operationQuantity}
+                            onChange={(e) => handleUpdateCalculator(index, { 
+                              operationQuantity: parseInt(e.target.value) || 1 
+                            })}
+                            className="w-20 max-w-[80px]"
+                          />
+                          <span className="text-sm text-muted-foreground w-[40px] text-right">
+                            ед.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {calculatorDef && calculatorDef.fields?.equipment?.visible && (
+                  <div className="flex-1 space-y-2">
+                    <Label>Оборудование</Label>
+                    <MultiLevelSelect
+                      items={equipmentHierarchy}
+                      value={calc.equipmentId?.toString() || null}
+                      onValueChange={(value) => handleUpdateCalculator(index, { 
+                        equipmentId: parseInt(value) 
+                      })}
+                      placeholder="Выберите оборудование..."
+                      disabled={!calc.operationId}
+                    />
+                  </div>
+                )}
               </div>
 
               {calculatorDef && (
                 <>
-                  {calculatorDef.fields?.operation?.visible && (
-                    <div className="space-y-2">
-                      <Label>Операция</Label>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <MultiLevelSelect
-                            items={operationsHierarchy}
-                            value={calc.operationId?.toString() || null}
-                            onValueChange={(value) => handleUpdateCalculator(index, { 
-                              operationId: parseInt(value),
-                              equipmentId: null,
-                            })}
-                            placeholder="Выберите операцию..."
-                          />
-                        </div>
-                        {calculatorDef.fields.operation?.quantityField && (
-                          <div className="flex gap-1 items-center">
-                            <Input
-                              type="number"
-                              min="1"
-                              value={calc.operationQuantity}
-                              onChange={(e) => handleUpdateCalculator(index, { 
-                                operationQuantity: parseInt(e.target.value) || 1 
-                              })}
-                              className="w-20 max-w-[80px]"
-                            />
-                            <span className="text-sm text-muted-foreground w-[40px] text-right">
-                              ед.
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {calculatorDef.fields?.equipment?.visible && (
-                    <div className="space-y-2">
-                      <Label>Оборудование</Label>
-                      <MultiLevelSelect
-                        items={equipmentHierarchy}
-                        value={calc.equipmentId?.toString() || null}
-                        onValueChange={(value) => handleUpdateCalculator(index, { 
-                          equipmentId: parseInt(value) 
-                        })}
-                        placeholder="Выберите оборудование..."
-                        disabled={!calc.operationId}
-                      />
-                    </div>
-                  )}
 
                   {calculatorDef.fields?.material?.visible && (
                     <div className="space-y-2">
