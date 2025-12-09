@@ -179,7 +179,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
             <div className="px-4 py-3 space-y-4">
               <div className="space-y-2">
                 <Label>Типы цен</Label>
-                <div className="space-y-2">
+                <div className="flex items-center gap-4">
                   {PRICE_TYPE_OPTIONS.map(option => (
                     <div key={option.value} className="flex items-center gap-2">
                       <Checkbox
