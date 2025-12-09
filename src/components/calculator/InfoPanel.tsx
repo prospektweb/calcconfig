@@ -49,51 +49,49 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
 
   return (
     <div className="border-t border-border bg-card">
-      <div className="max-w-[1920px] mx-auto">
-        <button
-          onClick={onToggle}
-          className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
-        >
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Badge className="bg-success text-success-foreground flex-shrink-0">{messages.length}</Badge>
-            <span className="text-sm font-medium flex-shrink-0">Информация</span>
-            {lastMessage && (
-              <>
-                <span className="text-sm text-muted-foreground flex-1 text-left ml-2 truncate">
-                  {lastMessage.message}
-                </span>
-                <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
-                  {formatTimestamp(lastMessage.timestamp)}
-                </span>
-              </>
+      <button
+        onClick={onToggle}
+        className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Badge className="bg-success text-success-foreground flex-shrink-0">{messages.length}</Badge>
+          <span className="text-sm font-medium flex-shrink-0">Информация</span>
+          {lastMessage && (
+            <>
+              <span className="text-sm text-muted-foreground flex-1 text-left ml-2 truncate">
+                {lastMessage.message}
+              </span>
+              <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                {formatTimestamp(lastMessage.timestamp)}
+              </span>
+            </>
+          )}
+        </div>
+        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 ml-2">
+          {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
+        </div>
+      </button>
+      
+      {isExpanded && (
+        <ScrollArea className="h-[150px] px-4 pb-2">
+          <div className="space-y-1">
+            {messages.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">Нет сообщений</p>
+            ) : (
+              messages.map(msg => (
+                <div key={msg.id} className="flex items-start gap-2 py-1">
+                  <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+                    <Badge className={getMessageColor(msg.type)}>
+                      {getMessageIcon(msg.type)}
+                    </Badge>
+                  </div>
+                  <span className="text-sm flex-1">{msg.message}</span>
+                </div>
+              ))
             )}
           </div>
-          <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 ml-2">
-            {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
-          </div>
-        </button>
-        
-        {isExpanded && (
-          <ScrollArea className="h-[150px] px-4 pb-2">
-            <div className="space-y-1">
-              {messages.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-2">Нет сообщений</p>
-              ) : (
-                messages.map(msg => (
-                  <div key={msg.id} className="flex items-start gap-2 py-1">
-                    <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
-                      <Badge className={getMessageColor(msg.type)}>
-                        {getMessageIcon(msg.type)}
-                      </Badge>
-                    </div>
-                    <span className="text-sm flex-1">{msg.message}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        )}
-      </div>
+        </ScrollArea>
+      )}
     </div>
   )
 }

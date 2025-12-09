@@ -158,25 +158,24 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
 
   return (
     <div id="panel-sale-prices" className="border-t border-border bg-card">
-      <div className="max-w-[1920px] mx-auto">
-        <button
-          onClick={onToggle}
-          className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
-        >
-          <span className="text-sm font-medium flex items-center gap-2">
-            <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-              <Tag className="w-4 h-4" />
-            </div>
-            Отпускные цены
-          </span>
-          <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-            {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
+      <button
+        onClick={onToggle}
+        className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
+      >
+        <span className="text-sm font-medium flex items-center gap-2">
+          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+            <Tag className="w-4 h-4" />
           </div>
-        </button>
-        
-        {isExpanded && (
-          <div className="border-t border-border overflow-y-scroll scrollbar-gutter-stable" style={{ maxHeight: '500px' }}>
-            <div className="px-4 py-3 space-y-4">
+          Отпускные цены
+        </span>
+        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+          {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
+        </div>
+      </button>
+      
+      {isExpanded && (
+        <div className="border-t border-border overflow-y-scroll scrollbar-gutter-stable" style={{ maxHeight: '500px' }}>
+          <div className="px-4 py-3 space-y-4">
               <div className="space-y-2">
                 <Label>Типы цен</Label>
                 <div className="flex items-center gap-4">
@@ -419,7 +418,6 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
             </div>
           </div>
         )}
-      </div>
     </div>
   )
 }

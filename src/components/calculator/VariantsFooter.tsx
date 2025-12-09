@@ -55,70 +55,68 @@ export function VariantsFooter({
 
   return (
     <div className="border-t border-border bg-card px-4 py-2">
-      <div className="max-w-[1920px] mx-auto">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium whitespace-nowrap">Торговые предложения:</span>
-          <div className={`flex gap-2 flex-wrap flex-1 ${!isExpanded && selectedVariantIds.length > 5 ? 'max-h-8 overflow-hidden' : ''}`}>
-            {selectedVariantIds.map(id => {
-              const isTest = testVariantId === id
-              const variantName = getVariantName(id)
-              
-              return (
-                <div key={id} className="group relative">
-                  <Badge
-                    variant={isTest ? "default" : "secondary"}
-                    className={`
-                      px-2 py-1 flex items-center gap-1.5 cursor-pointer transition-colors text-xs
-                      ${isTest ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-accent-foreground'}
-                    `}
-                    onClick={() => handleVariantClick(id)}
-                    title={variantName}
-                  >
-                    <span className="font-mono">{id}</span>
-                    {isTest && <span className="text-[10px]">TEST</span>}
-                    <div className="hidden group-hover:flex items-center gap-0.5 ml-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 hover:bg-accent hover:text-accent-foreground"
-                        onClick={(e) => handleOpenVariant(id, e)}
-                      >
-                        <ArrowSquareOut className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={(e) => handleRemoveVariant(id, e)}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </Badge>
-                </div>
-              )
-            })}
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleAddVariant}
-            className="h-7 px-3"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Выбрать
-          </Button>
-          {selectedVariantIds.length > 5 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="h-7 w-7 p-0 hover:bg-accent hover:text-accent-foreground"
-            >
-              {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
-            </Button>
-          )}
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium whitespace-nowrap">Торговые предложения:</span>
+        <div className={`flex gap-2 flex-wrap flex-1 ${!isExpanded && selectedVariantIds.length > 5 ? 'max-h-8 overflow-hidden' : ''}`}>
+          {selectedVariantIds.map(id => {
+            const isTest = testVariantId === id
+            const variantName = getVariantName(id)
+            
+            return (
+              <div key={id} className="group relative">
+                <Badge
+                  variant={isTest ? "default" : "secondary"}
+                  className={`
+                    px-2 py-1 flex items-center gap-1.5 cursor-pointer transition-colors text-xs
+                    ${isTest ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-accent-foreground'}
+                  `}
+                  onClick={() => handleVariantClick(id)}
+                  title={variantName}
+                >
+                  <span className="font-mono">{id}</span>
+                  {isTest && <span className="text-[10px]">TEST</span>}
+                  <div className="hidden group-hover:flex items-center gap-0.5 ml-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 hover:bg-accent hover:text-accent-foreground"
+                      onClick={(e) => handleOpenVariant(id, e)}
+                    >
+                      <ArrowSquareOut className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={(e) => handleRemoveVariant(id, e)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </Badge>
+              </div>
+            )
+          })}
         </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleAddVariant}
+          className="h-7 px-3"
+        >
+          <Plus className="w-4 h-4 mr-1" />
+          Выбрать
+        </Button>
+        {selectedVariantIds.length > 5 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="h-7 w-7 p-0 hover:bg-accent hover:text-accent-foreground"
+          >
+            {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
+          </Button>
+        )}
       </div>
     </div>
   )
