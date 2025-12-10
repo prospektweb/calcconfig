@@ -1,5 +1,18 @@
 import { Material, Work, Equipment, DetailVariant } from './mock-data'
 
+export interface ProductVariant {
+  id: number
+  name: string
+  editUrl: string  // URL для открытия в админке Битрикс
+}
+
+export interface BitrixConfig {
+  skuIblockId: number
+  productIblockId: number
+  siteUrl: string
+  adminUrl: string
+}
+
 export type HeaderTabType = 'materials' | 'operations' | 'equipment' | 'details'
 
 export interface HeaderElement {
@@ -81,7 +94,7 @@ export interface SalePricesSettings {
 }
 
 export interface AppState {
-  selectedVariantIds: number[]
+  variants: ProductVariant[]
   testVariantId: number | null
   isEditingTestId: boolean
   headerTabs: {
@@ -100,6 +113,7 @@ export interface AppState {
   isFullscreen: boolean
   costingSettings?: CostingSettings
   salePricesSettings?: SalePricesSettings
+  bitrixConfig?: BitrixConfig
 }
 
 export const createEmptyCalculator = (): CalculatorInstance => ({

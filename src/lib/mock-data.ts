@@ -1,9 +1,10 @@
 export interface ProductVariant {
   id: number
   name: string
-  tirage: number
-  width: number
-  length: number
+  editUrl: string
+  tirage?: number
+  width?: number
+  length?: number
 }
 
 export interface Material {
@@ -83,6 +84,7 @@ export interface CalculatorGroup {
 export const mockProductVariants: ProductVariant[] = Array.from({ length: 100 }, (_, i) => ({
   id: 525 + i,
   name: `Календарь А3 ${100 * (i + 1)}шт`,
+  editUrl: `#/bitrix/admin/iblock_element_edit.php?ID=${525 + i}`,
   tirage: 100 * (i + 1),
   width: 297,
   length: 420,

@@ -81,11 +81,21 @@ export function usePostMessage(options: UsePostMessageOptions = {}) {
     postMessageBridge.requestState()
   }, [])
 
+  const sendVariantRemove = useCallback((variantIds: number[]) => {
+    postMessageBridge.sendMessage('VARIANT_REMOVE', { variantIds })
+  }, [])
+
+  const sendVariantSelectRequest = useCallback(() => {
+    postMessageBridge.sendMessage('VARIANT_SELECT_REQUEST', {})
+  }, [])
+
   return {
     syncState,
     syncStateImmediate,
     sendMessage,
     subscribe,
     requestState,
+    sendVariantRemove,
+    sendVariantSelectRequest,
   }
 }

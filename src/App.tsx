@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocalKV } from '@/hooks/useLocalKV'
+import { usePostMessage } from '@/hooks/use-postmessage'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -17,10 +18,12 @@ import {
   Detail, 
   Binding,
   InfoMessage,
+  ProductVariant,
+  BitrixConfig,
   createEmptyDetail,
   createEmptyBinding
 } from '@/lib/types'
-import { mockDetails } from '@/lib/mock-data'
+import { mockDetails, mockProductVariants } from '@/lib/mock-data'
 import { HeaderSection } from '@/components/calculator/HeaderSection'
 import { VariantsFooter } from '@/components/calculator/VariantsFooter'
 import { DetailCard } from '@/components/calculator/DetailCard'
@@ -37,8 +40,15 @@ type DragItem = {
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [selectedVariantIds] = useState<number[]>(Array.from({ length: 15 }, (_, i) => 525 + i))
+  
+  // Initialize with mock variants for demo
+  const [variants, setVariants] = useState<ProductVariant[]>(
+    mockProductVariants.slice(0, 15)
+  )
   const [testVariantId, setTestVariantId] = useState<number | null>(525)
+  const [bitrixConfig, setBitrixConfig] = useState<BitrixConfig | null>(null)
+  
+  const { subscribe, sendVariantRemove, sendVariantSelectRequest } = usePostMessage()
   
   const [headerTabs, setHeaderTabs] = useLocalKV<AppState['headerTabs']>('calc_header_tabs', {
     materials: [],
@@ -59,6 +69,26 @@ function App() {
   useEffect(() => {
     localStorage.setItem('calc_info_panel_expanded', isInfoPanelExpanded.toString())
   }, [isInfoPanelExpanded])
+  
+  // Listen for incoming messages from Bitrix
+  useEffect(() => {
+    const unsubscribeConfig = subscribe('CONFIG_RESPONSE', (data: BitrixConfig) => {
+      setBitrixConfig(data)
+      addInfoMessage('info', 'Получены настройки модуля от Битрикс')
+    })
+    
+    const unsubscribeVariants = subscribe('VARIANTS_DATA', (data: { variants: ProductVariant[] }) => {
+      if (data && data.variants) {
+        setVariants(data.variants)
+        addInfoMessage('info', `Получены данные торговых предложений: ${data.variants.length} шт.`)
+      }
+    })
+    
+    return () => {
+      unsubscribeConfig()
+      unsubscribeVariants()
+    }
+  }, [subscribe])
   
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
@@ -89,6 +119,21 @@ function App() {
       message,
     }
     setGabVesMessages((prev) => [...prev, newMessage])
+  }
+
+  const handleRemoveVariant = (id: number) => {
+    setVariants(prev => prev.filter(v => v.id !== id))
+    sendVariantRemove([id])
+    addInfoMessage('warning', `Удалён вариант ID: ${id}`)
+    if (testVariantId === id) {
+      setTestVariantId(null)
+    }
+  }
+
+  const handleSelectVariants = () => {
+    sendVariantSelectRequest()
+    toast.info('Открытие меню выбора торговых предложений Битрикс')
+    addInfoMessage('info', 'Отправлен запрос на открытие диалога выбора ТП')
   }
 
   const handleAddDetail = () => {
@@ -497,10 +542,12 @@ function App() {
         )}
 
         <VariantsFooter
-          selectedVariantIds={selectedVariantIds}
+          variants={variants}
           testVariantId={testVariantId}
           setTestVariantId={setTestVariantId}
           addInfoMessage={addInfoMessage}
+          onRemoveVariant={handleRemoveVariant}
+          onSelectVariants={handleSelectVariants}
         />
 
         <InfoPanel

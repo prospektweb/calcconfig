@@ -5,6 +5,10 @@ export type MessageType =
   | 'STATE_UPDATE'
   | 'STATE_REQUEST'
   | 'STATE_RESPONSE'
+  | 'CONFIG_RESPONSE'
+  | 'VARIANTS_DATA'
+  | 'VARIANT_REMOVE'
+  | 'VARIANT_SELECT_REQUEST'
   | 'VARIANT_SELECTED'
   | 'DETAIL_ADDED'
   | 'DETAIL_UPDATED'
@@ -25,7 +29,7 @@ export interface PostMessagePayload {
 }
 
 export interface CalculatorState {
-  selectedVariantIds: number[]
+  variants: number[]  // Keep as number[] for backward compatibility
   testVariantId: number | null
   headerTabs: {
     materials: HeaderElement[]
