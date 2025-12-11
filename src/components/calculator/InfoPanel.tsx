@@ -80,7 +80,7 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
               <p className="text-sm text-muted-foreground py-2">Нет сообщений</p>
             ) : (
               messages.map(msg => (
-                <div key={msg.id} className="flex items-start gap-2 py-1" data-pwcode={`info-msg-${msg.id}`}>
+                <div key={msg.id} className="flex items-start gap-2 py-1" data-pwcode="info-msg">
                   <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
                     <Badge className={getMessageColor(msg.type)}>
                       {getMessageIcon(msg.type)}

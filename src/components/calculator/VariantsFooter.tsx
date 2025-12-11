@@ -72,7 +72,7 @@ export function VariantsFooter({
                   `}
                   onClick={() => handleVariantClick(id)}
                   title={variantName}
-                  data-pwcode={`offer-badge-${id}`}
+                  data-pwcode="offer-badge"
                 >
                   <span className="font-mono">{id}</span>
                   {isTest && <span className="text-[10px]">TEST</span>}
@@ -82,7 +82,7 @@ export function VariantsFooter({
                       size="sm"
                       className="h-4 w-4 p-0 hover:bg-accent hover:text-accent-foreground"
                       onClick={(e) => handleOpenVariant(id, e)}
-                      data-pwcode="openoffer"
+                      data-pwcode="btn-open-offer"
                     >
                       <ArrowSquareOut className="w-3 h-3" />
                     </Button>
@@ -91,7 +91,7 @@ export function VariantsFooter({
                       size="sm"
                       className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
                       onClick={(e) => handleRemoveVariant(id, e)}
-                      data-pwcode={`btn-remove-offer-${id}`}
+                      data-pwcode="btn-remove-offer"
                     >
                       <X className="w-3 h-3" />
                     </Button>

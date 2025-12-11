@@ -42,7 +42,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
       data-detail-card
       data-detail-id={detail.id}
       className={`overflow-hidden transition-all ${isInBinding ? 'ml-4' : ''} ${isDragging ? 'invisible' : ''}`}
-      data-pwcode={`detail-card-${detail.id}`}
+      data-pwcode="detail-card"
     >
       <div className="bg-primary/5 border-b border-border px-3 py-2 flex items-center justify-between" data-pwcode="detail-header">
         <div className="flex items-center gap-2 flex-1 min-w-0">

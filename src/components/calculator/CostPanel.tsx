@@ -155,7 +155,7 @@ export function CostPanel({ messages, isExpanded, onToggle, settings, onSettings
                 <ScrollArea className="h-[100px]">
                   <div className="space-y-1">
                     {messages.map(msg => (
-                      <div key={msg.id} className="flex items-start gap-2 py-1" data-pwcode={`cost-msg-${msg.id}`}>
+                      <div key={msg.id} className="flex items-start gap-2 py-1" data-pwcode="cost-msg">
                         <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
                           <Badge className="bg-accent text-accent-foreground">
                             <CurrencyDollar className="w-3.5 h-3.5" />

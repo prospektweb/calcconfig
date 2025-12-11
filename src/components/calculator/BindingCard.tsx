@@ -70,7 +70,7 @@ export function BindingCard({
       data-binding-card
       data-binding-id={binding.id}
       className={`overflow-hidden border-2 border-accent/30 ${isDragging ? 'invisible' : ''}`}
-      data-pwcode={`binding-card-${binding.id}`}
+      data-pwcode="binding-card"
     >
       <div className="bg-accent/10 border-b border-border px-3 py-2 flex items-center justify-between" data-pwcode="binding-header">
         <div className="flex items-center gap-2 flex-1 min-w-0">

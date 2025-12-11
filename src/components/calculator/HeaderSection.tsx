@@ -229,14 +229,14 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
         </div>
 
         {(['details', 'materials', 'operations', 'equipment'] as HeaderTabType[]).map(tabType => (
-          <TabsContent key={tabType} value={tabType} className="mt-0 border-t border-border" data-pwcode={`tabcontent-${tabType}`}>
-            <div className="px-4 py-2 bg-muted/30 flex gap-2" data-pwcode={`tab-actions-${tabType}`}>
+          <TabsContent key={tabType} value={tabType} className="mt-0 border-t border-border" data-pwcode="tabcontent">
+            <div className="px-4 py-2 bg-muted/30 flex gap-2" data-pwcode="tab-actions">
               <Button 
                 variant="link" 
                 size="sm" 
                 className="h-auto p-0 text-[10px]" 
                 onClick={handleSelectClick}
-                data-pwcode={`btn-select-${tabType}`}
+                data-pwcode="btn-select"
               >
                 Выбрать
               </Button>
@@ -246,7 +246,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                 size="sm" 
                 className="h-auto p-0 text-[10px]" 
                 onClick={handleCatalogClick}
-                data-pwcode={`btn-catalog-${tabType}`}
+                data-pwcode="btn-catalog"
               >
                 Каталог
               </Button>
@@ -256,7 +256,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                 size="sm" 
                 className="h-auto p-0 text-destructive text-[10px]" 
                 onClick={handleResetTab}
-                data-pwcode={`btn-reset-${tabType}`}
+                data-pwcode="btn-reset"
               >
                 Сбросить
               </Button>
@@ -275,7 +275,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                           draggable
                           onDragStart={handleDetailDragStart(detail.id, detail.name)}
                           onDragEnd={handleDetailDragEnd()}
-                          data-pwcode={`header-detail-${detail.id}`}
+                          data-pwcode="header-detail"
                         >
                           <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
                             <DotsSixVertical className="w-4 h-4" />
@@ -291,7 +291,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               e.stopPropagation()
                               window.open(`#detail-${detail.id}`, '_blank')
                             }}
-                            data-pwcode="openoffer"
+                            data-pwcode="btn-open-header-detail"
                           >
                             <ArrowSquareOut className="w-3.5 h-3.5" />
                           </Button>
@@ -302,7 +302,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             onClick={(e) => {
                               e.stopPropagation()
                             }}
-                            data-pwcode={`btn-delete-header-detail-${detail.id}`}
+                            data-pwcode="btn-delete-header-detail"
                           >
                             <X className="w-3.5 h-3.5" />
                           </Button>
@@ -327,7 +327,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               materialName: material.name
                             }))
                           }}
-                          data-pwcode={`header-material-${material.id}`}
+                          data-pwcode="header-material"
                         >
                           <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
                             <DotsSixVertical className="w-4 h-4" />
@@ -342,7 +342,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               e.stopPropagation()
                               window.open(`#material-${material.id}`, '_blank')
                             }}
-                            data-pwcode={`btn-open-material-${material.id}`}
+                            data-pwcode="btn-open-material"
                           >
                             <ArrowSquareOut className="w-3.5 h-3.5" />
                           </Button>
@@ -353,7 +353,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             onClick={(e) => {
                               e.stopPropagation()
                             }}
-                            data-pwcode={`btn-delete-material-${material.id}`}
+                            data-pwcode="btn-delete-material"
                           >
                             <X className="w-3.5 h-3.5" />
                           </Button>
@@ -378,7 +378,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               operationName: operation.name
                             }))
                           }}
-                          data-pwcode={`header-operation-${operation.id}`}
+                          data-pwcode="header-operation"
                         >
                           <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
                             <DotsSixVertical className="w-4 h-4" />
@@ -393,7 +393,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               e.stopPropagation()
                               window.open(`#operation-${operation.id}`, '_blank')
                             }}
-                            data-pwcode={`btn-open-operation-${operation.id}`}
+                            data-pwcode="btn-open-operation"
                           >
                             <ArrowSquareOut className="w-3.5 h-3.5" />
                           </Button>
@@ -404,7 +404,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             onClick={(e) => {
                               e.stopPropagation()
                             }}
-                            data-pwcode={`btn-delete-operation-${operation.id}`}
+                            data-pwcode="btn-delete-operation"
                           >
                             <X className="w-3.5 h-3.5" />
                           </Button>
@@ -429,7 +429,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               equipmentName: equipment.name
                             }))
                           }}
-                          data-pwcode={`header-equipment-${equipment.id}`}
+                          data-pwcode="header-equipment"
                         >
                           <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
                             <DotsSixVertical className="w-4 h-4" />
@@ -444,7 +444,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               e.stopPropagation()
                               window.open(`#equipment-${equipment.id}`, '_blank')
                             }}
-                            data-pwcode={`btn-open-equipment-${equipment.id}`}
+                            data-pwcode="btn-open-equipment"
                           >
                             <ArrowSquareOut className="w-3.5 h-3.5" />
                           </Button>
@@ -455,7 +455,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             onClick={(e) => {
                               e.stopPropagation()
                             }}
-                            data-pwcode={`btn-delete-equipment-${equipment.id}`}
+                            data-pwcode="btn-delete-equipment"
                           >
                             <X className="w-3.5 h-3.5" />
                           </Button>

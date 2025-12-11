@@ -162,7 +162,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                       isDraggingThis && "opacity-30",
                       isDropTarget && "ring-2 ring-accent rounded"
                     )}
-                    data-pwcode={`stage-tab-${index}`}
+                    data-pwcode="stage-tab"
                   >
                     <TabsTrigger 
                       value={index.toString()} 
@@ -176,7 +176,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                             handleStageDragStart(tabElement, e, index)
                           }
                         }}
-                        data-pwcode={`stage-drag-handle-${index}`}
+                        data-pwcode="stage-drag-handle"
                       >
                         <DotsSixVertical className="w-3.5 h-3.5" />
                       </div>
@@ -191,7 +191,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                           e.stopPropagation()
                           handleRemoveCalculator(index)
                         }}
-                        data-pwcode={`btn-remove-stage-${index}`}
+                        data-pwcode="btn-remove-stage"
                       >
                         <X className="w-3.5 h-3.5" />
                       </Button>
@@ -240,7 +240,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
               key={calc.id} 
               value={index.toString()} 
               className="space-y-4 mt-4 border rounded-lg p-2 bg-card"
-              data-pwcode={`stage-content-${index}`}
+              data-pwcode="stage-content"
             >
               <div className="flex gap-2 items-start">
                 <div className="flex-1 space-y-2">
@@ -255,7 +255,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                       materialId: null,
                     })}
                     placeholder="Выберите калькулятор..."
-                    data-pwcode={`select-calculator-${index}`}
+                    data-pwcode="select-calculator"
                   />
                 </div>
 
@@ -272,7 +272,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                             equipmentId: null,
                           })}
                           placeholder="Выберите операцию..."
-                          data-pwcode={`select-operation-${index}`}
+                          data-pwcode="select-operation"
                         />
                       </div>
                       <div

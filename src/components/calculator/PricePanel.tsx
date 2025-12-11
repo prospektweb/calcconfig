@@ -190,7 +190,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                         id={`price-type-${option.value}`}
                         checked={settings.selectedTypes.includes(option.value)}
                         onCheckedChange={(checked) => handleTypeSelection(option.value, checked as boolean)}
-                        data-pwcode={`checkbox-pricetype-${option.value}`}
+                        data-pwcode="checkbox-pricetype"
                       />
                       <Label htmlFor={`price-type-${option.value}`} className="cursor-pointer">
                         {option.label}
@@ -207,7 +207,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                 const priceTypeLabel = PRICE_TYPE_OPTIONS.find(o => o.value === priceType)?.label || priceType
 
                 return (
-                  <div key={priceType} className="border border-border rounded-lg p-3 space-y-3 bg-muted/20" data-pwcode={`price-type-block-${priceType}`}>
+                  <div key={priceType} className="border border-border rounded-lg p-3 space-y-3 bg-muted/20" data-pwcode="price-type-block">
                     <h3 className="font-medium text-sm">{priceTypeLabel}</h3>
 
                     <div className="flex items-center gap-3 flex-wrap">
@@ -219,7 +219,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                             updatePriceTypeSettings(priceType, { correctionBase: value })
                           }
                         >
-                          <SelectTrigger id={`correction-base-${priceType}`} className="w-32" data-pwcode={`select-correction-${priceType}`}>
+                          <SelectTrigger id={`correction-base-${priceType}`} className="w-32" data-pwcode="select-correction">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -242,7 +242,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                               prettyPriceCommonLimitEnabled: false,
                             })
                           }
-                          data-pwcode={`checkbox-prettyprice-${priceType}`}
+                          data-pwcode="checkbox-prettyprice"
                         />
                         <Label htmlFor={`pretty-price-${priceType}`} className="cursor-pointer whitespace-nowrap">
                           Подбор "красивой" цены
@@ -260,7 +260,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                   prettyPriceCommonLimitEnabled: checked as boolean 
                                 })
                               }
-                              data-pwcode={`checkbox-commonlimit-${priceType}`}
+                              data-pwcode="checkbox-commonlimit"
                             />
                             <Label htmlFor={`common-limit-${priceType}`} className="cursor-pointer whitespace-nowrap">
                               Общее ограничение
@@ -280,7 +280,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                 className="w-24"
                                 min={0}
                                 step={1}
-                                data-pwcode={`input-commonlimit-${priceType}`}
+                                data-pwcode="input-commonlimit"
                               />
                               <span className="text-sm text-muted-foreground">руб.</span>
                             </div>
@@ -297,7 +297,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                           const isFirst = index === 0
 
                           return (
-                            <div key={index} className="flex items-center gap-2 flex-wrap text-sm" data-pwcode={`price-range-${priceType}-${index}`}>
+                            <div key={index} className="flex items-center gap-2 flex-wrap text-sm" data-pwcode="price-range">
                               <span className="text-muted-foreground">от</span>
                               <Input
                                 type="number"
@@ -318,7 +318,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                 disabled={isFirst}
                                 className="w-24"
                                 min={1}
-                                data-pwcode={`input-range-from-${priceType}-${index}`}
+                                data-pwcode="input-range-from"
                               />
 
                               <span className="text-muted-foreground">до</span>
@@ -327,7 +327,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                 value={to === null ? '∞' : to.toString()}
                                 disabled
                                 className="w-24"
-                                data-pwcode={`input-range-to-${priceType}-${index}`}
+                                data-pwcode="input-range-to"
                               />
 
                               <span className="text-muted-foreground">применить наценку</span>
@@ -342,7 +342,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                 className="w-24"
                                 min={0}
                                 step={0.1}
-                                data-pwcode={`input-markup-value-${priceType}-${index}`}
+                                data-pwcode="input-markup-value"
                               />
 
                               <Select 
@@ -351,7 +351,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                   updateRange(priceType, index, { markupUnit: value })
                                 }
                               >
-                                <SelectTrigger className="w-20" data-pwcode={`select-markup-unit-${priceType}-${index}`}>
+                                <SelectTrigger className="w-20" data-pwcode="select-markup-unit">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -377,7 +377,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                     className="w-24"
                                     min={0}
                                     step={1}
-                                    data-pwcode={`input-prettylimit-${priceType}-${index}`}
+                                    data-pwcode="input-prettylimit"
                                   />
                                   <span className="text-muted-foreground">руб.</span>
                                 </>
@@ -389,7 +389,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                 onClick={() => addRange(priceType, index)}
                                 className="h-8 w-8 p-0"
                                 title="Добавить диапазон"
-                                data-pwcode={`btn-add-range-${priceType}-${index}`}
+                                data-pwcode="btn-add-range"
                               >
                                 <Plus className="w-4 h-4" />
                               </Button>
@@ -401,7 +401,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                   onClick={() => removeRange(priceType, index)}
                                   className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
                                   title="Удалить диапазон"
-                                  data-pwcode={`btn-remove-range-${priceType}-${index}`}
+                                  data-pwcode="btn-remove-range"
                                 >
                                   <Trash className="w-4 h-4" />
                                 </Button>
