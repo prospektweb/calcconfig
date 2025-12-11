@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useKV } from '@github/spark/hooks'
+import { useConfigKV } from '@/hooks/use-config-kv'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -36,6 +36,8 @@ import { CostPanel } from '@/components/calculator/CostPanel'
 import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
+import { initializeBitrixStore, getBitrixStore, getDeployTarget } from '@/services/configStore'
+import { postMessageBridge } from '@/lib/postmessage-bridge'
 
 type DragItem = {
   type: 'detail' | 'binding'
@@ -48,15 +50,15 @@ function App() {
   const [selectedVariantIds] = useState<number[]>(Array.from({ length: 15 }, (_, i) => 525 + i))
   const [testVariantId, setTestVariantId] = useState<number | null>(525)
   
-  const [headerTabs, setHeaderTabs] = useKV<AppState['headerTabs']>('calc_header_tabs', {
+  const [headerTabs, setHeaderTabs] = useConfigKV<AppState['headerTabs']>('calc_header_tabs', {
     materials: [],
     operations: [],
     equipment: [],
     details: [],
   })
   
-  const [details, setDetails] = useKV<Detail[]>('calc_details', [])
-  const [bindings, setBindings] = useKV<Binding[]>('calc_bindings', [])
+  const [details, setDetails] = useConfigKV<Detail[]>('calc_details', [])
+  const [bindings, setBindings] = useConfigKV<Binding[]>('calc_bindings', [])
   
   const [infoMessages, setInfoMessages] = useState<InfoMessage[]>([])
   const [isInfoPanelExpanded, setIsInfoPanelExpanded] = useState(() => {
@@ -89,17 +91,54 @@ function App() {
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
 
-  const [costingSettings, setCostingSettings] = useKV<CostingSettings>('calc_costing_settings', {
+  const [costingSettings, setCostingSettings] = useConfigKV<CostingSettings>('calc_costing_settings', {
     basedOn: 'COMPONENT_PURCHASE',
     roundingStep: 1,
     markupValue: 0,
     markupUnit: 'RUB',
   })
 
-  const [salePricesSettings, setSalePricesSettings] = useKV<SalePricesSettings>('calc_sale_prices_settings', {
+  const [salePricesSettings, setSalePricesSettings] = useConfigKV<SalePricesSettings>('calc_sale_prices_settings', {
     selectedTypes: [],
     types: {},
   })
+  
+  useEffect(() => {
+    const deployTarget = getDeployTarget()
+    
+    if (deployTarget === 'bitrix') {
+      const unsubscribe = postMessageBridge.on('INIT', (message) => {
+        const bitrixStore = getBitrixStore()
+        if (bitrixStore && message.payload) {
+          initializeBitrixStore(message.payload)
+          
+          if (message.payload.config?.data) {
+            const configData = message.payload.config.data
+            if (configData.details) {
+              setDetails(configData.details)
+            }
+            if (configData.bindings) {
+              setBindings(configData.bindings)
+            }
+            if (configData.costingSettings) {
+              setCostingSettings(configData.costingSettings)
+            }
+            if (configData.salePricesSettings) {
+              setSalePricesSettings(configData.salePricesSettings)
+            }
+          }
+          
+          postMessageBridge.sendInitDone(
+            message.payload.mode || 'NEW_CONFIG',
+            message.payload.selectedOffers?.length || 0
+          )
+        }
+      })
+      
+      return unsubscribe
+    }
+  }, [])
+  
   const addInfoMessage = (type: InfoMessage['type'], message: string) => {
     const newMessage: InfoMessage = {
       id: `msg_${Date.now()}`,
