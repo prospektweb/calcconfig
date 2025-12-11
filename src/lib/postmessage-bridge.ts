@@ -1,46 +1,121 @@
-import { AppState, Detail, Binding, HeaderElement } from './types'
+import { AppState, Detail, Binding, HeaderElement, CostingSettings, SalePricesSettings } from './types'
 
 export type MessageType = 
+  | 'READY'
   | 'INIT'
-  | 'STATE_UPDATE'
-  | 'STATE_REQUEST'
-  | 'STATE_RESPONSE'
-  | 'VARIANT_SELECTED'
-  | 'DETAIL_ADDED'
-  | 'DETAIL_UPDATED'
-  | 'DETAIL_DELETED'
-  | 'BINDING_CREATED'
-  | 'BINDING_UPDATED'
-  | 'BINDING_DELETED'
-  | 'CALCULATION_START'
-  | 'CALCULATION_PROGRESS'
-  | 'CALCULATION_COMPLETE'
+  | 'INIT_DONE'
+  | 'CALC_PREVIEW'
+  | 'SAVE_REQUEST'
+  | 'SAVE_RESULT'
   | 'ERROR'
+  | 'CLOSE_REQUEST'
 
-export interface PostMessagePayload {
+export type MessageSource = 'prospektweb.calc' | 'bitrix'
+
+export interface PwrtMessage {
+  source: MessageSource
+  target: MessageSource
   type: MessageType
-  data?: any
+  requestId?: string
+  payload?: any
   timestamp?: number
-  error?: string
 }
 
-export interface CalculatorState {
-  selectedVariantIds: number[]
-  testVariantId: number | null
-  headerTabs: {
-    materials: HeaderElement[]
-    operations: HeaderElement[]
-    equipment: HeaderElement[]
-    details: HeaderElement[]
+export interface InitPayload {
+  mode: 'NEW_CONFIG' | 'EXISTING_CONFIG'
+  context: {
+    siteId: string
+    userId: string
+    lang: 'ru' | 'en'
+    timestamp: number
   }
+  iblocks: {
+    materials: number
+    operations: number
+    equipment: number
+    details: number
+    calculators: number
+    configurations: number
+  }
+  selectedOffers: Array<{
+    id: number
+    productId: number
+    name: string
+    fields?: Record<string, any>
+  }>
+  config?: {
+    id: number
+    name: string
+    data: ConfigData
+  }
+}
+
+export interface ConfigData {
   details: Detail[]
   bindings: Binding[]
+  costingSettings?: CostingSettings
+  salePricesSettings?: SalePricesSettings
+}
+
+export interface CalcPreviewPayload {
+  type: 'test' | 'full'
+  results: Array<{
+    offerId: number
+    dimensions?: {
+      width: number
+      length: number
+      height: number
+      weight: number
+    }
+    cost?: {
+      materials: number
+      operations: number
+      equipment: number
+      total: number
+    }
+    prices?: Record<string, number>
+    errors?: string[]
+  }>
+  summary: {
+    totalCost: number
+    calculatedAt: number
+  }
+}
+
+export interface SaveRequestPayload {
+  configuration: {
+    name: string
+    data: ConfigData
+  }
+  offerUpdates: Array<{
+    offerId: number
+    fields?: Record<string, any>
+    prices?: Record<string, number>
+    properties?: Record<string, any>
+    comments?: string
+  }>
+  mode: 'NEW_CONFIG' | 'EXISTING_CONFIG'
+  configId?: number
+}
+
+export interface SaveResultPayload {
+  status: 'ok' | 'error' | 'partial'
+  configId?: number
+  successOffers?: number[]
+  errors?: Array<{
+    offerId: number
+    message: string
+    code?: string
+  }>
+  message?: string
 }
 
 class PostMessageBridge {
   private targetOrigin: string = '*'
-  private listeners: Map<MessageType, Set<(data: any) => void>> = new Map()
+  private listeners: Map<MessageType | '*', Set<(message: PwrtMessage) => void>> = new Map()
   private isInitialized = false
+  private protocolVersion = '1.0.0'
+  private protocolCode = 'pwrt-v1'
 
   constructor() {
     this.initializeListener()
@@ -51,28 +126,29 @@ class PostMessageBridge {
 
     window.addEventListener('message', (event: MessageEvent) => {
       try {
-        const payload = event.data as PostMessagePayload
+        const message = event.data as PwrtMessage
         
-        if (!payload || !payload.type) return
+        if (!message || !message.type) return
+        if (message.target !== 'prospektweb.calc') return
 
-        console.log('[PostMessageBridge] Received:', payload.type, payload.data)
+        console.log('[PostMessageBridge] Received:', message.type, message.payload)
 
-        const listeners = this.listeners.get(payload.type)
+        const listeners = this.listeners.get(message.type)
         if (listeners) {
           listeners.forEach(callback => {
             try {
-              callback(payload.data)
+              callback(message)
             } catch (error) {
               console.error('[PostMessageBridge] Listener error:', error)
             }
           })
         }
 
-        const allListeners = this.listeners.get('*' as MessageType)
+        const allListeners = this.listeners.get('*')
         if (allListeners) {
           allListeners.forEach(callback => {
             try {
-              callback(payload)
+              callback(message)
             } catch (error) {
               console.error('[PostMessageBridge] All listener error:', error)
             }
@@ -84,58 +160,91 @@ class PostMessageBridge {
     })
 
     this.isInitialized = true
-    this.sendMessage('INIT', { ready: true })
+    this.sendReady()
   }
 
   setTargetOrigin(origin: string) {
     this.targetOrigin = origin
   }
 
-  sendMessage(type: MessageType, data?: any) {
+  private sendMessage(type: MessageType, payload?: any, requestId?: string) {
     if (typeof window === 'undefined') return
 
-    const payload: PostMessagePayload = {
+    const message: PwrtMessage = {
+      source: 'prospektweb.calc',
+      target: 'bitrix',
       type,
-      data,
+      payload,
       timestamp: Date.now(),
     }
 
-    console.log('[PostMessageBridge] Sending:', type, data)
+    if (requestId) {
+      message.requestId = requestId
+    }
+
+    console.log('[PostMessageBridge] Sending:', type, payload)
 
     if (window.parent && window.parent !== window) {
-      window.parent.postMessage(payload, this.targetOrigin)
+      window.parent.postMessage(message, this.targetOrigin)
     } else {
-      window.postMessage(payload, this.targetOrigin)
+      window.postMessage(message, this.targetOrigin)
     }
   }
 
-  sendError(error: string, data?: any) {
-    this.sendMessage('ERROR', { error, ...data })
+  sendReady() {
+    this.sendMessage('READY', {
+      version: this.protocolVersion,
+      protocol: this.protocolCode,
+      timestamp: Date.now(),
+    })
   }
 
-  sendStateUpdate(state: Partial<CalculatorState>) {
-    this.sendMessage('STATE_UPDATE', state)
+  sendInitDone(mode: 'NEW_CONFIG' | 'EXISTING_CONFIG', offersCount: number) {
+    this.sendMessage('INIT_DONE', {
+      mode,
+      offersCount,
+    })
   }
 
-  requestState() {
-    this.sendMessage('STATE_REQUEST', {})
+  sendCalcPreview(payload: CalcPreviewPayload) {
+    this.sendMessage('CALC_PREVIEW', payload)
   }
 
-  on(type: MessageType | '*', callback: (data: any) => void): () => void {
-    const typeKey = type as MessageType
-    if (!this.listeners.has(typeKey)) {
-      this.listeners.set(typeKey, new Set())
+  sendSaveRequest(payload: SaveRequestPayload): string {
+    const requestId = `save_${Date.now()}`
+    this.sendMessage('SAVE_REQUEST', payload, requestId)
+    return requestId
+  }
+
+  sendError(code: string, message: string, details?: any, context?: any) {
+    this.sendMessage('ERROR', {
+      code,
+      message,
+      details,
+      context,
+    })
+  }
+
+  sendCloseRequest(saved: boolean, hasChanges: boolean) {
+    this.sendMessage('CLOSE_REQUEST', {
+      saved,
+      hasChanges,
+    })
+  }
+
+  on(type: MessageType | '*', callback: (message: PwrtMessage) => void): () => void {
+    if (!this.listeners.has(type)) {
+      this.listeners.set(type, new Set())
     }
-    this.listeners.get(typeKey)!.add(callback)
+    this.listeners.get(type)!.add(callback)
 
     return () => {
-      this.off(typeKey, callback)
+      this.off(type, callback)
     }
   }
 
-  off(type: MessageType | '*', callback: (data: any) => void) {
-    const typeKey = type as MessageType
-    const listeners = this.listeners.get(typeKey)
+  off(type: MessageType | '*', callback: (message: PwrtMessage) => void) {
+    const listeners = this.listeners.get(type)
     if (listeners) {
       listeners.delete(callback)
     }
@@ -147,63 +256,3 @@ class PostMessageBridge {
 }
 
 export const postMessageBridge = new PostMessageBridge()
-
-export const usePostMessageSync = () => {
-  const syncState = (state: Partial<CalculatorState>) => {
-    postMessageBridge.sendStateUpdate(state)
-  }
-
-  const notifyVariantSelected = (variantIds: number[], testVariantId: number | null) => {
-    postMessageBridge.sendMessage('VARIANT_SELECTED', { variantIds, testVariantId })
-  }
-
-  const notifyDetailAdded = (detail: Detail) => {
-    postMessageBridge.sendMessage('DETAIL_ADDED', { detail })
-  }
-
-  const notifyDetailUpdated = (detailId: string, updates: Partial<Detail>) => {
-    postMessageBridge.sendMessage('DETAIL_UPDATED', { detailId, updates })
-  }
-
-  const notifyDetailDeleted = (detailId: string) => {
-    postMessageBridge.sendMessage('DETAIL_DELETED', { detailId })
-  }
-
-  const notifyBindingCreated = (binding: Binding) => {
-    postMessageBridge.sendMessage('BINDING_CREATED', { binding })
-  }
-
-  const notifyBindingUpdated = (bindingId: string, updates: Partial<Binding>) => {
-    postMessageBridge.sendMessage('BINDING_UPDATED', { bindingId, updates })
-  }
-
-  const notifyBindingDeleted = (bindingId: string) => {
-    postMessageBridge.sendMessage('BINDING_DELETED', { bindingId })
-  }
-
-  const notifyCalculationStart = () => {
-    postMessageBridge.sendMessage('CALCULATION_START', {})
-  }
-
-  const notifyCalculationProgress = (progress: number, currentDetail?: string) => {
-    postMessageBridge.sendMessage('CALCULATION_PROGRESS', { progress, currentDetail })
-  }
-
-  const notifyCalculationComplete = (result: any) => {
-    postMessageBridge.sendMessage('CALCULATION_COMPLETE', { result })
-  }
-
-  return {
-    syncState,
-    notifyVariantSelected,
-    notifyDetailAdded,
-    notifyDetailUpdated,
-    notifyDetailDeleted,
-    notifyBindingCreated,
-    notifyBindingUpdated,
-    notifyBindingDeleted,
-    notifyCalculationStart,
-    notifyCalculationProgress,
-    notifyCalculationComplete,
-  }
-}
