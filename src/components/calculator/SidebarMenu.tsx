@@ -27,7 +27,7 @@ export function SidebarMenu({ isOpen, onClose }: SidebarMenuProps) {
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent side="left" className="w-[300px]">
+        <SheetContent side="left" className="w-[300px]" data-pwcode="sidebar-menu">
           <SheetHeader>
             <SheetTitle>Меню</SheetTitle>
           </SheetHeader>
@@ -37,6 +37,7 @@ export function SidebarMenu({ isOpen, onClose }: SidebarMenuProps) {
               variant="ghost"
               className="w-full justify-start"
               onClick={handleSettings}
+              data-pwcode="btn-settings"
             >
               <Gear className="w-4 h-4 mr-2" />
               Настройки
@@ -48,6 +49,7 @@ export function SidebarMenu({ isOpen, onClose }: SidebarMenuProps) {
               variant="ghost"
               className="w-full justify-start"
               onClick={handleAbout}
+              data-pwcode="btn-about"
             >
               <Info className="w-4 h-4 mr-2" />
               О программе

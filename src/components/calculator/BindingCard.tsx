@@ -70,12 +70,14 @@ export function BindingCard({
       data-binding-card
       data-binding-id={binding.id}
       className={`overflow-hidden border-2 border-accent/30 ${isDragging ? 'invisible' : ''}`}
+      data-pwcode={`binding-card-${binding.id}`}
     >
-      <div className="bg-accent/10 border-b border-border px-3 py-2 flex items-center justify-between">
+      <div className="bg-accent/10 border-b border-border px-3 py-2 flex items-center justify-between" data-pwcode="binding-header">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div 
             className="flex-shrink-0 w-5 h-5 flex items-center justify-center cursor-grab active:cursor-grabbing"
             onMouseDown={handleDragHandleMouseDown}
+            data-pwcode="binding-drag-handle"
           >
             <DotsSixVertical className="w-4 h-4 text-muted-foreground" />
           </div>
@@ -94,6 +96,7 @@ export function BindingCard({
             onChange={handleNameChange}
             className="h-6 text-sm font-medium bg-transparent border-none px-3 focus-visible:ring-1 focus-visible:ring-ring flex-1 min-w-[120px]"
             placeholder="Название группы скрепления"
+            data-pwcode="input-binding-name"
           />
           <div className="flex-shrink-0">
             <span className="text-xs font-mono text-muted-foreground">
@@ -105,6 +108,7 @@ export function BindingCard({
             size="sm"
             className="h-6 w-6 p-0 flex-shrink-0 hover:bg-accent hover:text-accent-foreground"
             onClick={handleOpenInBitrix}
+            data-pwcode="btn-open-binding-bitrix"
           >
             <ArrowSquareOut className="w-4 h-4" />
           </Button>
@@ -116,6 +120,7 @@ export function BindingCard({
             size="sm"
             className="h-6 w-6 p-0 hover:bg-accent hover:text-accent-foreground"
             onClick={handleToggleExpand}
+            data-pwcode="btn-toggle-binding"
           >
             {binding.isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
           </Button>
@@ -124,6 +129,7 @@ export function BindingCard({
             size="sm"
             className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
             onClick={onDelete}
+            data-pwcode="btn-delete-binding"
           >
             <X className="w-4 h-4" />
           </Button>
@@ -131,7 +137,7 @@ export function BindingCard({
       </div>
 
       {binding.isExpanded && !isDragging && (
-        <div className="px-3 py-3 space-y-3">
+        <div className="px-3 py-3 space-y-3" data-pwcode="binding-content">
           <div>
             <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Этапы скрепления</h4>
             <CalculatorTabs
@@ -141,7 +147,7 @@ export function BindingCard({
           </div>
 
           {details && details.length > 0 && (
-            <div className="space-y-1 py-3">
+            <div className="space-y-1 py-3" data-pwcode="binding-details">
               <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Детали в скреплении</h4>
               {details.map((detail, index) => (
                 <DetailCard
@@ -157,7 +163,7 @@ export function BindingCard({
           )}
           
           {bindings && bindings.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-2" data-pwcode="binding-nested">
               <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Вложенные скрепления</h4>
               {bindings.map((nestedBinding, index) => {
                 const nestedDetails = allDetails.filter(d => nestedBinding.detailIds?.includes(d.id))
@@ -188,11 +194,12 @@ export function BindingCard({
             </div>
           )}
 
-          <div className="flex items-center gap-2 border-t border-border pt-3">
+          <div className="flex items-center gap-2 border-t border-border pt-3" data-pwcode="binding-finishing-checkbox">
             <Checkbox
               id={`finishing-${binding.id}`}
               checked={binding.hasFinishing}
               onCheckedChange={handleToggleFinishing}
+              data-pwcode="checkbox-finishing"
             />
             <label 
               htmlFor={`finishing-${binding.id}`}
@@ -203,7 +210,7 @@ export function BindingCard({
           </div>
 
           {binding.hasFinishing && (
-            <div>
+            <div data-pwcode="binding-finishing-stages">
               <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Этапы финишной обработки</h4>
               <CalculatorTabs
                 calculators={binding.finishingCalculators || []}

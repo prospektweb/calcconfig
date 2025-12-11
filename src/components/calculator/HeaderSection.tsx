@@ -183,7 +183,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
   }
 
   return (
-    <div className="relative">
+    <div className="relative" data-pwcode="headersection">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as HeaderTabType)} className="w-full">
         <div className="flex items-center border-b border-border bg-muted/30">
           <Button
@@ -192,6 +192,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
             onClick={onOpenMenu}
             className="h-10 w-10 p-0 hover:bg-accent hover:text-accent-foreground ml-2 flex-shrink-0"
             aria-label="Меню"
+            data-pwcode="btn-menu"
           >
             <List className="w-5 h-5" />
           </Button>
@@ -203,23 +204,24 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
             className="h-10 w-10 p-0 hover:bg-accent hover:text-accent-foreground flex-shrink-0"
             aria-label="Обновить данные"
             title="Обновить данные"
+            data-pwcode="btn-refresh"
           >
             <ArrowsClockwise className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
-          <TabsList className="flex-1 grid grid-cols-4 rounded-none h-auto bg-transparent border-0">
-            <TabsTrigger value="details" className="data-[state=active]:bg-card gap-2">
+          <TabsList className="flex-1 grid grid-cols-4 rounded-none h-auto bg-transparent border-0" data-pwcode="header-tabs">
+            <TabsTrigger value="details" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-details">
               {getTabIcon('details')}
               Детали
             </TabsTrigger>
-            <TabsTrigger value="materials" className="data-[state=active]:bg-card gap-2">
+            <TabsTrigger value="materials" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-materials">
               {getTabIcon('materials')}
               Материалы
             </TabsTrigger>
-            <TabsTrigger value="operations" className="data-[state=active]:bg-card gap-2">
+            <TabsTrigger value="operations" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-operations">
               {getTabIcon('operations')}
               Операции
             </TabsTrigger>
-            <TabsTrigger value="equipment" className="data-[state=active]:bg-card gap-2">
+            <TabsTrigger value="equipment" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-equipment">
               {getTabIcon('equipment')}
               Оборудование
             </TabsTrigger>
@@ -227,17 +229,35 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
         </div>
 
         {(['details', 'materials', 'operations', 'equipment'] as HeaderTabType[]).map(tabType => (
-          <TabsContent key={tabType} value={tabType} className="mt-0 border-t border-border">
-            <div className="px-4 py-2 bg-muted/30 flex gap-2">
-              <Button variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={handleSelectClick}>
+          <TabsContent key={tabType} value={tabType} className="mt-0 border-t border-border" data-pwcode={`tabcontent-${tabType}`}>
+            <div className="px-4 py-2 bg-muted/30 flex gap-2" data-pwcode={`tab-actions-${tabType}`}>
+              <Button 
+                variant="link" 
+                size="sm" 
+                className="h-auto p-0 text-[10px]" 
+                onClick={handleSelectClick}
+                data-pwcode={`btn-select-${tabType}`}
+              >
                 Выбрать
               </Button>
               <span className="text-muted-foreground text-[10px]">|</span>
-              <Button variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={handleCatalogClick}>
+              <Button 
+                variant="link" 
+                size="sm" 
+                className="h-auto p-0 text-[10px]" 
+                onClick={handleCatalogClick}
+                data-pwcode={`btn-catalog-${tabType}`}
+              >
                 Каталог
               </Button>
               <span className="text-muted-foreground text-[10px]">|</span>
-              <Button variant="link" size="sm" className="h-auto p-0 text-destructive text-[10px]" onClick={handleResetTab}>
+              <Button 
+                variant="link" 
+                size="sm" 
+                className="h-auto p-0 text-destructive text-[10px]" 
+                onClick={handleResetTab}
+                data-pwcode={`btn-reset-${tabType}`}
+              >
                 Сбросить
               </Button>
             </div>
@@ -255,6 +275,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                           draggable
                           onDragStart={handleDetailDragStart(detail.id, detail.name)}
                           onDragEnd={handleDetailDragEnd()}
+                          data-pwcode={`header-detail-${detail.id}`}
                         >
                           <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
                             <DotsSixVertical className="w-4 h-4" />
@@ -270,6 +291,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               e.stopPropagation()
                               window.open(`#detail-${detail.id}`, '_blank')
                             }}
+                            data-pwcode="openoffer"
                           >
                             <ArrowSquareOut className="w-3.5 h-3.5" />
                           </Button>
@@ -280,6 +302,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             onClick={(e) => {
                               e.stopPropagation()
                             }}
+                            data-pwcode={`btn-delete-header-detail-${detail.id}`}
                           >
                             <X className="w-3.5 h-3.5" />
                           </Button>
@@ -304,6 +327,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               materialName: material.name
                             }))
                           }}
+                          data-pwcode={`header-material-${material.id}`}
                         >
                           <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
                             <DotsSixVertical className="w-4 h-4" />
@@ -318,6 +342,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               e.stopPropagation()
                               window.open(`#material-${material.id}`, '_blank')
                             }}
+                            data-pwcode={`btn-open-material-${material.id}`}
                           >
                             <ArrowSquareOut className="w-3.5 h-3.5" />
                           </Button>
@@ -328,6 +353,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             onClick={(e) => {
                               e.stopPropagation()
                             }}
+                            data-pwcode={`btn-delete-material-${material.id}`}
                           >
                             <X className="w-3.5 h-3.5" />
                           </Button>
@@ -352,6 +378,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               operationName: operation.name
                             }))
                           }}
+                          data-pwcode={`header-operation-${operation.id}`}
                         >
                           <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
                             <DotsSixVertical className="w-4 h-4" />
@@ -366,6 +393,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               e.stopPropagation()
                               window.open(`#operation-${operation.id}`, '_blank')
                             }}
+                            data-pwcode={`btn-open-operation-${operation.id}`}
                           >
                             <ArrowSquareOut className="w-3.5 h-3.5" />
                           </Button>
@@ -376,6 +404,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             onClick={(e) => {
                               e.stopPropagation()
                             }}
+                            data-pwcode={`btn-delete-operation-${operation.id}`}
                           >
                             <X className="w-3.5 h-3.5" />
                           </Button>
@@ -400,6 +429,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               equipmentName: equipment.name
                             }))
                           }}
+                          data-pwcode={`header-equipment-${equipment.id}`}
                         >
                           <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
                             <DotsSixVertical className="w-4 h-4" />
@@ -414,6 +444,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                               e.stopPropagation()
                               window.open(`#equipment-${equipment.id}`, '_blank')
                             }}
+                            data-pwcode={`btn-open-equipment-${equipment.id}`}
                           >
                             <ArrowSquareOut className="w-3.5 h-3.5" />
                           </Button>
@@ -424,6 +455,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             onClick={(e) => {
                               e.stopPropagation()
                             }}
+                            data-pwcode={`btn-delete-equipment-${equipment.id}`}
                           >
                             <X className="w-3.5 h-3.5" />
                           </Button>

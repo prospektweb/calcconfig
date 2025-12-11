@@ -144,10 +144,10 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-pwcode="calculator-tabs">
       <Tabs value={activeTab.toString()} onValueChange={(v) => setActiveTab(parseInt(v))}>
         <div className="flex items-center gap-2">
-          <TabsList className="flex-1 justify-start overflow-x-auto bg-muted/30">
+          <TabsList className="flex-1 justify-start overflow-x-auto bg-muted/30" data-pwcode="stages-list">
             {safeCalculators.map((calc, index) => {
               const isDraggingThis = dragState.isDragging && dragState.draggedItemId === calc.id
               const isDropTarget = dragState.dropTargetIndex === index
@@ -162,6 +162,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                       isDraggingThis && "opacity-30",
                       isDropTarget && "ring-2 ring-accent rounded"
                     )}
+                    data-pwcode={`stage-tab-${index}`}
                   >
                     <TabsTrigger 
                       value={index.toString()} 
@@ -175,6 +176,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                             handleStageDragStart(tabElement, e, index)
                           }
                         }}
+                        data-pwcode={`stage-drag-handle-${index}`}
                       >
                         <DotsSixVertical className="w-3.5 h-3.5" />
                       </div>
@@ -189,6 +191,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                           e.stopPropagation()
                           handleRemoveCalculator(index)
                         }}
+                        data-pwcode={`btn-remove-stage-${index}`}
                       >
                         <X className="w-3.5 h-3.5" />
                       </Button>
@@ -202,6 +205,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
               size="sm"
               onClick={handleAddCalculator}
               className="flex-shrink-0 ml-1 h-8 w-8 p-0"
+              data-pwcode="btn-add-stage"
             >
               <Plus className="w-4 h-4" />
             </Button>
@@ -236,6 +240,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
               key={calc.id} 
               value={index.toString()} 
               className="space-y-4 mt-4 border rounded-lg p-2 bg-card"
+              data-pwcode={`stage-content-${index}`}
             >
               <div className="flex gap-2 items-start">
                 <div className="flex-1 space-y-2">
@@ -250,6 +255,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                       materialId: null,
                     })}
                     placeholder="Выберите калькулятор..."
+                    data-pwcode={`select-calculator-${index}`}
                   />
                 </div>
 
@@ -266,6 +272,7 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                             equipmentId: null,
                           })}
                           placeholder="Выберите операцию..."
+                          data-pwcode={`select-operation-${index}`}
                         />
                       </div>
                       <div

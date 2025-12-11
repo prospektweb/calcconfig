@@ -17,10 +17,11 @@ interface GabVesPanelProps {
 
 export function GabVesPanel({ messages, isExpanded, onToggle }: GabVesPanelProps) {
   return (
-    <div className="border-t border-border bg-card">
+    <div className="border-t border-border bg-card" data-pwcode="gabvespanel">
       <button
         onClick={onToggle}
         className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
+        data-pwcode="btn-toggle-gabvespanel"
       >
         <span className="text-sm font-medium flex items-center gap-2">
           <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
@@ -34,13 +35,13 @@ export function GabVesPanel({ messages, isExpanded, onToggle }: GabVesPanelProps
       </button>
       
       {isExpanded && (
-        <ScrollArea className="h-[150px] px-4 pb-2">
+        <ScrollArea className="h-[150px] px-4 pb-2" data-pwcode="gabves-messages">
           <div className="space-y-1">
             {messages.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2">Нет сообщений о габаритах и весе</p>
             ) : (
               messages.map(msg => (
-                <div key={msg.id} className="flex items-start gap-2 py-1">
+                <div key={msg.id} className="flex items-start gap-2 py-1" data-pwcode={`gabves-msg-${msg.id}`}>
                   <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
                     <Badge className="bg-accent text-accent-foreground">
                       <Cube className="w-3.5 h-3.5" />

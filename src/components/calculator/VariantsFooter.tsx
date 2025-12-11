@@ -54,7 +54,7 @@ export function VariantsFooter({
   }
 
   return (
-    <div className="border-t border-border bg-card px-4 py-2">
+    <div className="border-t border-border bg-card px-4 py-2" data-pwcode="offerspanel">
       <div className="flex items-center gap-3">
         <span className="text-sm font-medium whitespace-nowrap">Торговые предложения:</span>
         <div className={`flex gap-2 flex-wrap flex-1 ${!isExpanded && selectedVariantIds.length > 5 ? 'max-h-8 overflow-hidden' : ''}`}>
@@ -72,6 +72,7 @@ export function VariantsFooter({
                   `}
                   onClick={() => handleVariantClick(id)}
                   title={variantName}
+                  data-pwcode={`offer-badge-${id}`}
                 >
                   <span className="font-mono">{id}</span>
                   {isTest && <span className="text-[10px]">TEST</span>}
@@ -81,6 +82,7 @@ export function VariantsFooter({
                       size="sm"
                       className="h-4 w-4 p-0 hover:bg-accent hover:text-accent-foreground"
                       onClick={(e) => handleOpenVariant(id, e)}
+                      data-pwcode="openoffer"
                     >
                       <ArrowSquareOut className="w-3 h-3" />
                     </Button>
@@ -89,6 +91,7 @@ export function VariantsFooter({
                       size="sm"
                       className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
                       onClick={(e) => handleRemoveVariant(id, e)}
+                      data-pwcode={`btn-remove-offer-${id}`}
                     >
                       <X className="w-3 h-3" />
                     </Button>
@@ -103,6 +106,7 @@ export function VariantsFooter({
           size="sm" 
           onClick={handleAddVariant}
           className="h-7 px-3"
+          data-pwcode="btn-add-offer"
         >
           <Plus className="w-4 h-4 mr-1" />
           Выбрать
@@ -113,6 +117,7 @@ export function VariantsFooter({
             size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
             className="h-7 w-7 p-0 hover:bg-accent hover:text-accent-foreground"
+            data-pwcode="btn-toggle-offers"
           >
             {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
           </Button>

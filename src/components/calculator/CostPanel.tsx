@@ -60,10 +60,11 @@ export function CostPanel({ messages, isExpanded, onToggle, settings, onSettings
   const showMarkupFields = settings.basedOn === 'COMPONENT_PURCHASE_PLUS_MARKUP'
 
   return (
-    <div id="panel-costing" className="border-t border-border bg-card">
+    <div id="panel-costing" className="border-t border-border bg-card" data-pwcode="costpanel">
       <button
         onClick={onToggle}
         className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
+        data-pwcode="btn-toggle-costpanel"
       >
         <span className="text-sm font-medium flex items-center gap-2">
           <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
@@ -77,13 +78,13 @@ export function CostPanel({ messages, isExpanded, onToggle, settings, onSettings
       </button>
       
       {isExpanded && (
-        <div className="border-t border-border overflow-y-scroll scrollbar-gutter-stable" style={{ maxHeight: '400px' }}>
+        <div className="border-t border-border overflow-y-scroll scrollbar-gutter-stable" style={{ maxHeight: '400px' }} data-pwcode="cost-content">
           <div className="px-4 py-3 space-y-4">
             <div className="flex items-end gap-2 flex-wrap">
               <div className="space-y-2">
                 <Label htmlFor="costing-based-on">Считать на основании</Label>
                 <Select value={settings.basedOn} onValueChange={handleBasedOnChange}>
-                  <SelectTrigger id="costing-based-on" className="w-[400px]">
+                  <SelectTrigger id="costing-based-on" className="w-[400px]" data-pwcode="select-costing-basedon">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -109,12 +110,13 @@ export function CostPanel({ messages, isExpanded, onToggle, settings, onSettings
                         value={settings.markupValue || 0}
                         onChange={handleMarkupValueChange}
                         className="w-24"
+                        data-pwcode="input-markup-value"
                       />
                       <Select 
                         value={settings.markupUnit || 'RUB'} 
                         onValueChange={handleMarkupUnitChange}
                       >
-                        <SelectTrigger className="w-24">
+                        <SelectTrigger className="w-24" data-pwcode="select-markup-unit">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -133,7 +135,7 @@ export function CostPanel({ messages, isExpanded, onToggle, settings, onSettings
               <div className="space-y-2">
                 <Label htmlFor="rounding-step">Шаг округления</Label>
                 <Select value={settings.roundingStep.toString()} onValueChange={handleRoundingStepChange}>
-                  <SelectTrigger id="rounding-step" className="w-40">
+                  <SelectTrigger id="rounding-step" className="w-40" data-pwcode="select-rounding-step">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -148,12 +150,12 @@ export function CostPanel({ messages, isExpanded, onToggle, settings, onSettings
             </div>
 
             {messages.length > 0 && (
-              <div className="pt-2 border-t border-border">
+              <div className="pt-2 border-t border-border" data-pwcode="cost-messages">
                 <Label className="text-xs text-muted-foreground mb-2 block">Сообщения</Label>
                 <ScrollArea className="h-[100px]">
                   <div className="space-y-1">
                     {messages.map(msg => (
-                      <div key={msg.id} className="flex items-start gap-2 py-1">
+                      <div key={msg.id} className="flex items-start gap-2 py-1" data-pwcode={`cost-msg-${msg.id}`}>
                         <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
                           <Badge className="bg-accent text-accent-foreground">
                             <CurrencyDollar className="w-3.5 h-3.5" />

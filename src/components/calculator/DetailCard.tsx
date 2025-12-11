@@ -42,13 +42,15 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
       data-detail-card
       data-detail-id={detail.id}
       className={`overflow-hidden transition-all ${isInBinding ? 'ml-4' : ''} ${isDragging ? 'invisible' : ''}`}
+      data-pwcode={`detail-card-${detail.id}`}
     >
-      <div className="bg-primary/5 border-b border-border px-3 py-2 flex items-center justify-between">
+      <div className="bg-primary/5 border-b border-border px-3 py-2 flex items-center justify-between" data-pwcode="detail-header">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {!isInBinding && (
             <div 
               className="flex-shrink-0 w-5 h-5 flex items-center justify-center cursor-grab active:cursor-grabbing"
               onMouseDown={handleDragHandleMouseDown}
+              data-pwcode="detail-drag-handle"
             >
               <DotsSixVertical className="w-4 h-4 text-muted-foreground" />
             </div>
@@ -68,6 +70,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
             onChange={handleNameChange}
             className="h-6 text-sm font-medium bg-transparent border-none px-3 focus-visible:ring-1 focus-visible:ring-ring flex-1 min-w-[120px]"
             placeholder="Название детали"
+            data-pwcode="input-detail-name"
           />
           <div className="flex-shrink-0">
             <span className="text-xs font-mono text-muted-foreground">
@@ -79,6 +82,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
             size="sm"
             className="h-6 w-6 p-0 flex-shrink-0 hover:bg-accent hover:text-accent-foreground"
             onClick={handleOpenInBitrix}
+            data-pwcode="btn-open-detail-bitrix"
           >
             <ArrowSquareOut className="w-4 h-4" />
           </Button>
@@ -90,6 +94,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
             size="sm"
             className="h-6 w-6 p-0 hover:bg-accent hover:text-accent-foreground"
             onClick={handleToggleExpand}
+            data-pwcode="btn-toggle-detail"
           >
             {detail.isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
           </Button>
@@ -98,6 +103,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
             size="sm"
             className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
             onClick={onDelete}
+            data-pwcode="btn-delete-detail"
           >
             <X className="w-4 h-4" />
           </Button>
@@ -105,7 +111,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
       </div>
 
       {detail.isExpanded && !isDragging && (
-        <div className="p-3">
+        <div className="p-3" data-pwcode="detail-content">
           <CalculatorTabs
             calculators={detail.calculators}
             onChange={(calculators) => onUpdate({ calculators })}

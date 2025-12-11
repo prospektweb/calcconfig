@@ -161,10 +161,11 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
   }
 
   return (
-    <div id="panel-sale-prices" className="border-t border-border bg-card">
+    <div id="panel-sale-prices" className="border-t border-border bg-card" data-pwcode="pricepanel">
       <button
         onClick={onToggle}
         className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
+        data-pwcode="btn-toggle-pricepanel"
       >
         <span className="text-sm font-medium flex items-center gap-2">
           <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
@@ -178,17 +179,18 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
       </button>
       
       {isExpanded && (
-        <div className="border-t border-border overflow-y-scroll scrollbar-gutter-stable" style={{ maxHeight: '500px' }}>
+        <div className="border-t border-border overflow-y-scroll scrollbar-gutter-stable" style={{ maxHeight: '500px' }} data-pwcode="price-content">
           <div className="px-4 py-3 space-y-4">
               <div className="space-y-2">
                 <Label>Типы цен</Label>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4" data-pwcode="price-types-select">
                   {PRICE_TYPE_OPTIONS.map(option => (
                     <div key={option.value} className="flex items-center gap-2">
                       <Checkbox
                         id={`price-type-${option.value}`}
                         checked={settings.selectedTypes.includes(option.value)}
                         onCheckedChange={(checked) => handleTypeSelection(option.value, checked as boolean)}
+                        data-pwcode={`checkbox-pricetype-${option.value}`}
                       />
                       <Label htmlFor={`price-type-${option.value}`} className="cursor-pointer">
                         {option.label}
@@ -205,7 +207,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                 const priceTypeLabel = PRICE_TYPE_OPTIONS.find(o => o.value === priceType)?.label || priceType
 
                 return (
-                  <div key={priceType} className="border border-border rounded-lg p-3 space-y-3 bg-muted/20">
+                  <div key={priceType} className="border border-border rounded-lg p-3 space-y-3 bg-muted/20" data-pwcode={`price-type-block-${priceType}`}>
                     <h3 className="font-medium text-sm">{priceTypeLabel}</h3>
 
                     <div className="flex items-center gap-3 flex-wrap">
@@ -217,7 +219,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                             updatePriceTypeSettings(priceType, { correctionBase: value })
                           }
                         >
-                          <SelectTrigger id={`correction-base-${priceType}`} className="w-32">
+                          <SelectTrigger id={`correction-base-${priceType}`} className="w-32" data-pwcode={`select-correction-${priceType}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -240,6 +242,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                               prettyPriceCommonLimitEnabled: false,
                             })
                           }
+                          data-pwcode={`checkbox-prettyprice-${priceType}`}
                         />
                         <Label htmlFor={`pretty-price-${priceType}`} className="cursor-pointer whitespace-nowrap">
                           Подбор "красивой" цены
@@ -257,6 +260,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                   prettyPriceCommonLimitEnabled: checked as boolean 
                                 })
                               }
+                              data-pwcode={`checkbox-commonlimit-${priceType}`}
                             />
                             <Label htmlFor={`common-limit-${priceType}`} className="cursor-pointer whitespace-nowrap">
                               Общее ограничение
@@ -276,6 +280,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                 className="w-24"
                                 min={0}
                                 step={1}
+                                data-pwcode={`input-commonlimit-${priceType}`}
                               />
                               <span className="text-sm text-muted-foreground">руб.</span>
                             </div>
@@ -292,7 +297,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                           const isFirst = index === 0
 
                           return (
-                            <div key={index} className="flex items-center gap-2 flex-wrap text-sm">
+                            <div key={index} className="flex items-center gap-2 flex-wrap text-sm" data-pwcode={`price-range-${priceType}-${index}`}>
                               <span className="text-muted-foreground">от</span>
                               <Input
                                 type="number"
@@ -313,6 +318,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                 disabled={isFirst}
                                 className="w-24"
                                 min={1}
+                                data-pwcode={`input-range-from-${priceType}-${index}`}
                               />
 
                               <span className="text-muted-foreground">до</span>
@@ -321,6 +327,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                 value={to === null ? '∞' : to.toString()}
                                 disabled
                                 className="w-24"
+                                data-pwcode={`input-range-to-${priceType}-${index}`}
                               />
 
                               <span className="text-muted-foreground">применить наценку</span>
@@ -335,6 +342,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                 className="w-24"
                                 min={0}
                                 step={0.1}
+                                data-pwcode={`input-markup-value-${priceType}-${index}`}
                               />
 
                               <Select 
@@ -343,7 +351,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                   updateRange(priceType, index, { markupUnit: value })
                                 }
                               >
-                                <SelectTrigger className="w-20">
+                                <SelectTrigger className="w-20" data-pwcode={`select-markup-unit-${priceType}-${index}`}>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -369,6 +377,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                     className="w-24"
                                     min={0}
                                     step={1}
+                                    data-pwcode={`input-prettylimit-${priceType}-${index}`}
                                   />
                                   <span className="text-muted-foreground">руб.</span>
                                 </>
@@ -380,6 +389,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                 onClick={() => addRange(priceType, index)}
                                 className="h-8 w-8 p-0"
                                 title="Добавить диапазон"
+                                data-pwcode={`btn-add-range-${priceType}-${index}`}
                               >
                                 <Plus className="w-4 h-4" />
                               </Button>
@@ -391,6 +401,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                                   onClick={() => removeRange(priceType, index)}
                                   className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
                                   title="Удалить диапазон"
+                                  data-pwcode={`btn-remove-range-${priceType}-${index}`}
                                 >
                                   <Trash className="w-4 h-4" />
                                 </Button>

@@ -488,7 +488,7 @@ function App() {
       {dragState.isDragging && getDraggedElement()}
       
       <div className="w-full flex flex-col min-h-screen">
-        <header className="border-b border-border bg-card">
+        <header className="border-b border-border bg-card" data-pwcode="header">
           <HeaderSection 
             headerTabs={headerTabs || { materials: [], operations: [], equipment: [], details: [] }}
             setHeaderTabs={setHeaderTabs}
@@ -505,6 +505,7 @@ function App() {
           className="flex-1 p-4 overflow-auto"
           onDragOver={handleMainAreaDragOver}
           onDrop={handleMainAreaDrop}
+          data-pwcode="mainarea"
         >
           <div className="space-y-0">
             {allItems.length === 0 && draggedHeaderDetail && activeHeaderTab === 'details' && (
@@ -655,6 +656,7 @@ function App() {
                       size="sm"
                       className="rounded-full h-8 w-8 p-0 bg-background hover:bg-accent hover:text-accent-foreground relative z-10 border border-border shadow-sm"
                       onClick={() => handleCreateBinding(index)}
+                      data-pwcode="btn-create-binding"
                     >
                       <LinkIcon className="w-4 h-4" />
                     </Button>
@@ -718,7 +720,7 @@ function App() {
           />
         )}
 
-        <footer className="border-t border-border bg-card p-3">
+        <footer className="border-t border-border bg-card p-3" data-pwcode="footer">
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
               <Button 
@@ -726,6 +728,7 @@ function App() {
                 size="sm" 
                 onClick={handleToggleGabVes}
                 className={isGabVesActive ? "bg-accent text-accent-foreground" : ""}
+                data-pwcode="btn-gabves"
               >
                 <Cube className="w-4 h-4 mr-2" />
                 Габариты/Вес
@@ -735,6 +738,7 @@ function App() {
                 size="sm" 
                 onClick={handleToggleCost}
                 className={isCostActive ? "bg-accent text-accent-foreground" : ""}
+                data-pwcode="btn-cost"
               >
                 <CurrencyDollar className="w-4 h-4 mr-2" />
                 Себестоимость
@@ -744,6 +748,7 @@ function App() {
                 size="sm" 
                 onClick={handleTogglePrice}
                 className={isPriceActive ? "bg-accent text-accent-foreground" : ""}
+                data-pwcode="btn-price"
               >
                 <Tag className="w-4 h-4 mr-2" />
                 Отпускные цены
@@ -751,19 +756,40 @@ function App() {
             </div>
             
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleTestCalculation} disabled={isCalculating}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleTestCalculation} 
+                disabled={isCalculating}
+                data-pwcode="btn-test-calc"
+              >
                 <Calculator className="w-4 h-4 mr-2" />
                 Тест
               </Button>
-              <Button size="sm" onClick={handleFullCalculation} disabled={isCalculating}>
+              <Button 
+                size="sm" 
+                onClick={handleFullCalculation} 
+                disabled={isCalculating}
+                data-pwcode="btn-full-calc"
+              >
                 <Calculator className="w-4 h-4 mr-2" />
                 Рассчитать
               </Button>
-              <Button variant="outline" size="sm" onClick={() => toast.success('Сохранено (демо)')}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => toast.success('Сохранено (демо)')}
+                data-pwcode="btn-save"
+              >
                 <FloppyDisk className="w-4 h-4 mr-2" />
                 Сохранить
               </Button>
-              <Button variant="outline" size="sm" onClick={() => toast.info('Закрыто (демо)')}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => toast.info('Закрыто (демо)')}
+                data-pwcode="btn-close"
+              >
                 <X className="w-4 h-4 mr-2" />
                 Закрыть
               </Button>

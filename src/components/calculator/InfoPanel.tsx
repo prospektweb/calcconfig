@@ -48,13 +48,14 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
   }
 
   return (
-    <div className="border-t border-border bg-card">
+    <div className="border-t border-border bg-card" data-pwcode="infopanel">
       <button
         onClick={onToggle}
         className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
+        data-pwcode="btn-toggle-infopanel"
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Badge className="bg-success text-success-foreground flex-shrink-0">{messages.length}</Badge>
+          <Badge className="bg-success text-success-foreground flex-shrink-0" data-pwcode="info-count">{messages.length}</Badge>
           <span className="text-sm font-medium flex-shrink-0">Информация</span>
           {lastMessage && (
             <>
@@ -73,13 +74,13 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
       </button>
       
       {isExpanded && (
-        <ScrollArea className="h-[150px] px-4 pb-2">
+        <ScrollArea className="h-[150px] px-4 pb-2" data-pwcode="info-messages">
           <div className="space-y-1">
             {messages.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2">Нет сообщений</p>
             ) : (
               messages.map(msg => (
-                <div key={msg.id} className="flex items-start gap-2 py-1">
+                <div key={msg.id} className="flex items-start gap-2 py-1" data-pwcode={`info-msg-${msg.id}`}>
                   <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
                     <Badge className={getMessageColor(msg.type)}>
                       {getMessageIcon(msg.type)}
