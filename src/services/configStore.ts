@@ -104,7 +104,10 @@ class BitrixConfigStore implements ConfigStore {
     this.initData = data
     this.initialized = true
     
-    console.info('[BitrixConfigStore] INIT data applied')
+    const isDebug = isDebugEnabled()
+    if (isDebug) {
+      console.info('[BitrixConfigStore] INIT data applied')
+    }
     
     if (data.config?.data) {
       if (data.config.data.details) {
@@ -119,6 +122,17 @@ class BitrixConfigStore implements ConfigStore {
       if (data.config.data.salePricesSettings) {
         this.storage.set('calc_sale_prices_settings', data.config.data.salePricesSettings)
       }
+    }
+  }
+  
+  reset() {
+    this.storage.clear()
+    this.initData = null
+    this.initialized = false
+    
+    const isDebug = isDebugEnabled()
+    if (isDebug) {
+      console.info('[BitrixConfigStore] Storage reset')
     }
   }
 
@@ -182,27 +196,45 @@ class BitrixConfigStore implements ConfigStore {
 export type AppMode = 'DEMO' | 'BITRIX'
 export type OffersSource = 'DEMO' | 'INIT'
 
+let currentAppMode: AppMode = 'DEMO'
+let modeSetByInit = false
+
 export function getDeployTarget(): 'bitrix' | 'spark' {
   if (typeof import.meta.env !== 'undefined' && import.meta.env.VITE_DEPLOY_TARGET) {
     const target = import.meta.env.VITE_DEPLOY_TARGET as string
-    console.info('[MODE]', target === 'bitrix' ? 'BITRIX' : 'DEMO')
     return target as 'bitrix' | 'spark'
   }
   
   if (typeof window !== 'undefined') {
     const params = new URLSearchParams(window.location.search)
     if (params.get('deploy') === 'bitrix') {
-      console.info('[MODE]', 'BITRIX')
       return 'bitrix'
     }
   }
   
-  console.info('[MODE]', 'DEMO')
   return 'spark'
 }
 
 export function getAppMode(): AppMode {
-  return getDeployTarget() === 'bitrix' ? 'BITRIX' : 'DEMO'
+  return currentAppMode
+}
+
+export function setAppMode(mode: AppMode) {
+  const isDebug = typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1'
+  
+  if (isDebug) {
+    console.info('[MODE]', mode)
+  }
+  
+  currentAppMode = mode
+  
+  if (mode === 'BITRIX') {
+    modeSetByInit = true
+  }
+}
+
+export function isDebugEnabled(): boolean {
+  return typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1'
 }
 
 export function getDemoOffers() {
@@ -243,5 +275,29 @@ export function getBitrixStore(): BitrixConfigStore | null {
 export function initializeBitrixStore(initData: Record<string, any>) {
   if (bitrixStoreInstance) {
     bitrixStoreInstance.setInitData(initData)
+  }
+}
+
+export function clearDemoStorage() {
+  if (typeof localStorage === 'undefined') return
+  
+  const keysToRemove = [
+    'calc_header_tabs',
+    'calc_active_header_tab',
+    'calc_header_height',
+    'calc_info_panel_expanded',
+  ]
+  
+  keysToRemove.forEach(key => localStorage.removeItem(key))
+  
+  const isDebug = isDebugEnabled()
+  if (isDebug) {
+    console.info('[clearDemoStorage] Demo localStorage keys cleared')
+  }
+}
+
+export function resetBitrixStore() {
+  if (bitrixStoreInstance) {
+    bitrixStoreInstance.reset()
   }
 }

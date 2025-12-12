@@ -36,7 +36,7 @@ import { CostPanel } from '@/components/calculator/CostPanel'
 import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
-import { initializeBitrixStore, getBitrixStore, getDeployTarget, getAppMode, getDemoOffers, AppMode, OffersSource } from '@/services/configStore'
+import { initializeBitrixStore, getBitrixStore, getDeployTarget, getAppMode, getDemoOffers, AppMode, OffersSource, setAppMode, clearDemoStorage, resetBitrixStore } from '@/services/configStore'
 import { postMessageBridge, InitPayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext } from '@/lib/bitrix-utils'
 
@@ -52,11 +52,13 @@ function App() {
   const [testVariantId, setTestVariantId] = useState<number | null>(null)
   const [bitrixMeta, setBitrixMeta] = useState<InitPayload | null>(null)
   
-  const [appMode] = useState<AppMode>(getAppMode())
+  const [appMode, setAppModeState] = useState<AppMode>(getAppMode())
   const [offersSource, setOffersSource] = useState<OffersSource>('DEMO')
   const [selectedOffers, setSelectedOffers] = useState<InitPayload['selectedOffers']>(() => {
-    return appMode === 'DEMO' ? getDemoOffers() : []
+    const deployTarget = getDeployTarget()
+    return deployTarget === 'spark' ? getDemoOffers() : []
   })
+  const [isRefreshing, setIsRefreshing] = useState(false)
   
   const [headerTabs, setHeaderTabs] = useConfigKV<AppState['headerTabs']>('calc_header_tabs', {
     materials: [],
@@ -120,14 +122,26 @@ function App() {
         if (bitrixStore && message.payload) {
           const initPayload = message.payload as InitPayload
           
-          console.info('[INIT] received', initPayload)
+          console.info('[INIT] received')
+          console.info('[INIT] applied offers=', (initPayload.selectedOffers || []).length)
+          
+          setAppMode('BITRIX')
+          setAppModeState('BITRIX')
+          
+          clearDemoStorage()
+          resetBitrixStore()
+          
+          setHeaderTabs({
+            materials: [],
+            operations: [],
+            equipment: [],
+            details: [],
+          })
           
           setBitrixMeta(initPayload)
           setSelectedOffers(initPayload.selectedOffers || [])
           setSelectedVariantIds(initPayload.selectedOffers?.map(o => o.id) || [])
           setOffersSource('INIT')
-          
-          console.info('[INIT] applied offers=', (initPayload.selectedOffers || []).length)
           
           if (initPayload.context?.url && initPayload.context?.lang) {
             setBitrixContext({
@@ -158,10 +172,31 @@ function App() {
             message.payload.mode || 'NEW_CONFIG',
             message.payload.selectedOffers?.length || 0
           )
+          
+          console.info('[INIT_DONE] sent')
         }
       })
       
-      return unsubscribe
+      const unsubscribeRefresh = postMessageBridge.on('REFRESH_RESULT', (message) => {
+        if (message.payload) {
+          console.info('[REFRESH] received')
+          
+          const refreshPayload = message.payload as InitPayload
+          
+          setSelectedOffers(refreshPayload.selectedOffers || [])
+          setSelectedVariantIds(refreshPayload.selectedOffers?.map(o => o.id) || [])
+          
+          console.info('[REFRESH] applied offers=', (refreshPayload.selectedOffers || []).length)
+          
+          setIsRefreshing(false)
+          toast.success('Данные обновлены')
+        }
+      })
+      
+      return () => {
+        unsubscribe()
+        unsubscribeRefresh()
+      }
     }
   }, [])
   
@@ -493,8 +528,27 @@ function App() {
   }
 
   const handleRefreshData = async () => {
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    addInfoMessage('success', 'Данные обновлены')
+    if (appMode === 'DEMO') {
+      toast.info('REFRESH доступен только в Bitrix')
+      return
+    }
+    
+    if (isRefreshing) return
+    
+    setIsRefreshing(true)
+    console.info('[REFRESH] request sent')
+    
+    const offerIds = selectedOffers.map(o => o.id)
+    postMessageBridge.sendRefreshRequest(offerIds)
+    
+    const timeout = setTimeout(() => {
+      if (isRefreshing) {
+        setIsRefreshing(false)
+        toast.error('Не удалось обновить данные')
+      }
+    }, 10000)
+    
+    return () => clearTimeout(timeout)
   }
   
   const allItems = getAllItemsInOrder()
@@ -590,14 +644,26 @@ function App() {
       ]
     }
     
-    console.info('[INIT] Simulated', mockInitPayload)
+    console.info('[INIT] Simulated')
+    console.info('[INIT] applied offers=', mockInitPayload.selectedOffers.length)
+    
+    setAppMode('BITRIX')
+    setAppModeState('BITRIX')
+    
+    clearDemoStorage()
+    resetBitrixStore()
+    
+    setHeaderTabs({
+      materials: [],
+      operations: [],
+      equipment: [],
+      details: [],
+    })
     
     setBitrixMeta(mockInitPayload)
     setSelectedOffers(mockInitPayload.selectedOffers)
     setSelectedVariantIds(mockInitPayload.selectedOffers.map(o => o.id))
     setOffersSource('INIT')
-    
-    console.info('[INIT] applied offers=', mockInitPayload.selectedOffers.length)
     
     if (mockInitPayload.context?.url && mockInitPayload.context?.lang) {
       setBitrixContext({
@@ -611,7 +677,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} offersSource={offersSource} />
       
       {dragState.isDragging && getDraggedElement()}
       
@@ -662,6 +728,7 @@ function App() {
             onDetailDragEnd={handleHeaderDetailDragEnd}
             onActiveTabChange={setActiveHeaderTab}
             bitrixMeta={bitrixMeta}
+            isRefreshing={isRefreshing}
           />
         </header>
 

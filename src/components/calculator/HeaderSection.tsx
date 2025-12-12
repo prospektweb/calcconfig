@@ -32,13 +32,13 @@ interface HeaderSectionProps {
   onDetailDragEnd?: () => void
   onActiveTabChange?: (tab: string) => void
   bitrixMeta?: InitPayload | null
+  isRefreshing?: boolean
 }
 
 const MIN_HEIGHT = 80
 const MAX_HEIGHT = 250
 
-export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onRefreshData, onDetailDragStart, onDetailDragEnd, onActiveTabChange, bitrixMeta }: HeaderSectionProps) {
-  const [isRefreshing, setIsRefreshing] = useState(false)
+export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onRefreshData, onDetailDragStart, onDetailDragEnd, onActiveTabChange, bitrixMeta, isRefreshing: externalIsRefreshing }: HeaderSectionProps) {
   const [activeTab, setActiveTab] = useState<HeaderTabType>(() => {
     const stored = localStorage.getItem('calc_active_header_tab')
     return (stored as HeaderTabType) || 'details'
@@ -156,22 +156,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
   }
 
   const handleRefreshData = async () => {
-    setIsRefreshing(true)
-    addInfoMessage('info', 'Обновление данных...')
-    
-    try {
-      if (onRefreshData) {
-        await onRefreshData()
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 1000))
-      }
-      addInfoMessage('success', 'Данные обновлены')
-      toast.success('Данные обновлены')
-    } catch (error) {
-      addInfoMessage('error', 'Ошибка обновления данных')
-      toast.error('Не удалось обновить данные')
-    } finally {
-      setIsRefreshing(false)
+    if (onRefreshData) {
+      onRefreshData()
     }
   }
 
@@ -193,8 +179,10 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     }
 
     if (bitrixMeta) {
-      postMessageBridge.sendConfigItemRemove(kindMap[activeTab], itemId)
+      postMessageBridge.sendHeaderItemRemove(kindMap[activeTab], itemId)
     }
+    
+    addInfoMessage('info', `Элемент удалён из шапки`)
   }
 
   const handleOpenHeaderElement = (itemId: number) => {
@@ -270,13 +258,13 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
             variant="ghost"
             size="sm"
             onClick={handleRefreshData}
-            disabled={isRefreshing}
+            disabled={externalIsRefreshing}
             className="h-10 w-10 p-0 hover:bg-accent hover:text-accent-foreground flex-shrink-0"
             aria-label="Обновить данные"
             title="Обновить данные"
             data-pwcode="btn-refresh"
           >
-            <ArrowsClockwise className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <ArrowsClockwise className={`w-5 h-5 ${externalIsRefreshing ? 'animate-spin' : ''}`} />
           </Button>
           <TabsList className="flex-1 grid grid-cols-4 rounded-none h-auto bg-transparent border-0" data-pwcode="header-tabs">
             <TabsTrigger value="details" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-details">

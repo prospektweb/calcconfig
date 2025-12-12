@@ -13,6 +13,9 @@ export type MessageType =
   | 'OFFERS_REMOVE'
   | 'BITRIX_PICKER_OPEN'
   | 'CONFIG_ITEM_REMOVE'
+  | 'HEADER_ITEM_REMOVE'
+  | 'REFRESH_REQUEST'
+  | 'REFRESH_RESULT'
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -145,7 +148,11 @@ class PostMessageBridge {
         if (!message || !message.type) return
         if (message.target !== 'prospektweb.calc') return
 
-        console.log('[PostMessageBridge] Received:', message.type, message.payload)
+        const isDebug = typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1'
+        
+        if (isDebug || ['INIT', 'REFRESH_RESULT'].includes(message.type)) {
+          console.log('[PostMessageBridge] Received:', message.type, message.payload)
+        }
 
         const listeners = this.listeners.get(message.type)
         if (listeners) {
@@ -196,7 +203,11 @@ class PostMessageBridge {
       message.requestId = requestId
     }
 
-    console.log('[PostMessageBridge] Sending:', type, payload)
+    const isDebug = typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1'
+    
+    if (isDebug || ['INIT_DONE', 'REFRESH_REQUEST'].includes(type)) {
+      console.log('[PostMessageBridge] Sending:', type, payload)
+    }
 
     if (window.parent && window.parent !== window) {
       window.parent.postMessage(message, this.targetOrigin)
@@ -268,6 +279,19 @@ class PostMessageBridge {
     this.sendMessage('CONFIG_ITEM_REMOVE', {
       kind,
       id,
+    })
+  }
+  
+  sendHeaderItemRemove(kind: 'detail' | 'material' | 'operation' | 'equipment', id: number) {
+    this.sendMessage('HEADER_ITEM_REMOVE', {
+      kind,
+      id,
+    })
+  }
+  
+  sendRefreshRequest(offerIds: number[]) {
+    this.sendMessage('REFRESH_REQUEST', {
+      offerIds,
     })
   }
 
