@@ -863,6 +863,271 @@ interface InitPayload {
 
 ---
 
+## Универсальная функция открытия элементов в Bitrix
+
+### Назначение
+
+Функция `openBitrixAdmin` предоставляет единый интерфейс для открытия элементов или списков инфоблоков в административной части Bitrix в новой вкладке браузера.
+
+### API
+
+```typescript
+interface OpenBitrixAdminParams {
+  iblockId: number  // ID инфоблока
+  type: string      // Тип инфоблока (например, "catalog", "calculator_catalog")
+  lang: string      // Язык интерфейса ("ru", "en")
+  id?: number       // ID элемента (опционально)
+}
+
+function openBitrixAdmin(params: OpenBitrixAdminParams): void
+```
+
+### Примеры использования
+
+#### Открыть элемент для редактирования
+
+```typescript
+openBitrixAdmin({
+  iblockId: 100,
+  type: 'calculator_catalog',
+  lang: 'ru',
+  id: 215,
+})
+// Откроется: https://site.ru/bitrix/admin/iblock_element_edit.php?IBLOCK_ID=100&type=calculator_catalog&lang=ru&ID=215
+```
+
+#### Открыть список инфоблока
+
+```typescript
+openBitrixAdmin({
+  iblockId: 100,
+  type: 'calculator_catalog',
+  lang: 'ru',
+})
+// Откроется: https://site.ru/bitrix/admin/iblock_list_admin.php?IBLOCK_ID=100&type=calculator_catalog&lang=ru&find_section_section=0
+```
+
+### Инициализация контекста
+
+Перед использованием `openBitrixAdmin` необходимо установить контекст Bitrix:
+
+```typescript
+import { setBitrixContext } from '@/lib/bitrix-utils'
+
+// При обработке INIT
+setBitrixContext({
+  baseUrl: initPayload.context.url,  // Например, "https://prospektprint.ru/"
+  lang: initPayload.context.lang,     // "ru" или "en"
+})
+```
+
+### Использование в компонентах
+
+Функция используется во многих компонентах для открытия различных сущностей:
+
+- **Торговые предложения** (VariantsFooter):
+  - Открытие ТП: `iblockId = INIT.iblocks.offers`
+  - Открытие родительского товара: `iblockId = INIT.iblocks.products`
+
+- **Детали** (HeaderSection, DetailCard):
+  - `iblockId = INIT.iblocks.calcDetailsVariants`
+
+- **Материалы** (HeaderSection):
+  - `iblockId = INIT.iblocks.calcMaterialsVariants`
+
+- **Операции** (HeaderSection):
+  - `iblockId = INIT.iblocks.calcOperationsVariants`
+
+- **Оборудование** (HeaderSection):
+  - `iblockId = INIT.iblocks.calcEquipment`
+
+---
+
+## Дополнительные события postMessage
+
+Помимо основных событий (`INIT`, `SAVE_REQUEST` и т.д.), добавлены новые типы событий для интерактивной работы с Bitrix.
+
+### OFFERS_ADD
+
+**Направление:** iframe → Bitrix  
+**Назначение:** Запрос на добавление торговых предложений к текущей конфигурации
+
+**Payload:**
+```typescript
+{} // Пустой объект
+```
+
+**Пример:**
+```json
+{
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "OFFERS_ADD",
+  "payload": {},
+  "timestamp": 1234567890
+}
+```
+
+**Триггер:** Клик на кнопку `[data-pwcode="btn-add-offer"]` в панели торговых предложений
+
+**Ожидаемое действие Bitrix:** Открыть интерфейс выбора торговых предложений, затем отправить новый `INIT` с обновлённым списком `selectedOffers`.
+
+---
+
+### OFFERS_REMOVE
+
+**Направление:** iframe → Bitrix  
+**Назначение:** Уведомление об удалении торгового предложения из списка
+
+**Payload:**
+```typescript
+{
+  offerId: number  // ID удалённого торгового предложения
+}
+```
+
+**Пример:**
+```json
+{
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "OFFERS_REMOVE",
+  "payload": {
+    "offerId": 215
+  },
+  "timestamp": 1234567890
+}
+```
+
+**Триггер:** Клик на кнопку удаления `[data-pwcode="btn-remove-offer"]` в badge торгового предложения
+
+**Ожидаемое действие Bitrix:** Обновить список выбранных ТП на стороне Bitrix (без перезагрузки iframe).
+
+---
+
+### BITRIX_PICKER_OPEN
+
+**Направление:** iframe → Bitrix  
+**Назначение:** Запрос на открытие пикера выбора элементов Bitrix для конкретного инфоблока
+
+**Payload:**
+```typescript
+{
+  iblockId: number,  // ID инфоблока
+  type: string,      // Тип инфоблока
+  lang: string       // Язык интерфейса
+}
+```
+
+**Пример:**
+```json
+{
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "BITRIX_PICKER_OPEN",
+  "payload": {
+    "iblockId": 100,
+    "type": "calculator_catalog",
+    "lang": "ru"
+  },
+  "timestamp": 1234567890
+}
+```
+
+**Триггер:** Клик на кнопку `[data-pwcode="btn-select"]` в HeaderSection
+
+**Контекст:** Какой таб активен определяет, какой инфоблок открывается:
+- Таб "Детали" → `iblocks.calcDetailsVariants`
+- Таб "Материалы" → `iblocks.calcMaterialsVariants`
+- Таб "Операции" → `iblocks.calcOperationsVariants`
+- Таб "Оборудование" → `iblocks.calcEquipment`
+
+**Ожидаемое действие Bitrix:** Открыть модальное окно или overlay с интерфейсом выбора элементов из указанного инфоблока. После выбора обновить конфигурацию и отправить обновлённые данные обратно в iframe.
+
+---
+
+### CONFIG_ITEM_REMOVE
+
+**Направление:** iframe → Bitrix  
+**Назначение:** Уведомление об удалении элемента из конфигурации
+
+**Payload:**
+```typescript
+{
+  kind: 'detail' | 'material' | 'operation' | 'equipment',  // Тип элемента
+  id: number  // ID элемента
+}
+```
+
+**Пример:**
+```json
+{
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "CONFIG_ITEM_REMOVE",
+  "payload": {
+    "kind": "material",
+    "id": 42
+  },
+  "timestamp": 1234567890
+}
+```
+
+**Триггер:** Клик на кнопки удаления в HeaderSection:
+- `[data-pwcode="btn-delete-header-detail"]`
+- `[data-pwcode="btn-delete-material"]`
+- `[data-pwcode="btn-delete-operation"]`
+- `[data-pwcode="btn-delete-equipment"]`
+
+**Ожидаемое действие Bitrix:** Синхронизировать удаление элемента (опционально). Это событие информационное и не требует ответа.
+
+---
+
+## Панель торговых предложений (Tooltip с JSON)
+
+### Описание
+
+При наведении на badge торгового предложения `[data-pwcode="offer-badge"]` появляется tooltip с подробной информацией и JSON-представлением данных оффера.
+
+### Структура Tooltip
+
+#### Шапка tooltip
+- **Название ТП** (`offer.name`)
+- **ID родительского товара** (`offer.productId`)
+- **Кнопка открытия родительского товара** — иконка ArrowSquareOut, открывает через `openBitrixAdmin`:
+  ```typescript
+  openBitrixAdmin({
+    iblockId: INIT.iblocks.products,
+    type: INIT.iblocksTypes[INIT.iblocks.products],
+    lang: INIT.context.lang,
+    id: offer.productId,
+  })
+  ```
+- **Кнопка копирования JSON** — иконка Copy, копирует полный JSON оффера в буфер обмена
+
+#### Основная часть tooltip
+- **JSON Viewer** (библиотека `react-json-view-lite`):
+  - Древовидное отображение всей структуры оффера
+  - Возможность сворачивать/разворачивать ветки
+  - Прокрутка при большом объёме данных
+  - Максимальная высота: 384px (24rem)
+
+### Поведение tooltip
+
+- **Показ:** При наведении курсора на badge
+- **Скрытие:** С задержкой 300ms после того, как курсор покинул badge
+- **Залипание:** Если курсор перешёл на tooltip, он не исчезает
+- **Закрытие:** Tooltip исчезает только когда курсор покинул и badge, и tooltip
+
+### Технические детали
+
+Для управления состоянием tooltip используются:
+- `tooltipOpen: number | null` — ID оффера, для которого открыт tooltip
+- `tooltipTimeoutRef` — таймер для задержки скрытия
+- События `onMouseEnter` и `onMouseLeave` на badge и tooltip
+
+---
+
 ## Заключение
 
 Этот документ описывает полный протокол взаимодействия приложения калькуляции с 1С-Битрикс через postMessage, включая специальный режим развертывания без зависимости от Spark KV.
@@ -872,3 +1137,6 @@ interface InitPayload {
 - ✅ Все данные загружаются через `INIT` или используют дефолты
 - ✅ Сохранение происходит только через `SAVE_REQUEST`
 - ✅ Абстракция `ConfigStore` обеспечивает совместимость двух режимов
+- ✅ Универсальная функция `openBitrixAdmin` для открытия элементов в админке
+- ✅ Расширенные события postMessage для интерактивной работы
+- ✅ Интерактивный tooltip с JSON-viewer для торговых предложений

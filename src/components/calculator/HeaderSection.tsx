@@ -19,6 +19,8 @@ import {
 import { AppState, HeaderElement, HeaderTabType, InfoMessage } from '@/lib/types'
 import { mockMaterials, mockOperations, mockEquipment, mockDetails } from '@/lib/mock-data'
 import { toast } from 'sonner'
+import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
+import { openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
 
 interface HeaderSectionProps {
   headerTabs: AppState['headerTabs']
@@ -29,12 +31,13 @@ interface HeaderSectionProps {
   onDetailDragStart?: (detailId: number, detailName: string) => void
   onDetailDragEnd?: () => void
   onActiveTabChange?: (tab: string) => void
+  bitrixMeta?: InitPayload | null
 }
 
 const MIN_HEIGHT = 80
 const MAX_HEIGHT = 250
 
-export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onRefreshData, onDetailDragStart, onDetailDragEnd, onActiveTabChange }: HeaderSectionProps) {
+export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onRefreshData, onDetailDragStart, onDetailDragEnd, onActiveTabChange, bitrixMeta }: HeaderSectionProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [activeTab, setActiveTab] = useState<HeaderTabType>(() => {
     const stored = localStorage.getItem('calc_active_header_tab')
@@ -92,14 +95,53 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     startHeightRef.current = headerHeight
   }
 
+  const getIblockInfoForTab = () => {
+    if (!bitrixMeta) return null
+
+    const iblockMap = {
+      details: bitrixMeta.iblocks.calcDetailsVariants,
+      materials: bitrixMeta.iblocks.calcMaterialsVariants,
+      operations: bitrixMeta.iblocks.calcOperationsVariants,
+      equipment: bitrixMeta.iblocks.calcEquipment,
+    }
+
+    const iblockId = iblockMap[activeTab]
+    const type = bitrixMeta.iblocksTypes[iblockId]
+    const lang = bitrixMeta.context.lang
+
+    return { iblockId, type, lang }
+  }
+
   const handleSelectClick = () => {
-    toast.info('Открыто окно выбора элементов (заглушка)')
-    addInfoMessage('info', `Открыто окно выбора: ${activeTab}`)
+    const iblockInfo = getIblockInfoForTab()
+    
+    if (iblockInfo) {
+      postMessageBridge.sendBitrixPickerOpen(
+        iblockInfo.iblockId,
+        iblockInfo.type,
+        iblockInfo.lang
+      )
+      addInfoMessage('info', `Открыто окно выбора: ${getTabLabel(activeTab)}`)
+    } else {
+      toast.info('Открыто окно выбора элементов (заглушка)')
+      addInfoMessage('info', `Открыто окно выбора: ${activeTab}`)
+    }
   }
 
   const handleCatalogClick = () => {
-    window.open('#catalog-placeholder', '_blank')
-    addInfoMessage('info', 'Открыт каталог')
+    const iblockInfo = getIblockInfoForTab()
+    
+    if (iblockInfo) {
+      openBitrixAdmin({
+        iblockId: iblockInfo.iblockId,
+        type: iblockInfo.type,
+        lang: iblockInfo.lang,
+      })
+      addInfoMessage('info', `Открыт каталог: ${getTabLabel(activeTab)}`)
+    } else {
+      window.open('#catalog-placeholder', '_blank')
+      addInfoMessage('info', 'Открыт каталог')
+    }
   }
 
   const handleResetTab = () => {
@@ -133,7 +175,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     }
   }
 
-  const handleRemoveElement = (id: string) => {
+  const handleRemoveElement = (id: string, itemId: number) => {
     setHeaderTabs(prev => {
       const safePrev = prev || { materials: [], operations: [], equipment: [], details: [] }
       const currentTab = safePrev[activeTab] || []
@@ -142,6 +184,34 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
         [activeTab]: currentTab.filter((el: HeaderElement) => el.id !== id)
       }
     })
+
+    const kindMap: Record<HeaderTabType, 'detail' | 'material' | 'operation' | 'equipment'> = {
+      details: 'detail',
+      materials: 'material',
+      operations: 'operation',
+      equipment: 'equipment',
+    }
+
+    if (bitrixMeta) {
+      postMessageBridge.sendConfigItemRemove(kindMap[activeTab], itemId)
+    }
+  }
+
+  const handleOpenHeaderElement = (itemId: number) => {
+    const iblockInfo = getIblockInfoForTab()
+    
+    if (iblockInfo) {
+      openBitrixAdmin({
+        iblockId: iblockInfo.iblockId,
+        type: iblockInfo.type,
+        lang: iblockInfo.lang,
+        id: itemId,
+      })
+      addInfoMessage('info', `Открыт элемент ID: ${itemId}`)
+    } else {
+      window.open(`#element-${itemId}`, '_blank')
+      addInfoMessage('info', `Открыт элемент ID: ${itemId}`)
+    }
   }
   
   const handleDetailDragStart = (detailId: number, detailName: string) => (e: React.DragEvent) => {
@@ -289,7 +359,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
                             onClick={(e) => {
                               e.stopPropagation()
-                              window.open(`#detail-${detail.id}`, '_blank')
+                              handleOpenHeaderElement(detail.id)
                             }}
                             data-pwcode="btn-open-header-detail"
                           >
@@ -340,7 +410,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
                             onClick={(e) => {
                               e.stopPropagation()
-                              window.open(`#material-${material.id}`, '_blank')
+                              handleOpenHeaderElement(material.id)
                             }}
                             data-pwcode="btn-open-material"
                           >
@@ -391,7 +461,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
                             onClick={(e) => {
                               e.stopPropagation()
-                              window.open(`#operation-${operation.id}`, '_blank')
+                              handleOpenHeaderElement(operation.id)
                             }}
                             data-pwcode="btn-open-operation"
                           >
@@ -442,7 +512,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
                             onClick={(e) => {
                               e.stopPropagation()
-                              window.open(`#equipment-${equipment.id}`, '_blank')
+                              handleOpenHeaderElement(equipment.id)
                             }}
                             data-pwcode="btn-open-equipment"
                           >
@@ -499,7 +569,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                         className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleRemoveElement(element.id)
+                          handleRemoveElement(element.id, element.itemId)
                         }}
                       >
                         <X className="w-3.5 h-3.5" />

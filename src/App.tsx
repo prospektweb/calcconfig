@@ -37,7 +37,8 @@ import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { initializeBitrixStore, getBitrixStore, getDeployTarget } from '@/services/configStore'
-import { postMessageBridge } from '@/lib/postmessage-bridge'
+import { postMessageBridge, InitPayload } from '@/lib/postmessage-bridge'
+import { setBitrixContext } from '@/lib/bitrix-utils'
 
 type DragItem = {
   type: 'detail' | 'binding'
@@ -47,8 +48,10 @@ type DragItem = {
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [selectedVariantIds] = useState<number[]>(Array.from({ length: 15 }, (_, i) => 525 + i))
-  const [testVariantId, setTestVariantId] = useState<number | null>(525)
+  const [selectedVariantIds, setSelectedVariantIds] = useState<number[]>([])
+  const [testVariantId, setTestVariantId] = useState<number | null>(null)
+  const [bitrixMeta, setBitrixMeta] = useState<InitPayload | null>(null)
+  const [selectedOffers, setSelectedOffers] = useState<InitPayload['selectedOffers']>([])
   
   const [headerTabs, setHeaderTabs] = useConfigKV<AppState['headerTabs']>('calc_header_tabs', {
     materials: [],
@@ -110,6 +113,19 @@ function App() {
       const unsubscribe = postMessageBridge.on('INIT', (message) => {
         const bitrixStore = getBitrixStore()
         if (bitrixStore && message.payload) {
+          const initPayload = message.payload as InitPayload
+          
+          setBitrixMeta(initPayload)
+          setSelectedOffers(initPayload.selectedOffers || [])
+          setSelectedVariantIds(initPayload.selectedOffers?.map(o => o.id) || [])
+          
+          if (initPayload.context?.url && initPayload.context?.lang) {
+            setBitrixContext({
+              baseUrl: initPayload.context.url,
+              lang: initPayload.context.lang,
+            })
+          }
+          
           initializeBitrixStore(message.payload)
           
           if (message.payload.config?.data) {
@@ -499,6 +515,7 @@ function App() {
             isInBinding={false}
             orderNumber={allItems.findIndex(i => i.id === item.id) + 1}
             isDragging={false}
+            bitrixMeta={bitrixMeta}
           />
         ) : (
           <BindingCard
@@ -537,6 +554,7 @@ function App() {
             onDetailDragStart={handleHeaderDetailDragStart}
             onDetailDragEnd={handleHeaderDetailDragEnd}
             onActiveTabChange={setActiveHeaderTab}
+            bitrixMeta={bitrixMeta}
           />
         </header>
 
@@ -625,6 +643,7 @@ function App() {
                     orderNumber={index + 1}
                     onDragStart={handleDetailDragStart}
                     isDragging={isDraggingThis}
+                    bitrixMeta={bitrixMeta}
                   />
                 ) : (
                   <BindingCard
@@ -719,10 +738,18 @@ function App() {
         )}
 
         <VariantsFooter
-          selectedVariantIds={selectedVariantIds}
+          selectedOffers={selectedOffers}
           testVariantId={testVariantId}
           setTestVariantId={setTestVariantId}
           addInfoMessage={addInfoMessage}
+          bitrixMeta={bitrixMeta}
+          onRemoveOffer={(offerId) => {
+            setSelectedOffers(prev => prev.filter(o => o.id !== offerId))
+            setSelectedVariantIds(prev => prev.filter(id => id !== offerId))
+            if (testVariantId === offerId) {
+              setTestVariantId(null)
+            }
+          }}
         />
 
         <InfoPanel

@@ -1,25 +1,37 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Plus, ArrowSquareOut, X, CaretDown, CaretUp } from '@phosphor-icons/react'
-import { mockProductVariants } from '@/lib/mock-data'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Plus, ArrowSquareOut, X, CaretDown, CaretUp, Copy } from '@phosphor-icons/react'
 import { InfoMessage } from '@/lib/types'
 import { toast } from 'sonner'
+import { JsonView, darkStyles, defaultStyles } from 'react-json-view-lite'
+import 'react-json-view-lite/dist/index.css'
+import { InitPayload } from '@/lib/postmessage-bridge'
+import { openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
+import { postMessageBridge } from '@/lib/postmessage-bridge'
 
 interface VariantsFooterProps {
-  selectedVariantIds: number[]
+  selectedOffers: InitPayload['selectedOffers']
   testVariantId: number | null
   setTestVariantId: (id: number | null) => void
   addInfoMessage: (type: InfoMessage['type'], message: string) => void
+  bitrixMeta: InitPayload | null
+  onRemoveOffer: (offerId: number) => void
 }
 
 export function VariantsFooter({
-  selectedVariantIds,
+  selectedOffers,
   testVariantId,
   setTestVariantId,
   addInfoMessage,
+  bitrixMeta,
+  onRemoveOffer,
 }: VariantsFooterProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [hoveredOfferId, setHoveredOfferId] = useState<number | null>(null)
+  const [tooltipOpen, setTooltipOpen] = useState<number | null>(null)
+  const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleVariantClick = (id: number) => {
     if (testVariantId === id) {
@@ -32,74 +44,200 @@ export function VariantsFooter({
   }
 
   const handleAddVariant = () => {
-    toast.info('Открытие меню выбора торговых предложений Битрикс (заглушка)')
-    addInfoMessage('info', 'Открыто меню выбора торговых предложений')
+    postMessageBridge.sendOffersAdd()
+    addInfoMessage('info', 'Отправлен запрос на добавление торговых предложений')
   }
 
-  const handleOpenVariant = (id: number, e: React.MouseEvent) => {
+  const handleOpenVariant = (offer: InitPayload['selectedOffers'][0], e: React.MouseEvent) => {
     e.stopPropagation()
-    window.open(`#variant-${id}`, '_blank')
-    addInfoMessage('info', `Открыт вариант ID: ${id}`)
+    
+    if (!bitrixMeta) {
+      toast.error('Метаданные Bitrix не загружены')
+      return
+    }
+
+    const context = getBitrixContext()
+    if (!context) {
+      toast.error('Контекст Bitrix не инициализирован')
+      return
+    }
+
+    openBitrixAdmin({
+      iblockId: bitrixMeta.iblocks.offers,
+      type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.offers],
+      lang: context.lang,
+      id: offer.id,
+    })
+    
+    addInfoMessage('info', `Открыто ТП ID: ${offer.id}`)
   }
 
-  const handleRemoveVariant = (id: number, e: React.MouseEvent) => {
+  const handleOpenProduct = (offer: InitPayload['selectedOffers'][0], e: React.MouseEvent) => {
     e.stopPropagation()
-    toast.info(`Удаление варианта ID: ${id} (заглушка)`)
-    addInfoMessage('warning', `Запрос на удаление варианта ID: ${id}`)
+    
+    if (!bitrixMeta) {
+      toast.error('Метаданные Bitrix не загружены')
+      return
+    }
+
+    const context = getBitrixContext()
+    if (!context) {
+      toast.error('Контекст Bitrix не инициализирован')
+      return
+    }
+
+    openBitrixAdmin({
+      iblockId: bitrixMeta.iblocks.products,
+      type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.products],
+      lang: context.lang,
+      id: offer.productId,
+    })
+    
+    addInfoMessage('info', `Открыт родительский товар ID: ${offer.productId}`)
   }
 
-  const getVariantName = (id: number) => {
-    const variant = mockProductVariants.find(v => v.id === id)
-    return variant?.name || `Неизвестный вариант ${id}`
+  const handleRemoveVariant = (offer: InitPayload['selectedOffers'][0], e: React.MouseEvent) => {
+    e.stopPropagation()
+    setTooltipOpen(null)
+    onRemoveOffer(offer.id)
+    postMessageBridge.sendOffersRemove(offer.id)
+    addInfoMessage('warning', `Удалён оффер ID: ${offer.id}`)
   }
+
+  const handleCopyJSON = (offer: InitPayload['selectedOffers'][0]) => {
+    navigator.clipboard.writeText(JSON.stringify(offer, null, 2))
+    toast.success('JSON скопирован в буфер обмена')
+  }
+
+  const handleMouseEnterBadge = (offerId: number) => {
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current)
+    }
+    setTooltipOpen(offerId)
+  }
+
+  const handleMouseLeaveBadge = (offerId: number) => {
+    tooltipTimeoutRef.current = setTimeout(() => {
+      setTooltipOpen(null)
+    }, 300)
+  }
+
+  const handleMouseEnterTooltip = () => {
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current)
+    }
+  }
+
+  const handleMouseLeaveTooltip = () => {
+    tooltipTimeoutRef.current = setTimeout(() => {
+      setTooltipOpen(null)
+    }, 300)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (tooltipTimeoutRef.current) {
+        clearTimeout(tooltipTimeoutRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div className="border-t border-border bg-card px-4 py-2" data-pwcode="offerspanel">
       <div className="flex items-center gap-3">
         <span className="text-sm font-medium whitespace-nowrap">Торговые предложения:</span>
-        <div className={`flex gap-2 flex-wrap flex-1 ${!isExpanded && selectedVariantIds.length > 5 ? 'max-h-8 overflow-hidden' : ''}`}>
-          {selectedVariantIds.map(id => {
-            const isTest = testVariantId === id
-            const variantName = getVariantName(id)
-            
-            return (
-              <div key={id} className="group relative">
-                <Badge
-                  variant={isTest ? "default" : "secondary"}
-                  className={`
-                    px-2 py-1 flex items-center gap-1.5 cursor-pointer transition-colors text-xs
-                    ${isTest ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-accent-foreground'}
-                  `}
-                  onClick={() => handleVariantClick(id)}
-                  title={variantName}
-                  data-pwcode="offer-badge"
-                >
-                  <span className="font-mono">{id}</span>
-                  {isTest && <span className="text-[10px]">TEST</span>}
-                  <div className="hidden group-hover:flex items-center gap-0.5 ml-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0 hover:bg-accent hover:text-accent-foreground"
-                      onClick={(e) => handleOpenVariant(id, e)}
-                      data-pwcode="btn-open-offer"
+        <div className={`flex gap-2 flex-wrap flex-1 ${!isExpanded && selectedOffers.length > 5 ? 'max-h-8 overflow-hidden' : ''}`}>
+          <TooltipProvider>
+            {selectedOffers.map(offer => {
+              const isTest = testVariantId === offer.id
+              
+              return (
+                <Tooltip key={offer.id} open={tooltipOpen === offer.id}>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="group relative"
+                      onMouseEnter={() => handleMouseEnterBadge(offer.id)}
+                      onMouseLeave={() => handleMouseLeaveBadge(offer.id)}
                     >
-                      <ArrowSquareOut className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                      onClick={(e) => handleRemoveVariant(id, e)}
-                      data-pwcode="btn-remove-offer"
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </Badge>
-              </div>
-            )
-          })}
+                      <Badge
+                        variant={isTest ? "default" : "secondary"}
+                        className={`
+                          px-2 py-1 flex items-center gap-1.5 cursor-pointer transition-colors text-xs
+                          ${isTest ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-accent-foreground'}
+                        `}
+                        onClick={() => handleVariantClick(offer.id)}
+                        title={offer.name}
+                        data-pwcode="offer-badge"
+                      >
+                        <span className="font-mono">{offer.id}</span>
+                        {isTest && <span className="text-[10px]">TEST</span>}
+                        <div className="hidden group-hover:flex items-center gap-0.5 ml-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 hover:bg-accent hover:text-accent-foreground"
+                            onClick={(e) => handleOpenVariant(offer, e)}
+                            data-pwcode="btn-open-offer"
+                          >
+                            <ArrowSquareOut className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={(e) => handleRemoveVariant(offer, e)}
+                            data-pwcode="btn-remove-offer"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </Badge>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent 
+                    side="top" 
+                    className="max-w-2xl p-0 bg-card border-border"
+                    onMouseEnter={handleMouseEnterTooltip}
+                    onMouseLeave={handleMouseLeaveTooltip}
+                  >
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-4 pb-3 border-b border-border">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-sm mb-1">{offer.name}</h4>
+                          <p className="text-xs text-muted-foreground">
+                            ID родительского товара: {offer.productId}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={(e) => handleOpenProduct(offer, e)}
+                            title="Открыть родительский товар"
+                          >
+                            <ArrowSquareOut className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={() => handleCopyJSON(offer)}
+                            title="Копировать JSON"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="max-h-96 overflow-auto text-xs">
+                        <JsonView data={offer} style={defaultStyles} />
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })}
+          </TooltipProvider>
         </div>
         <Button 
           variant="outline" 
@@ -111,7 +249,7 @@ export function VariantsFooter({
           <Plus className="w-4 h-4 mr-1" />
           Выбрать
         </Button>
-        {selectedVariantIds.length > 5 && (
+        {selectedOffers.length > 5 && (
           <Button
             variant="ghost"
             size="sm"

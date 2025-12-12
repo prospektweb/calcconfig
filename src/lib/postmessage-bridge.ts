@@ -9,6 +9,10 @@ export type MessageType =
   | 'SAVE_RESULT'
   | 'ERROR'
   | 'CLOSE_REQUEST'
+  | 'OFFERS_ADD'
+  | 'OFFERS_REMOVE'
+  | 'BITRIX_PICKER_OPEN'
+  | 'CONFIG_ITEM_REMOVE'
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -28,20 +32,30 @@ export interface InitPayload {
     userId: string
     lang: 'ru' | 'en'
     timestamp: number
+    url: string
   }
   iblocks: {
-    materials: number
-    operations: number
-    equipment: number
-    details: number
-    calculators: number
-    configurations: number
+    products: number
+    offers: number
+    calcDetailsVariants: number
+    calcMaterialsVariants: number
+    calcOperationsVariants: number
+    calcEquipment: number
+    calculators?: number
+    configurations?: number
   }
+  iblocksTypes: Record<string, string>
   selectedOffers: Array<{
     id: number
     productId: number
     name: string
     fields?: Record<string, any>
+    prices?: Array<{
+      type: string
+      value: number
+      currency: string
+    }>
+    properties?: Record<string, any>
   }>
   config?: {
     id: number
@@ -229,6 +243,31 @@ class PostMessageBridge {
     this.sendMessage('CLOSE_REQUEST', {
       saved,
       hasChanges,
+    })
+  }
+
+  sendOffersAdd() {
+    this.sendMessage('OFFERS_ADD', {})
+  }
+
+  sendOffersRemove(offerId: number) {
+    this.sendMessage('OFFERS_REMOVE', {
+      offerId,
+    })
+  }
+
+  sendBitrixPickerOpen(iblockId: number, type: string, lang: string) {
+    this.sendMessage('BITRIX_PICKER_OPEN', {
+      iblockId,
+      type,
+      lang,
+    })
+  }
+
+  sendConfigItemRemove(kind: 'detail' | 'material' | 'operation' | 'equipment', id: number) {
+    this.sendMessage('CONFIG_ITEM_REMOVE', {
+      kind,
+      id,
     })
   }
 

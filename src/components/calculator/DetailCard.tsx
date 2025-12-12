@@ -5,6 +5,9 @@ import { Input } from '@/components/ui/input'
 import { Detail, CalculatorInstance } from '@/lib/types'
 import { CaretDown, CaretUp, X, Pencil, Plus, DotsSixVertical, ArrowSquareOut } from '@phosphor-icons/react'
 import { CalculatorTabs } from './CalculatorTabs'
+import { InitPayload } from '@/lib/postmessage-bridge'
+import { openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
+import { toast } from 'sonner'
 
 interface DetailCardProps {
   detail: Detail
@@ -14,15 +17,33 @@ interface DetailCardProps {
   orderNumber: number
   onDragStart?: (element: HTMLElement, e: React.MouseEvent) => void
   isDragging?: boolean
+  bitrixMeta?: InitPayload | null
 }
 
-export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, isDragging = false }: DetailCardProps) {
+export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, isDragging = false, bitrixMeta }: DetailCardProps) {
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !detail.isExpanded })
   }
   
   const handleOpenInBitrix = () => {
-    window.open(`#detail-${detail.id}`, '_blank')
+    if (bitrixMeta) {
+      const context = getBitrixContext()
+      if (!context) {
+        toast.error('Контекст Bitrix не инициализирован')
+        return
+      }
+
+      const detailIdNumber = parseInt(detail.id.split('_')[1] || '0')
+      
+      openBitrixAdmin({
+        iblockId: bitrixMeta.iblocks.calcDetailsVariants,
+        type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetailsVariants],
+        lang: context.lang,
+        id: detailIdNumber,
+      })
+    } else {
+      window.open(`#detail-${detail.id}`, '_blank')
+    }
   }
   
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
