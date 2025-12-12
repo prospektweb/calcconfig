@@ -36,7 +36,7 @@ import { CostPanel } from '@/components/calculator/CostPanel'
 import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
-import { initializeBitrixStore, getBitrixStore, getDeployTarget } from '@/services/configStore'
+import { initializeBitrixStore, getBitrixStore, getDeployTarget, getAppMode, getDemoOffers, AppMode, OffersSource } from '@/services/configStore'
 import { postMessageBridge, InitPayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext } from '@/lib/bitrix-utils'
 
@@ -51,7 +51,12 @@ function App() {
   const [selectedVariantIds, setSelectedVariantIds] = useState<number[]>([])
   const [testVariantId, setTestVariantId] = useState<number | null>(null)
   const [bitrixMeta, setBitrixMeta] = useState<InitPayload | null>(null)
-  const [selectedOffers, setSelectedOffers] = useState<InitPayload['selectedOffers']>([])
+  
+  const [appMode] = useState<AppMode>(getAppMode())
+  const [offersSource, setOffersSource] = useState<OffersSource>('DEMO')
+  const [selectedOffers, setSelectedOffers] = useState<InitPayload['selectedOffers']>(() => {
+    return appMode === 'DEMO' ? getDemoOffers() : []
+  })
   
   const [headerTabs, setHeaderTabs] = useConfigKV<AppState['headerTabs']>('calc_header_tabs', {
     materials: [],
@@ -115,9 +120,14 @@ function App() {
         if (bitrixStore && message.payload) {
           const initPayload = message.payload as InitPayload
           
+          console.info('[INIT] received', initPayload)
+          
           setBitrixMeta(initPayload)
           setSelectedOffers(initPayload.selectedOffers || [])
           setSelectedVariantIds(initPayload.selectedOffers?.map(o => o.id) || [])
+          setOffersSource('INIT')
+          
+          console.info('[INIT] applied offers=', (initPayload.selectedOffers || []).length)
           
           if (initPayload.context?.url && initPayload.context?.lang) {
             setBitrixContext({
@@ -537,11 +547,108 @@ function App() {
     )
   }
 
+  const handleSimulateInit = () => {
+    const mockInitPayload: InitPayload = {
+      mode: "NEW_CONFIG",
+      context: {
+        siteId: "s1",
+        userId: "1",
+        lang: "ru",
+        timestamp: Date.now(),
+        url: "https://prospektprint.ru/"
+      },
+      iblocks: {
+        products: 16,
+        offers: 17,
+        calcMaterialsVariants: 95,
+        calcOperationsVariants: 97,
+        calcEquipment: 98,
+        calcDetailsVariants: 100
+      },
+      iblocksTypes: {
+        "16": "catalog",
+        "17": "offers",
+        "95": "calculator_catalog",
+        "97": "calculator_catalog",
+        "98": "calculator_catalog",
+        "100": "calculator_catalog"
+      },
+      selectedOffers: [
+        {
+          id: 215,
+          productId: 213,
+          name: "Визитки: 50 экз., A7 74×105мм, 1+0",
+          fields: { width: 74, height: 8, length: 105, weight: 70 },
+          prices: [{ type: "BASE", value: 1152, currency: "RUB" }],
+          properties: {
+            VOLUME: "50 экз.",
+            FORMAT: "A7 74×105мм",
+            COLOR_SCHEME: "1+0",
+            CML2_LINK: "213"
+          }
+        }
+      ]
+    }
+    
+    console.info('[INIT] Simulated', mockInitPayload)
+    
+    setBitrixMeta(mockInitPayload)
+    setSelectedOffers(mockInitPayload.selectedOffers)
+    setSelectedVariantIds(mockInitPayload.selectedOffers.map(o => o.id))
+    setOffersSource('INIT')
+    
+    console.info('[INIT] applied offers=', mockInitPayload.selectedOffers.length)
+    
+    if (mockInitPayload.context?.url && mockInitPayload.context?.lang) {
+      setBitrixContext({
+        baseUrl: mockInitPayload.context.url,
+        lang: mockInitPayload.context.lang,
+      })
+    }
+    
+    toast.success('INIT симуляция применена')
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
       
       {dragState.isDragging && getDraggedElement()}
+      
+      <div className="fixed top-2 right-2 z-50 flex gap-2 items-center">
+        <div className="bg-card border border-border rounded-lg px-3 py-1.5 shadow-lg flex gap-3 text-xs font-mono">
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">MODE:</span>
+            <span className={cn(
+              "font-semibold",
+              appMode === 'BITRIX' ? "text-accent" : "text-primary"
+            )}>
+              {appMode}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">OFFERS:</span>
+            <span className={cn(
+              "font-semibold",
+              offersSource === 'INIT' ? "text-success" : "text-muted-foreground"
+            )}>
+              {offersSource}
+            </span>
+          </div>
+        </div>
+        
+        {appMode === 'DEMO' && offersSource === 'DEMO' && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleSimulateInit}
+            className="shadow-lg"
+            pwcode="btn-simulate-init"
+          >
+            Simulate INIT
+          </Button>
+        )}
+      </div>
       
       <div className="w-full flex flex-col min-h-screen">
         <header className="border-b border-border bg-card" pwcode="header">

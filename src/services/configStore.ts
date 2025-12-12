@@ -6,33 +6,36 @@ export interface ConfigStore {
   getOrSetDefault<T = any>(key: string, defaultValue: T): Promise<T>
 }
 
+async function loadSparkKV() {
+  if (typeof window !== 'undefined' && window.spark?.kv) {
+    return window.spark.kv
+  }
+  return null
+}
+
 class SparkConfigStore implements ConfigStore {
   async get<T = any>(key: string): Promise<T | undefined> {
-    if (typeof window === 'undefined' || !window.spark?.kv) {
-      return undefined
-    }
-    return await window.spark.kv.get<T>(key)
+    const kv = await loadSparkKV()
+    if (!kv) return undefined
+    return await kv.get<T>(key)
   }
 
   async set<T = any>(key: string, value: T): Promise<void> {
-    if (typeof window === 'undefined' || !window.spark?.kv) {
-      return
-    }
-    await window.spark.kv.set(key, value)
+    const kv = await loadSparkKV()
+    if (!kv) return
+    await kv.set(key, value)
   }
 
   async delete(key: string): Promise<void> {
-    if (typeof window === 'undefined' || !window.spark?.kv) {
-      return
-    }
-    await window.spark.kv.delete(key)
+    const kv = await loadSparkKV()
+    if (!kv) return
+    await kv.delete(key)
   }
 
   async keys(): Promise<string[]> {
-    if (typeof window === 'undefined' || !window.spark?.kv) {
-      return []
-    }
-    return await window.spark.kv.keys()
+    const kv = await loadSparkKV()
+    if (!kv) return []
+    return await kv.keys()
   }
 
   async getOrSetDefault<T = any>(key: string, defaultValue: T): Promise<T> {
@@ -45,10 +48,30 @@ class SparkConfigStore implements ConfigStore {
   }
 }
 
+const DEMO_OFFERS = [
+  {
+    id: 999,
+    productId: 998,
+    name: "Демо ТП: A4 (210×297мм), 100 экз.",
+    fields: { width: 210, height: 297, length: 210, weight: 500 },
+    prices: [{ type: "BASE", value: 2500, currency: "RUB" }],
+    properties: { VOLUME: "100 экз.", FORMAT: "A4", COLOR_SCHEME: "4+4", CML2_LINK: "998" }
+  },
+  {
+    id: 1000,
+    productId: 998,
+    name: "Демо ТП: A5 (148×210мм), 50 экз.",
+    fields: { width: 148, height: 210, length: 148, weight: 250 },
+    prices: [{ type: "BASE", value: 1500, currency: "RUB" }],
+    properties: { VOLUME: "50 экз.", FORMAT: "A5", COLOR_SCHEME: "4+0", CML2_LINK: "998" }
+  }
+]
+
 class BitrixConfigStore implements ConfigStore {
   private storage: Map<string, any> = new Map()
   private initData: Record<string, any> | null = null
   private defaults: Record<string, any> = {}
+  private initialized: boolean = false
 
   constructor() {
     this.initializeDefaults()
@@ -79,6 +102,9 @@ class BitrixConfigStore implements ConfigStore {
 
   setInitData(data: Record<string, any>) {
     this.initData = data
+    this.initialized = true
+    
+    console.info('[BitrixConfigStore] INIT data applied')
     
     if (data.config?.data) {
       if (data.config.data.details) {
@@ -94,6 +120,10 @@ class BitrixConfigStore implements ConfigStore {
         this.storage.set('calc_sale_prices_settings', data.config.data.salePricesSettings)
       }
     }
+  }
+
+  isInitialized(): boolean {
+    return this.initialized
   }
 
   async get<T = any>(key: string): Promise<T | undefined> {
@@ -149,19 +179,34 @@ class BitrixConfigStore implements ConfigStore {
   }
 }
 
+export type AppMode = 'DEMO' | 'BITRIX'
+export type OffersSource = 'DEMO' | 'INIT'
+
 export function getDeployTarget(): 'bitrix' | 'spark' {
   if (typeof import.meta.env !== 'undefined' && import.meta.env.VITE_DEPLOY_TARGET) {
-    return import.meta.env.VITE_DEPLOY_TARGET as 'bitrix' | 'spark'
+    const target = import.meta.env.VITE_DEPLOY_TARGET as string
+    console.info('[MODE]', target === 'bitrix' ? 'BITRIX' : 'DEMO')
+    return target as 'bitrix' | 'spark'
   }
   
   if (typeof window !== 'undefined') {
     const params = new URLSearchParams(window.location.search)
     if (params.get('deploy') === 'bitrix') {
+      console.info('[MODE]', 'BITRIX')
       return 'bitrix'
     }
   }
   
+  console.info('[MODE]', 'DEMO')
   return 'spark'
+}
+
+export function getAppMode(): AppMode {
+  return getDeployTarget() === 'bitrix' ? 'BITRIX' : 'DEMO'
+}
+
+export function getDemoOffers() {
+  return DEMO_OFFERS
 }
 
 let configStoreInstance: ConfigStore | null = null
