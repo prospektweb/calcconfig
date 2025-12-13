@@ -127,6 +127,8 @@ function App() {
           
           setAppMode('BITRIX')
           setAppModeState('BITRIX')
+
+          postMessageBridge.enableMetadata()
           
           clearDemoStorage()
           resetBitrixStore()

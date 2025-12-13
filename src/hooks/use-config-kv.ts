@@ -7,10 +7,19 @@ export function useConfigKV<T>(
 ): [T, (value: T | ((current: T) => T)) => void, () => void] {
   const [value, setValue] = useState<T>(defaultValue)
   const [isInitialized, setIsInitialized] = useState(false)
+  const deployTarget = getDeployTarget()
 
   useEffect(() => {
     let mounted = true
     const store = getConfigStore()
+
+    if (deployTarget === 'bitrix' && !('getAllData' in store)) {
+      if (mounted) {
+        setValue(defaultValue)
+        setIsInitialized(true)
+      }
+      return
+    }
 
     store.getOrSetDefault(key, defaultValue).then((storedValue) => {
       if (mounted) {
@@ -28,7 +37,7 @@ export function useConfigKV<T>(
     return () => {
       mounted = false
     }
-  }, [key])
+  }, [key, deployTarget, defaultValue])
 
   const setValueWrapper = useCallback(
     (newValue: T | ((current: T) => T)) => {

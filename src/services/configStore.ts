@@ -7,10 +7,24 @@ export interface ConfigStore {
 }
 
 async function loadSparkKV() {
-  if (typeof window !== 'undefined' && window.spark?.kv) {
-    return window.spark.kv
+  const deployTarget = getDeployTarget()
+
+  if (deployTarget !== 'spark') {
+    return null
   }
-  return null
+
+  if (typeof window === 'undefined') return null
+
+  if (!window.spark?.kv) {
+    try {
+      await import('@github/spark/spark')
+    } catch (error) {
+      console.error('[loadSparkKV] Failed to load Spark SDK', error)
+      return null
+    }
+  }
+
+  return window.spark?.kv ?? null
 }
 
 class SparkConfigStore implements ConfigStore {
@@ -246,25 +260,34 @@ let bitrixStoreInstance: BitrixConfigStore | null = null
 
 export function createConfigStore(): ConfigStore {
   const deployTarget = getDeployTarget()
-  
+
   if (deployTarget === 'bitrix') {
     if (!bitrixStoreInstance) {
       bitrixStoreInstance = new BitrixConfigStore()
     }
     configStoreInstance = bitrixStoreInstance
   } else {
-    if (!configStoreInstance) {
-      configStoreInstance = new SparkConfigStore()
-    }
+    configStoreInstance = new SparkConfigStore()
   }
-  
+
   return configStoreInstance
 }
 
 export function getConfigStore(): ConfigStore {
+  const deployTarget = getDeployTarget()
+
   if (!configStoreInstance) {
     return createConfigStore()
   }
+
+  if (deployTarget === 'bitrix' && configStoreInstance !== bitrixStoreInstance) {
+    return createConfigStore()
+  }
+
+  if (deployTarget === 'spark' && configStoreInstance === bitrixStoreInstance) {
+    return createConfigStore()
+  }
+
   return configStoreInstance
 }
 
