@@ -23,7 +23,7 @@ export function getBitrixContext(): BitrixContext | null {
 export function openBitrixAdmin(params: OpenBitrixAdminParams) {
   if (!bitrixContext) {
     console.error('[openBitrixAdmin] Bitrix context not initialized')
-    throw new Error('Контекст Bitrix не инициализирован')
+    return
   }
 
   const { iblockId, type, lang, id } = params
@@ -31,7 +31,7 @@ export function openBitrixAdmin(params: OpenBitrixAdminParams) {
 
   if (!iblockId || !type || !lang) {
     console.error('[openBitrixAdmin] Missing required parameters', { iblockId, type, lang })
-    throw new Error('Не указаны обязательные параметры для открытия Bitrix')
+    return
   }
 
   let url: string
@@ -46,10 +46,8 @@ export function openBitrixAdmin(params: OpenBitrixAdminParams) {
     const newWindow = window.open(url, '_blank', 'noopener,noreferrer')
     if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
       console.warn('[openBitrixAdmin] Popup was blocked')
-      throw new Error('Всплывающее окно заблокировано браузером. Разрешите всплывающие окна для этого сайта.')
     }
   } catch (error) {
     console.error('[openBitrixAdmin] Failed to open window', error)
-    throw error
   }
 }

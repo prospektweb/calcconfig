@@ -115,9 +115,26 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     return { iblockId, type, lang }
   }
 
+  const getActiveTabAttributes = () => {
+    const activeTabElement = document.querySelector(`[data-pwcode="tab-${activeTab}"]`) as HTMLElement | null
+
+    if (!activeTabElement) return null
+
+    const iblockIdAttr = activeTabElement.getAttribute('data-iblock-id')
+    const iblockTypeAttr = activeTabElement.getAttribute('data-iblock-type')
+
+    if (!iblockIdAttr || !iblockTypeAttr || !bitrixMeta?.context.lang) return null
+
+    return {
+      iblockId: Number(iblockIdAttr),
+      type: iblockTypeAttr,
+      lang: bitrixMeta.context.lang,
+    }
+  }
+
   const handleSelectClick = () => {
-    const iblockInfo = getIblockInfoForTab()
-    
+    const iblockInfo = getActiveTabAttributes() || getIblockInfoForTab()
+
     if (iblockInfo) {
       postMessageBridge.sendBitrixPickerOpen(
         iblockInfo.iblockId,
@@ -277,6 +294,25 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     }
   }
 
+  const getTabAttributes = (type: HeaderTabType) => {
+    if (!bitrixMeta) return {}
+
+    const iblockMap = {
+      details: bitrixMeta.iblocks.calcDetailsVariants,
+      materials: bitrixMeta.iblocks.calcMaterialsVariants,
+      operations: bitrixMeta.iblocks.calcOperationsVariants,
+      equipment: bitrixMeta.iblocks.calcEquipment,
+    }
+
+    const iblockId = iblockMap[type]
+    const iblockType = iblockId ? bitrixMeta.iblocksTypes[iblockId] : undefined
+
+    return {
+      'data-iblock-id': iblockId ?? undefined,
+      'data-iblock-type': iblockType ?? undefined,
+    }
+  }
+
   return (
     <div className="relative" data-pwcode="headersection">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as HeaderTabType)} className="w-full">
@@ -304,19 +340,19 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
             <ArrowsClockwise className={`w-5 h-5 ${externalIsRefreshing ? 'animate-spin' : ''}`} />
           </Button>
           <TabsList className="flex-1 grid grid-cols-4 rounded-none h-auto bg-transparent border-0" data-pwcode="header-tabs">
-            <TabsTrigger value="details" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-details">
+            <TabsTrigger value="details" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-details" {...getTabAttributes('details')}>
               {getTabIcon('details')}
               Детали
             </TabsTrigger>
-            <TabsTrigger value="materials" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-materials">
+            <TabsTrigger value="materials" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-materials" {...getTabAttributes('materials')}>
               {getTabIcon('materials')}
               Материалы
             </TabsTrigger>
-            <TabsTrigger value="operations" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-operations">
+            <TabsTrigger value="operations" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-operations" {...getTabAttributes('operations')}>
               {getTabIcon('operations')}
               Операции
             </TabsTrigger>
-            <TabsTrigger value="equipment" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-equipment">
+            <TabsTrigger value="equipment" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-equipment" {...getTabAttributes('equipment')}>
               {getTabIcon('equipment')}
               Оборудование
             </TabsTrigger>

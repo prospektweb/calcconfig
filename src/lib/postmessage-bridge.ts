@@ -26,6 +26,9 @@ export interface PwrtMessage {
   requestId?: string
   payload?: any
   timestamp?: number
+  protocol?: string
+  version?: string
+  pwcode?: string
 }
 
 export interface InitPayload {
@@ -136,6 +139,7 @@ class PostMessageBridge {
   private isInitialized = false
   private protocolVersion = '1.0.0'
   private protocolCode = 'pwrt-v1'
+  private metadataEnabled = false
 
   constructor() {
     this.initializeListener()
@@ -194,6 +198,9 @@ class PostMessageBridge {
   private sendMessage(type: MessageType, payload?: any, requestId?: string) {
     if (typeof window === 'undefined') return
 
+    const shouldEnrich = this.metadataEnabled && type !== 'READY'
+    const resolvedRequestId = requestId || (shouldEnrich ? `${type.toLowerCase()}_${Date.now()}` : undefined)
+
     const message: PwrtMessage = {
       source: 'prospektweb.calc',
       target: 'bitrix',
@@ -202,8 +209,14 @@ class PostMessageBridge {
       timestamp: Date.now(),
     }
 
-    if (requestId) {
-      message.requestId = requestId
+    if (resolvedRequestId) {
+      message.requestId = resolvedRequestId
+    }
+
+    if (shouldEnrich) {
+      message.protocol = this.protocolCode
+      message.version = this.protocolVersion
+      message.pwcode = payload?.pwcode || 'btn-select'
     }
 
     const isDebug = typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1'
@@ -318,6 +331,10 @@ class PostMessageBridge {
 
   clear() {
     this.listeners.clear()
+  }
+
+  enableMetadata() {
+    this.metadataEnabled = true
   }
 }
 
