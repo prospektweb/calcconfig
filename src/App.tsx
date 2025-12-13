@@ -112,23 +112,30 @@ function App() {
     selectedTypes: [],
     types: {},
   })
-  
+
   useEffect(() => {
     const deployTarget = getDeployTarget()
-    
+
+    if (deployTarget === 'bitrix') {
+      setAppMode('BITRIX')
+      setAppModeState('BITRIX')
+    }
+  }, [])
+
+  useEffect(() => {
+    const deployTarget = getDeployTarget()
+
     if (deployTarget === 'bitrix') {
       const unsubscribe = postMessageBridge.on('INIT', (message) => {
         const bitrixStore = getBitrixStore()
         if (bitrixStore && message.payload) {
           const initPayload = message.payload as InitPayload
-          
+
           console.info('[INIT] received')
           console.info('[INIT] applied offers=', (initPayload.selectedOffers || []).length)
-          
+
           setAppMode('BITRIX')
           setAppModeState('BITRIX')
-
-          postMessageBridge.enableMetadata()
           
           clearDemoStorage()
           resetBitrixStore()
@@ -513,11 +520,25 @@ function App() {
     
     if (isRefreshing) return
     
+    if (!bitrixMeta) {
+      toast.error('Метаданные Bitrix не загружены')
+      return
+    }
+
     setIsRefreshing(true)
     console.info('[REFRESH] request sent')
-    
+
+    const iblockId = bitrixMeta.iblocks.offers
+    const iblockType = bitrixMeta.iblocksTypes[iblockId]
     const offerIds = selectedOffers.map(o => o.id)
-    postMessageBridge.sendRefreshRequest(offerIds)
+
+    postMessageBridge.sendRefreshRequest([
+      {
+        iblockId,
+        iblockType,
+        ids: offerIds,
+      }
+    ])
     
     const timeout = setTimeout(() => {
       if (isRefreshing) {

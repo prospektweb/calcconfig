@@ -120,8 +120,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
 
     if (!activeTabElement) return null
 
-    const iblockIdAttr = activeTabElement.getAttribute('data-iblock-id')
-    const iblockTypeAttr = activeTabElement.getAttribute('data-iblock-type')
+    const iblockIdAttr = activeTabElement.getAttribute('iblock-id')
+    const iblockTypeAttr = activeTabElement.getAttribute('iblock-type')
 
     if (!iblockIdAttr || !iblockTypeAttr || !bitrixMeta?.context.lang) return null
 
@@ -136,11 +136,12 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     const iblockInfo = getActiveTabAttributes() || getIblockInfoForTab()
 
     if (iblockInfo) {
-      postMessageBridge.sendBitrixPickerOpen(
-        iblockInfo.iblockId,
-        iblockInfo.type,
-        iblockInfo.lang
-      )
+      postMessageBridge.sendSelectRequest({
+        iblockId: iblockInfo.iblockId,
+        iblockType: iblockInfo.type,
+        lang: iblockInfo.lang,
+        tab: activeTab,
+      })
       addInfoMessage('info', `Открыто окно выбора: ${getTabLabel(activeTab)}`)
     } else {
       toast.info('Открыто окно выбора элементов (заглушка)')
@@ -308,8 +309,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     const iblockType = iblockId ? bitrixMeta.iblocksTypes[iblockId] : undefined
 
     return {
-      'data-iblock-id': iblockId ?? undefined,
-      'data-iblock-type': iblockType ?? undefined,
+      'iblock-id': iblockId ?? undefined,
+      'iblock-type': iblockType ?? undefined,
     }
   }
 

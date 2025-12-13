@@ -44,7 +44,8 @@ export function VariantsFooter({
   }
 
   const handleAddVariant = () => {
-    postMessageBridge.sendOffersAdd()
+    const offerIds = selectedOffers.map(o => o.id)
+    postMessageBridge.sendAddOfferRequest({ offerIds })
     addInfoMessage('info', 'Отправлен запрос на добавление торговых предложений')
   }
 
@@ -109,8 +110,20 @@ export function VariantsFooter({
   const handleRemoveVariant = (offer: InitPayload['selectedOffers'][0], e: React.MouseEvent) => {
     e.stopPropagation()
     setTooltipOpen(null)
+    if (!bitrixMeta) {
+      toast.error('Метаданные Bitrix не загружены')
+      return
+    }
+
+    const iblockId = bitrixMeta.iblocks.offers
+    const iblockType = bitrixMeta.iblocksTypes[iblockId]
+
     onRemoveOffer(offer.id)
-    postMessageBridge.sendOffersRemove(offer.id)
+    postMessageBridge.sendRemoveOfferRequest({
+      iblockId,
+      iblockType,
+      id: offer.id,
+    })
     addInfoMessage('warning', `Удалён оффер ID: ${offer.id}`)
   }
 

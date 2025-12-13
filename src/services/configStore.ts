@@ -6,25 +6,37 @@ export interface ConfigStore {
   getOrSetDefault<T = any>(key: string, defaultValue: T): Promise<T>
 }
 
+const isBitrixBuild = typeof import.meta !== 'undefined'
+  && typeof import.meta.env !== 'undefined'
+  && import.meta.env.VITE_DEPLOY_TARGET === 'bitrix'
+
+const sparkLoader = !isBitrixBuild
+  ? async () => {
+    if (typeof window === 'undefined') return null
+
+    if (!window.spark?.kv) {
+      try {
+        await import('@github/spark/spark')
+      } catch (error) {
+        console.error('[loadSparkKV] Failed to load Spark SDK', error)
+        return null
+      }
+    }
+
+    return window.spark?.kv ?? null
+  }
+  : null
+
 async function loadSparkKV() {
+  if (!sparkLoader) return null
+
   const deployTarget = getDeployTarget()
 
   if (deployTarget !== 'spark') {
     return null
   }
 
-  if (typeof window === 'undefined') return null
-
-  if (!window.spark?.kv) {
-    try {
-      await import('@github/spark/spark')
-    } catch (error) {
-      console.error('[loadSparkKV] Failed to load Spark SDK', error)
-      return null
-    }
-  }
-
-  return window.spark?.kv ?? null
+  return sparkLoader()
 }
 
 class SparkConfigStore implements ConfigStore {

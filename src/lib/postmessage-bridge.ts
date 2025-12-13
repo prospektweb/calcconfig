@@ -1,6 +1,6 @@
 import { AppState, Detail, Binding, HeaderElement, CostingSettings, SalePricesSettings } from './types'
 
-export type MessageType = 
+export type MessageType =
   | 'READY'
   | 'INIT'
   | 'INIT_DONE'
@@ -9,9 +9,9 @@ export type MessageType =
   | 'SAVE_RESULT'
   | 'ERROR'
   | 'CLOSE_REQUEST'
-  | 'OFFERS_ADD'
-  | 'OFFERS_REMOVE'
-  | 'BITRIX_PICKER_OPEN'
+  | 'SELECT_REQUEST'
+  | 'ADD_OFFER_REQUEST'
+  | 'REMOVE_OFFER_REQUEST'
   | 'CONFIG_ITEM_REMOVE'
   | 'HEADER_ITEM_REMOVE'
   | 'REFRESH_REQUEST'
@@ -20,15 +20,15 @@ export type MessageType =
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
 export interface PwrtMessage {
+  protocol: string
+  version: string
   source: MessageSource
   target: MessageSource
   type: MessageType
-  requestId?: string
-  payload?: any
-  timestamp?: number
-  protocol?: string
-  version?: string
-  pwcode?: string
+  pwcode: string
+  requestId: string | null
+  timestamp: number
+  payload: any
 }
 
 export interface InitPayload {
@@ -139,7 +139,6 @@ class PostMessageBridge {
   private isInitialized = false
   private protocolVersion = '1.0.0'
   private protocolCode = 'pwrt-v1'
-  private metadataEnabled = false
 
   constructor() {
     this.initializeListener()
@@ -195,29 +194,29 @@ class PostMessageBridge {
     this.targetOrigin = origin
   }
 
-  private sendMessage(type: MessageType, payload?: any, requestId?: string) {
-    if (typeof window === 'undefined') return
+  private buildMessage(type: MessageType, payload: any = {}, requestId?: string | null, pwcode?: string): PwrtMessage {
+    const timestamp = Date.now()
+    const resolvedRequestId = requestId === undefined
+      ? `req_${type.toLowerCase()}_${timestamp}`
+      : requestId
 
-    const shouldEnrich = this.metadataEnabled && type !== 'READY'
-    const resolvedRequestId = requestId || (shouldEnrich ? `${type.toLowerCase()}_${Date.now()}` : undefined)
-
-    const message: PwrtMessage = {
+    return {
+      protocol: this.protocolCode,
+      version: this.protocolVersion,
       source: 'prospektweb.calc',
       target: 'bitrix',
       type,
-      payload,
-      timestamp: Date.now(),
+      pwcode: pwcode ?? 'system',
+      requestId: resolvedRequestId ?? null,
+      timestamp,
+      payload: payload ?? {},
     }
+  }
 
-    if (resolvedRequestId) {
-      message.requestId = resolvedRequestId
-    }
+  private sendMessage(type: MessageType, payload: any = {}, requestId?: string | null, pwcode?: string) {
+    if (typeof window === 'undefined') return
 
-    if (shouldEnrich) {
-      message.protocol = this.protocolCode
-      message.version = this.protocolVersion
-      message.pwcode = payload?.pwcode || 'btn-select'
-    }
+    const message = this.buildMessage(type, payload, requestId, pwcode)
 
     const isDebug = typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1'
     
@@ -235,16 +234,14 @@ class PostMessageBridge {
   sendReady() {
     this.sendMessage('READY', {
       version: this.protocolVersion,
-      protocol: this.protocolCode,
-      timestamp: Date.now(),
-    })
+    }, null, 'system')
   }
 
   sendInitDone(mode: 'NEW_CONFIG' | 'EXISTING_CONFIG', offersCount: number) {
     this.sendMessage('INIT_DONE', {
       mode,
       offersCount,
-    })
+    }, null, 'system')
   }
 
   sendCalcPreview(payload: CalcPreviewPayload) {
@@ -263,32 +260,14 @@ class PostMessageBridge {
       message,
       details,
       context,
-    })
+    }, undefined, 'system')
   }
 
   sendCloseRequest(saved: boolean, hasChanges: boolean) {
     this.sendMessage('CLOSE_REQUEST', {
       saved,
       hasChanges,
-    })
-  }
-
-  sendOffersAdd() {
-    this.sendMessage('OFFERS_ADD', {})
-  }
-
-  sendOffersRemove(offerId: number) {
-    this.sendMessage('OFFERS_REMOVE', {
-      offerId,
-    })
-  }
-
-  sendBitrixPickerOpen(iblockId: number, type: string, lang: string) {
-    this.sendMessage('BITRIX_PICKER_OPEN', {
-      iblockId,
-      type,
-      lang,
-    })
+    }, undefined, 'system')
   }
 
   sendConfigItemRemove(kind: 'detail' | 'material' | 'operation' | 'equipment', id: number) {
@@ -305,10 +284,20 @@ class PostMessageBridge {
     })
   }
   
-  sendRefreshRequest(offerIds: number[]) {
-    this.sendMessage('REFRESH_REQUEST', {
-      offerIds,
-    })
+  sendRefreshRequest(refreshPayload: Array<{ iblockId: number, iblockType: string, ids: number[] }>) {
+    this.sendMessage('REFRESH_REQUEST', refreshPayload, undefined, 'btn-refresh')
+  }
+
+  sendSelectRequest(payload: { iblockId: number, iblockType: string, lang: string, tab: string }) {
+    this.sendMessage('SELECT_REQUEST', payload, undefined, 'btn-select')
+  }
+
+  sendAddOfferRequest(payload: { offerIds: number[] }) {
+    this.sendMessage('ADD_OFFER_REQUEST', payload, undefined, 'btn-add-offer')
+  }
+
+  sendRemoveOfferRequest(payload: { iblockId: number, iblockType: string, id: number }) {
+    this.sendMessage('REMOVE_OFFER_REQUEST', payload, undefined, 'btn-remove-offer')
   }
 
   on(type: MessageType | '*', callback: (message: PwrtMessage) => void): () => void {
@@ -331,10 +320,6 @@ class PostMessageBridge {
 
   clear() {
     this.listeners.clear()
-  }
-
-  enableMetadata() {
-    this.metadataEnabled = true
   }
 }
 

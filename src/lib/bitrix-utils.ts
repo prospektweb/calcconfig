@@ -43,11 +43,12 @@ export function openBitrixAdmin(params: OpenBitrixAdminParams) {
   }
 
   try {
-    const newWindow = window.open(url, '_blank', 'noopener,noreferrer')
-    if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-      console.warn('[openBitrixAdmin] Popup was blocked')
-    }
+    window.open(url, '_blank', 'noopener,noreferrer')
   } catch (error) {
-    console.error('[openBitrixAdmin] Failed to open window', error)
+    const isDebug = typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1'
+
+    if (isDebug) {
+      console.error('[openBitrixAdmin] Failed to open window', error)
+    }
   }
 }
