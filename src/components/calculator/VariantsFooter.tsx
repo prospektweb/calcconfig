@@ -43,8 +43,38 @@ export function VariantsFooter({
     }
   }
 
+  const getOfferRequestContext = () => {
+    if (!bitrixMeta) {
+      toast.error('Метаданные Bitrix не загружены')
+      return null
+    }
+
+    const context = getBitrixContext()
+    if (!context) {
+      toast.error('Контекст Bitrix не инициализирован')
+      return null
+    }
+
+    const iblockId = bitrixMeta.iblocks.offers
+    const iblockType = bitrixMeta.iblocksTypes[iblockId]
+
+    return {
+      iblockId,
+      iblockType,
+      lang: context.lang,
+    }
+  }
+
   const handleAddVariant = () => {
-    postMessageBridge.sendOffersAdd()
+    const requestContext = getOfferRequestContext()
+
+    if (!requestContext) return
+
+    postMessageBridge.sendAddOfferRequest(
+      requestContext.iblockId,
+      requestContext.iblockType,
+      requestContext.lang
+    )
     addInfoMessage('info', 'Отправлен запрос на добавление торговых предложений')
   }
 
@@ -109,8 +139,17 @@ export function VariantsFooter({
   const handleRemoveVariant = (offer: InitPayload['selectedOffers'][0], e: React.MouseEvent) => {
     e.stopPropagation()
     setTooltipOpen(null)
+    const requestContext = getOfferRequestContext()
+
+    if (!requestContext) return
+
     onRemoveOffer(offer.id)
-    postMessageBridge.sendOffersRemove(offer.id)
+    postMessageBridge.sendRemoveOfferRequest(
+      offer.id,
+      requestContext.iblockId,
+      requestContext.iblockType,
+      requestContext.lang
+    )
     addInfoMessage('warning', `Удалён оффер ID: ${offer.id}`)
   }
 
