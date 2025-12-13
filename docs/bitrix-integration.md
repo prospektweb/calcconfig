@@ -1005,9 +1005,9 @@ setBitrixContext({
 
 ---
 
-### BITRIX_PICKER_OPEN
+### SELECT_REQUEST
 
-**Направление:** iframe → Bitrix  
+**Направление:** iframe → Bitrix
 **Назначение:** Запрос на открытие пикера выбора элементов Bitrix для конкретного инфоблока
 
 **Payload:**
@@ -1024,7 +1024,7 @@ setBitrixContext({
 {
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "BITRIX_PICKER_OPEN",
+  "type": "SELECT_REQUEST",
   "payload": {
     "iblockId": 100,
     "type": "calculator_catalog",

@@ -40,7 +40,7 @@ openBitrixAdmin({
 - Новые типы событий:
   - `OFFERS_ADD` — запрос на добавление торговых предложений
   - `OFFERS_REMOVE` — удаление оффера из списка
-  - `BITRIX_PICKER_OPEN` — открыть пикер элементов Bitrix для выбора
+  - `SELECT_REQUEST` — открыть пикер элементов Bitrix для выбора
   - `CONFIG_ITEM_REMOVE` — удаление элемента из конфигурации
   
 - Новые методы:
@@ -119,7 +119,7 @@ openBitrixAdmin({
 - Обновлённая `handleRemoveElement(id, itemId)` — отправляет событие `CONFIG_ITEM_REMOVE`
 
 - Интеграция кнопок:
-  - `btn-select` → отправляет `BITRIX_PICKER_OPEN` с параметрами для активного таба
+  - `btn-select` → отправляет `SELECT_REQUEST` с параметрами для активного таба
   - `btn-catalog` → открывает список инфоблока через `openBitrixAdmin`
   - `btn-open-header-detail`, `btn-open-material`, `btn-open-operation`, `btn-open-equipment` → открывают элемент в Bitrix
   - `btn-delete-header-detail`, `btn-delete-material`, `btn-delete-operation`, `btn-delete-equipment` → удаляют элемент и отправляют событие
@@ -223,13 +223,13 @@ openBitrixAdmin({
 }
 ```
 
-#### `BITRIX_PICKER_OPEN`
+#### `SELECT_REQUEST`
 Открыть пикер выбора элементов Bitrix
 ```json
 {
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "BITRIX_PICKER_OPEN",
+  "type": "SELECT_REQUEST",
   "payload": {
     "iblockId": 100,
     "type": "calculator_catalog",
@@ -349,7 +349,7 @@ openBitrixAdmin({
 4. **PostMessage события:**
    - Клик "btn-add-offer" → отправляется OFFERS_ADD
    - Клик "btn-remove-offer" → отправляется OFFERS_REMOVE с offerId
-   - Клик "btn-select" в шапке → отправляется BITRIX_PICKER_OPEN
+   - Клик "btn-select" в шапке → отправляется SELECT_REQUEST
    - Удаление элемента из шапки → отправляется CONFIG_ITEM_REMOVE
 
 5. **Сборка для Bitrix:**
@@ -376,6 +376,6 @@ openBitrixAdmin({
 ## Следующие шаги
 
 1. Добавить иконки открытия для материалов/операций/оборудования внутри CalculatorTabs
-2. Обработка ответов на события `BITRIX_PICKER_OPEN` (получение выбранных элементов)
+2. Обработка ответов на события `SELECT_REQUEST` (получение выбранных элементов)
 3. Синхронизация удалённых элементов с сервером
 4. Обработка ошибок при открытии ссылок Bitrix
