@@ -455,7 +455,6 @@ function App() {
   const handleTestCalculation = async () => {
     setIsCalculating(true)
     setCalculationProgress(0)
-    addInfoMessage('info', 'Запущен тестовый расчёт...')
     
     for (let i = 0; i <= 100; i += 10) {
       await new Promise(resolve => setTimeout(resolve, 200))
@@ -463,14 +462,11 @@ function App() {
     }
     
     setIsCalculating(false)
-    addInfoMessage('success', 'Тестовый расчёт завершён. Итого себестоимость: 1,250.00 руб')
-    toast.success('Расчёт завершён успешно')
   }
 
   const handleFullCalculation = async () => {
     setIsCalculating(true)
     setCalculationProgress(0)
-    addInfoMessage('info', 'Запущен полный расчёт...')
     
     for (let i = 0; i <= 100; i += 5) {
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -478,19 +474,12 @@ function App() {
     }
     
     setIsCalculating(false)
-    addInfoMessage('success', 'Полный расчёт завершён. Итого себестоимость: 1,250.00 руб')
-    toast.success('Расчёт завершён успешно')
   }
   
   const handleToggleGabVes = () => {
     setIsGabVesActive(!isGabVesActive)
     if (!isGabVesActive) {
       setIsGabVesPanelExpanded(true)
-      addGabVesMessage('Расчёт габаритов начат...')
-      setTimeout(() => {
-        addGabVesMessage('Ширина: 297мм, Длина: 420мм, Высота: 15мм')
-        addGabVesMessage('Вес: 0.85 кг')
-      }, 500)
     } else {
       setIsGabVesPanelExpanded(false)
     }
@@ -500,13 +489,6 @@ function App() {
     setIsCostActive(!isCostActive)
     if (!isCostActive) {
       setIsCostPanelExpanded(true)
-      addCostMessage('Расчёт себестоимости начат...')
-      setTimeout(() => {
-        addCostMessage('Материалы: 450.00 руб')
-        addCostMessage('Операции: 600.00 руб')
-        addCostMessage('Оборудование: 200.00 руб')
-        addCostMessage('Итого себестоимость: 1,250.00 руб')
-      }, 500)
     } else {
       setIsCostPanelExpanded(false)
     }
@@ -516,12 +498,6 @@ function App() {
     setIsPriceActive(!isPriceActive)
     if (!isPriceActive) {
       setIsPricePanelExpanded(true)
-      addPriceMessage('Расчёт отпускных цен начат...')
-      setTimeout(() => {
-        addPriceMessage('Себестоимость: 1,250.00 руб')
-        addPriceMessage('Наценка (20%): 250.00 руб')
-        addPriceMessage('Итого отпускная цена: 1,500.00 руб')
-      }, 500)
     } else {
       setIsPricePanelExpanded(false)
     }
@@ -983,7 +959,7 @@ function App() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => toast.success('Сохранено (демо)')}
+                onClick={() => {}}
                 pwcode="btn-save"
               >
                 <FloppyDisk className="w-4 h-4 mr-2" />
@@ -992,7 +968,7 @@ function App() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => toast.info('Закрыто (демо)')}
+                onClick={() => {}}
                 pwcode="btn-close"
               >
                 <X className="w-4 h-4 mr-2" />

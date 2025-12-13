@@ -21,6 +21,7 @@ import { mockMaterials, mockOperations, mockEquipment, mockDetails } from '@/lib
 import { toast } from 'sonner'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
+import { getAppMode } from '@/services/configStore'
 
 interface HeaderSectionProps {
   headerTabs: AppState['headerTabs']
@@ -47,6 +48,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     const stored = localStorage.getItem('calc_header_height')
     return stored ? parseInt(stored) : MIN_HEIGHT
   })
+  
+  const appMode = getAppMode()
   
   useEffect(() => {
     localStorage.setItem('calc_active_header_tab', activeTab)
@@ -152,7 +155,20 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
         [activeTab]: []
       }
     })
-    addInfoMessage('info', `Сброшен таб: ${activeTab}`)
+    
+    const localStorageKey = `calc_header_tabs`
+    const stored = localStorage.getItem(localStorageKey)
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored)
+        parsed[activeTab] = []
+        localStorage.setItem(localStorageKey, JSON.stringify(parsed))
+      } catch (e) {
+        console.error('Failed to update localStorage:', e)
+      }
+    }
+    
+    addInfoMessage('info', `Сброшен таб: ${getTabLabel(activeTab)}`)
   }
 
   const handleRefreshData = async () => {
@@ -165,10 +181,19 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     setHeaderTabs(prev => {
       const safePrev = prev || { materials: [], operations: [], equipment: [], details: [] }
       const currentTab = safePrev[activeTab] || []
-      return {
+      const newTabs = {
         ...safePrev,
         [activeTab]: currentTab.filter((el: HeaderElement) => el.id !== id)
       }
+      
+      const localStorageKey = `calc_header_tabs`
+      try {
+        localStorage.setItem(localStorageKey, JSON.stringify(newTabs))
+      } catch (e) {
+        console.error('Failed to update localStorage:', e)
+      }
+      
+      return newTabs
     })
 
     const kindMap: Record<HeaderTabType, 'detail' | 'material' | 'operation' | 'equipment'> = {
@@ -322,7 +347,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
 
             <ScrollArea style={{ height: `${headerHeight - 80}px` }}>
               <div className="flex flex-wrap gap-2">
-                {tabType === 'details' ? (
+                {tabType === 'details' && appMode === 'DEMO' ? (
                   <div className="w-full space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {mockDetails.map((detail) => (
@@ -359,6 +384,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
                             onClick={(e) => {
                               e.stopPropagation()
+                              const id = `header-detail-${detail.id}`
+                              handleRemoveElement(id, detail.id)
                             }}
                             data-pwcode="btn-delete-header-detail"
                           >
@@ -368,7 +395,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                       ))}
                     </div>
                   </div>
-                ) : tabType === 'materials' ? (
+                ) : tabType === 'materials' && appMode === 'DEMO' ? (
                   <div className="w-full space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {mockMaterials.map((material) => (
@@ -410,6 +437,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
                             onClick={(e) => {
                               e.stopPropagation()
+                              const id = `header-material-${material.id}`
+                              handleRemoveElement(id, material.id)
                             }}
                             data-pwcode="btn-delete-material"
                           >
@@ -419,7 +448,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                       ))}
                     </div>
                   </div>
-                ) : tabType === 'operations' ? (
+                ) : tabType === 'operations' && appMode === 'DEMO' ? (
                   <div className="w-full space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {mockOperations.map((operation) => (
@@ -461,6 +490,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
                             onClick={(e) => {
                               e.stopPropagation()
+                              const id = `header-operation-${operation.id}`
+                              handleRemoveElement(id, operation.id)
                             }}
                             data-pwcode="btn-delete-operation"
                           >
@@ -470,7 +501,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                       ))}
                     </div>
                   </div>
-                ) : tabType === 'equipment' ? (
+                ) : tabType === 'equipment' && appMode === 'DEMO' ? (
                   <div className="w-full space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {mockEquipment.map((equipment) => (
@@ -512,6 +543,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                             className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
                             onClick={(e) => {
                               e.stopPropagation()
+                              const id = `header-equipment-${equipment.id}`
+                              handleRemoveElement(id, equipment.id)
                             }}
                             data-pwcode="btn-delete-equipment"
                           >
@@ -521,8 +554,6 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                       ))}
                     </div>
                   </div>
-                ) : tabType === 'materials' || tabType === 'operations' || tabType === 'equipment' ? (
-                  <p className="text-sm text-muted-foreground">Все элементы отображаются выше</p>
                 ) : (!headerTabs || !headerTabs[tabType] || (headerTabs[tabType] as HeaderElement[]).length === 0) ? (
                   <p className="text-sm text-muted-foreground">Нет элементов. Нажмите "Выбрать" для добавления.</p>
                 ) : (

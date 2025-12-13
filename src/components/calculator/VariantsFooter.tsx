@@ -203,7 +203,9 @@ export function VariantsFooter({
                     <div className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-4 pb-3 border-b border-border">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-sm mb-1 text-foreground">{offer.name}</h4>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-sm text-foreground">{offer.name}</h4>
+                          </div>
                           <div className="flex items-center gap-2">
                             <p className="text-xs text-muted-foreground">
                               ID родительского товара: {offer.productId}
@@ -215,7 +217,7 @@ export function VariantsFooter({
                               onClick={(e) => handleOpenProduct(offer, e)}
                               title="Открыть родительский товар"
                             >
-                              <ArrowSquareOut className="w-3.5 h-3.5" />
+                              <ArrowSquareOut className="w-3.5 h-3.5 text-foreground" />
                             </Button>
                           </div>
                         </div>
@@ -227,7 +229,7 @@ export function VariantsFooter({
                             onClick={() => handleCopyJSON(offer)}
                             title="Копировать JSON"
                           >
-                            <Copy className="w-4 h-4" />
+                            <Copy className="w-4 h-4 text-foreground" />
                           </Button>
                         </div>
                       </div>
