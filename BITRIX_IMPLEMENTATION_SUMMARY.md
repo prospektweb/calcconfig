@@ -30,13 +30,13 @@ App.tsx обновлён для работы с реальными данным�
   - Кнопкой копирования JSON
 - Интеграция с `openBitrixAdmin` для открытия ТП и товаров
 - PostMessage события:
-  - `OFFERS_ADD` при клике "Выбрать"
-  - `OFFERS_REMOVE` при удалении оффера
+  - `ADD_OFFER_REQUEST` при клике "Выбрать"
+  - `REMOVE_OFFER_REQUEST` при удалении оффера
 
 ### ✅ 4. Шапка (HeaderSection)
 
 Добавлены события Bitrix для всех кнопок:
-- `btn-select` → отправляет `BITRIX_PICKER_OPEN` с параметрами активного таба
+- `btn-select` → отправляет `SELECT_REQUEST` с параметрами активного таба
 - `btn-catalog` → открывает список инфоблока через `openBitrixAdmin`
 - `btn-open-*` → открывают элементы в Bitrix
 - `btn-delete-*` → отправляют `CONFIG_ITEM_REMOVE`
@@ -56,9 +56,9 @@ App.tsx обновлён для работы с реальными данным�
 ### ✅ 6. Расширение postMessage протокола
 
 Добавлены новые типы событий:
-- `OFFERS_ADD` — запрос добавления ТП
-- `OFFERS_REMOVE` — удаление оффера
-- `BITRIX_PICKER_OPEN` — открыть пикер элементов
+- `ADD_OFFER_REQUEST` — запрос добавления ТП
+- `REMOVE_OFFER_REQUEST` — удаление оффера
+- `SELECT_REQUEST` — открыть пикер элементов
 - `CONFIG_ITEM_REMOVE` — удаление элемента конфигурации
 
 ### ✅ 7. Обновление InitPayload
@@ -122,37 +122,47 @@ App.tsx обновлён для работы с реальными данным�
 
 ## Структура PostMessage событий
 
-### OFFERS_ADD
+### ADD_OFFER_REQUEST
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "OFFERS_ADD",
-  "payload": {},
-  "timestamp": 1234567890
-}
-```
-
-### OFFERS_REMOVE
-```json
-{
-  "source": "prospektweb.calc",
-  "target": "bitrix",
-  "type": "OFFERS_REMOVE",
-  "payload": { "offerId": 215 },
-  "timestamp": 1234567890
-}
-```
-
-### BITRIX_PICKER_OPEN
-```json
-{
-  "source": "prospektweb.calc",
-  "target": "bitrix",
-  "type": "BITRIX_PICKER_OPEN",
+  "type": "ADD_OFFER_REQUEST",
+  "requestId": "req-123",
   "payload": {
     "iblockId": 100,
-    "type": "calculator_catalog",
+    "iblockType": "calculator_catalog",
+    "lang": "ru"
+  },
+  "timestamp": 1234567890
+}
+```
+
+### REMOVE_OFFER_REQUEST
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "REMOVE_OFFER_REQUEST",
+  "requestId": "req-123",
+  "payload": { "id": 215, "iblockId": 101, "iblockType": "calculator_catalog", "lang": "ru" },
+  "timestamp": 1234567890
+}
+```
+
+### SELECT_REQUEST
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "SELECT_REQUEST",
+  "requestId": "req-123",
+  "payload": {
+    "iblockId": 100,
+    "iblockType": "calculator_catalog",
     "lang": "ru"
   },
   "timestamp": 1234567890
@@ -250,9 +260,9 @@ VITE_DEPLOY_TARGET=bitrix npm run build
 ✅ Кнопка "Copy JSON" копирует в буфер  
 ✅ Клик "btn-open-offer" открывает ТП в Bitrix  
 ✅ Клик на иконку товара в tooltip открывает товар  
-✅ Клик "btn-add-offer" отправляет OFFERS_ADD  
-✅ Клик "btn-remove-offer" отправляет OFFERS_REMOVE  
-✅ Клик "btn-select" в шапке отправляет BITRIX_PICKER_OPEN  
+✅ Клик "btn-add-offer" отправляет ADD_OFFER_REQUEST  
+✅ Клик "btn-remove-offer" отправляет REMOVE_OFFER_REQUEST  
+✅ Клик "btn-select" в шапке отправляет SELECT_REQUEST  
 ✅ Клик "btn-catalog" открывает список инфоблока  
 ✅ Клик "btn-open-*" в шапке открывает элементы в Bitrix  
 ✅ Клик "btn-delete-*" в шапке отправляет CONFIG_ITEM_REMOVE  
@@ -270,7 +280,7 @@ VITE_DEPLOY_TARGET=bitrix npm run build
    - Требует передачи bitrixMeta через несколько уровней
 
 2. **Обработка ответов от Bitrix picker**
-   - После выбора элементов через BITRIX_PICKER_OPEN
+   - После выбора элементов через SELECT_REQUEST
    - Требует доп. события от Bitrix с выбранными элементами
 
 3. **Двусторонняя синхронизация удалений**

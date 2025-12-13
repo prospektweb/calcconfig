@@ -947,23 +947,33 @@ setBitrixContext({
 
 Помимо основных событий (`INIT`, `SAVE_REQUEST` и т.д.), добавлены новые типы событий для интерактивной работы с Bitrix.
 
-### OFFERS_ADD
+### ADD_OFFER_REQUEST
 
 **Направление:** iframe → Bitrix  
 **Назначение:** Запрос на добавление торговых предложений к текущей конфигурации
 
 **Payload:**
 ```typescript
-{} // Пустой объект
+{
+  iblockId: number,
+  iblockType: string,
+  lang: 'ru' | 'en'
+}
 ```
 
 **Пример:**
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "OFFERS_ADD",
-  "payload": {},
+  "type": "ADD_OFFER_REQUEST",
+  "requestId": "req-123",
+  "payload": {
+    "iblockId": 100,
+    "iblockType": "calculator_catalog",
+    "lang": "ru"
+  },
   "timestamp": 1234567890
 }
 ```
@@ -974,7 +984,7 @@ setBitrixContext({
 
 ---
 
-### OFFERS_REMOVE
+### REMOVE_OFFER_REQUEST
 
 **Направление:** iframe → Bitrix  
 **Назначение:** Уведомление об удалении торгового предложения из списка
@@ -982,18 +992,26 @@ setBitrixContext({
 **Payload:**
 ```typescript
 {
-  offerId: number  // ID удалённого торгового предложения
+  id: number,          // ID удалённого торгового предложения
+  iblockId: number,
+  iblockType: string,
+  lang: 'ru' | 'en'
 }
 ```
 
 **Пример:**
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "OFFERS_REMOVE",
+  "type": "REMOVE_OFFER_REQUEST",
+  "requestId": "req-123",
   "payload": {
-    "offerId": 215
+    "id": 215,
+    "iblockId": 101,
+    "iblockType": "calculator_catalog",
+    "lang": "ru"
   },
   "timestamp": 1234567890
 }
@@ -1005,7 +1023,7 @@ setBitrixContext({
 
 ---
 
-### BITRIX_PICKER_OPEN
+### SELECT_REQUEST
 
 **Направление:** iframe → Bitrix  
 **Назначение:** Запрос на открытие пикера выбора элементов Bitrix для конкретного инфоблока
@@ -1013,21 +1031,23 @@ setBitrixContext({
 **Payload:**
 ```typescript
 {
-  iblockId: number,  // ID инфоблока
-  type: string,      // Тип инфоблока
-  lang: string       // Язык интерфейса
+  iblockId: number,   // ID инфоблока
+  iblockType: string, // Тип инфоблока
+  lang: string        // Язык интерфейса
 }
 ```
 
 **Пример:**
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "BITRIX_PICKER_OPEN",
+  "type": "SELECT_REQUEST",
+  "requestId": "req-123",
   "payload": {
     "iblockId": 100,
-    "type": "calculator_catalog",
+    "iblockType": "calculator_catalog",
     "lang": "ru"
   },
   "timestamp": 1234567890
