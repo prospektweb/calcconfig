@@ -210,6 +210,7 @@ class PostMessageBridge {
       payload: finalPayload,
       timestamp: Date.now(),
     }
+  }
 
     if (!['READY', 'INIT', 'INIT_DONE'].includes(type)) {
       message.protocol = this.protocolCode
