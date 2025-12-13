@@ -681,41 +681,6 @@ function App() {
       
       {dragState.isDragging && getDraggedElement()}
       
-      <div className="fixed top-2 right-2 z-50 flex gap-2 items-center">
-        <div className="bg-card border border-border rounded-lg px-3 py-1.5 shadow-lg flex gap-3 text-xs font-mono">
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">MODE:</span>
-            <span className={cn(
-              "font-semibold",
-              appMode === 'BITRIX' ? "text-accent" : "text-primary"
-            )}>
-              {appMode}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">OFFERS:</span>
-            <span className={cn(
-              "font-semibold",
-              offersSource === 'INIT' ? "text-success" : "text-muted-foreground"
-            )}>
-              {offersSource}
-            </span>
-          </div>
-        </div>
-        
-        {appMode === 'DEMO' && offersSource === 'DEMO' && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleSimulateInit}
-            className="shadow-lg"
-            pwcode="btn-simulate-init"
-          >
-            Simulate INIT
-          </Button>
-        )}
-      </div>
-      
       <div className="w-full flex flex-col min-h-screen">
         <header className="border-b border-border bg-card" pwcode="header">
           <HeaderSection 

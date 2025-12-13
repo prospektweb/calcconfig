@@ -203,21 +203,23 @@ export function VariantsFooter({
                     <div className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-4 pb-3 border-b border-border">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-sm mb-1">{offer.name}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            ID родительского товара: {offer.productId}
-                          </p>
+                          <h4 className="font-semibold text-sm mb-1 text-foreground">{offer.name}</h4>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs text-muted-foreground">
+                              ID родительского товара: {offer.productId}
+                            </p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0"
+                              onClick={(e) => handleOpenProduct(offer, e)}
+                              title="Открыть родительский товар"
+                            >
+                              <ArrowSquareOut className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2"
-                            onClick={(e) => handleOpenProduct(offer, e)}
-                            title="Открыть родительский товар"
-                          >
-                            <ArrowSquareOut className="w-4 h-4" />
-                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
