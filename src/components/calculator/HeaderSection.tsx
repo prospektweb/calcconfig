@@ -101,15 +101,10 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
   const getIblockInfoForTab = (forCatalog: boolean = false) => {
     if (!bitrixMeta) return null
 
-    const iblockMap = forCatalog ? {
-      details: bitrixMeta.iblocks.calcDetails,
-      materials: bitrixMeta.iblocks.calcMaterials,
-      operations: bitrixMeta.iblocks.calcOperations,
-      equipment: bitrixMeta.iblocks.calcEquipment,
-    } : {
-      details: bitrixMeta.iblocks.calcDetailsVariants,
-      materials: bitrixMeta.iblocks.calcMaterialsVariants,
-      operations: bitrixMeta.iblocks.calcOperationsVariants,
+    const iblockMap = {
+      details: forCatalog ? bitrixMeta.iblocks.calcDetails : bitrixMeta.iblocks.calcDetailsVariants,
+      materials: forCatalog ? bitrixMeta.iblocks.calcMaterials : bitrixMeta.iblocks.calcMaterialsVariants,
+      operations: forCatalog ? bitrixMeta.iblocks.calcOperations : bitrixMeta.iblocks.calcOperationsVariants,
       equipment: bitrixMeta.iblocks.calcEquipment,
     }
 
@@ -140,12 +135,18 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     const iblockInfo = getIblockInfoForTab(true)
     
     if (iblockInfo) {
-      openBitrixAdmin({
-        iblockId: iblockInfo.iblockId,
-        type: iblockInfo.type,
-        lang: iblockInfo.lang,
-      })
-      addInfoMessage('info', `Открыт каталог: ${getTabLabel(activeTab)}`)
+      try {
+        openBitrixAdmin({
+          iblockId: iblockInfo.iblockId,
+          type: iblockInfo.type,
+          lang: iblockInfo.lang,
+        })
+        addInfoMessage('info', `Открыт каталог: ${getTabLabel(activeTab)}`)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Не удалось открыть каталог'
+        toast.error(message)
+        addInfoMessage('error', message)
+      }
     } else {
       window.open('#catalog-placeholder', '_blank')
       addInfoMessage('info', 'Открыт каталог')
@@ -219,13 +220,19 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     const iblockInfo = getIblockInfoForTab()
     
     if (iblockInfo) {
-      openBitrixAdmin({
-        iblockId: iblockInfo.iblockId,
-        type: iblockInfo.type,
-        lang: iblockInfo.lang,
-        id: itemId,
-      })
-      addInfoMessage('info', `Открыт элемент ID: ${itemId}`)
+      try {
+        openBitrixAdmin({
+          iblockId: iblockInfo.iblockId,
+          type: iblockInfo.type,
+          lang: iblockInfo.lang,
+          id: itemId,
+        })
+        addInfoMessage('info', `Открыт элемент ID: ${itemId}`)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Не удалось открыть элемент'
+        toast.error(message)
+        addInfoMessage('error', message)
+      }
     } else {
       window.open(`#element-${itemId}`, '_blank')
       addInfoMessage('info', `Открыт элемент ID: ${itemId}`)

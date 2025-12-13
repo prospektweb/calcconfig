@@ -35,12 +35,17 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
 
       const detailIdNumber = parseInt(detail.id.split('_')[1] || '0')
       
-      openBitrixAdmin({
-        iblockId: bitrixMeta.iblocks.calcDetailsVariants,
-        type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetailsVariants],
-        lang: context.lang,
-        id: detailIdNumber,
-      })
+      try {
+        openBitrixAdmin({
+          iblockId: bitrixMeta.iblocks.calcDetailsVariants,
+          type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetailsVariants],
+          lang: context.lang,
+          id: detailIdNumber,
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Не удалось открыть деталь'
+        toast.error(message)
+      }
     } else {
       window.open(`#detail-${detail.id}`, '_blank')
     }

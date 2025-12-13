@@ -62,14 +62,19 @@ export function VariantsFooter({
       return
     }
 
-    openBitrixAdmin({
-      iblockId: bitrixMeta.iblocks.offers,
-      type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.offers],
-      lang: context.lang,
-      id: offer.id,
-    })
-    
-    addInfoMessage('info', `Открыто ТП ID: ${offer.id}`)
+    try {
+      openBitrixAdmin({
+        iblockId: bitrixMeta.iblocks.offers,
+        type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.offers],
+        lang: context.lang,
+        id: offer.id,
+      })
+      addInfoMessage('info', `Открыто ТП ID: ${offer.id}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось открыть торговое предложение'
+      toast.error(message)
+      addInfoMessage('error', message)
+    }
   }
 
   const handleOpenProduct = (offer: InitPayload['selectedOffers'][0], e: React.MouseEvent) => {
@@ -86,14 +91,19 @@ export function VariantsFooter({
       return
     }
 
-    openBitrixAdmin({
-      iblockId: bitrixMeta.iblocks.products,
-      type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.products],
-      lang: context.lang,
-      id: offer.productId,
-    })
-    
-    addInfoMessage('info', `Открыт родительский товар ID: ${offer.productId}`)
+    try {
+      openBitrixAdmin({
+        iblockId: bitrixMeta.iblocks.products,
+        type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.products],
+        lang: context.lang,
+        id: offer.productId,
+      })
+      addInfoMessage('info', `Открыт родительский товар ID: ${offer.productId}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось открыть товар'
+      toast.error(message)
+      addInfoMessage('error', message)
+    }
   }
 
   const handleRemoveVariant = (offer: InitPayload['selectedOffers'][0], e: React.MouseEvent) => {
