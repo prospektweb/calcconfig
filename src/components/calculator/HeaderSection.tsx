@@ -109,19 +109,19 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     }
 
     const iblockId = iblockMap[activeTab]
-    const type = bitrixMeta.iblocksTypes[iblockId]
+    const iblockType = bitrixMeta.iblocksTypes[iblockId]
     const lang = bitrixMeta.context.lang
 
-    return { iblockId, type, lang }
+    return { iblockId, iblockType, lang }
   }
 
   const handleSelectClick = () => {
     const iblockInfo = getIblockInfoForTab()
     
     if (iblockInfo) {
-      postMessageBridge.sendBitrixPickerOpen(
+      postMessageBridge.sendSelectRequest(
         iblockInfo.iblockId,
-        iblockInfo.type,
+        iblockInfo.iblockType,
         iblockInfo.lang
       )
       addInfoMessage('info', `Открыто окно выбора: ${getTabLabel(activeTab)}`)
@@ -138,7 +138,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
       try {
         openBitrixAdmin({
           iblockId: iblockInfo.iblockId,
-          type: iblockInfo.type,
+          type: iblockInfo.iblockType,
           lang: iblockInfo.lang,
         })
         addInfoMessage('info', `Открыт каталог: ${getTabLabel(activeTab)}`)
@@ -223,7 +223,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
       try {
         openBitrixAdmin({
           iblockId: iblockInfo.iblockId,
-          type: iblockInfo.type,
+          type: iblockInfo.iblockType,
           lang: iblockInfo.lang,
           id: itemId,
         })

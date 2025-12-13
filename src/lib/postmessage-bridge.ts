@@ -1,6 +1,6 @@
 import { AppState, Detail, Binding, HeaderElement, CostingSettings, SalePricesSettings } from './types'
 
-export type MessageType = 
+export type MessageType =
   | 'READY'
   | 'INIT'
   | 'INIT_DONE'
@@ -9,9 +9,9 @@ export type MessageType =
   | 'SAVE_RESULT'
   | 'ERROR'
   | 'CLOSE_REQUEST'
-  | 'OFFERS_ADD'
-  | 'OFFERS_REMOVE'
-  | 'BITRIX_PICKER_OPEN'
+  | 'ADD_OFFER_REQUEST'
+  | 'REMOVE_OFFER_REQUEST'
+  | 'SELECT_REQUEST'
   | 'CONFIG_ITEM_REMOVE'
   | 'HEADER_ITEM_REMOVE'
   | 'REFRESH_REQUEST'
@@ -20,12 +20,13 @@ export type MessageType =
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
 export interface PwrtMessage {
+  protocol: string
   source: MessageSource
   target: MessageSource
   type: MessageType
-  requestId?: string
-  payload?: any
-  timestamp?: number
+  requestId: string
+  payload: any
+  timestamp: number
 }
 
 export interface InitPayload {
@@ -136,6 +137,12 @@ class PostMessageBridge {
   private isInitialized = false
   private protocolVersion = '1.0.0'
   private protocolCode = 'pwrt-v1'
+  private debugEnabled = true
+
+  private generateRequestId(type: MessageType) {
+    const randomPart = Math.random().toString(36).slice(2, 8)
+    return `req-${type}-${Date.now()}-${randomPart}`
+  }
 
   constructor() {
     this.initializeListener()
@@ -151,7 +158,9 @@ class PostMessageBridge {
         if (!message || !message.type) return
         if (message.target !== 'prospektweb.calc') return
 
-        const isDebug = typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1'
+        const isDebug =
+          this.debugEnabled ||
+          (typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1')
         
         if (isDebug || ['INIT', 'REFRESH_RESULT'].includes(message.type)) {
           console.log('[PostMessageBridge] Received:', message.type, message.payload)
@@ -191,25 +200,31 @@ class PostMessageBridge {
     this.targetOrigin = origin
   }
 
-  private sendMessage(type: MessageType, payload?: any, requestId?: string) {
-    if (typeof window === 'undefined') return
-
-    const message: PwrtMessage = {
+  private buildMessage(type: MessageType, payload?: any, requestId?: string): PwrtMessage {
+    const finalPayload = payload ?? {}
+    const protocol = ['READY', 'INIT', 'INIT_DONE'].includes(type) ? 'default' : this.protocolCode
+    return {
+      protocol,
       source: 'prospektweb.calc',
       target: 'bitrix',
       type,
-      payload,
+      requestId: requestId ?? this.generateRequestId(type),
+      payload: finalPayload,
       timestamp: Date.now(),
     }
+  }
 
-    if (requestId) {
-      message.requestId = requestId
-    }
+  private sendMessage(type: MessageType, payload?: any, requestId?: string) {
+    if (typeof window === 'undefined') return
 
-    const isDebug = typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1'
-    
+    const message = this.buildMessage(type, payload, requestId)
+
+    const isDebug =
+      this.debugEnabled ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1')
+
     if (isDebug || ['INIT_DONE', 'REFRESH_REQUEST'].includes(type)) {
-      console.log('[PostMessageBridge] Sending:', type, payload)
+      console.log('[PostMessageBridge] Sending:', type, message.payload)
     }
 
     if (window.parent && window.parent !== window) {
@@ -239,7 +254,7 @@ class PostMessageBridge {
   }
 
   sendSaveRequest(payload: SaveRequestPayload): string {
-    const requestId = `save_${Date.now()}`
+    const requestId = this.generateRequestId('SAVE_REQUEST')
     this.sendMessage('SAVE_REQUEST', payload, requestId)
     return requestId
   }
@@ -260,20 +275,27 @@ class PostMessageBridge {
     })
   }
 
-  sendOffersAdd() {
-    this.sendMessage('OFFERS_ADD', {})
-  }
-
-  sendOffersRemove(offerId: number) {
-    this.sendMessage('OFFERS_REMOVE', {
-      offerId,
+  sendAddOfferRequest(iblockId: number, iblockType: string, lang: string) {
+    this.sendMessage('ADD_OFFER_REQUEST', {
+      iblockId,
+      iblockType,
+      lang,
     })
   }
 
-  sendBitrixPickerOpen(iblockId: number, type: string, lang: string) {
-    this.sendMessage('BITRIX_PICKER_OPEN', {
+  sendRemoveOfferRequest(offerId: number, iblockId: number, iblockType: string, lang: string) {
+    this.sendMessage('REMOVE_OFFER_REQUEST', {
+      id: offerId,
       iblockId,
-      type,
+      iblockType,
+      lang,
+    })
+  }
+
+  sendSelectRequest(iblockId: number, iblockType: string, lang: string) {
+    this.sendMessage('SELECT_REQUEST', {
+      iblockId,
+      iblockType,
       lang,
     })
   }

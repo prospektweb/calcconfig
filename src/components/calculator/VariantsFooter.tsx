@@ -43,8 +43,25 @@ export function VariantsFooter({
     }
   }
 
+  const getOffersIblockInfo = () => {
+    if (!bitrixMeta) return null
+
+    const iblockId = bitrixMeta.iblocks.offers
+    const iblockType = bitrixMeta.iblocksTypes[iblockId]
+    const lang = bitrixMeta.context.lang
+
+    return { iblockId, iblockType, lang }
+  }
+
   const handleAddVariant = () => {
-    postMessageBridge.sendOffersAdd()
+    const iblockInfo = getOffersIblockInfo()
+
+    if (!iblockInfo) {
+      toast.error('Метаданные Bitrix не загружены')
+      return
+    }
+
+    postMessageBridge.sendAddOfferRequest(iblockInfo.iblockId, iblockInfo.iblockType, iblockInfo.lang)
     addInfoMessage('info', 'Отправлен запрос на добавление торговых предложений')
   }
 
@@ -110,7 +127,19 @@ export function VariantsFooter({
     e.stopPropagation()
     setTooltipOpen(null)
     onRemoveOffer(offer.id)
-    postMessageBridge.sendOffersRemove(offer.id)
+    const iblockInfo = getOffersIblockInfo()
+
+    if (!iblockInfo) {
+      toast.error('Метаданные Bitrix не загружены')
+      return
+    }
+
+    postMessageBridge.sendRemoveOfferRequest(
+      offer.id,
+      iblockInfo.iblockId,
+      iblockInfo.iblockType,
+      iblockInfo.lang
+    )
     addInfoMessage('warning', `Удалён оффер ID: ${offer.id}`)
   }
 

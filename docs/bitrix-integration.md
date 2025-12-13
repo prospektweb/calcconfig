@@ -333,6 +333,7 @@ type MessageType =
 **Пример:**
 ```json
 {
+  "protocol": "default",
   "source": "prospektweb.calc",
   "target": "bitrix",
   "type": "READY",
@@ -400,6 +401,7 @@ interface ConfigData {
 **Пример (NEW_CONFIG):**
 ```json
 {
+  "protocol": "default",
   "source": "bitrix",
   "target": "prospektweb.calc",
   "type": "INIT",
@@ -430,6 +432,7 @@ interface ConfigData {
 **Пример (EXISTING_CONFIG):**
 ```json
 {
+  "protocol": "default",
   "source": "bitrix",
   "target": "prospektweb.calc",
   "type": "INIT",
@@ -476,6 +479,7 @@ interface ConfigData {
 **Пример:**
 ```json
 {
+  "protocol": "default",
   "source": "prospektweb.calc",
   "target": "bitrix",
   "type": "INIT_DONE",
@@ -947,24 +951,34 @@ setBitrixContext({
 
 Помимо основных событий (`INIT`, `SAVE_REQUEST` и т.д.), добавлены новые типы событий для интерактивной работы с Bitrix.
 
-### OFFERS_ADD
+### ADD_OFFER_REQUEST
 
-**Направление:** iframe → Bitrix  
+**Направление:** iframe → Bitrix
 **Назначение:** Запрос на добавление торговых предложений к текущей конфигурации
 
 **Payload:**
 ```typescript
-{} // Пустой объект
+{
+  iblockId: number
+  iblockType: string
+  lang: 'ru' | 'en'
+}
 ```
 
 **Пример:**
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "OFFERS_ADD",
-  "payload": {},
-  "timestamp": 1234567890
+  "type": "ADD_OFFER_REQUEST",
+  "requestId": "req-123",
+  "payload": {
+    "iblockId": 200,
+    "iblockType": "offers",
+    "lang": "ru"
+  },
+  "timestamp": 1712345678901
 }
 ```
 
@@ -974,28 +988,36 @@ setBitrixContext({
 
 ---
 
-### OFFERS_REMOVE
+### REMOVE_OFFER_REQUEST
 
-**Направление:** iframe → Bitrix  
+**Направление:** iframe → Bitrix
 **Назначение:** Уведомление об удалении торгового предложения из списка
 
 **Payload:**
 ```typescript
 {
-  offerId: number  // ID удалённого торгового предложения
+  id: number  // ID удалённого торгового предложения
+  iblockId: number
+  iblockType: string
+  lang: 'ru' | 'en'
 }
 ```
 
 **Пример:**
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "OFFERS_REMOVE",
+  "type": "REMOVE_OFFER_REQUEST",
+  "requestId": "req-123",
   "payload": {
-    "offerId": 215
+    "id": 215,
+    "iblockId": 200,
+    "iblockType": "offers",
+    "lang": "ru"
   },
-  "timestamp": 1234567890
+  "timestamp": 1712345678901
 }
 ```
 
@@ -1005,16 +1027,16 @@ setBitrixContext({
 
 ---
 
-### BITRIX_PICKER_OPEN
+### SELECT_REQUEST
 
-**Направление:** iframe → Bitrix  
+**Направление:** iframe → Bitrix
 **Назначение:** Запрос на открытие пикера выбора элементов Bitrix для конкретного инфоблока
 
 **Payload:**
 ```typescript
 {
   iblockId: number,  // ID инфоблока
-  type: string,      // Тип инфоблока
+  iblockType: string,// Тип инфоблока
   lang: string       // Язык интерфейса
 }
 ```
@@ -1022,15 +1044,17 @@ setBitrixContext({
 **Пример:**
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "BITRIX_PICKER_OPEN",
+  "type": "SELECT_REQUEST",
+  "requestId": "req-123",
   "payload": {
     "iblockId": 100,
-    "type": "calculator_catalog",
+    "iblockType": "calculator_catalog",
     "lang": "ru"
   },
-  "timestamp": 1234567890
+  "timestamp": 1712345678901
 }
 ```
 
@@ -1062,14 +1086,16 @@ setBitrixContext({
 **Пример:**
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
   "type": "CONFIG_ITEM_REMOVE",
+  "requestId": "req-123",
   "payload": {
     "kind": "material",
     "id": 42
   },
-  "timestamp": 1234567890
+  "timestamp": 1712345678901
 }
 ```
 
