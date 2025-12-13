@@ -11,7 +11,7 @@ export type MessageType =
   | 'CLOSE_REQUEST'
   | 'OFFERS_ADD'
   | 'OFFERS_REMOVE'
-  | 'BITRIX_PICKER_OPEN'
+  | 'SELECT_REQUEST'
   | 'CONFIG_ITEM_REMOVE'
   | 'HEADER_ITEM_REMOVE'
   | 'REFRESH_REQUEST'
@@ -271,7 +271,7 @@ class PostMessageBridge {
   }
 
   sendBitrixPickerOpen(iblockId: number, type: string, lang: string) {
-    this.sendMessage('BITRIX_PICKER_OPEN', {
+    this.sendMessage('SELECT_REQUEST', {
       iblockId,
       type,
       lang,
