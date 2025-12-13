@@ -144,7 +144,7 @@ const getIblockInfoForTab = (forCatalog: boolean = false) => {
 
 **Результат:**
 - `handleCatalogClick()` (кнопка "Каталог") → открывает calcDetails, calcMaterials, calcOperations
-- `handleSelectClick()` (кнопка "Выбрать") → отправляет BITRIX_PICKER_OPEN с calcDetailsVariants, calcMaterialsVariants, calcOperationsVariants
+- `handleSelectClick()` (кнопка "Выбрать") → отправляет SELECT_REQUEST с calcDetailsVariants, calcMaterialsVariants, calcOperationsVariants
 - `handleOpenHeaderElement()` (иконка открытия элемента) → открывает элементы из calcDetailsVariants, calcMaterialsVariants, calcOperationsVariants
 
 ---
@@ -168,7 +168,7 @@ const getIblockInfoForTab = (forCatalog: boolean = false) => {
   - Таб "Материалы" → calcMaterials (не calcMaterialsVariants)
   - Таб "Операции" → calcOperations (не calcOperationsVariants)
   - Таб "Оборудование" → calcEquipment
-- ✅ Кнопка "Выбрать" отправляет BITRIX_PICKER_OPEN с правильными ID вариантов
+- ✅ Кнопка "Выбрать" отправляет SELECT_REQUEST с правильными ID вариантов
 - ✅ Иконки открытия элементов открывают правильные ID вариантов
 
 ---

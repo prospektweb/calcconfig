@@ -38,15 +38,15 @@ openBitrixAdmin({
 
 **Добавлено:**
 - Новые типы событий:
-  - `OFFERS_ADD` — запрос на добавление торговых предложений
-  - `OFFERS_REMOVE` — удаление оффера из списка
-  - `BITRIX_PICKER_OPEN` — открыть пикер элементов Bitrix для выбора
+  - `ADD_OFFER_REQUEST` — запрос на добавление торговых предложений
+  - `REMOVE_OFFER_REQUEST` — удаление оффера из списка
+  - `SELECT_REQUEST` — открыть пикер элементов Bitrix для выбора
   - `CONFIG_ITEM_REMOVE` — удаление элемента из конфигурации
   
 - Новые методы:
-  - `sendOffersAdd()` — отправить запрос на добавление ТП
-  - `sendOffersRemove(offerId)` — отправить событие удаления оффера
-  - `sendBitrixPickerOpen(iblockId, type, lang)` — открыть пикер Bitrix
+  - `sendAddOfferRequest(iblockId, iblockType, lang)` — отправить запрос на добавление ТП
+  - `sendRemoveOfferRequest(offerId, iblockId, iblockType, lang)` — отправить событие удаления оффера
+  - `sendSelectRequest(iblockId, iblockType, lang)` — открыть пикер Bitrix
   - `sendConfigItemRemove(kind, id)` — уведомить о удалении элемента
 
 - Расширен интерфейс `InitPayload`:
@@ -97,8 +97,8 @@ openBitrixAdmin({
   - Кнопка открытия родительского товара
 
 - PostMessage события:
-  - `btn-add-offer` → `OFFERS_ADD`
-  - `btn-remove-offer` → `OFFERS_REMOVE` с offerId
+  - `btn-add-offer` → `ADD_OFFER_REQUEST`
+  - `btn-remove-offer` → `REMOVE_OFFER_REQUEST` с offerId
 
 **data-pwcode элементы:**
 - `offerspanel` — панель торговых предложений
@@ -114,12 +114,12 @@ openBitrixAdmin({
 - Добавлен проп `bitrixMeta?: InitPayload | null`
 
 **Добавлено:**
-- Функция `getIblockInfoForTab()` — возвращает iblockId, type, lang для активного таба
+- Функция `getIblockInfoForTab()` — возвращает iblockId, iblockType, lang для активного таба
 - Функция `handleOpenHeaderElement(itemId)` — открывает элемент в Bitrix
 - Обновлённая `handleRemoveElement(id, itemId)` — отправляет событие `CONFIG_ITEM_REMOVE`
 
 - Интеграция кнопок:
-  - `btn-select` → отправляет `BITRIX_PICKER_OPEN` с параметрами для активного таба
+  - `btn-select` → отправляет `SELECT_REQUEST` с параметрами для активного таба
   - `btn-catalog` → открывает список инфоблока через `openBitrixAdmin`
   - `btn-open-header-detail`, `btn-open-material`, `btn-open-operation`, `btn-open-equipment` → открывают элемент в Bitrix
   - `btn-delete-header-detail`, `btn-delete-material`, `btn-delete-operation`, `btn-delete-equipment` → удаляют элемент и отправляют событие
@@ -197,45 +197,58 @@ openBitrixAdmin({
 
 ### Исходящие события (iframe → Bitrix)
 
-#### `OFFERS_ADD`
+#### `ADD_OFFER_REQUEST`
 Запрос на добавление торговых предложений
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "OFFERS_ADD",
-  "payload": {},
-  "timestamp": 1234567890
+  "type": "ADD_OFFER_REQUEST",
+  "requestId": "req-123",
+  "payload": {
+    "iblockId": 100,
+    "iblockType": "catalog",
+    "lang": "ru"
+  },
+  "timestamp": 1712345678901
 }
 ```
 
-#### `OFFERS_REMOVE`
+#### `REMOVE_OFFER_REQUEST`
 Удаление торгового предложения
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "OFFERS_REMOVE",
+  "type": "REMOVE_OFFER_REQUEST",
+  "requestId": "req-123",
   "payload": {
-    "offerId": 215
+    "id": 215,
+    "iblockId": 100,
+    "iblockType": "catalog",
+    "lang": "ru"
   },
-  "timestamp": 1234567890
+  "timestamp": 1712345678901
 }
 ```
 
-#### `BITRIX_PICKER_OPEN`
+#### `SELECT_REQUEST`
 Открыть пикер выбора элементов Bitrix
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "BITRIX_PICKER_OPEN",
+  "type": "SELECT_REQUEST",
+  "requestId": "req-123",
   "payload": {
     "iblockId": 100,
-    "type": "calculator_catalog",
+    "iblockType": "calculator_catalog",
     "lang": "ru"
   },
-  "timestamp": 1234567890
+  "timestamp": 1712345678901
 }
 ```
 
@@ -243,14 +256,16 @@ openBitrixAdmin({
 Удаление элемента из конфигурации
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
   "type": "CONFIG_ITEM_REMOVE",
+  "requestId": "req-123",
   "payload": {
     "kind": "detail|material|operation|equipment",
     "id": 123
   },
-  "timestamp": 1234567890
+  "timestamp": 1712345678901
 }
 ```
 
@@ -347,9 +362,9 @@ openBitrixAdmin({
    - Клик на "btn-catalog" → открывает список инфоблока
 
 4. **PostMessage события:**
-   - Клик "btn-add-offer" → отправляется OFFERS_ADD
-   - Клик "btn-remove-offer" → отправляется OFFERS_REMOVE с offerId
-   - Клик "btn-select" в шапке → отправляется BITRIX_PICKER_OPEN
+   - Клик "btn-add-offer" → отправляется ADD_OFFER_REQUEST
+   - Клик "btn-remove-offer" → отправляется REMOVE_OFFER_REQUEST с offerId
+   - Клик "btn-select" в шапке → отправляется SELECT_REQUEST
    - Удаление элемента из шапки → отправляется CONFIG_ITEM_REMOVE
 
 5. **Сборка для Bitrix:**
@@ -376,6 +391,6 @@ openBitrixAdmin({
 ## Следующие шаги
 
 1. Добавить иконки открытия для материалов/операций/оборудования внутри CalculatorTabs
-2. Обработка ответов на события `BITRIX_PICKER_OPEN` (получение выбранных элементов)
+2. Обработка ответов на события `SELECT_REQUEST` (получение выбранных элементов)
 3. Синхронизация удалённых элементов с сервером
 4. Обработка ошибок при открытии ссылок Bitrix
