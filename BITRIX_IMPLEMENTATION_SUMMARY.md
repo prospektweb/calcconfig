@@ -30,8 +30,8 @@ App.tsx обновлён для работы с реальными данным�
   - Кнопкой копирования JSON
 - Интеграция с `openBitrixAdmin` для открытия ТП и товаров
 - PostMessage события:
-  - `OFFERS_ADD` при клике "Выбрать"
-  - `OFFERS_REMOVE` при удалении оффера
+  - `ADD_OFFER_REQUEST` при клике "Выбрать"
+  - `REMOVE_OFFER_REQUEST` при удалении оффера
 
 ### ✅ 4. Шапка (HeaderSection)
 
@@ -56,8 +56,8 @@ App.tsx обновлён для работы с реальными данным�
 ### ✅ 6. Расширение postMessage протокола
 
 Добавлены новые типы событий:
-- `OFFERS_ADD` — запрос добавления ТП
-- `OFFERS_REMOVE` — удаление оффера
+- `ADD_OFFER_REQUEST` — запрос добавления ТП
+- `REMOVE_OFFER_REQUEST` — удаление оффера
 - `SELECT_REQUEST` — открыть пикер элементов
 - `CONFIG_ITEM_REMOVE` — удаление элемента конфигурации
 
@@ -122,54 +122,71 @@ App.tsx обновлён для работы с реальными данным�
 
 ## Структура PostMessage событий
 
-### OFFERS_ADD
+### ADD_OFFER_REQUEST
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "OFFERS_ADD",
-  "payload": {},
-  "timestamp": 1234567890
+  "type": "ADD_OFFER_REQUEST",
+  "requestId": "req-123",
+  "payload": {
+    "iblockId": 100,
+    "iblockType": "catalog",
+    "lang": "ru"
+  },
+  "timestamp": 1712345678901
 }
 ```
 
-### OFFERS_REMOVE
+### REMOVE_OFFER_REQUEST
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
-  "type": "OFFERS_REMOVE",
-  "payload": { "offerId": 215 },
-  "timestamp": 1234567890
+  "type": "REMOVE_OFFER_REQUEST",
+  "requestId": "req-123",
+  "payload": {
+    "id": 215,
+    "iblockId": 100,
+    "iblockType": "catalog",
+    "lang": "ru"
+  },
+  "timestamp": 1712345678901
 }
 ```
 
 ### SELECT_REQUEST
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
   "type": "SELECT_REQUEST",
+  "requestId": "req-123",
   "payload": {
     "iblockId": 100,
-    "type": "calculator_catalog",
+    "iblockType": "calculator_catalog",
     "lang": "ru"
   },
-  "timestamp": 1234567890
+  "timestamp": 1712345678901
 }
 ```
 
 ### CONFIG_ITEM_REMOVE
 ```json
 {
+  "protocol": "pwrt-v1",
   "source": "prospektweb.calc",
   "target": "bitrix",
   "type": "CONFIG_ITEM_REMOVE",
+  "requestId": "req-123",
   "payload": {
     "kind": "material",
     "id": 42
   },
-  "timestamp": 1234567890
+  "timestamp": 1712345678901
 }
 ```
 
@@ -250,8 +267,8 @@ VITE_DEPLOY_TARGET=bitrix npm run build
 ✅ Кнопка "Copy JSON" копирует в буфер  
 ✅ Клик "btn-open-offer" открывает ТП в Bitrix  
 ✅ Клик на иконку товара в tooltip открывает товар  
-✅ Клик "btn-add-offer" отправляет OFFERS_ADD  
-✅ Клик "btn-remove-offer" отправляет OFFERS_REMOVE  
+✅ Клик "btn-add-offer" отправляет ADD_OFFER_REQUEST  
+✅ Клик "btn-remove-offer" отправляет REMOVE_OFFER_REQUEST  
 ✅ Клик "btn-select" в шапке отправляет SELECT_REQUEST  
 ✅ Клик "btn-catalog" открывает список инфоблока  
 ✅ Клик "btn-open-*" в шапке открывает элементы в Bitrix  
