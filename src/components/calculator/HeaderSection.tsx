@@ -98,10 +98,15 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     startHeightRef.current = headerHeight
   }
 
-  const getIblockInfoForTab = () => {
+  const getIblockInfoForTab = (forCatalog: boolean = false) => {
     if (!bitrixMeta) return null
 
-    const iblockMap = {
+    const iblockMap = forCatalog ? {
+      details: bitrixMeta.iblocks.calcDetails,
+      materials: bitrixMeta.iblocks.calcMaterials,
+      operations: bitrixMeta.iblocks.calcOperations,
+      equipment: bitrixMeta.iblocks.calcEquipment,
+    } : {
       details: bitrixMeta.iblocks.calcDetailsVariants,
       materials: bitrixMeta.iblocks.calcMaterialsVariants,
       operations: bitrixMeta.iblocks.calcOperationsVariants,
@@ -132,7 +137,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
   }
 
   const handleCatalogClick = () => {
-    const iblockInfo = getIblockInfoForTab()
+    const iblockInfo = getIblockInfoForTab(true)
     
     if (iblockInfo) {
       openBitrixAdmin({

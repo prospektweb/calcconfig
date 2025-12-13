@@ -590,17 +590,23 @@ function App() {
       iblocks: {
         products: 16,
         offers: 17,
+        calcDetails: 99,
+        calcDetailsVariants: 100,
+        calcMaterials: 94,
         calcMaterialsVariants: 95,
+        calcOperations: 96,
         calcOperationsVariants: 97,
-        calcEquipment: 98,
-        calcDetailsVariants: 100
+        calcEquipment: 98
       },
       iblocksTypes: {
         "16": "catalog",
         "17": "offers",
+        "94": "calculator_catalog",
         "95": "calculator_catalog",
+        "96": "calculator_catalog",
         "97": "calculator_catalog",
         "98": "calculator_catalog",
+        "99": "calculator_catalog",
         "100": "calculator_catalog"
       },
       selectedOffers: [

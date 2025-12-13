@@ -40,8 +40,11 @@ export interface InitPayload {
   iblocks: {
     products: number
     offers: number
+    calcDetails: number
     calcDetailsVariants: number
+    calcMaterials: number
     calcMaterialsVariants: number
+    calcOperations: number
     calcOperationsVariants: number
     calcEquipment: number
     calculators?: number
