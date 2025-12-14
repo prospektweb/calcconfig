@@ -22,6 +22,7 @@ import { toast } from 'sonner'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
 import { getAppMode } from '@/services/configStore'
+import { createEmptyHeaderTabs } from '@/lib/header-tabs'
 
 interface HeaderSectionProps {
   headerTabs: AppState['headerTabs']
@@ -31,7 +32,7 @@ interface HeaderSectionProps {
   onRefreshData?: () => void
   onDetailDragStart?: (detailId: number, detailName: string) => void
   onDetailDragEnd?: () => void
-  onActiveTabChange?: (tab: string) => void
+  onActiveTabChange?: (tab: HeaderTabType) => void
   bitrixMeta?: InitPayload | null
   isRefreshing?: boolean
 }
@@ -40,9 +41,26 @@ const MIN_HEIGHT = 80
 const MAX_HEIGHT = 250
 
 export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onRefreshData, onDetailDragStart, onDetailDragEnd, onActiveTabChange, bitrixMeta, isRefreshing: externalIsRefreshing }: HeaderSectionProps) {
+  const mapStoredTab = (stored: string | null): HeaderTabType => {
+    switch (stored) {
+      case 'materialsVariants':
+      case 'materials':
+        return 'materialsVariants'
+      case 'operationsVariants':
+      case 'operations':
+        return 'operationsVariants'
+      case 'equipment':
+        return 'equipment'
+      case 'detailsVariants':
+      case 'details':
+      default:
+        return 'detailsVariants'
+    }
+  }
+
   const [activeTab, setActiveTab] = useState<HeaderTabType>(() => {
     const stored = localStorage.getItem('calc_active_header_tab')
-    return (stored as HeaderTabType) || 'details'
+    return mapStoredTab(stored)
   })
   const [headerHeight, setHeaderHeight] = useState(() => {
     const stored = localStorage.getItem('calc_header_height')
@@ -101,10 +119,10 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
   const getIblockInfoForTab = (forCatalog: boolean = false) => {
     if (!bitrixMeta) return null
 
-    const iblockMap = {
-      details: forCatalog ? bitrixMeta.iblocks.calcDetails : bitrixMeta.iblocks.calcDetailsVariants,
-      materials: forCatalog ? bitrixMeta.iblocks.calcMaterials : bitrixMeta.iblocks.calcMaterialsVariants,
-      operations: forCatalog ? bitrixMeta.iblocks.calcOperations : bitrixMeta.iblocks.calcOperationsVariants,
+    const iblockMap: Record<HeaderTabType, number> = {
+      detailsVariants: forCatalog ? bitrixMeta.iblocks.calcDetails : bitrixMeta.iblocks.calcDetailsVariants,
+      materialsVariants: forCatalog ? bitrixMeta.iblocks.calcMaterials : bitrixMeta.iblocks.calcMaterialsVariants,
+      operationsVariants: forCatalog ? bitrixMeta.iblocks.calcOperations : bitrixMeta.iblocks.calcOperationsVariants,
       equipment: bitrixMeta.iblocks.calcEquipment,
     }
 
@@ -151,25 +169,13 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
 
   const handleResetTab = () => {
     setHeaderTabs(prev => {
-      const safePrev = prev || { materials: [], operations: [], equipment: [], details: [] }
+      const safePrev = prev || createEmptyHeaderTabs()
       return {
         ...safePrev,
         [activeTab]: []
       }
     })
-    
-    const localStorageKey = `calc_header_tabs`
-    const stored = localStorage.getItem(localStorageKey)
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored)
-        parsed[activeTab] = []
-        localStorage.setItem(localStorageKey, JSON.stringify(parsed))
-      } catch (e) {
-        console.error('Failed to update localStorage:', e)
-      }
-    }
-    
+
     addInfoMessage('info', `Сброшен таб: ${getTabLabel(activeTab)}`)
   }
 
@@ -181,27 +187,20 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
 
   const handleRemoveElement = (id: string, itemId: number) => {
     setHeaderTabs(prev => {
-      const safePrev = prev || { materials: [], operations: [], equipment: [], details: [] }
+      const safePrev = prev || createEmptyHeaderTabs()
       const currentTab = safePrev[activeTab] || []
       const newTabs = {
         ...safePrev,
         [activeTab]: currentTab.filter((el: HeaderElement) => el.id !== id)
       }
-      
-      const localStorageKey = `calc_header_tabs`
-      try {
-        localStorage.setItem(localStorageKey, JSON.stringify(newTabs))
-      } catch (e) {
-        console.error('Failed to update localStorage:', e)
-      }
-      
+
       return newTabs
     })
 
     const kindMap: Record<HeaderTabType, 'detail' | 'material' | 'operation' | 'equipment'> = {
-      details: 'detail',
-      materials: 'material',
-      operations: 'operation',
+      detailsVariants: 'detail',
+      materialsVariants: 'material',
+      operationsVariants: 'operation',
       equipment: 'equipment',
     }
 
@@ -257,19 +256,19 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
 
   const getTabLabel = (type: HeaderTabType) => {
     switch (type) {
-      case 'materials': return 'Материалы'
-      case 'operations': return 'Операции'
+      case 'materialsVariants': return 'Материалы'
+      case 'operationsVariants': return 'Операции'
       case 'equipment': return 'Оборудование'
-      case 'details': return 'Детали'
+      case 'detailsVariants': return 'Детали'
     }
   }
-  
+
   const getTabIcon = (type: HeaderTabType) => {
     switch (type) {
-      case 'materials': return <div className="w-4 h-4 flex items-center justify-center"><Package className="w-4 h-4" /></div>
-      case 'operations': return <div className="w-4 h-4 flex items-center justify-center"><Wrench className="w-4 h-4" /></div>
+      case 'materialsVariants': return <div className="w-4 h-4 flex items-center justify-center"><Package className="w-4 h-4" /></div>
+      case 'operationsVariants': return <div className="w-4 h-4 flex items-center justify-center"><Wrench className="w-4 h-4" /></div>
       case 'equipment': return <div className="w-4 h-4 flex items-center justify-center"><Printer className="w-4 h-4" /></div>
-      case 'details': return <div className="w-4 h-4 flex items-center justify-center"><Notebook className="w-4 h-4" /></div>
+      case 'detailsVariants': return <div className="w-4 h-4 flex items-center justify-center"><Notebook className="w-4 h-4" /></div>
     }
   }
 
@@ -300,16 +299,16 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
             <ArrowsClockwise className={`w-5 h-5 ${externalIsRefreshing ? 'animate-spin' : ''}`} />
           </Button>
           <TabsList className="flex-1 grid grid-cols-4 rounded-none h-auto bg-transparent border-0" data-pwcode="header-tabs">
-            <TabsTrigger value="details" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-details">
-              {getTabIcon('details')}
+            <TabsTrigger value="detailsVariants" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-details">
+              {getTabIcon('detailsVariants')}
               Детали
             </TabsTrigger>
-            <TabsTrigger value="materials" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-materials">
-              {getTabIcon('materials')}
+            <TabsTrigger value="materialsVariants" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-materials">
+              {getTabIcon('materialsVariants')}
               Материалы
             </TabsTrigger>
-            <TabsTrigger value="operations" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-operations">
-              {getTabIcon('operations')}
+            <TabsTrigger value="operationsVariants" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-operations">
+              {getTabIcon('operationsVariants')}
               Операции
             </TabsTrigger>
             <TabsTrigger value="equipment" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-equipment">
@@ -319,11 +318,14 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
           </TabsList>
         </div>
 
-        {(['details', 'materials', 'operations', 'equipment'] as HeaderTabType[]).map(tabType => (
-          <TabsContent key={tabType} value={tabType} className="mt-0 border-t border-border" data-pwcode="tabcontent">
+        {(['detailsVariants', 'materialsVariants', 'operationsVariants', 'equipment'] as HeaderTabType[]).map(tabType => {
+          const visibleElements = ((headerTabs?.[tabType] as HeaderElement[]) || []).filter(element => !element.deleted)
+
+          return (
+            <TabsContent key={tabType} value={tabType} className="mt-0 border-t border-border" data-pwcode="tabcontent">
             <div className="px-4 py-2 bg-muted/30 flex gap-2" data-pwcode="tab-actions">
-              <Button 
-                variant="link" 
+              <Button
+                variant="link"
                 size="sm" 
                 className="h-auto p-0 text-[10px]" 
                 onClick={handleSelectClick}
@@ -355,7 +357,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
 
             <ScrollArea style={{ height: `${headerHeight - 80}px` }}>
               <div className="flex flex-wrap gap-2">
-                {tabType === 'details' && appMode === 'DEMO' ? (
+                {tabType === 'detailsVariants' && appMode === 'DEMO' ? (
                   <div className="w-full space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {mockDetails.map((detail) => (
@@ -403,7 +405,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                       ))}
                     </div>
                   </div>
-                ) : tabType === 'materials' && appMode === 'DEMO' ? (
+                ) : tabType === 'materialsVariants' && appMode === 'DEMO' ? (
                   <div className="w-full space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {mockMaterials.map((material) => (
@@ -456,7 +458,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                       ))}
                     </div>
                   </div>
-                ) : tabType === 'operations' && appMode === 'DEMO' ? (
+                ) : tabType === 'operationsVariants' && appMode === 'DEMO' ? (
                   <div className="w-full space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {mockOperations.map((operation) => (
@@ -562,10 +564,10 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                       ))}
                     </div>
                   </div>
-                ) : (!headerTabs || !headerTabs[tabType] || (headerTabs[tabType] as HeaderElement[]).length === 0) ? (
+                ) : visibleElements.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Нет элементов. Нажмите "Выбрать" для добавления.</p>
                 ) : (
-                  (headerTabs[tabType] as HeaderElement[]).map((element: HeaderElement) => (
+                  visibleElements.map((element: HeaderElement) => (
                     <Badge
                       key={element.id}
                       variant="secondary"
@@ -606,8 +608,9 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
                 )}
               </div>
             </ScrollArea>
-          </TabsContent>
-        ))}
+            </TabsContent>
+          )
+        })}
       </Tabs>
       
       <div 
