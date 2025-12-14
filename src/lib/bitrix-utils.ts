@@ -43,12 +43,15 @@ export function openBitrixAdmin(params: OpenBitrixAdminParams) {
   }
 
   try {
-    const newWindow = window.open(url, '_blank', 'noopener,noreferrer')
+    const newWindow = window.open('', '_blank')
 
     if (!newWindow) {
       console.warn('[openBitrixAdmin] Popup was blocked')
       throw new Error('Всплывающее окно заблокировано браузером. Разрешите всплывающие окна для этого сайта.')
     }
+
+    newWindow.opener = window
+    newWindow.location.href = url
   } catch (error) {
     console.error('[openBitrixAdmin] Failed to open window', error)
     throw error
