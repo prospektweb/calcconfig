@@ -217,6 +217,35 @@ function App() {
     types: {},
   })
 
+  const dedupeById = useCallback(<T extends { id: number | string }>(items: T[]): T[] => {
+    const seen = new Set<number | string>()
+    const result: T[] = []
+
+    items.forEach((item) => {
+      if (!seen.has(item.id)) {
+        seen.add(item.id)
+        result.push(item)
+      }
+    })
+
+    return result
+  }, [])
+
+  const mergeUniqueById = useCallback(<T extends { id: number | string }>(existing: T[], incoming: T[]) => {
+    const base = existing || []
+    const result = [...base]
+    const seen = new Set(base.map(item => item.id))
+
+    incoming.forEach((item) => {
+      if (!seen.has(item.id)) {
+        seen.add(item.id)
+        result.push(item)
+      }
+    })
+
+    return result
+  }, [])
+
   useEffect(() => {
     return () => {
       pendingRequestsRef.current.clear()
@@ -407,35 +436,6 @@ function App() {
     }
     setPriceMessages((prev) => [...prev, newMessage])
   }
-
-  const dedupeById = useCallback(<T extends { id: number | string }>(items: T[]): T[] => {
-    const seen = new Set<number | string>()
-    const result: T[] = []
-
-    items.forEach((item) => {
-      if (!seen.has(item.id)) {
-        seen.add(item.id)
-        result.push(item)
-      }
-    })
-
-    return result
-  }, [])
-
-  const mergeUniqueById = useCallback(<T extends { id: number | string }>(existing: T[], incoming: T[]) => {
-    const base = existing || []
-    const result = [...base]
-    const seen = new Set(base.map(item => item.id))
-
-    incoming.forEach((item) => {
-      if (!seen.has(item.id)) {
-        seen.add(item.id)
-        result.push(item)
-      }
-    })
-
-    return result
-  }, [])
 
   const handleSelectRequestPending = (requestId: string, tab: HeaderTabType) => {
     pendingRequestsRef.current.set(requestId, { pwcode: 'btn-select', tab })
