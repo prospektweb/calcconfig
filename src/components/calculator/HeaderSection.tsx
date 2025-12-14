@@ -35,12 +35,14 @@ interface HeaderSectionProps {
   onActiveTabChange?: (tab: HeaderTabType) => void
   bitrixMeta?: InitPayload | null
   isRefreshing?: boolean
+  onSelectRequest?: (requestId: string, tab: HeaderTabType) => void
+  isBitrixLoading?: boolean
 }
 
 const MIN_HEIGHT = 80
 const MAX_HEIGHT = 250
 
-export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onRefreshData, onDetailDragStart, onDetailDragEnd, onActiveTabChange, bitrixMeta, isRefreshing: externalIsRefreshing }: HeaderSectionProps) {
+export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpenMenu, onRefreshData, onDetailDragStart, onDetailDragEnd, onActiveTabChange, bitrixMeta, isRefreshing: externalIsRefreshing, onSelectRequest, isBitrixLoading }: HeaderSectionProps) {
   const mapStoredTab = (stored: string | null): HeaderTabType => {
     switch (stored) {
       case 'materialsVariants':
@@ -135,9 +137,12 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
 
   const handleSelectClick = () => {
     const iblockInfo = getIblockInfoForTab()
-    
+
     if (iblockInfo) {
-      postMessageBridge.sendSelectRequest(iblockInfo.iblockId, iblockInfo.iblockType, iblockInfo.lang)
+      const requestId = postMessageBridge.sendSelectRequest(iblockInfo.iblockId, iblockInfo.iblockType, iblockInfo.lang)
+      if (requestId && onSelectRequest) {
+        onSelectRequest(requestId, activeTab)
+      }
       addInfoMessage('info', `Открыто окно выбора: ${getTabLabel(activeTab)}`)
     } else {
       toast.info('Открыто окно выбора элементов (заглушка)')
@@ -326,8 +331,9 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
             <div className="px-4 py-2 bg-muted/30 flex gap-2" data-pwcode="tab-actions">
               <Button
                 variant="link"
-                size="sm" 
-                className="h-auto p-0 text-[10px]" 
+                size="sm"
+                className="h-auto p-0 text-[10px]"
+                disabled={isBitrixLoading}
                 onClick={handleSelectClick}
                 data-pwcode="btn-select"
               >

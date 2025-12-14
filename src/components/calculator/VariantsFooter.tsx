@@ -18,6 +18,8 @@ interface VariantsFooterProps {
   addInfoMessage: (type: InfoMessage['type'], message: string) => void
   bitrixMeta: InitPayload | null
   onRemoveOffer: (offerId: number) => void
+  onAddOfferRequest?: (requestId: string) => void
+  isBitrixLoading?: boolean
 }
 
 export function VariantsFooter({
@@ -27,6 +29,8 @@ export function VariantsFooter({
   addInfoMessage,
   bitrixMeta,
   onRemoveOffer,
+  onAddOfferRequest,
+  isBitrixLoading,
 }: VariantsFooterProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [hoveredOfferId, setHoveredOfferId] = useState<number | null>(null)
@@ -70,11 +74,14 @@ export function VariantsFooter({
 
     if (!requestContext) return
 
-    postMessageBridge.sendAddOfferRequest(
+    const requestId = postMessageBridge.sendAddOfferRequest(
       requestContext.iblockId,
       requestContext.iblockType,
       requestContext.lang
     )
+    if (requestId && onAddOfferRequest) {
+      onAddOfferRequest(requestId)
+    }
     addInfoMessage('info', 'Отправлен запрос на добавление торговых предложений')
   }
 
@@ -292,11 +299,12 @@ export function VariantsFooter({
             })}
           </TooltipProvider>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           onClick={handleAddVariant}
           className="h-7 px-3"
+          disabled={isBitrixLoading}
           data-pwcode="btn-add-offer"
         >
           <Plus className="w-4 h-4 mr-1" />

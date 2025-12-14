@@ -12,6 +12,7 @@ export type MessageType =
   | 'ADD_OFFER_REQUEST'
   | 'REMOVE_OFFER_REQUEST'
   | 'SELECT_REQUEST'
+  | 'SELECT_DONE'
   | 'CONFIG_ITEM_REMOVE'
   | 'HEADER_ITEM_REMOVE'
   | 'REFRESH_REQUEST'
@@ -195,7 +196,7 @@ class PostMessageBridge {
     this.targetOrigin = origin
   }
 
-  private sendMessage(type: MessageType, payload?: any, requestId?: string) {
+  private sendMessage(type: MessageType, payload?: any, requestId?: string): string | undefined {
     if (typeof window === 'undefined') return
 
     const requiresProtocol = !['READY', 'INIT', 'INIT_DONE'].includes(type)
@@ -222,6 +223,8 @@ class PostMessageBridge {
     } else {
       window.postMessage(message, this.targetOrigin)
     }
+
+    return finalRequestId
   }
 
   private generateRequestId(type: MessageType) {
@@ -269,7 +272,7 @@ class PostMessageBridge {
   }
 
   sendAddOfferRequest(iblockId: number, iblockType: string, lang: string) {
-    this.sendMessage('ADD_OFFER_REQUEST', {
+    return this.sendMessage('ADD_OFFER_REQUEST', {
       iblockId,
       iblockType,
       lang,
@@ -286,7 +289,7 @@ class PostMessageBridge {
   }
 
   sendSelectRequest(iblockId: number, iblockType: string, lang: string) {
-    this.sendMessage('SELECT_REQUEST', {
+    return this.sendMessage('SELECT_REQUEST', {
       iblockId,
       iblockType,
       lang,
