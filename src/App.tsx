@@ -23,7 +23,9 @@ import {
   CostingSettings,
   SalePricesSettings,
   createEmptyDetail,
-  createEmptyBinding
+  createEmptyBinding,
+  HeaderTabsState,
+  HeaderTabType
 } from '@/lib/types'
 import { mockDetails } from '@/lib/mock-data'
 import { HeaderSection } from '@/components/calculator/HeaderSection'
@@ -39,6 +41,7 @@ import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { initializeBitrixStore, getBitrixStore, getDeployTarget, getAppMode, getDemoOffers, AppMode, OffersSource, setAppMode, clearDemoStorage, resetBitrixStore } from '@/services/configStore'
 import { postMessageBridge, InitPayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext } from '@/lib/bitrix-utils'
+import { createEmptyHeaderTabs, normalizeHeaderTabs } from '@/lib/header-tabs'
 
 type DragItem = {
   type: 'detail' | 'binding'
@@ -60,13 +63,60 @@ function App() {
   })
   const [isRefreshing, setIsRefreshing] = useState(false)
   
-  const [headerTabs, setHeaderTabs] = useConfigKV<AppState['headerTabs']>('calc_header_tabs', {
-    materials: [],
-    operations: [],
-    equipment: [],
-    details: [],
-  })
+  const [storedHeaderTabs, setStoredHeaderTabs] = useConfigKV<HeaderTabsState>('calc_header_tabs', createEmptyHeaderTabs())
+  const [headerTabs, setHeaderTabsState] = useState<HeaderTabsState>(() => normalizeHeaderTabs(storedHeaderTabs))
+  const lastHeaderTabsSnapshotRef = useRef<string>('')
+  const hasHydratedHeaderTabsRef = useRef(false)
   
+  useEffect(() => {
+    const normalized = normalizeHeaderTabs(storedHeaderTabs)
+    setHeaderTabsState(normalized)
+
+    const serializedStored = JSON.stringify(storedHeaderTabs ?? createEmptyHeaderTabs())
+    const serializedNormalized = JSON.stringify(normalized)
+
+    if (serializedStored !== serializedNormalized) {
+      setStoredHeaderTabs(normalized)
+    }
+
+    if (hasHydratedHeaderTabsRef.current) {
+      const snapshot = JSON.stringify(normalized)
+      lastHeaderTabsSnapshotRef.current = snapshot
+
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem('calc_header_tabs', snapshot)
+        } catch (error) {
+          console.error('[HeaderTabs] Failed to persist snapshot', error)
+        }
+      }
+    }
+  }, [storedHeaderTabs, setStoredHeaderTabs])
+
+  const updateHeaderTabs = useCallback((value: HeaderTabsState | ((current: HeaderTabsState) => HeaderTabsState)) => {
+    setHeaderTabsState((current) => {
+      const normalizedCurrent = normalizeHeaderTabs(current)
+      const nextValue = typeof value === 'function'
+        ? (value as (current: HeaderTabsState) => HeaderTabsState)(normalizedCurrent)
+        : value
+      const normalizedNext = normalizeHeaderTabs(nextValue)
+      setStoredHeaderTabs(normalizedNext)
+
+      hasHydratedHeaderTabsRef.current = true
+      const snapshot = JSON.stringify(normalizedNext)
+      lastHeaderTabsSnapshotRef.current = snapshot
+
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem('calc_header_tabs', snapshot)
+        } catch (error) {
+          console.error('[HeaderTabs] Failed to persist snapshot', error)
+        }
+      }
+      return normalizedNext
+    })
+  }, [setStoredHeaderTabs])
+
   const [details, setDetails] = useConfigKV<Detail[]>('calc_details', [])
   const [bindings, setBindings] = useConfigKV<Binding[]>('calc_bindings', [])
   
@@ -79,11 +129,63 @@ function App() {
   useEffect(() => {
     localStorage.setItem('calc_info_panel_expanded', isInfoPanelExpanded.toString())
   }, [isInfoPanelExpanded])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return
+
+    const applyFromStorage = (rawValue: string | null) => {
+      const snapshot = rawValue ?? ''
+
+      if (snapshot === lastHeaderTabsSnapshotRef.current) return
+
+      if (!rawValue) {
+        hasHydratedHeaderTabsRef.current = true
+        lastHeaderTabsSnapshotRef.current = snapshot
+        return
+      }
+
+      try {
+        const parsed = JSON.parse(rawValue)
+        const normalized = normalizeHeaderTabs(parsed)
+        updateHeaderTabs(() => normalized)
+
+        const normalizedSnapshot = JSON.stringify(normalized)
+        lastHeaderTabsSnapshotRef.current = normalizedSnapshot
+
+        hasHydratedHeaderTabsRef.current = true
+
+        console.info('[HeaderTabs] updated from localStorage')
+      } catch (error) {
+        console.error('[HeaderTabs] Failed to parse calc_header_tabs from localStorage', error)
+        hasHydratedHeaderTabsRef.current = true
+        lastHeaderTabsSnapshotRef.current = snapshot
+      }
+    }
+
+    applyFromStorage(localStorage.getItem('calc_header_tabs'))
+
+    const interval = setInterval(() => {
+      applyFromStorage(localStorage.getItem('calc_header_tabs'))
+    }, 1000)
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'calc_header_tabs') {
+        applyFromStorage(event.newValue ?? localStorage.getItem('calc_header_tabs'))
+      }
+    }
+
+    window.addEventListener('storage', handleStorage)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('storage', handleStorage)
+    }
+  }, [updateHeaderTabs])
   
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
   const [draggedHeaderDetail, setDraggedHeaderDetail] = useState<{id: number, name: string} | null>(null)
-  const [activeHeaderTab, setActiveHeaderTab] = useState<string>('details')
+  const [activeHeaderTab, setActiveHeaderTab] = useState<HeaderTabType>('detailsVariants')
   const [isGabVesActive, setIsGabVesActive] = useState(false)
   const [isGabVesPanelExpanded, setIsGabVesPanelExpanded] = useState(false)
   const [gabVesMessages, setGabVesMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
@@ -131,12 +233,7 @@ function App() {
           clearDemoStorage()
           resetBitrixStore()
           
-          setHeaderTabs({
-            materials: [],
-            operations: [],
-            equipment: [],
-            details: [],
-          })
+          updateHeaderTabs(createEmptyHeaderTabs())
           
           setBitrixMeta(initPayload)
           setSelectedOffers(initPayload.selectedOffers || [])
@@ -347,7 +444,7 @@ function App() {
       if (jsonData) {
         const data = JSON.parse(jsonData)
         
-        if (data.type === 'header-detail' && activeHeaderTab === 'details') {
+        if (data.type === 'header-detail' && activeHeaderTab === 'detailsVariants') {
           const detail = mockDetails.find(d => d.id === data.detailId)
           if (detail) {
             const newDetail = createEmptyDetail(data.detailName)
@@ -635,12 +732,7 @@ function App() {
     clearDemoStorage()
     resetBitrixStore()
     
-    setHeaderTabs({
-      materials: [],
-      operations: [],
-      equipment: [],
-      details: [],
-    })
+    updateHeaderTabs(createEmptyHeaderTabs())
     
     setBitrixMeta(mockInitPayload)
     setSelectedOffers(mockInitPayload.selectedOffers)
@@ -665,9 +757,9 @@ function App() {
       
       <div className="w-full flex flex-col min-h-screen">
         <header className="border-b border-border bg-card" pwcode="header">
-          <HeaderSection 
-            headerTabs={headerTabs || { materials: [], operations: [], equipment: [], details: [] }}
-            setHeaderTabs={setHeaderTabs}
+          <HeaderSection
+            headerTabs={headerTabs || createEmptyHeaderTabs()}
+            setHeaderTabs={updateHeaderTabs}
             addInfoMessage={addInfoMessage}
             onOpenMenu={() => setIsMenuOpen(true)}
             onRefreshData={handleRefreshData}
@@ -686,7 +778,7 @@ function App() {
           pwcode="mainarea"
         >
           <div className="space-y-0">
-            {allItems.length === 0 && draggedHeaderDetail && activeHeaderTab === 'details' && (
+            {allItems.length === 0 && draggedHeaderDetail && activeHeaderTab === 'detailsVariants' && (
               <div
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center transition-all",
@@ -727,7 +819,7 @@ function App() {
               </div>
             )}
             
-            {draggedHeaderDetail && activeHeaderTab === 'details' && allItems.length > 0 && (
+            {draggedHeaderDetail && activeHeaderTab === 'detailsVariants' && allItems.length > 0 && (
               <div 
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
@@ -809,7 +901,7 @@ function App() {
                   </div>
                 )}
                 
-                {draggedHeaderDetail && activeHeaderTab === 'details' && (
+                {draggedHeaderDetail && activeHeaderTab === 'detailsVariants' && (
                   <div 
                     className={cn(
                       "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",

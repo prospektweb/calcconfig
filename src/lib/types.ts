@@ -1,12 +1,20 @@
 import { Material, Work, Equipment, DetailVariant } from './mock-data'
 
-export type HeaderTabType = 'materials' | 'operations' | 'equipment' | 'details'
+export type HeaderTabType = 'materialsVariants' | 'operationsVariants' | 'equipment' | 'detailsVariants'
 
 export interface HeaderElement {
   id: string
   type: HeaderTabType
   itemId: number
   name: string
+  deleted?: number | string | boolean | null
+}
+
+export interface HeaderTabsState {
+  materialsVariants: HeaderElement[]
+  operationsVariants: HeaderElement[]
+  equipment: HeaderElement[]
+  detailsVariants: HeaderElement[]
 }
 
 export interface CalculatorInstance {
@@ -84,12 +92,7 @@ export interface AppState {
   selectedVariantIds: number[]
   testVariantId: number | null
   isEditingTestId: boolean
-  headerTabs: {
-    materials: HeaderElement[]
-    operations: HeaderElement[]
-    equipment: HeaderElement[]
-    details: HeaderElement[]
-  }
+  headerTabs: HeaderTabsState
   details: Detail[]
   bindings: Binding[]
   infoMessages: InfoMessage[]
