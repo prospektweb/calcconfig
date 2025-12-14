@@ -62,6 +62,8 @@ function App() {
     return deployTarget === 'spark' ? getDemoOffers() : []
   })
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const pendingRequestsRef = useRef<Map<string, { pwcode: 'btn-select' | 'btn-add-offer', tab?: HeaderTabType }>>(new Map())
+  const [isBitrixLoading, setIsBitrixLoading] = useState(false)
   
   const [storedHeaderTabs, setStoredHeaderTabs] = useConfigKV<HeaderTabsState>('calc_header_tabs', createEmptyHeaderTabs())
   const [headerTabs, setHeaderTabsState] = useState<HeaderTabsState>(() => normalizeHeaderTabs(storedHeaderTabs))
@@ -214,6 +216,13 @@ function App() {
     selectedTypes: [],
     types: {},
   })
+
+  useEffect(() => {
+    return () => {
+      pendingRequestsRef.current.clear()
+      setIsBitrixLoading(false)
+    }
+  }, [])
   
   useEffect(() => {
     const deployTarget = getDeployTarget()
@@ -277,7 +286,7 @@ function App() {
       const unsubscribeRefresh = postMessageBridge.on('REFRESH_RESULT', (message) => {
         if (message.payload) {
           console.info('[REFRESH] received')
-          
+
           const refreshPayload = message.payload as InitPayload
           
           setSelectedOffers(refreshPayload.selectedOffers || [])
@@ -289,13 +298,78 @@ function App() {
           toast.success('Данные обновлены')
         }
       })
-      
+
       return () => {
         unsubscribe()
         unsubscribeRefresh()
       }
     }
   }, [])
+
+  useEffect(() => {
+    const deployTarget = getDeployTarget()
+
+    if (deployTarget !== 'bitrix') return
+
+    const unsubscribeSelectDone = postMessageBridge.on('SELECT_DONE', (message) => {
+      console.info('[FROM_BITRIX] SELECT_DONE', message)
+
+      const { requestId } = message
+      const items = Array.isArray(message.payload?.items) ? dedupeById(message.payload.items) : []
+
+      if (!requestId) {
+        setIsBitrixLoading(pendingRequestsRef.current.size > 0)
+        return
+      }
+
+      const pending = pendingRequestsRef.current.get(requestId)
+      pendingRequestsRef.current.delete(requestId)
+
+      if (!pending) {
+        setIsBitrixLoading(pendingRequestsRef.current.size > 0)
+        return
+      }
+
+      if (items.length === 0) {
+        setIsBitrixLoading(pendingRequestsRef.current.size > 0)
+        return
+      }
+
+      if (pending.pwcode === 'btn-select' && pending.tab) {
+        updateHeaderTabs((prev) => {
+          const safePrev = prev || createEmptyHeaderTabs()
+
+          const nextElements = items.map((item: any) => ({
+            id: `header-${pending.tab}-${item.id}`,
+            type: pending.tab!,
+            itemId: item.id,
+            name: item.name || `Элемент ${item.id}`,
+            ...(typeof item.deleted !== 'undefined' ? { deleted: item.deleted } : {}),
+          }))
+
+          return {
+            ...safePrev,
+            [pending.tab]: nextElements,
+          }
+        })
+      }
+
+      if (pending.pwcode === 'btn-add-offer') {
+        const uniqueOffers = items as InitPayload['selectedOffers']
+        setSelectedOffers((prev) => {
+          const merged = mergeUniqueById(prev || [], uniqueOffers)
+          setSelectedVariantIds(merged.map(o => o.id))
+          return merged
+        })
+      }
+
+      setIsBitrixLoading(pendingRequestsRef.current.size > 0)
+    })
+
+    return () => {
+      unsubscribeSelectDone()
+    }
+  }, [dedupeById, mergeUniqueById, updateHeaderTabs])
   
   const addInfoMessage = (type: InfoMessage['type'], message: string) => {
     const newMessage: InfoMessage = {
@@ -324,7 +398,7 @@ function App() {
     }
     setCostMessages((prev) => [...prev, newMessage])
   }
-  
+
   const addPriceMessage = (message: string) => {
     const newMessage = {
       id: `price_${Date.now()}`,
@@ -332,6 +406,45 @@ function App() {
       message,
     }
     setPriceMessages((prev) => [...prev, newMessage])
+  }
+
+  const dedupeById = useCallback(<T extends { id: number | string }>(items: T[]): T[] => {
+    const seen = new Set<number | string>()
+    const result: T[] = []
+
+    items.forEach((item) => {
+      if (!seen.has(item.id)) {
+        seen.add(item.id)
+        result.push(item)
+      }
+    })
+
+    return result
+  }, [])
+
+  const mergeUniqueById = useCallback(<T extends { id: number | string }>(existing: T[], incoming: T[]) => {
+    const base = existing || []
+    const result = [...base]
+    const seen = new Set(base.map(item => item.id))
+
+    incoming.forEach((item) => {
+      if (!seen.has(item.id)) {
+        seen.add(item.id)
+        result.push(item)
+      }
+    })
+
+    return result
+  }, [])
+
+  const handleSelectRequestPending = (requestId: string, tab: HeaderTabType) => {
+    pendingRequestsRef.current.set(requestId, { pwcode: 'btn-select', tab })
+    setIsBitrixLoading(true)
+  }
+
+  const handleAddOfferRequestPending = (requestId: string) => {
+    pendingRequestsRef.current.set(requestId, { pwcode: 'btn-add-offer' })
+    setIsBitrixLoading(true)
   }
 
   const handleAddDetail = () => {
@@ -768,6 +881,8 @@ function App() {
             onActiveTabChange={setActiveHeaderTab}
             bitrixMeta={bitrixMeta}
             isRefreshing={isRefreshing}
+            onSelectRequest={handleSelectRequestPending}
+            isBitrixLoading={isBitrixLoading}
           />
         </header>
 
@@ -963,6 +1078,8 @@ function App() {
               setTestVariantId(null)
             }
           }}
+          onAddOfferRequest={handleAddOfferRequestPending}
+          isBitrixLoading={isBitrixLoading}
         />
 
         <InfoPanel
