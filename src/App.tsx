@@ -271,7 +271,8 @@ function App() {
           clearDemoStorage()
           resetBitrixStore()
           
-          updateHeaderTabs(createEmptyHeaderTabs())
+          // Do not reset headerTabs here - preserve data from localStorage
+          // The data is already loaded on app startup and should persist
           
           setBitrixMeta(initPayload)
           setSelectedOffers(initPayload.selectedOffers || [])
@@ -558,14 +559,22 @@ function App() {
         const data = JSON.parse(jsonData)
         
         if (data.type === 'header-detail' && activeHeaderTab === 'detailsVariants') {
-          const detail = mockDetails.find(d => d.id === data.detailId)
-          if (detail) {
-            const newDetail = createEmptyDetail(data.detailName)
-            newDetail.width = detail.width
-            newDetail.length = detail.length
-            setDetails(prev => [...(prev || []), newDetail])
-            addInfoMessage('success', `Добавлена деталь: ${data.detailName}`)
+          // Try to find in mockDetails for demo mode
+          const mockDetail = mockDetails.find(d => d.id === data.detailId)
+          
+          // Create detail with data from drag event
+          const newDetail = createEmptyDetail(data.detailName)
+          
+          if (mockDetail) {
+            // If found in mockDetails - use dimensions from there
+            newDetail.width = mockDetail.width
+            newDetail.length = mockDetail.length
           }
+          // If not found in mockDetails - detail is created with default dimensions
+          // Real data can be retrieved later via REFRESH
+          
+          setDetails(prev => [...(prev || []), newDetail])
+          addInfoMessage('success', `Добавлена деталь: ${data.detailName}`)
         }
       }
     } catch (error) {

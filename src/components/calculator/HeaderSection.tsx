@@ -247,8 +247,9 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
       detailName
     }))
     
-    const detail = mockDetails.find(d => d.id === detailId)
-    if (detail && onDetailDragStart) {
+    // Always call onDetailDragStart, not only for mockDetails
+    // This allows drag-and-drop to work for both demo and real Bitrix elements
+    if (onDetailDragStart) {
       onDetailDragStart(detailId, detailName)
     }
   }
