@@ -27,7 +27,7 @@ import {
   HeaderTabsState,
   HeaderTabType
 } from '@/lib/types'
-import { mockDetails } from '@/lib/mock-data'
+import { mockDetails, mockMaterials, mockOperations, mockEquipment } from '@/lib/mock-data'
 import { HeaderSection } from '@/components/calculator/HeaderSection'
 import { VariantsFooter } from '@/components/calculator/VariantsFooter'
 import { DetailCard } from '@/components/calculator/DetailCard'
@@ -183,6 +183,56 @@ function App() {
       window.removeEventListener('storage', handleStorage)
     }
   }, [updateHeaderTabs])
+
+  // Initialize headerTabs from mock data in DEMO mode
+  useEffect(() => {
+    const deployTarget = getDeployTarget()
+    
+    // In DEMO mode, populate headerTabs from mock data on first run
+    if (deployTarget === 'spark' && appMode === 'DEMO') {
+      const currentTabs = headerTabs || createEmptyHeaderTabs()
+      
+      // Check if tabs are empty (not filled before)
+      const isEmpty = 
+        currentTabs.detailsVariants.length === 0 &&
+        currentTabs.materialsVariants.length === 0 &&
+        currentTabs.operationsVariants.length === 0 &&
+        currentTabs.equipment.length === 0
+      
+      if (isEmpty) {
+        // Convert mock data to HeaderElement format
+        const demoHeaderTabs: HeaderTabsState = {
+          detailsVariants: mockDetails.map(detail => ({
+            id: `header-detailsVariants-${detail.id}`,
+            type: 'detailsVariants' as HeaderTabType,
+            itemId: detail.id,
+            name: detail.name,
+          })),
+          materialsVariants: mockMaterials.map(material => ({
+            id: `header-materialsVariants-${material.id}`,
+            type: 'materialsVariants' as HeaderTabType,
+            itemId: material.id,
+            name: material.name,
+          })),
+          operationsVariants: mockOperations.map(operation => ({
+            id: `header-operationsVariants-${operation.id}`,
+            type: 'operationsVariants' as HeaderTabType,
+            itemId: operation.id,
+            name: operation.name,
+          })),
+          equipment: mockEquipment.map(eq => ({
+            id: `header-equipment-${eq.id}`,
+            type: 'equipment' as HeaderTabType,
+            itemId: eq.id,
+            name: eq.name,
+          })),
+        }
+        
+        updateHeaderTabs(demoHeaderTabs)
+        console.info('[DEMO] Initialized headerTabs from mock data')
+      }
+    }
+  }, [appMode, headerTabs, updateHeaderTabs])
   
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)

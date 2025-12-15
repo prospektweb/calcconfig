@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge'
 import { 
   X, 
   ArrowSquareOut, 
-  Trash, 
   DotsNine, 
   List,
   Package,
@@ -17,11 +16,9 @@ import {
   ArrowsClockwise
 } from '@phosphor-icons/react'
 import { AppState, HeaderElement, HeaderTabType, InfoMessage } from '@/lib/types'
-import { mockMaterials, mockOperations, mockEquipment, mockDetails } from '@/lib/mock-data'
 import { toast } from 'sonner'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
-import { getAppMode } from '@/services/configStore'
 import { createEmptyHeaderTabs } from '@/lib/header-tabs'
 
 interface HeaderSectionProps {
@@ -68,8 +65,6 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     const stored = localStorage.getItem('calc_header_height')
     return stored ? parseInt(stored) : MIN_HEIGHT
   })
-  
-  const appMode = getAppMode()
   
   useEffect(() => {
     localStorage.setItem('calc_active_header_tab', activeTab)
@@ -247,14 +242,35 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
       detailName
     }))
     
-    // Always call onDetailDragStart, not only for mockDetails
-    // This allows drag-and-drop to work for both demo and real Bitrix elements
+    // Call callback for App.tsx to show drop zone
     if (onDetailDragStart) {
       onDetailDragStart(detailId, detailName)
     }
   }
   
   const handleDetailDragEnd = () => (e: React.DragEvent) => {
+    // Call callback for App.tsx to hide drop zone
+    if (onDetailDragEnd) {
+      onDetailDragEnd()
+    }
+  }
+
+  // Universal handler for all header elements
+  const handleElementDragStart = (element: HeaderElement) => (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'copy'
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'header-detail',
+      detailId: element.itemId,
+      detailName: element.name
+    }))
+    
+    // Call callback to show drop zone
+    if (onDetailDragStart) {
+      onDetailDragStart(element.itemId, element.name)
+    }
+  }
+
+  const handleElementDragEnd = () => {
     if (onDetailDragEnd) {
       onDetailDragEnd()
     }
@@ -364,254 +380,56 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
 
             <ScrollArea style={{ height: `${headerHeight - 80}px` }}>
               <div className="flex flex-wrap gap-2">
-                {tabType === 'detailsVariants' && appMode === 'DEMO' ? (
-                  <div className="w-full space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {mockDetails.map((detail) => (
-                        <Badge
-                          key={detail.id}
-                          variant="secondary"
-                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
-                          draggable
-                          onDragStart={handleDetailDragStart(detail.id, detail.name)}
-                          onDragEnd={handleDetailDragEnd()}
-                          data-pwcode="header-detail"
-                        >
-                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                            <DotsSixVertical className="w-4 h-4" />
-                          </div>
-                          <span className="font-mono text-xs">[{detail.id}]</span>
-                          <span className="font-medium">{detail.name}</span>
-                          <span className="text-xs font-mono">{detail.width}×{detail.length}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenHeaderElement(detail.id)
-                            }}
-                            data-pwcode="btn-open-header-detail"
-                          >
-                            <ArrowSquareOut className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const id = `header-detail-${detail.id}`
-                              handleRemoveElement(id, detail.id)
-                            }}
-                            data-pwcode="btn-delete-header-detail"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </Button>
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ) : tabType === 'materialsVariants' && appMode === 'DEMO' ? (
-                  <div className="w-full space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {mockMaterials.map((material) => (
-                        <Badge
-                          key={material.id}
-                          variant="secondary"
-                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.effectAllowed = 'copy'
-                            e.dataTransfer.setData('application/json', JSON.stringify({ 
-                              type: 'header-material', 
-                              materialId: material.id,
-                              materialName: material.name
-                            }))
-                          }}
-                          data-pwcode="header-material"
-                        >
-                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                            <DotsSixVertical className="w-4 h-4" />
-                          </div>
-                          <span className="font-mono text-xs">[{material.id}]</span>
-                          <span className="font-medium">{material.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenHeaderElement(material.id)
-                            }}
-                            data-pwcode="btn-open-material"
-                          >
-                            <ArrowSquareOut className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const id = `header-material-${material.id}`
-                              handleRemoveElement(id, material.id)
-                            }}
-                            data-pwcode="btn-delete-material"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </Button>
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ) : tabType === 'operationsVariants' && appMode === 'DEMO' ? (
-                  <div className="w-full space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {mockOperations.map((operation) => (
-                        <Badge
-                          key={operation.id}
-                          variant="secondary"
-                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.effectAllowed = 'copy'
-                            e.dataTransfer.setData('application/json', JSON.stringify({ 
-                              type: 'header-operation', 
-                              operationId: operation.id,
-                              operationName: operation.name
-                            }))
-                          }}
-                          data-pwcode="header-operation"
-                        >
-                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                            <DotsSixVertical className="w-4 h-4" />
-                          </div>
-                          <span className="font-mono text-xs">[{operation.id}]</span>
-                          <span className="font-medium">{operation.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenHeaderElement(operation.id)
-                            }}
-                            data-pwcode="btn-open-operation"
-                          >
-                            <ArrowSquareOut className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const id = `header-operation-${operation.id}`
-                              handleRemoveElement(id, operation.id)
-                            }}
-                            data-pwcode="btn-delete-operation"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </Button>
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ) : tabType === 'equipment' && appMode === 'DEMO' ? (
-                  <div className="w-full space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {mockEquipment.map((equipment) => (
-                        <Badge
-                          key={equipment.id}
-                          variant="secondary"
-                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing hover:bg-accent hover:text-accent-foreground transition-colors group"
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.effectAllowed = 'copy'
-                            e.dataTransfer.setData('application/json', JSON.stringify({ 
-                              type: 'header-equipment', 
-                              equipmentId: equipment.id,
-                              equipmentName: equipment.name
-                            }))
-                          }}
-                          data-pwcode="header-equipment"
-                        >
-                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                            <DotsSixVertical className="w-4 h-4" />
-                          </div>
-                          <span className="font-mono text-xs">[{equipment.id}]</span>
-                          <span className="font-medium">{equipment.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenHeaderElement(equipment.id)
-                            }}
-                            data-pwcode="btn-open-equipment"
-                          >
-                            <ArrowSquareOut className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const id = `header-equipment-${equipment.id}`
-                              handleRemoveElement(id, equipment.id)
-                            }}
-                            data-pwcode="btn-delete-equipment"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </Button>
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ) : visibleElements.length === 0 ? (
+                {visibleElements.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Нет элементов. Нажмите "Выбрать" для добавления.</p>
                 ) : (
-                  visibleElements.map((element: HeaderElement) => (
-                    <Badge
-                      key={element.id}
-                      variant="secondary"
-                      className="px-3 py-2 flex items-center gap-2 cursor-grab max-w-[300px] hover:bg-accent hover:text-accent-foreground transition-colors group"
-                      draggable
-                    >
-                      <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                        <DotsSixVertical className="w-4 h-4" />
-                      </div>
-                      <span className="font-mono text-xs">[{element.itemId}]</span>
-                      <span className="truncate flex-1" title={element.name}>
-                        {element.name}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          window.open(`#item-${element.itemId}`, '_blank')
-                        }}
-                      >
-                        <ArrowSquareOut className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleRemoveElement(element.id, element.itemId)
-                        }}
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </Button>
-                    </Badge>
-                  ))
+                  <div className="w-full space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {visibleElements.map((element: HeaderElement) => (
+                        <Badge
+                          key={element.id}
+                          variant="secondary"
+                          className="px-3 py-2 flex items-center gap-2 cursor-grab active:cursor-grabbing max-w-[300px] hover:bg-accent hover:text-accent-foreground transition-colors group"
+                          draggable
+                          onDragStart={handleElementDragStart(element)}
+                          onDragEnd={handleElementDragEnd}
+                          data-pwcode={`header-${element.type}`}
+                        >
+                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                            <DotsSixVertical className="w-4 h-4" />
+                          </div>
+                          <span className="font-mono text-xs">[{element.itemId}]</span>
+                          <span className="truncate flex-1" title={element.name}>
+                            {element.name}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-accent-foreground/20"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenHeaderElement(element.itemId)
+                            }}
+                            data-pwcode={`btn-open-${element.type}`}
+                          >
+                            <ArrowSquareOut className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleRemoveElement(element.id, element.itemId)
+                            }}
+                            data-pwcode={`btn-delete-${element.type}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </ScrollArea>
