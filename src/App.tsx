@@ -133,7 +133,7 @@ function App() {
       }
     }
 
-    // Don't call applyFromStorage() immediately - data is already loaded in useState initializer
+    // Skip immediate call since data is already loaded in useState initializer to avoid duplicate processing
 
     const interval = setInterval(applyFromStorage, 1000)
 
