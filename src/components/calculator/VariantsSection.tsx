@@ -2,7 +2,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useState } from 'react'
-import { mockProductVariants } from '@/lib/mock-data'
 import { InfoMessage } from '@/lib/types'
 import { Pencil } from '@phosphor-icons/react'
 

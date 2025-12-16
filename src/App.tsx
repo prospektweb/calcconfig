@@ -27,7 +27,6 @@ import {
   HeaderTabsState,
   HeaderTabType
 } from '@/lib/types'
-import { mockDetails, mockMaterials, mockOperations, mockEquipment } from '@/lib/mock-data'
 import { HeaderSection } from '@/components/calculator/HeaderSection'
 import { VariantsFooter } from '@/components/calculator/VariantsFooter'
 import { DetailCard } from '@/components/calculator/DetailCard'
@@ -38,7 +37,7 @@ import { CostPanel } from '@/components/calculator/CostPanel'
 import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
-import { initializeBitrixStore, getBitrixStore, getDeployTarget, getAppMode, getDemoOffers, AppMode, OffersSource, setAppMode, clearDemoStorage, resetBitrixStore } from '@/services/configStore'
+import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
 import { postMessageBridge, InitPayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext } from '@/lib/bitrix-utils'
 import { createEmptyHeaderTabs, normalizeHeaderTabs } from '@/lib/header-tabs'
@@ -55,14 +54,9 @@ function App() {
   const [testVariantId, setTestVariantId] = useState<number | null>(null)
   const [bitrixMeta, setBitrixMeta] = useState<InitPayload | null>(null)
   
-  const [appMode, setAppModeState] = useState<AppMode>(getAppMode())
-  const [offersSource, setOffersSource] = useState<OffersSource>('DEMO')
-  const [selectedOffers, setSelectedOffers] = useState<InitPayload['selectedOffers']>(() => {
-    const deployTarget = getDeployTarget()
-    return deployTarget === 'spark' ? getDemoOffers() : []
-  })
+  const [selectedOffers, setSelectedOffers] = useState<InitPayload['selectedOffers']>([])
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const pendingRequestsRef = useRef<Map<string, { pwcode: 'btn-select' | 'btn-add-offer', tab?: HeaderTabType }>>(new Map())
+  const pendingRequestsRef = useRef<Map<string, { tab?: HeaderTabType }>>(new Map())
   const [isBitrixLoading, setIsBitrixLoading] = useState(false)
   
   const [storedHeaderTabs, setStoredHeaderTabs] = useConfigKV<HeaderTabsState>('calc_header_tabs', createEmptyHeaderTabs())
@@ -183,56 +177,6 @@ function App() {
       window.removeEventListener('storage', handleStorage)
     }
   }, [updateHeaderTabs])
-
-  // Initialize headerTabs from mock data in DEMO mode
-  useEffect(() => {
-    const deployTarget = getDeployTarget()
-    
-    // In DEMO mode, populate headerTabs from mock data on first run
-    if (deployTarget === 'spark' && appMode === 'DEMO') {
-      const currentTabs = headerTabs || createEmptyHeaderTabs()
-      
-      // Check if tabs are empty (not filled before)
-      const isEmpty = 
-        currentTabs.detailsVariants.length === 0 &&
-        currentTabs.materialsVariants.length === 0 &&
-        currentTabs.operationsVariants.length === 0 &&
-        currentTabs.equipment.length === 0
-      
-      if (isEmpty) {
-        // Convert mock data to HeaderElement format
-        const demoHeaderTabs: HeaderTabsState = {
-          detailsVariants: mockDetails.map(detail => ({
-            id: `header-detailsVariants-${detail.id}`,
-            type: 'detailsVariants' as HeaderTabType,
-            itemId: detail.id,
-            name: detail.name,
-          })),
-          materialsVariants: mockMaterials.map(material => ({
-            id: `header-materialsVariants-${material.id}`,
-            type: 'materialsVariants' as HeaderTabType,
-            itemId: material.id,
-            name: material.name,
-          })),
-          operationsVariants: mockOperations.map(operation => ({
-            id: `header-operationsVariants-${operation.id}`,
-            type: 'operationsVariants' as HeaderTabType,
-            itemId: operation.id,
-            name: operation.name,
-          })),
-          equipment: mockEquipment.map(eq => ({
-            id: `header-equipment-${eq.id}`,
-            type: 'equipment' as HeaderTabType,
-            itemId: eq.id,
-            name: eq.name,
-          })),
-        }
-        
-        updateHeaderTabs(demoHeaderTabs)
-        console.info('[DEMO] Initialized headerTabs from mock data')
-      }
-    }
-  }, [appMode, headerTabs, updateHeaderTabs])
   
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
@@ -304,69 +248,58 @@ function App() {
   }, [])
   
   useEffect(() => {
-    const deployTarget = getDeployTarget()
-    
-    if (deployTarget === 'bitrix') {
-      const unsubscribe = postMessageBridge.on('INIT', (message) => {
-        const bitrixStore = getBitrixStore()
-        if (bitrixStore && message.payload) {
-          const initPayload = message.payload as InitPayload
-          
-          console.info('[INIT] received')
-          console.info('[INIT] applied offers=', (initPayload.selectedOffers || []).length)
-          
-          setAppMode('BITRIX')
-          setAppModeState('BITRIX')
-          
-          // НЕ очищаем localStorage - сохраняем headerTabs, высоту шапки и т.д.
-          // clearDemoStorage() - УДАЛЕНО
-          // resetBitrixStore() - УДАЛЕНО
-          
-          setBitrixMeta(initPayload)
-          setSelectedOffers(initPayload.selectedOffers || [])
-          setSelectedVariantIds(initPayload.selectedOffers?.map(o => o.id) || [])
-          setOffersSource('INIT')
-          
-          if (initPayload.context?.url && initPayload.context?.lang) {
-            setBitrixContext({
-              baseUrl: initPayload.context.url,
-              lang: initPayload.context.lang,
-            })
-          }
-          
-          initializeBitrixStore(message.payload)
-          
-          if (message.payload.config?.data) {
-            const configData = message.payload.config.data
-            if (configData.details) {
-              setDetails(configData.details)
-            }
-            if (configData.bindings) {
-              setBindings(configData.bindings)
-            }
-            if (configData.costingSettings) {
-              setCostingSettings(configData.costingSettings)
-            }
-            if (configData.salePricesSettings) {
-              setSalePricesSettings(configData.salePricesSettings)
-            }
-            // headerTabs из конфигурации, если есть
-            if (configData.headerTabs) {
-              updateHeaderTabs(normalizeHeaderTabs(configData.headerTabs))
-            }
-            // Иначе оставляем текущие headerTabs из localStorage
-          }
-          
-          postMessageBridge.sendInitDone(
-            message.payload.mode || 'NEW_CONFIG',
-            message.payload.selectedOffers?.length || 0
-          )
-          
-          console.info('[INIT_DONE] sent')
+    const unsubscribe = postMessageBridge.on('INIT', (message) => {
+      const bitrixStore = getBitrixStore()
+      if (bitrixStore && message.payload) {
+        const initPayload = message.payload as InitPayload
+        
+        console.info('[INIT] received')
+        console.info('[INIT] applied offers=', (initPayload.selectedOffers || []).length)
+        
+        setBitrixMeta(initPayload)
+        setSelectedOffers(initPayload.selectedOffers || [])
+        setSelectedVariantIds(initPayload.selectedOffers?.map(o => o.id) || [])
+        
+        if (initPayload.context?.url && initPayload.context?.lang) {
+          setBitrixContext({
+            baseUrl: initPayload.context.url,
+            lang: initPayload.context.lang,
+          })
         }
-      })
-      
-      const unsubscribeRefresh = postMessageBridge.on('REFRESH_RESULT', (message) => {
+        
+        initializeBitrixStore(message.payload)
+        
+        if (message.payload.config?.data) {
+          const configData = message.payload.config.data
+          if (configData.details) {
+            setDetails(configData.details)
+          }
+          if (configData.bindings) {
+            setBindings(configData.bindings)
+          }
+          if (configData.costingSettings) {
+            setCostingSettings(configData.costingSettings)
+          }
+          if (configData.salePricesSettings) {
+            setSalePricesSettings(configData.salePricesSettings)
+          }
+          // headerTabs из конфигурации, если есть
+          if (configData.headerTabs) {
+            updateHeaderTabs(normalizeHeaderTabs(configData.headerTabs))
+          }
+          // Иначе оставляем текущие headerTabs из localStorage
+        }
+        
+        postMessageBridge.sendInitDone(
+          message.payload.mode || 'NEW_CONFIG',
+          message.payload.selectedOffers?.length || 0
+        )
+        
+        console.info('[INIT_DONE] sent')
+      }
+    })
+    
+    const unsubscribeRefresh = postMessageBridge.on('REFRESH_RESULT', (message) => {
         if (message.payload) {
           console.info('[REFRESH] received')
 
@@ -382,18 +315,13 @@ function App() {
         }
       })
 
-      return () => {
-        unsubscribe()
-        unsubscribeRefresh()
-      }
+    return () => {
+      unsubscribe()
+      unsubscribeRefresh()
     }
   }, [])
 
   useEffect(() => {
-    const deployTarget = getDeployTarget()
-
-    if (deployTarget !== 'bitrix') return
-
     const unsubscribeSelectDone = postMessageBridge.on('SELECT_DONE', (message) => {
       console.info('[FROM_BITRIX] SELECT_DONE', message)
 
@@ -418,7 +346,7 @@ function App() {
         return
       }
 
-      if (pending.pwcode === 'btn-select' && pending.tab) {
+      if (pending.tab) {
         updateHeaderTabs((prev) => {
           const safePrev = prev || createEmptyHeaderTabs()
 
@@ -435,9 +363,7 @@ function App() {
             [pending.tab]: nextElements,
           }
         })
-      }
-
-      if (pending.pwcode === 'btn-add-offer') {
+      } else {
         const uniqueOffers = items as InitPayload['selectedOffers']
         setSelectedOffers((prev) => {
           const merged = mergeUniqueById(prev || [], uniqueOffers)
@@ -492,12 +418,12 @@ function App() {
   }
 
   const handleSelectRequestPending = (requestId: string, tab: HeaderTabType) => {
-    pendingRequestsRef.current.set(requestId, { pwcode: 'btn-select', tab })
+    pendingRequestsRef.current.set(requestId, { tab })
     setIsBitrixLoading(true)
   }
 
   const handleAddOfferRequestPending = (requestId: string) => {
-    pendingRequestsRef.current.set(requestId, { pwcode: 'btn-add-offer' })
+    pendingRequestsRef.current.set(requestId, {})
     setIsBitrixLoading(true)
   }
 
@@ -612,18 +538,8 @@ function App() {
         const data = JSON.parse(jsonData)
         
         if (data.type === 'header-detail' && activeHeaderTab === 'detailsVariants') {
-          // Try to find in mockDetails for demo mode
-          const mockDetail = mockDetails.find(d => d.id === data.detailId)
-          
           // Create detail with data from drag event
           const newDetail = createEmptyDetail(data.detailName)
-          
-          if (mockDetail) {
-            // If found in mockDetails - use dimensions from there
-            newDetail.width = mockDetail.width
-            newDetail.length = mockDetail.length
-          }
-          // If not found in mockDetails - detail is created with default dimensions
           // Real data can be retrieved later via REFRESH
           
           setDetails(prev => [...(prev || []), newDetail])
@@ -774,13 +690,16 @@ function App() {
       setIsPricePanelExpanded(false)
     }
   }
+  
+  const handleClose = () => {
+    // Send close request to Bitrix
+    // For now, we'll send saved=false and hasChanges=false
+    // In a full implementation, you would track if there are unsaved changes
+    postMessageBridge.sendCloseRequest(false, false)
+    console.info('[CLOSE_REQUEST] sent')
+  }
 
   const handleRefreshData = async () => {
-    if (appMode === 'DEMO') {
-      toast.info('REFRESH доступен только в Bitrix')
-      return
-    }
-    
     if (isRefreshing) return
     
     setIsRefreshing(true)
@@ -849,84 +768,9 @@ function App() {
     )
   }
 
-  const handleSimulateInit = () => {
-    const mockInitPayload: InitPayload = {
-      mode: "NEW_CONFIG",
-      context: {
-        siteId: "s1",
-        userId: "1",
-        lang: "ru",
-        timestamp: Date.now(),
-        url: "https://prospektprint.ru/"
-      },
-      iblocks: {
-        products: 16,
-        offers: 17,
-        calcDetails: 99,
-        calcDetailsVariants: 100,
-        calcMaterials: 94,
-        calcMaterialsVariants: 95,
-        calcOperations: 96,
-        calcOperationsVariants: 97,
-        calcEquipment: 98
-      },
-      iblocksTypes: {
-        "16": "catalog",
-        "17": "offers",
-        "94": "calculator_catalog",
-        "95": "calculator_catalog",
-        "96": "calculator_catalog",
-        "97": "calculator_catalog",
-        "98": "calculator_catalog",
-        "99": "calculator_catalog",
-        "100": "calculator_catalog"
-      },
-      selectedOffers: [
-        {
-          id: 215,
-          productId: 213,
-          name: "Визитки: 50 экз., A7 74×105мм, 1+0",
-          fields: { width: 74, height: 8, length: 105, weight: 70 },
-          prices: [{ type: "BASE", value: 1152, currency: "RUB" }],
-          properties: {
-            VOLUME: "50 экз.",
-            FORMAT: "A7 74×105мм",
-            COLOR_SCHEME: "1+0",
-            CML2_LINK: "213"
-          }
-        }
-      ]
-    }
-    
-    console.info('[INIT] Simulated')
-    console.info('[INIT] applied offers=', mockInitPayload.selectedOffers.length)
-    
-    setAppMode('BITRIX')
-    setAppModeState('BITRIX')
-    
-    clearDemoStorage()
-    resetBitrixStore()
-    
-    updateHeaderTabs(createEmptyHeaderTabs())
-    
-    setBitrixMeta(mockInitPayload)
-    setSelectedOffers(mockInitPayload.selectedOffers)
-    setSelectedVariantIds(mockInitPayload.selectedOffers.map(o => o.id))
-    setOffersSource('INIT')
-    
-    if (mockInitPayload.context?.url && mockInitPayload.context?.lang) {
-      setBitrixContext({
-        baseUrl: mockInitPayload.context.url,
-        lang: mockInitPayload.context.lang,
-      })
-    }
-    
-    toast.success('INIT симуляция применена')
-  }
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} offersSource={offersSource} />
+      <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
       
       {dragState.isDragging && getDraggedElement()}
       
@@ -1245,7 +1089,7 @@ function App() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => {}}
+                onClick={handleClose}
                 pwcode="btn-close"
               >
                 <X className="w-4 h-4 mr-2" />

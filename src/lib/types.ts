@@ -1,4 +1,39 @@
-import { Material, Work, Equipment, DetailVariant } from './mock-data'
+export interface Material {
+  id: number
+  name: string
+  width: number | null
+  length: number | null
+  height: number
+  density?: number
+  price: number
+}
+
+export interface Work {
+  id: number
+  name: string
+  maxWidth: number | null
+  maxLength: number | null
+  equipmentIds: number[]
+  price: number
+}
+
+export type Operation = Work
+
+export interface Equipment {
+  id: number
+  name: string
+  fields: string
+  maxWidth: number | null
+  maxLength: number | null
+  startCost: number
+}
+
+export interface DetailVariant {
+  id: number
+  name: string
+  width: number
+  length: number
+}
 
 export type HeaderTabType = 'materialsVariants' | 'operationsVariants' | 'equipment' | 'detailsVariants'
 

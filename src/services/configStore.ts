@@ -8,67 +8,6 @@ export interface ConfigStore {
   getOrSetDefault<T = any>(key: string, defaultValue: T): Promise<T>
 }
 
-async function loadSparkKV() {
-  if (typeof window !== 'undefined' && window.spark?.kv) {
-    return window.spark.kv
-  }
-  return null
-}
-
-class SparkConfigStore implements ConfigStore {
-  async get<T = any>(key: string): Promise<T | undefined> {
-    const kv = await loadSparkKV()
-    if (!kv) return undefined
-    return await kv.get<T>(key)
-  }
-
-  async set<T = any>(key: string, value: T): Promise<void> {
-    const kv = await loadSparkKV()
-    if (!kv) return
-    await kv.set(key, value)
-  }
-
-  async delete(key: string): Promise<void> {
-    const kv = await loadSparkKV()
-    if (!kv) return
-    await kv.delete(key)
-  }
-
-  async keys(): Promise<string[]> {
-    const kv = await loadSparkKV()
-    if (!kv) return []
-    return await kv.keys()
-  }
-
-  async getOrSetDefault<T = any>(key: string, defaultValue: T): Promise<T> {
-    const value = await this.get<T>(key)
-    if (value === undefined) {
-      await this.set(key, defaultValue)
-      return defaultValue
-    }
-    return value
-  }
-}
-
-const DEMO_OFFERS = [
-  {
-    id: 999,
-    productId: 998,
-    name: "Демо ТП: A4 (210×297мм), 100 экз.",
-    fields: { width: 210, height: 297, length: 210, weight: 500 },
-    prices: [{ type: "BASE", value: 2500, currency: "RUB" }],
-    properties: { VOLUME: "100 экз.", FORMAT: "A4", COLOR_SCHEME: "4+4", CML2_LINK: "998" }
-  },
-  {
-    id: 1000,
-    productId: 998,
-    name: "Демо ТП: A5 (148×210мм), 50 экз.",
-    fields: { width: 148, height: 210, length: 148, weight: 250 },
-    prices: [{ type: "BASE", value: 1500, currency: "RUB" }],
-    properties: { VOLUME: "50 экз.", FORMAT: "A5", COLOR_SCHEME: "4+0", CML2_LINK: "998" }
-  }
-]
-
 class BitrixConfigStore implements ConfigStore {
   private storage: Map<string, any> = new Map()
   private initData: Record<string, any> | null = null
@@ -190,79 +129,24 @@ class BitrixConfigStore implements ConfigStore {
   }
 }
 
-export type AppMode = 'DEMO' | 'BITRIX'
-export type OffersSource = 'DEMO' | 'INIT'
-
-let currentAppMode: AppMode = 'DEMO'
-let modeSetByInit = false
-
-export function getDeployTarget(): 'bitrix' | 'spark' {
-  if (typeof import.meta.env !== 'undefined' && import.meta.env.VITE_DEPLOY_TARGET) {
-    const target = import.meta.env.VITE_DEPLOY_TARGET as string
-    return target as 'bitrix' | 'spark'
-  }
-  
-  if (typeof window !== 'undefined') {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('deploy') === 'bitrix') {
-      return 'bitrix'
-    }
-  }
-  
-  return 'spark'
-}
-
-export function getAppMode(): AppMode {
-  return currentAppMode
-}
-
-export function setAppMode(mode: AppMode) {
-  const isDebug = typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1'
-  
-  if (isDebug) {
-    console.info('[MODE]', mode)
-  }
-  
-  currentAppMode = mode
-  
-  if (mode === 'BITRIX') {
-    modeSetByInit = true
-  }
-}
-
 export function isDebugEnabled(): boolean {
   return typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1'
 }
 
-export function getDemoOffers() {
-  return DEMO_OFFERS
-}
-
-let configStoreInstance: ConfigStore | null = null
 let bitrixStoreInstance: BitrixConfigStore | null = null
 
 export function createConfigStore(): ConfigStore {
-  const deployTarget = getDeployTarget()
-  
-  if (deployTarget === 'bitrix') {
-    if (!bitrixStoreInstance) {
-      bitrixStoreInstance = new BitrixConfigStore()
-    }
-    configStoreInstance = bitrixStoreInstance
-  } else {
-    if (!configStoreInstance) {
-      configStoreInstance = new SparkConfigStore()
-    }
+  if (!bitrixStoreInstance) {
+    bitrixStoreInstance = new BitrixConfigStore()
   }
-  
-  return configStoreInstance
+  return bitrixStoreInstance
 }
 
 export function getConfigStore(): ConfigStore {
-  if (!configStoreInstance) {
+  if (!bitrixStoreInstance) {
     return createConfigStore()
   }
-  return configStoreInstance
+  return bitrixStoreInstance
 }
 
 export function getBitrixStore(): BitrixConfigStore | null {
@@ -272,29 +156,5 @@ export function getBitrixStore(): BitrixConfigStore | null {
 export function initializeBitrixStore(initData: Record<string, any>) {
   if (bitrixStoreInstance) {
     bitrixStoreInstance.setInitData(initData)
-  }
-}
-
-export function clearDemoStorage() {
-  if (typeof localStorage === 'undefined') return
-  
-  const keysToRemove = [
-    'calc_header_tabs',
-    'calc_active_header_tab',
-    'calc_header_height',
-    'calc_info_panel_expanded',
-  ]
-  
-  keysToRemove.forEach(key => localStorage.removeItem(key))
-  
-  const isDebug = isDebugEnabled()
-  if (isDebug) {
-    console.info('[clearDemoStorage] Demo localStorage keys cleared')
-  }
-}
-
-export function resetBitrixStore() {
-  if (bitrixStoreInstance) {
-    bitrixStoreInstance.reset()
   }
 }

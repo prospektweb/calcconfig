@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getConfigStore, getDeployTarget } from '@/services/configStore'
+import { getConfigStore } from '@/services/configStore'
 
 export function useConfigKV<T>(
   key: string,

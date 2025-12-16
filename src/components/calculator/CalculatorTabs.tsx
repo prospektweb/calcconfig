@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, X, DotsSixVertical, Package, Wrench, Hammer } from '@phosphor-icons/react'
 import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
-import { mockCalculators, mockCalculatorGroups, mockOperations, mockEquipment, mockMaterials } from '@/lib/mock-data'
 import { MultiLevelSelect } from './MultiLevelSelect'
 import { operationsHierarchy, materialsHierarchy, calculatorsHierarchy, equipmentHierarchy } from '@/lib/hierarchical-data'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
@@ -129,14 +128,13 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
   }, [dragState, safeCalculators, setDropTarget, endDrag, cancelDrag])
 
   const getCalculatorByCode = (code: string | null) => {
-    return mockCalculators.find(c => c.code === code)
+    // TODO: Fetch from Bitrix instead of using mock data
+    return undefined
   }
 
   const getAvailableEquipment = (operationId: number | null) => {
-    if (!operationId) return []
-    const operation = mockOperations.find(w => w.id === operationId)
-    if (!operation || !operation.equipmentIds) return []
-    return mockEquipment.filter(e => operation.equipmentIds.includes(e.id))
+    // TODO: Fetch from Bitrix instead of using mock data
+    return []
   }
   
   const getTabColor = (index: number) => {
