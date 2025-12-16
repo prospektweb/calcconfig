@@ -226,7 +226,7 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
                 <div className="border-l-4 border-accent pl-4">
                   <h4 className="font-medium mb-2">Себестоимость (CostPanel)</h4>
                   <p className="text-muted-foreground mb-2">
-                    Расширенная панель с настройками калькуляции. Сохраняет конфигурацию через <code className="bg-muted px-1 rounded">useKV&lt;CostingSettings&gt;('calc_costing_settings')</code>.
+                    Расширенная панель с настройками калькуляции. Сохраняет конфигурацию через <code className="bg-muted px-1 rounded">useConfigKV&lt;CostingSettings&gt;('calc_costing_settings')</code>.
                   </p>
                   <div className="bg-muted/50 p-3 rounded font-mono text-xs space-y-1">
                     <div>interface CostingSettings {'{'}</div>
@@ -290,7 +290,7 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
               <p className="text-muted-foreground mt-2">
                 <strong>Входящие события:</strong> STATE_REQUEST вызывает <code className="bg-muted px-1 rounded">getCurrentState()</code>, 
                 возвращающий актуальный snapshot состояния. STATE_RESPONSE загружает полученное состояние через 
-                <code className="bg-muted px-1 rounded">handleStateResponse()</code>, обновляя все useKV хуки.
+                <code className="bg-muted px-1 rounded">handleStateResponse()</code>, обновляя все useConfigKV хуки.
               </p>
               <p className="text-muted-foreground mt-2">
                 <strong>Синхронизация:</strong> useEffect отслеживает изменения критических полей (details, bindings, headerTabs) 
@@ -305,13 +305,13 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
                 💾 Персистентность данных
               </h3>
               <p className="text-muted-foreground mb-3">
-                Приложение использует хук <code className="bg-muted px-1 rounded">useKV</code> из <code className="bg-muted px-1 rounded">@github/spark/hooks</code> для реактивного key-value хранилища.
+                Приложение использует локальный хук <code className="bg-muted px-1 rounded">useConfigKV</code> из <code className="bg-muted px-1 rounded">@/hooks/use-config-kv</code> для реактивного key-value хранилища на базе localStorage и BitrixConfigStore.
               </p>
               <div className="bg-muted/50 p-3 rounded font-mono text-xs space-y-1">
                 <div>const [details, setDetails, deleteDetails] = </div>
-                <div className="pl-4">useKV&lt;Detail[]&gt;('calc_details', []);</div>
+                <div className="pl-4">useConfigKV&lt;Detail[]&gt;('calc_details', []);</div>
                 <div className="mt-2">const [costingSettings, setCostingSettings] = </div>
-                <div className="pl-4">useKV&lt;CostingSettings&gt;('calc_costing_settings', defaultSettings);</div>
+                <div className="pl-4">useConfigKV&lt;CostingSettings&gt;('calc_costing_settings', defaultSettings);</div>
               </div>
               <p className="text-muted-foreground mt-2">
                 <strong>Критически важно:</strong> Всегда используются функциональные обновления для избежания stale closure проблем:
@@ -461,7 +461,7 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
                   <Badge className="mb-2">State Management</Badge>
                   <ul className="space-y-1 text-muted-foreground">
                     <li>• React Hooks</li>
-                    <li>• useKV (Spark SDK)</li>
+                    <li>• useConfigKV (Local)</li>
                     <li>• localStorage</li>
                     <li>• PostMessage API</li>
                   </ul>
@@ -499,7 +499,7 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-accent mt-1">✓</span>
-                  <span><strong>Custom hooks:</strong> Общая логика вынесена в хуки (useCustomDrag, usePostMessage, useKV)</span>
+                  <span><strong>Custom hooks:</strong> Общая логика вынесена в хуки (useCustomDrag, usePostMessage, useConfigKV)</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-accent mt-1">✓</span>
