@@ -59,36 +59,21 @@ function App() {
   const pendingRequestsRef = useRef<Map<string, { tab?: HeaderTabType }>>(new Map())
   const [isBitrixLoading, setIsBitrixLoading] = useState(false)
   
-  const [storedHeaderTabs, setStoredHeaderTabs] = useConfigKV<HeaderTabsState>('calc_header_tabs', createEmptyHeaderTabs())
-  const [headerTabs, setHeaderTabsState] = useState<HeaderTabsState>(() => normalizeHeaderTabs(storedHeaderTabs))
-  const lastHeaderTabsSnapshotRef = useRef<string>('')
-  const hasHydratedHeaderTabsRef = useRef(false)
-  
-  useEffect(() => {
-    const normalized = normalizeHeaderTabs(storedHeaderTabs)
-    setHeaderTabsState(normalized)
-
-    const serializedStored = JSON.stringify(storedHeaderTabs ?? createEmptyHeaderTabs())
-    const serializedNormalized = JSON.stringify(normalized)
-
-    if (serializedStored !== serializedNormalized) {
-      setStoredHeaderTabs(normalized)
-    }
-
-    if (hasHydratedHeaderTabsRef.current) {
-      const snapshot = JSON.stringify(normalized)
-      lastHeaderTabsSnapshotRef.current = snapshot
-
-      if (typeof localStorage !== 'undefined') {
-        try {
-          localStorage.setItem('calc_header_tabs', snapshot)
-        } catch (error) {
-          console.error('[HeaderTabs] Failed to persist snapshot', error)
+  // Initialize headerTabs directly from localStorage
+  const [headerTabs, setHeaderTabsState] = useState<HeaderTabsState>(() => {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('calc_header_tabs')
+        if (stored) {
+          return normalizeHeaderTabs(JSON.parse(stored))
         }
+      } catch (error) {
+        console.error('[HeaderTabs] Failed to load from localStorage', error)
       }
     }
-  }, [storedHeaderTabs, setStoredHeaderTabs])
-
+    return createEmptyHeaderTabs()
+  })
+  
   const updateHeaderTabs = useCallback((value: HeaderTabsState | ((current: HeaderTabsState) => HeaderTabsState)) => {
     setHeaderTabsState((current) => {
       const normalizedCurrent = normalizeHeaderTabs(current)
@@ -96,22 +81,20 @@ function App() {
         ? (value as (current: HeaderTabsState) => HeaderTabsState)(normalizedCurrent)
         : value
       const normalizedNext = normalizeHeaderTabs(nextValue)
-      setStoredHeaderTabs(normalizedNext)
 
-      hasHydratedHeaderTabsRef.current = true
-      const snapshot = JSON.stringify(normalizedNext)
-      lastHeaderTabsSnapshotRef.current = snapshot
-
+      // Save to localStorage
       if (typeof localStorage !== 'undefined') {
         try {
-          localStorage.setItem('calc_header_tabs', snapshot)
+          localStorage.setItem('calc_header_tabs', JSON.stringify(normalizedNext))
+          console.info('[HeaderTabs] saved to localStorage')
         } catch (error) {
-          console.error('[HeaderTabs] Failed to persist snapshot', error)
+          console.error('[HeaderTabs] Failed to save to localStorage', error)
         }
       }
+
       return normalizedNext
     })
-  }, [setStoredHeaderTabs])
+  }, [])
 
   const [details, setDetails] = useConfigKV<Detail[]>('calc_details', [])
   const [bindings, setBindings] = useConfigKV<Binding[]>('calc_bindings', [])
@@ -129,44 +112,34 @@ function App() {
   useEffect(() => {
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') return
 
-    const applyFromStorage = (rawValue: string | null) => {
+    let lastSnapshot = ''
+
+    const applyFromStorage = () => {
+      const rawValue = localStorage.getItem('calc_header_tabs')
       const snapshot = rawValue ?? ''
 
-      if (snapshot === lastHeaderTabsSnapshotRef.current) return
+      if (snapshot === lastSnapshot) return
+      lastSnapshot = snapshot
 
-      if (!rawValue) {
-        hasHydratedHeaderTabsRef.current = true
-        lastHeaderTabsSnapshotRef.current = snapshot
-        return
-      }
+      if (!rawValue) return
 
       try {
         const parsed = JSON.parse(rawValue)
         const normalized = normalizeHeaderTabs(parsed)
-        updateHeaderTabs(() => normalized)
-
-        const normalizedSnapshot = JSON.stringify(normalized)
-        lastHeaderTabsSnapshotRef.current = normalizedSnapshot
-
-        hasHydratedHeaderTabsRef.current = true
-
+        setHeaderTabsState(normalized)
         console.info('[HeaderTabs] updated from localStorage')
       } catch (error) {
-        console.error('[HeaderTabs] Failed to parse calc_header_tabs from localStorage', error)
-        hasHydratedHeaderTabsRef.current = true
-        lastHeaderTabsSnapshotRef.current = snapshot
+        console.error('[HeaderTabs] Failed to parse from localStorage', error)
       }
     }
 
-    applyFromStorage(localStorage.getItem('calc_header_tabs'))
+    // Don't call applyFromStorage() immediately - data is already loaded in useState initializer
 
-    const interval = setInterval(() => {
-      applyFromStorage(localStorage.getItem('calc_header_tabs'))
-    }, 1000)
+    const interval = setInterval(applyFromStorage, 1000)
 
     const handleStorage = (event: StorageEvent) => {
       if (event.key === 'calc_header_tabs') {
-        applyFromStorage(event.newValue ?? localStorage.getItem('calc_header_tabs'))
+        applyFromStorage()
       }
     }
 
@@ -176,7 +149,7 @@ function App() {
       clearInterval(interval)
       window.removeEventListener('storage', handleStorage)
     }
-  }, [updateHeaderTabs])
+  }, [])
   
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
