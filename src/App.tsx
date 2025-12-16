@@ -690,6 +690,14 @@ function App() {
       setIsPricePanelExpanded(false)
     }
   }
+  
+  const handleClose = () => {
+    // Send close request to Bitrix
+    // For now, we'll send saved=false and hasChanges=false
+    // In a full implementation, you would track if there are unsaved changes
+    postMessageBridge.sendCloseRequest(false, false)
+    console.info('[CLOSE_REQUEST] sent')
+  }
 
   const handleRefreshData = async () => {
     if (isRefreshing) return
@@ -1081,7 +1089,7 @@ function App() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => {}}
+                onClick={handleClose}
                 pwcode="btn-close"
               >
                 <X className="w-4 h-4 mr-2" />
