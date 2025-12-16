@@ -318,11 +318,9 @@ function App() {
           setAppMode('BITRIX')
           setAppModeState('BITRIX')
           
-          clearDemoStorage()
-          resetBitrixStore()
-          
-          // Do not reset headerTabs here - preserve data from localStorage
-          // The data is already loaded on app startup and should persist
+          // НЕ очищаем localStorage - сохраняем headerTabs, высоту шапки и т.д.
+          // clearDemoStorage() - УДАЛЕНО
+          // resetBitrixStore() - УДАЛЕНО
           
           setBitrixMeta(initPayload)
           setSelectedOffers(initPayload.selectedOffers || [])
@@ -352,6 +350,11 @@ function App() {
             if (configData.salePricesSettings) {
               setSalePricesSettings(configData.salePricesSettings)
             }
+            // headerTabs из конфигурации, если есть
+            if (configData.headerTabs) {
+              updateHeaderTabs(normalizeHeaderTabs(configData.headerTabs))
+            }
+            // Иначе оставляем текущие headerTabs из localStorage
           }
           
           postMessageBridge.sendInitDone(

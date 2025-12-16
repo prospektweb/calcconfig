@@ -1,4 +1,4 @@
-import { AppState, Detail, Binding, HeaderElement, CostingSettings, SalePricesSettings } from './types'
+import { AppState, Detail, Binding, HeaderElement, CostingSettings, SalePricesSettings, HeaderTabsState } from './types'
 
 export type MessageType =
   | 'READY'
@@ -77,6 +77,7 @@ export interface ConfigData {
   bindings: Binding[]
   costingSettings?: CostingSettings
   salePricesSettings?: SalePricesSettings
+  headerTabs?: HeaderTabsState
 }
 
 export interface CalcPreviewPayload {
