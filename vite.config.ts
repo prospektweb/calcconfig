@@ -1,25 +1,25 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react-swc";
-import { defineConfig, PluginOption } from "vite";
-
-import createIconImportProxy from "@github/spark/vitePhosphorIconProxyPlugin";
+import { defineConfig } from "vite";
 import { resolve } from 'path'
+import { createIconImportProxy } from './src/lib/vite-phosphor-icon-proxy-plugin'
 
-const projectRoot = process.env.PROJECT_ROOT || import. meta.dirname
+const projectRoot = process.env.PROJECT_ROOT || import.meta.dirname
 
 // https://vite.dev/config/
 export default defineConfig(() => {
   return {
-    plugins:  [
+    plugins: [
       react(),
       tailwindcss(),
-      // DO NOT REMOVE
-      createIconImportProxy() as PluginOption,
-      // sparkPlugin() — УДАЛЁН для Bitrix-only сборки
+      // Local icon import proxy plugin (previously from @github/spark)
+      createIconImportProxy(),
     ],
-    resolve:  {
-      alias:  {
-        '@':  resolve(projectRoot, 'src')
+    resolve: {
+      alias: {
+        '@': resolve(projectRoot, 'src'),
+        // Stub for @github/spark to prevent import errors
+        '@github/spark': resolve(projectRoot, 'src/lib/spark-stub.ts'),
       }
     },
     build: {
@@ -28,12 +28,22 @@ export default defineConfig(() => {
         output: {
           // Фиксированные имена файлов без хешей
           entryFileNames: 'assets/index.js',
-          chunkFileNames:  'assets/[name].js',
-          assetFileNames:  'assets/[name].[ext]'
-        }
+          chunkFileNames: 'assets/[name].js',
+          assetFileNames: 'assets/[name].[ext]',
+          // Отключить создание отдельных chunks
+          manualChunks: undefined,
+        },
+        // Исключить @github/spark из бандла
+        external: [],
       },
-      // Отключаем code splitting для единого бандла
+      // Единый бандл
       cssCodeSplit: false,
+      // Инлайнить все модули
+      modulePreload: false,
+    },
+    // Оптимизация - исключить spark
+    optimizeDeps: {
+      exclude: ['@github/spark']
     }
   }
 });
