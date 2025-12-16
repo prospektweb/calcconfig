@@ -9,11 +9,7 @@ import { resolve } from 'path'
 const projectRoot = process.env.PROJECT_ROOT || import.meta.dirname
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
-  const isBitrixMode = mode === 'bitrix' || process.env.VITE_DEPLOY_TARGET === 'bitrix'
-  
-  console.log(`[Vite Config] Build mode: ${isBitrixMode ? 'BITRIX' : 'DEMO'}`)
-  
+export default defineConfig(() => {
   return {
     plugins: [
       react(),
@@ -26,12 +22,6 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': resolve(projectRoot, 'src')
       }
-    },
-    define: {
-      // Явно определяем для runtime
-      'import.meta.env.VITE_DEPLOY_TARGET': JSON.stringify(
-        isBitrixMode ? 'bitrix' : 'spark'
-      )
     }
   }
 });
