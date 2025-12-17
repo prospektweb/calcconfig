@@ -18,6 +18,8 @@ export type MessageType =
   | 'HEADER_ITEM_REMOVE'
   | 'REFRESH_REQUEST'
   | 'REFRESH_RESULT'
+  | 'CALC_SETTINGS_REQUEST'
+  | 'CALC_SETTINGS_RESPONSE'
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -289,6 +291,15 @@ class PostMessageBridge {
 
   sendRemoveOfferRequest(id: number, iblockId: number, iblockType: string, lang: string) {
     this.sendMessage('REMOVE_OFFER_REQUEST', {
+      id,
+      iblockId,
+      iblockType,
+      lang,
+    })
+  }
+
+  sendCalcSettingsRequest(id: number, iblockId: number, iblockType: string, lang: string) {
+    return this.sendMessage('CALC_SETTINGS_REQUEST', {
       id,
       iblockId,
       iblockType,

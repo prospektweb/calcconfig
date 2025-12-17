@@ -19,7 +19,7 @@ import { MultiLevelSelect } from './MultiLevelSelect'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { cn } from '@/lib/utils'
-import { InitPayload } from '@/lib/postmessage-bridge'
+import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { getBitrixContext, openBitrixAdmin } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
 
@@ -326,12 +326,33 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null }: Cal
                       <MultiLevelSelect
                         items={calculatorsHierarchy}
                         value={calc.calculatorCode || null}
-                        onValueChange={(value) => handleUpdateCalculator(index, {
-                          calculatorCode: value,
-                          operationId: null,
-                          equipmentId: null,
-                          materialId: null,
-                        })}
+                        onValueChange={(value) => {
+                          handleUpdateCalculator(index, {
+                            calculatorCode: value,
+                            operationId: null,
+                            equipmentId: null,
+                            materialId: null,
+                          })
+                          
+                          // Отправить запрос настроек калькулятора в Битрикс
+                          if (value && bitrixMeta) {
+                            const context = getBitrixContext()
+                            const iblockId = bitrixMeta.iblocks.calculators
+                            
+                            if (context && iblockId) {
+                              const iblockType = bitrixMeta.iblocksTypes[iblockId]
+                              
+                              if (iblockType) {
+                                postMessageBridge.sendCalcSettingsRequest(
+                                  parseInt(value, 10),
+                                  iblockId,
+                                  iblockType,
+                                  context.lang
+                                )
+                              }
+                            }
+                          }
+                        }}
                         placeholder="Выберите калькулятор..."
                         data-pwcode="select-calculator"
                       />
