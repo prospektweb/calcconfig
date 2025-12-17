@@ -108,10 +108,6 @@ interface ConfigStore {
 }
 ```
 
-**Реализации:**
-
-1. `SparkConfigStore` — работает через Spark KV (для dev-режима)
-2. `BitrixConfigStore` — работает через in-memory Map (для Bitrix-режима)
 
 ### React Hook для работы с настройками
 
@@ -124,15 +120,6 @@ import { useConfigKV } from '@/hooks/use-config-kv'
 const [details, setDetails] = useConfigKV<Detail[]>('calc_details', [])
 ```
 
-### Автоматическое определение режима
-
-Режим определяется автоматически функцией `getDeployTarget()`:
-
-1. Проверяет `import.meta.env.VITE_DEPLOY_TARGET`
-2. Проверяет URL параметр `?deploy=bitrix` (для тестирования)
-3. По умолчанию возвращает `'spark'`
-
----
 
 ## Доменная модель
 
