@@ -543,7 +543,7 @@ function App() {
         
         if (data.type === 'header-detail' && activeHeaderTab === 'detailsVariants') {
           // Create detail with data from drag event
-          const newDetail = createEmptyDetail(data.detailName)
+          const newDetail = createEmptyDetail(data.detailName, data.detailId)
           // Real data can be retrieved later via REFRESH
           
           setDetails(prev => [...(prev || []), newDetail])
@@ -766,6 +766,7 @@ function App() {
             orderNumber={allItems.findIndex(i => i.id === item.id) + 1}
             detailStartIndex={0}
             isDragging={false}
+            bitrixMeta={bitrixMeta}
           />
         )}
       </div>
@@ -905,6 +906,7 @@ function App() {
                     detailStartIndex={0}
                     onDragStart={handleBindingDragStart}
                     isDragging={isDraggingThis}
+                    bitrixMeta={bitrixMeta}
                   />
                 )}
                 

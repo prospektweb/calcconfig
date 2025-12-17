@@ -6,6 +6,7 @@ import { Binding, Detail } from '@/lib/types'
 import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut, DotsSixVertical } from '@phosphor-icons/react'
 import { DetailCard } from './DetailCard'
 import { CalculatorTabs } from './CalculatorTabs'
+import { InitPayload } from '@/lib/postmessage-bridge'
 
 interface BindingCardProps {
   binding: Binding
@@ -21,22 +22,24 @@ interface BindingCardProps {
   detailStartIndex: number
   onDragStart?: (element: HTMLElement, e: React.MouseEvent) => void
   isDragging?: boolean
+  bitrixMeta?: InitPayload | null
 }
 
-export function BindingCard({ 
-  binding, 
-  details, 
-  bindings = [],
-  allDetails = [],
-  allBindings = [],
+  export function BindingCard({
+    binding,
+    details = [],
+    bindings = [],
+    allDetails = [],
+    allBindings = [],
   onUpdate, 
   onDelete, 
   onUpdateDetail,
   onUpdateBinding,
-  orderNumber, 
+  orderNumber,
   detailStartIndex,
   onDragStart,
-  isDragging = false
+  isDragging = false,
+  bitrixMeta = null
 }: BindingCardProps) {
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !binding.isExpanded })
@@ -143,6 +146,7 @@ export function BindingCard({
             <CalculatorTabs
               calculators={binding.calculators || []}
               onChange={(calculators) => onUpdate({ calculators })}
+              bitrixMeta={bitrixMeta}
             />
           </div>
 
@@ -157,6 +161,7 @@ export function BindingCard({
                   onDelete={() => {}}
                   isInBinding={true}
                   orderNumber={detailStartIndex + index + 1}
+                  bitrixMeta={bitrixMeta}
                 />
               ))}
             </div>
@@ -187,6 +192,7 @@ export function BindingCard({
                       onUpdateBinding={onUpdateBinding}
                       orderNumber={index + 1}
                       detailStartIndex={0}
+                      bitrixMeta={bitrixMeta}
                     />
                   </div>
                 )

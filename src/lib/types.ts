@@ -70,6 +70,7 @@ export interface Detail {
   length: number
   isExpanded: boolean
   calculators: CalculatorInstance[]
+  bitrixId?: number | null
 }
 
 export interface Binding {
@@ -151,13 +152,14 @@ export const createEmptyCalculator = (): CalculatorInstance => ({
   extraOptions: {},
 })
 
-export const createEmptyDetail = (name: string = 'Новая деталь'): Detail => ({
+export const createEmptyDetail = (name: string = 'Новая деталь', bitrixId: number | null = null): Detail => ({
   id: `detail_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
   name,
   width: 210,
   length: 297,
   isExpanded: true,
   calculators: [createEmptyCalculator()],
+  bitrixId,
 })
 
 export const createEmptyBinding = (name: string = 'Новая группа скрепления'): Binding => ({

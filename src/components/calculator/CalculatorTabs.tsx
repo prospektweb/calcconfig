@@ -13,16 +13,20 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, X, DotsSixVertical, Package, Wrench, Hammer } from '@phosphor-icons/react'
+import { Plus, X, DotsSixVertical, Package, Wrench, Hammer, ArrowSquareOut } from '@phosphor-icons/react'
 import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
 import { MultiLevelSelect } from './MultiLevelSelect'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { cn } from '@/lib/utils'
+import { InitPayload } from '@/lib/postmessage-bridge'
+import { getBitrixContext, openBitrixAdmin } from '@/lib/bitrix-utils'
+import { toast } from 'sonner'
 
 interface CalculatorTabsProps {
   calculators: CalculatorInstance[]
   onChange: (calculators: CalculatorInstance[]) => void
+  bitrixMeta?: InitPayload | null
 }
 
 const TAB_COLORS = [
@@ -33,7 +37,7 @@ const TAB_COLORS = [
   'hsl(var(--chart-5))',
 ]
 
-export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
+export function CalculatorTabs({ calculators, onChange, bitrixMeta = null }: CalculatorTabsProps) {
   const [activeTab, setActiveTab] = useState(0)
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
@@ -41,6 +45,74 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
   const [materialDropZoneHover, setMaterialDropZoneHover] = useState<number | null>(null)
   const [operationDropZoneHover, setOperationDropZoneHover] = useState<number | null>(null)
   const [equipmentDropZoneHover, setEquipmentDropZoneHover] = useState<number | null>(null)
+
+  const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material') => {
+    if (!bitrixMeta) return null
+
+    const iblockIdMap: Record<typeof entity, number | undefined> = {
+      calculator: bitrixMeta.iblocks.calculators,
+      operation: bitrixMeta.iblocks.calcOperationsVariants,
+      material: bitrixMeta.iblocks.calcMaterialsVariants,
+    }
+
+    const iblockId = iblockIdMap[entity]
+    if (!iblockId) return null
+
+    const iblockType = bitrixMeta.iblocksTypes[iblockId]
+    const context = getBitrixContext()
+    const lang = context?.lang || bitrixMeta.context?.lang
+
+    if (!iblockType || !lang) return null
+
+    return { iblockId, iblockType, lang }
+  }
+
+  const toNumber = (value: string | number | null | undefined): number | null => {
+    if (value === null || value === undefined) return null
+
+    if (typeof value === 'number') return value
+
+    const parsed = parseInt(value, 10)
+    return Number.isNaN(parsed) ? null : parsed
+  }
+
+  const openEntity = (entity: 'calculator' | 'operation' | 'material', id: number | null) => {
+    if (!id) return
+
+    const iblockInfo = getEntityIblockInfo(entity)
+
+    if (iblockInfo) {
+      try {
+        openBitrixAdmin({
+          iblockId: iblockInfo.iblockId,
+          type: iblockInfo.iblockType,
+          lang: iblockInfo.lang,
+          id,
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Не удалось открыть элемент Bitrix'
+        toast.error(message)
+      }
+    } else {
+      window.open(`#${entity}-${id}`, '_blank')
+    }
+  }
+
+  const renderSelectedId = (id: number | null, entity: 'calculator' | 'operation' | 'material', pwcode: string) => (
+    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      <span className="font-mono">ID:{id ?? 'N/A'}</span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9"
+        disabled={!id}
+        onClick={() => openEntity(entity, id)}
+        data-pwcode={pwcode}
+      >
+        <ArrowSquareOut className="w-4 h-4" />
+      </Button>
+    </div>
+  )
   
   // Get hierarchical data from references store
   const calculatorsHierarchy = useReferencesStore(s => s.calculatorsHierarchy)
@@ -249,35 +321,43 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
               <div className="flex gap-2 items-start">
                 <div className="flex-1 space-y-2">
                   <Label>Калькулятор</Label>
-                  <MultiLevelSelect
-                    items={calculatorsHierarchy}
-                    value={calc.calculatorCode || null}
-                    onValueChange={(value) => handleUpdateCalculator(index, { 
-                      calculatorCode: value,
-                      operationId: null,
-                      equipmentId: null,
-                      materialId: null,
-                    })}
-                    placeholder="Выберите калькулятор..."
-                    data-pwcode="select-calculator"
-                  />
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <MultiLevelSelect
+                        items={calculatorsHierarchy}
+                        value={calc.calculatorCode || null}
+                        onValueChange={(value) => handleUpdateCalculator(index, {
+                          calculatorCode: value,
+                          operationId: null,
+                          equipmentId: null,
+                          materialId: null,
+                        })}
+                        placeholder="Выберите калькулятор..."
+                        data-pwcode="select-calculator"
+                      />
+                    </div>
+                    {renderSelectedId(toNumber(calc.calculatorCode), 'calculator', 'btn-open-calculator-bitrix')}
+                  </div>
                 </div>
 
                 {calculatorDef && calculatorDef.fields?.operation?.visible && (
                   <div className="flex-1 space-y-2">
                     <Label>Операция</Label>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <MultiLevelSelect
-                          items={operationsHierarchy}
-                          value={calc.operationId?.toString() || null}
-                          onValueChange={(value) => handleUpdateCalculator(index, { 
-                            operationId: parseInt(value),
-                            equipmentId: null,
-                          })}
-                          placeholder="Выберите операцию..."
-                          data-pwcode="select-operation"
-                        />
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1 flex items-center gap-2">
+                        <div className="flex-1">
+                          <MultiLevelSelect
+                            items={operationsHierarchy}
+                            value={calc.operationId?.toString() || null}
+                            onValueChange={(value) => handleUpdateCalculator(index, {
+                              operationId: parseInt(value),
+                              equipmentId: null,
+                            })}
+                            placeholder="Выберите операцию..."
+                            data-pwcode="select-operation"
+                          />
+                        </div>
+                        {renderSelectedId(toNumber(calc.operationId), 'operation', 'btn-open-operation-bitrix')}
                       </div>
                       <div
                         className={cn(
@@ -300,14 +380,14 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                           e.preventDefault()
                           e.stopPropagation()
                           setOperationDropZoneHover(null)
-                          
+
                           try {
                             const jsonData = e.dataTransfer.getData('application/json')
                             if (jsonData) {
                               const data = JSON.parse(jsonData)
-                              
+
                               if (data.type === 'header-operation') {
-                                handleUpdateCalculator(index, { 
+                                handleUpdateCalculator(index, {
                                   operationId: data.operationId,
                                   equipmentId: null,
                                 })
@@ -321,8 +401,8 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                       >
                         <Wrench className={cn(
                           "w-5 h-5",
-                          operationDropZoneHover === index 
-                            ? "text-accent-foreground" 
+                          operationDropZoneHover === index
+                            ? "text-accent-foreground"
                             : "text-muted-foreground"
                         )} />
                       </div>
@@ -332,8 +412,8 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                             type="number"
                             min="1"
                             value={calc.operationQuantity}
-                            onChange={(e) => handleUpdateCalculator(index, { 
-                              operationQuantity: parseInt(e.target.value) || 1 
+                            onChange={(e) => handleUpdateCalculator(index, {
+                              operationQuantity: parseInt(e.target.value) || 1
                             })}
                             className="w-20 max-w-[80px]"
                           />
@@ -418,16 +498,19 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                   {calculatorDef.fields?.material?.visible && (
                     <div className="space-y-2">
                       <Label>Материал</Label>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <MultiLevelSelect
-                            items={materialsHierarchy}
-                            value={calc.materialId?.toString() || null}
-                            onValueChange={(value) => handleUpdateCalculator(index, { 
-                              materialId: parseInt(value) 
-                            })}
-                            placeholder="Выберите материал..."
-                          />
+                      <div className="flex gap-2 items-center">
+                        <div className="flex-1 flex items-center gap-2">
+                          <div className="flex-1">
+                            <MultiLevelSelect
+                              items={materialsHierarchy}
+                              value={calc.materialId?.toString() || null}
+                              onValueChange={(value) => handleUpdateCalculator(index, {
+                                materialId: parseInt(value)
+                              })}
+                              placeholder="Выберите материал..."
+                            />
+                          </div>
+                          {renderSelectedId(toNumber(calc.materialId), 'material', 'btn-open-material-bitrix')}
                         </div>
                         <div
                           className={cn(
@@ -450,15 +533,15 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                             e.preventDefault()
                             e.stopPropagation()
                             setMaterialDropZoneHover(null)
-                            
+
                             try {
                               const jsonData = e.dataTransfer.getData('application/json')
                               if (jsonData) {
                                 const data = JSON.parse(jsonData)
-                                
+
                                 if (data.type === 'header-material') {
-                                  handleUpdateCalculator(index, { 
-                                    materialId: data.materialId 
+                                  handleUpdateCalculator(index, {
+                                    materialId: data.materialId
                                   })
                                 }
                               }
@@ -470,8 +553,8 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                         >
                           <Package className={cn(
                             "w-5 h-5",
-                            materialDropZoneHover === index 
-                              ? "text-accent-foreground" 
+                            materialDropZoneHover === index
+                              ? "text-accent-foreground"
                               : "text-muted-foreground"
                           )} />
                         </div>
@@ -481,8 +564,8 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
                               type="number"
                               min="1"
                               value={calc.materialQuantity}
-                              onChange={(e) => handleUpdateCalculator(index, { 
-                                materialQuantity: parseInt(e.target.value) || 1 
+                              onChange={(e) => handleUpdateCalculator(index, {
+                                materialQuantity: parseInt(e.target.value) || 1
                               })}
                               className="w-20 max-w-[80px]"
                             />
