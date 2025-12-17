@@ -333,7 +333,7 @@ function App() {
 
           return {
             ...safePrev,
-            [pending.tab]: nextElements,
+            [pending.tab]: mergeUniqueById(safePrev[pending.tab] || [], nextElements),
           }
         })
       } else {
