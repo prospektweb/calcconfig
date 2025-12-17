@@ -344,7 +344,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null }: Cal
                               
                               if (iblockType) {
                                 postMessageBridge.sendCalcSettingsRequest(
-                                  parseInt(value),
+                                  parseInt(value, 10),
                                   iblockId,
                                   iblockType,
                                   context.lang
