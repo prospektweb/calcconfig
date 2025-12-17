@@ -52,8 +52,8 @@ export interface InitPayload {
     calcOperations: number
     calcOperationsVariants: number
     calcEquipment: number
-    calculators?: number
-    configurations?: number
+    calcSettings?: number
+    calcConfig?: number
   }
   iblocksTypes: Record<string, string>
   iblocksTree?: {

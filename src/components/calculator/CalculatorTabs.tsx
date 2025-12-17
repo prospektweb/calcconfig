@@ -50,7 +50,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null }: Cal
     if (!bitrixMeta) return null
 
     const iblockIdMap: Record<typeof entity, number | undefined> = {
-      calculator: bitrixMeta.iblocks.calculators,
+      calculator: bitrixMeta.iblocks.calcSettings,
       operation: bitrixMeta.iblocks.calcOperationsVariants,
       material: bitrixMeta.iblocks.calcMaterialsVariants,
     }
@@ -337,7 +337,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null }: Cal
                           // Отправить запрос настроек калькулятора в Битрикс
                           if (value && bitrixMeta) {
                             const context = getBitrixContext()
-                            const iblockId = bitrixMeta.iblocks.calculators
+                            const iblockId = bitrixMeta.iblocks.calcSettings
                             
                             if (context && iblockId) {
                               const iblockType = bitrixMeta.iblocksTypes[iblockId]
