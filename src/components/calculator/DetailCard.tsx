@@ -26,15 +26,15 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
   }
   
   const handleOpenInBitrix = () => {
-    if (bitrixMeta) {
+    const detailIdNumber = detail.bitrixId ?? parseInt(detail.id.split('_')[1] || '0')
+
+    if (bitrixMeta && detailIdNumber) {
       const context = getBitrixContext()
       if (!context) {
         toast.error('Контекст Bitrix не инициализирован')
         return
       }
 
-      const detailIdNumber = parseInt(detail.id.split('_')[1] || '0')
-      
       try {
         openBitrixAdmin({
           iblockId: bitrixMeta.iblocks.calcDetailsVariants,
@@ -98,20 +98,20 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
             placeholder="Название детали"
             data-pwcode="input-detail-name"
           />
-          <div className="flex-shrink-0">
-            <span className="text-xs font-mono text-muted-foreground">
-              ID:{detail.id.split('_')[1]?.slice(0, 5) || 'N/A'}
+          <div className="flex-shrink-0 flex items-center gap-1">
+            <span className="text-xs font-mono text-muted-foreground" data-pwcode="detail-id">
+              ID:{detail.bitrixId ?? detail.id.split('_')[1]?.slice(0, 5) ?? 'N/A'}
             </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 flex-shrink-0 hover:bg-accent hover:text-accent-foreground"
+              onClick={handleOpenInBitrix}
+              data-pwcode="btn-open-detail-bitrix"
+            >
+              <ArrowSquareOut className="w-4 h-4" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 flex-shrink-0 hover:bg-accent hover:text-accent-foreground"
-            onClick={handleOpenInBitrix}
-            data-pwcode="btn-open-detail-bitrix"
-          >
-            <ArrowSquareOut className="w-4 h-4" />
-          </Button>
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -141,6 +141,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
           <CalculatorTabs
             calculators={detail.calculators}
             onChange={(calculators) => onUpdate({ calculators })}
+            bitrixMeta={bitrixMeta}
           />
         </div>
       )}
