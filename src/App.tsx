@@ -41,6 +41,8 @@ import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
 import { postMessageBridge, InitPayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext } from '@/lib/bitrix-utils'
 import { createEmptyHeaderTabs, normalizeHeaderTabs } from '@/lib/header-tabs'
+import { useReferencesStore } from '@/stores/references-store'
+import { transformBitrixTreeSelectElement, transformBitrixTreeSelectChild } from '@/lib/bitrix-transformers'
 
 type DragItem = {
   type: 'detail' | 'binding'
@@ -241,6 +243,35 @@ function App() {
         }
         
         initializeBitrixStore(message.payload)
+        
+        // Load hierarchical data from Bitrix
+        const referencesStore = useReferencesStore.getState()
+        
+        if (initPayload.iblocksTree?.calcSettings) {
+          referencesStore.setCalculatorsHierarchy(
+            transformBitrixTreeSelectElement(initPayload.iblocksTree.calcSettings)
+          )
+        }
+        
+        if (initPayload.iblocksTree?.calcEquipment) {
+          referencesStore.setEquipmentHierarchy(
+            transformBitrixTreeSelectElement(initPayload.iblocksTree.calcEquipment)
+          )
+        }
+        
+        if (initPayload.iblocksTree?.calcOperations) {
+          referencesStore.setOperationsHierarchy(
+            transformBitrixTreeSelectChild(initPayload.iblocksTree.calcOperations)
+          )
+        }
+        
+        if (initPayload.iblocksTree?.calcMaterials) {
+          referencesStore.setMaterialsHierarchy(
+            transformBitrixTreeSelectChild(initPayload.iblocksTree.calcMaterials)
+          )
+        }
+        
+        referencesStore.setLoaded(true)
         
         if (message.payload.config?.data) {
           const configData = message.payload.config.data

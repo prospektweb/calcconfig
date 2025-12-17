@@ -1,4 +1,5 @@
 import { AppState, Detail, Binding, HeaderElement, CostingSettings, SalePricesSettings, HeaderTabsState } from './types'
+import { BitrixTreeItem } from './bitrix-transformers'
 
 export type MessageType =
   | 'READY'
@@ -53,6 +54,12 @@ export interface InitPayload {
     configurations?: number
   }
   iblocksTypes: Record<string, string>
+  iblocksTree?: {
+    calcSettings?: BitrixTreeItem[]
+    calcEquipment?: BitrixTreeItem[]
+    calcOperations?: BitrixTreeItem[]
+    calcMaterials?: BitrixTreeItem[]
+  }
   selectedOffers: Array<{
     id: number
     productId: number

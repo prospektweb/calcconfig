@@ -16,7 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, X, DotsSixVertical, Package, Wrench, Hammer } from '@phosphor-icons/react'
 import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
 import { MultiLevelSelect } from './MultiLevelSelect'
-import { operationsHierarchy, materialsHierarchy, calculatorsHierarchy, equipmentHierarchy } from '@/lib/hierarchical-data'
+import { useReferencesStore } from '@/stores/references-store'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +41,12 @@ export function CalculatorTabs({ calculators, onChange }: CalculatorTabsProps) {
   const [materialDropZoneHover, setMaterialDropZoneHover] = useState<number | null>(null)
   const [operationDropZoneHover, setOperationDropZoneHover] = useState<number | null>(null)
   const [equipmentDropZoneHover, setEquipmentDropZoneHover] = useState<number | null>(null)
+  
+  // Get hierarchical data from references store
+  const calculatorsHierarchy = useReferencesStore(s => s.calculatorsHierarchy)
+  const equipmentHierarchy = useReferencesStore(s => s.equipmentHierarchy)
+  const operationsHierarchy = useReferencesStore(s => s.operationsHierarchy)
+  const materialsHierarchy = useReferencesStore(s => s.materialsHierarchy)
   
   const safeCalculators = calculators || []
 
