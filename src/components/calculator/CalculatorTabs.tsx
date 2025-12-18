@@ -18,6 +18,8 @@ import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
 import { MultiLevelSelect } from './MultiLevelSelect'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore, CalcSettingsItem } from '@/stores/calculator-settings-store'
+import { useOperationSettingsStore } from '@/stores/operation-settings-store'
+import { useMaterialSettingsStore } from '@/stores/material-settings-store'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { cn } from '@/lib/utils'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
@@ -78,6 +80,35 @@ const getPropertyArrayValue = (prop: BitrixProperty | undefined): string[] => {
   if (Array.isArray(value)) return value
   if (typeof value === 'string' && value) return [value]
   return []
+}
+
+// Парсинг extraOptions из DEFAULT_OPTIONS
+interface ExtraOption {
+  code: string
+  label: string
+  type: 'checkbox' | 'number'
+  default: boolean | number
+  min?: number
+  max?: number
+  unit?: string
+}
+
+const getExtraOptions = (settings: CalcSettingsItem | undefined): ExtraOption[] => {
+  if (!settings) return []
+  
+  const defaultOptions = getProperty(settings, 'DEFAULT_OPTIONS')
+  const optionsValue = getPropertyStringValue(defaultOptions)
+  
+  if (!optionsValue) return []
+  
+  try {
+    // Предполагается, что DEFAULT_OPTIONS содержит JSON массив опций
+    const parsed = JSON.parse(optionsValue)
+    return Array.isArray(parsed) ? parsed : []
+  } catch (error) {
+    console.error('Failed to parse DEFAULT_OPTIONS:', error)
+    return []
+  }
 }
 
 export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onValidationMessage }: CalculatorTabsProps) {
@@ -165,6 +196,26 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   
   // Get calculator settings from store
   const calculatorSettings = useCalculatorSettingsStore(s => s.settings)
+  const operationSettings = useOperationSettingsStore(s => s.operations)
+  const materialSettings = useMaterialSettingsStore(s => s.materials)
+  
+  // Helper function to get operation unit
+  const getOperationUnit = (operationId: number | null): string | null => {
+    if (!operationId) return null
+    const operation = operationSettings[operationId.toString()]
+    if (!operation) return null
+    const measureUnit = getProperty(operation, 'MEASURE_UNIT')
+    return getPropertyStringValue(measureUnit)
+  }
+  
+  // Helper function to get material unit
+  const getMaterialUnit = (materialId: number | null): string | null => {
+    if (!materialId) return null
+    const material = materialSettings[materialId.toString()]
+    if (!material) return null
+    const measureUnit = getProperty(material, 'MEASURE_UNIT')
+    return getPropertyStringValue(measureUnit)
+  }
   
   const safeCalculators = calculators || []
 
@@ -416,7 +467,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
             ? equipmentHierarchy.map(category => ({
                 ...category,
                 children: category.children?.filter(item => 
-                  supportedEquipmentList.includes(item.value)
+                  item.value && supportedEquipmentList.includes(item.value)
                 ) || []
               })).filter(category => category.children && category.children.length > 0)
             : equipmentHierarchy
@@ -480,15 +531,54 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           <MultiLevelSelect
                             items={operationsHierarchy}
                             value={calc.operationId?.toString() || null}
-                            onValueChange={(value) => handleUpdateCalculator(index, {
-                              operationId: parseInt(value),
-                              equipmentId: null,
-                            })}
+                            onValueChange={(value) => {
+                              handleUpdateCalculator(index, {
+                                operationId: parseInt(value),
+                                equipmentId: null,
+                              })
+                              
+                              // Отправить запрос данных операции
+                              if (value && bitrixMeta) {
+                                const context = getBitrixContext()
+                                const iblockId = bitrixMeta.iblocks.calcOperationsVariants
+                                
+                                if (context && iblockId) {
+                                  const iblockType = bitrixMeta.iblocksTypes[iblockId]
+                                  
+                                  if (iblockType) {
+                                    postMessageBridge.sendCalcOperationRequest(
+                                      parseInt(value, 10),
+                                      iblockId,
+                                      iblockType,
+                                      context.lang
+                                    )
+                                  }
+                                }
+                              }
+                            }}
                             placeholder="Выберите операцию..."
                             data-pwcode="select-operation"
                           />
                         </div>
                         {renderSelectedId(toNumber(calc.operationId), 'operation', 'btn-open-operation-bitrix')}
+                        
+                        {/* Поле количества операции */}
+                        {isPropertyEnabled(getProperty(settings, 'USE_OPERATION_QUANTITY')) && (
+                          <div className="flex gap-1 items-center">
+                            <Input
+                              type="number"
+                              min="1"
+                              value={calc.operationQuantity}
+                              onChange={(e) => handleUpdateCalculator(index, {
+                                operationQuantity: parseInt(e.target.value) || 1
+                              })}
+                              className="w-20 max-w-[80px]"
+                            />
+                            <span className="text-sm text-muted-foreground w-[40px] text-right">
+                              {getOperationUnit(calc.operationId) || 'ед.'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div
                         className={cn(
@@ -616,13 +706,52 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                         <MultiLevelSelect
                           items={materialsHierarchy}
                           value={calc.materialId?.toString() || null}
-                          onValueChange={(value) => handleUpdateCalculator(index, {
-                            materialId: parseInt(value)
-                          })}
+                          onValueChange={(value) => {
+                            handleUpdateCalculator(index, {
+                              materialId: parseInt(value)
+                            })
+                            
+                            // Отправить запрос данных материала
+                            if (value && bitrixMeta) {
+                              const context = getBitrixContext()
+                              const iblockId = bitrixMeta.iblocks.calcMaterialsVariants
+                              
+                              if (context && iblockId) {
+                                const iblockType = bitrixMeta.iblocksTypes[iblockId]
+                                
+                                if (iblockType) {
+                                  postMessageBridge.sendCalcMaterialRequest(
+                                    parseInt(value, 10),
+                                    iblockId,
+                                    iblockType,
+                                    context.lang
+                                  )
+                                }
+                              }
+                            }
+                          }}
                           placeholder="Выберите материал..."
                         />
                       </div>
                       {renderSelectedId(toNumber(calc.materialId), 'material', 'btn-open-material-bitrix')}
+                      
+                      {/* Поле количества материала */}
+                      {isPropertyEnabled(getProperty(settings, 'USE_MATERIAL_QUANTITY')) && (
+                        <div className="flex gap-1 items-center">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={calc.materialQuantity}
+                            onChange={(e) => handleUpdateCalculator(index, {
+                              materialQuantity: parseInt(e.target.value) || 1
+                            })}
+                            className="w-20 max-w-[80px]"
+                          />
+                          <span className="text-sm text-muted-foreground w-[40px] text-right">
+                            {getMaterialUnit(calc.materialId) || 'шт.'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div
                       className={cn(
@@ -671,6 +800,53 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                       )} />
                     </div>
                   </div>
+                </div>
+              )}
+              
+              {/* Блок extraOptions */}
+              {settings && getExtraOptions(settings).length > 0 && (
+                <div className="space-y-3 border-t border-border pt-3">
+                  {getExtraOptions(settings).map(option => (
+                    <div key={option.code} className="space-y-2">
+                      <Label>{option.label}</Label>
+                      {option.type === 'checkbox' ? (
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id={`${calc.id}-${option.code}`}
+                            checked={calc.extraOptions?.[option.code] ?? option.default}
+                            onCheckedChange={(checked) => handleUpdateCalculator(index, {
+                              extraOptions: {
+                                ...(calc.extraOptions || {}),
+                                [option.code]: checked,
+                              }
+                            })}
+                          />
+                          <label htmlFor={`${calc.id}-${option.code}`} className="text-sm">
+                            {option.label}
+                          </label>
+                        </div>
+                      ) : (
+                        <div className="flex gap-1 items-center">
+                          <Input
+                            type="number"
+                            min={option.min}
+                            max={option.max}
+                            value={calc.extraOptions?.[option.code] ?? option.default}
+                            onChange={(e) => handleUpdateCalculator(index, {
+                              extraOptions: {
+                                ...(calc.extraOptions || {}),
+                                [option.code]: parseFloat(e.target.value) || option.default,
+                              }
+                            })}
+                            className="flex-1 max-w-[80px]"
+                          />
+                          <span className="text-sm text-muted-foreground w-[40px] text-right">
+                            {option.unit || ''}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </TabsContent>

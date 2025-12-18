@@ -38,11 +38,13 @@ import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
-import { postMessageBridge, InitPayload, CalcSettingsResponsePayload } from '@/lib/postmessage-bridge'
+import { postMessageBridge, InitPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext } from '@/lib/bitrix-utils'
 import { createEmptyHeaderTabs, normalizeHeaderTabs } from '@/lib/header-tabs'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
+import { useOperationSettingsStore } from '@/stores/operation-settings-store'
+import { useMaterialSettingsStore } from '@/stores/material-settings-store'
 import { transformBitrixTreeSelectElement, transformBitrixTreeSelectChild } from '@/lib/bitrix-transformers'
 
 type DragItem = {
@@ -412,8 +414,46 @@ function App() {
       console.info('[CALC_SETTINGS] saved settings for calculator', payload.item.id, payload.item.name)
     })
 
+    const unsubscribeOperation = postMessageBridge.on('CALC_OPERATION_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] CALC_OPERATION_RESPONSE', message)
+
+      if (!message.payload?.item) return
+
+      const payload = message.payload as CalcOperationResponsePayload
+      const item = payload.item
+      const operationStore = useOperationSettingsStore.getState()
+
+      operationStore.setOperation(item.id.toString(), {
+        id: item.id,
+        name: item.name,
+        properties: item.properties,
+      })
+
+      console.info('[CALC_OPERATION] saved operation', item.id, item.name)
+    })
+
+    const unsubscribeMaterial = postMessageBridge.on('CALC_MATERIAL_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] CALC_MATERIAL_RESPONSE', message)
+
+      if (!message.payload?.item) return
+
+      const payload = message.payload as CalcMaterialResponsePayload
+      const item = payload.item
+      const materialStore = useMaterialSettingsStore.getState()
+
+      materialStore.setMaterial(item.id.toString(), {
+        id: item.id,
+        name: item.name,
+        properties: item.properties,
+      })
+
+      console.info('[CALC_MATERIAL] saved material', item.id, item.name)
+    })
+
     return () => {
       unsubscribeCalcSettings()
+      unsubscribeOperation()
+      unsubscribeMaterial()
     }
   }, [])
   
