@@ -144,8 +144,21 @@ export interface SaveResultPayload {
 
 export interface CalcSettingsResponsePayload {
   id: number
-  name: string
-  properties: Record<string, BitrixProperty>
+  iblockId: number
+  iblockType: string
+  lang: string
+  status: string
+  item: {
+    id: number
+    code: string
+    productId?: number | null
+    name: string
+    fields?: Record<string, any>
+    measure?: string | null
+    measureRatio?: number | null
+    prices?: any[]
+    properties: Record<string, BitrixProperty>
+  }
 }
 
 class PostMessageBridge {
