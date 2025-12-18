@@ -38,12 +38,11 @@ import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
-import { postMessageBridge, InitPayload, CalcSettingsPayload } from '@/lib/postmessage-bridge'
+import { postMessageBridge, InitPayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext } from '@/lib/bitrix-utils'
 import { createEmptyHeaderTabs, normalizeHeaderTabs } from '@/lib/header-tabs'
 import { useReferencesStore } from '@/stores/references-store'
 import { transformBitrixTreeSelectElement, transformBitrixTreeSelectChild } from '@/lib/bitrix-transformers'
-import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 
 type DragItem = {
   type: 'detail' | 'binding'
@@ -384,153 +383,6 @@ function App() {
       unsubscribeSelectDone()
     }
   }, [dedupeById, mergeUniqueById, updateHeaderTabs])
-
-  useEffect(() => {
-    const unsubscribeCalcSettings = postMessageBridge.on('CALC_SETTINGS_RESPONSE', (message) => {
-      console.info('[FROM_BITRIX] CALC_SETTINGS_RESPONSE', message)
-
-      const payload = message.payload as CalcSettingsPayload
-      if (!payload || !payload.item) {
-        console.error('Invalid CALC_SETTINGS_RESPONSE payload')
-        return
-      }
-
-      const { item, calculatorId } = payload
-      const calculatorCode = calculatorId.toString()
-
-      // Helper to normalize values
-      const normalizeValue = (value: string | number | null | undefined): number | null => {
-        if (value === null || value === undefined || value === '') return null
-        const parsed = typeof value === 'number' ? value : parseInt(value, 10)
-        return Number.isNaN(parsed) ? null : parsed
-      }
-
-      // Helper to normalize array
-      const normalizeArray = (value: (string | number)[] | undefined): number[] => {
-        if (!Array.isArray(value)) return []
-        return value
-          .map(v => normalizeValue(v))
-          .filter((v): v is number => v !== null)
-      }
-
-      // Find calculator instance index for validation
-      const allDetails = details || []
-      let calculatorIndex = -1
-      let calculatorInstance = null
-
-      for (let i = 0; i < allDetails.length; i++) {
-        const detail = allDetails[i]
-        const calcIdx = detail.calculators.findIndex(c => c.calculatorCode === calculatorCode)
-        if (calcIdx !== -1) {
-          calculatorIndex = calcIdx
-          calculatorInstance = detail.calculators[calcIdx]
-          break
-        }
-      }
-
-      // 1.1. Check CAN_BE_FIRST validation
-      const canBeFirst = item.properties.CAN_BE_FIRST?.VALUE === 'Y'
-      if (!canBeFirst && calculatorIndex === 0 && calculatorInstance) {
-        addInfoMessage('warning', `Калькулятор "${item.name}" не может быть размещен на первом этапе`)
-        // Don't proceed with applying settings
-        return
-      }
-
-      // 1.1.1. Check REQUIRES_BEFORE validation
-      const requiresBefore = normalizeValue(item.properties.REQUIRES_BEFORE?.VALUE)
-      if (requiresBefore !== null && calculatorIndex > 0 && calculatorInstance) {
-        // Find calculator on previous stage
-        const detailWithCalc = allDetails.find(d => 
-          d.calculators.some(c => c.calculatorCode === calculatorCode)
-        )
-        
-        if (detailWithCalc) {
-          const currentCalcIndex = detailWithCalc.calculators.findIndex(
-            c => c.calculatorCode === calculatorCode
-          )
-          
-          if (currentCalcIndex > 0) {
-            const prevCalc = detailWithCalc.calculators[currentCalcIndex - 1]
-            const prevCalcId = normalizeValue(prevCalc.calculatorCode)
-            
-            if (prevCalcId !== requiresBefore) {
-              // Find previous calculator name for better error message
-              const referencesStore = useReferencesStore.getState()
-              let prevCalcName = 'неизвестный калькулятор'
-              
-              const findCalcName = (items: any[], id: number): string | null => {
-                for (const item of items) {
-                  if (item.value === id.toString()) return item.label
-                  if (item.children) {
-                    const found = findCalcName(item.children, id)
-                    if (found) return found
-                  }
-                }
-                return null
-              }
-              
-              if (prevCalcId !== null) {
-                const foundName = findCalcName(referencesStore.calculatorsHierarchy, prevCalcId)
-                if (foundName) prevCalcName = foundName
-              }
-              
-              addInfoMessage('warning', 
-                `Калькулятор "${item.name}" не может быть размещен после калькулятора "${prevCalcName}"`
-              )
-            }
-          }
-        }
-      }
-
-      // Store settings
-      const settings = {
-        calculatorId: item.id,
-        calculatorName: item.name,
-        canBeFirst,
-        requiresBefore,
-        useOperation: item.properties.USE_OPERATION?.VALUE === 'Y',
-        useMaterial: item.properties.USE_MATERIAL?.VALUE === 'Y',
-        defaultOperation: normalizeValue(item.properties.DEFAULT_OPERATION?.VALUE),
-        defaultMaterial: normalizeValue(item.properties.DEFAULT_MATERIAL?.VALUE),
-        supportedEquipmentList: normalizeArray(item.properties.SUPPORTED_EQUIPMENT_LIST?.VALUE),
-      }
-
-      useCalculatorSettingsStore.getState().setSettings(calculatorCode, settings)
-
-      // Apply default values to all calculator instances with this code
-      if (settings.defaultOperation !== null || settings.defaultMaterial !== null) {
-        setDetails((prevDetails) => {
-          return (prevDetails || []).map(detail => ({
-            ...detail,
-            calculators: detail.calculators.map(calc => {
-              if (calc.calculatorCode === calculatorCode) {
-                const updates: Partial<typeof calc> = {}
-                
-                // Apply default operation if not already set
-                if (settings.defaultOperation !== null && !calc.operationId) {
-                  updates.operationId = settings.defaultOperation
-                }
-                
-                // Apply default material if not already set
-                if (settings.defaultMaterial !== null && !calc.materialId) {
-                  updates.materialId = settings.defaultMaterial
-                }
-                
-                return { ...calc, ...updates }
-              }
-              return calc
-            })
-          }))
-        })
-      }
-
-      console.info('[CALC_SETTINGS] Applied settings for calculator:', calculatorCode, settings)
-    })
-
-    return () => {
-      unsubscribeCalcSettings()
-    }
-  }, [details, addInfoMessage, setDetails])
   
   const addInfoMessage = (type: InfoMessage['type'], message: string) => {
     const newMessage: InfoMessage = {
