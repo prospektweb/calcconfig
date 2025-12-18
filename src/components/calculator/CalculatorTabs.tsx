@@ -17,7 +17,7 @@ import { Plus, X, DotsSixVertical, Package, Wrench, Hammer, ArrowSquareOut } fro
 import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
 import { MultiLevelSelect } from './MultiLevelSelect'
 import { useReferencesStore } from '@/stores/references-store'
-import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
+import { useCalculatorSettingsStore, CalcSettingsItem } from '@/stores/calculator-settings-store'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { cn } from '@/lib/utils'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
@@ -41,40 +41,43 @@ const TAB_COLORS = [
 ]
 
 // Вспомогательные функции для безопасного доступа к свойствам
-const getPropertyValue = (prop: BitrixProperty | undefined): string | string[] | null => {
-  return prop?.VALUE ?? null
+
+// Безопасное получение свойства
+const getProperty = (settings: CalcSettingsItem | undefined, key: string): BitrixProperty | undefined => {
+  return settings?.properties?.[key]
 }
 
-const getPropertyXmlId = (prop: BitrixProperty | undefined): string | string[] | null => {
-  return prop?.VALUE_XML_ID ?? null
-}
-
+// Проверка активности свойства (USE_OPERATION, USE_MATERIAL, CAN_BE_FIRST и т.д.)
 const isPropertyEnabled = (prop: BitrixProperty | undefined): boolean => {
-  // Проверяем VALUE_XML_ID в первую очередь, затем VALUE
-  const xmlId = prop?.VALUE_XML_ID
-  const value = prop?.VALUE
+  if (!prop) return false
   
+  // VALUE_XML_ID имеет приоритет
+  const xmlId = prop.VALUE_XML_ID
   if (typeof xmlId === 'string') {
     return xmlId === 'Y' || xmlId === 'yes' || xmlId === '1'
   }
+  // Затем проверяем VALUE
+  const value = prop.VALUE
   if (typeof value === 'string') {
-    return value === 'Y' || value === 'yes' || value === '1' || value === 'Да'
+    return value === 'Y' || value === 'Да' || value === '1'
   }
   return false
 }
 
+// Получение строкового значения свойства
+const getPropertyStringValue = (prop: BitrixProperty | undefined): string | null => {
+  if (!prop) return null
+  const value = prop.VALUE_XML_ID ?? prop.VALUE
+  return typeof value === 'string' ? value : null
+}
+
+// Получение массива значений свойства
 const getPropertyArrayValue = (prop: BitrixProperty | undefined): string[] => {
-  const value = prop?.VALUE
+  if (!prop) return []
+  const value = prop.VALUE
   if (Array.isArray(value)) return value
   if (typeof value === 'string' && value) return [value]
   return []
-}
-
-const getPropertyStringValue = (prop: BitrixProperty | undefined): string | null => {
-  const value = prop?.VALUE
-  if (typeof value === 'string') return value
-  if (Array.isArray(value) && value.length > 0) return value[0]
-  return null
 }
 
 export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onValidationMessage }: CalculatorTabsProps) {
@@ -254,10 +257,11 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       if (!calc.calculatorCode) return
       
       const settings = calculatorSettings[calc.calculatorCode]
-      if (!settings) return
+      if (!settings?.properties) return
       
       // Validation: CAN_BE_FIRST
-      if (index === 0 && !isPropertyEnabled(settings.properties.CAN_BE_FIRST)) {
+      const canBeFirst = getProperty(settings, 'CAN_BE_FIRST')
+      if (index === 0 && !isPropertyEnabled(canBeFirst)) {
         if (onValidationMessage) {
           onValidationMessage('error', `Калькулятор ${settings.name} не может быть размещен на первом этапе`)
         }
@@ -265,7 +269,8 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       }
       
       // Validation: REQUIRES_BEFORE (check both for index === 0 AND index > 0)
-      const requiresBeforeValue = getPropertyStringValue(settings.properties.REQUIRES_BEFORE)
+      const requiresBefore = getProperty(settings, 'REQUIRES_BEFORE')
+      const requiresBeforeValue = getPropertyStringValue(requiresBefore)
       if (requiresBeforeValue) {
         if (index === 0) {
           // Калькулятор требует предшественника, но размещен на первом этапе
@@ -288,7 +293,8 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       }
       
       // Auto-select DEFAULT_OPERATION
-      const defaultOpValue = getPropertyStringValue(settings.properties.DEFAULT_OPERATION)
+      const defaultOperation = getProperty(settings, 'DEFAULT_OPERATION')
+      const defaultOpValue = getPropertyStringValue(defaultOperation)
       if (defaultOpValue && !calc.operationId) {
         const defaultOpId = parseInt(defaultOpValue, 10)
         if (!isNaN(defaultOpId) && calc.operationId !== defaultOpId) {
@@ -297,7 +303,8 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       }
       
       // Auto-select DEFAULT_MATERIAL  
-      const defaultMatValue = getPropertyStringValue(settings.properties.DEFAULT_MATERIAL)
+      const defaultMaterial = getProperty(settings, 'DEFAULT_MATERIAL')
+      const defaultMatValue = getPropertyStringValue(defaultMaterial)
       if (defaultMatValue && !calc.materialId) {
         const defaultMatId = parseInt(defaultMatValue, 10)
         if (!isNaN(defaultMatId) && calc.materialId !== defaultMatId) {
@@ -404,8 +411,8 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           const settings = calc.calculatorCode ? calculatorSettings[calc.calculatorCode] : undefined
           
           // Filter equipment based on SUPPORTED_EQUIPMENT_LIST
-          const supportedEquipmentList = getPropertyArrayValue(settings?.properties?.SUPPORTED_EQUIPMENT_LIST)
-          const filteredEquipmentHierarchy = supportedEquipmentList.length
+          const supportedEquipmentList = getPropertyArrayValue(getProperty(settings, 'SUPPORTED_EQUIPMENT_LIST'))
+          const filteredEquipmentHierarchy = supportedEquipmentList.length > 0
             ? equipmentHierarchy.map(category => ({
                 ...category,
                 children: category.children?.filter(item => 
@@ -464,7 +471,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                   </div>
                 </div>
 
-                {settings && isPropertyEnabled(settings?.properties?.USE_OPERATION) && (
+                {settings && isPropertyEnabled(getProperty(settings, 'USE_OPERATION')) && (
                   <div className="flex-1 space-y-2">
                     <Label>Операция</Label>
                     <div className="flex gap-2 items-center">
@@ -600,7 +607,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                 )}
               </div>
 
-              {settings && isPropertyEnabled(settings?.properties?.USE_MATERIAL) && (
+              {settings && isPropertyEnabled(getProperty(settings, 'USE_MATERIAL')) && (
                 <div className="space-y-2">
                   <Label>Материал</Label>
                   <div className="flex gap-2 items-center">
