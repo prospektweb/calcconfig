@@ -1,5 +1,18 @@
 import { MultiLevelItem } from '@/components/calculator/MultiLevelSelect'
 
+export interface BitrixProperty {
+  ID?: string
+  NAME: string
+  VALUE: string | string[] | null
+  VALUE_XML_ID: string | string[] | null
+  MULTIPLE: 'Y' | 'N'
+  PROPERTY_TYPE: string
+  // Опциональные поля
+  VALUE_ENUM?: string
+  DESCRIPTION?: string | null
+  [key: string]: any // Для других полей которые могут приходить
+}
+
 export interface BitrixTreeItem {
   type: 'section' | 'element' | 'child'
   id: number

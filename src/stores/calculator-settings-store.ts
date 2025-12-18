@@ -1,19 +1,10 @@
 import { create } from 'zustand'
-
-export interface CalcSettingsProperties {
-  CAN_BE_FIRST: { VALUE: string }
-  REQUIRES_BEFORE: { VALUE: string | null }
-  USE_OPERATION: { VALUE: string }
-  USE_MATERIAL: { VALUE: string }
-  DEFAULT_OPERATION: { VALUE: string | null }
-  DEFAULT_MATERIAL: { VALUE: string | null }
-  SUPPORTED_EQUIPMENT_LIST: { VALUE: string[] }
-}
+import { BitrixProperty } from '@/lib/bitrix-transformers'
 
 export interface CalcSettingsItem {
   id: number
   name: string
-  properties: CalcSettingsProperties
+  properties: Record<string, BitrixProperty>
 }
 
 interface CalcSettingsState {
