@@ -24,6 +24,10 @@ export type MessageType =
   | 'CALC_OPERATION_RESPONSE'
   | 'CALC_MATERIAL_REQUEST'
   | 'CALC_MATERIAL_RESPONSE'
+  | 'CALC_OPERATION_VARIANT_REQUEST'
+  | 'CALC_OPERATION_VARIANT_RESPONSE'
+  | 'CALC_MATERIAL_VARIANT_REQUEST'
+  | 'CALC_MATERIAL_VARIANT_RESPONSE'
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -220,6 +224,52 @@ export interface CalcMaterialResponsePayload {
   }
 }
 
+/**
+ * Payload for operation variant response from Bitrix.
+ * The actual operation variant data is nested in the `item` field.
+ */
+export interface CalcOperationVariantResponsePayload {
+  id: number
+  /** Bitrix information block ID */
+  iblockId: number
+  /** Bitrix information block type identifier */
+  iblockType: string
+  /** Language code (e.g., 'ru', 'en') */
+  lang: string
+  /** Response status from Bitrix (e.g., 'ok', 'error') */
+  status: string
+  /** The actual operation variant item data */
+  item: {
+    id: number
+    code: string
+    name: string
+    properties: Record<string, BitrixProperty>
+  }
+}
+
+/**
+ * Payload for material variant response from Bitrix.
+ * The actual material variant data is nested in the `item` field.
+ */
+export interface CalcMaterialVariantResponsePayload {
+  id: number
+  /** Bitrix information block ID */
+  iblockId: number
+  /** Bitrix information block type identifier */
+  iblockType: string
+  /** Language code (e.g., 'ru', 'en') */
+  lang: string
+  /** Response status from Bitrix (e.g., 'ok', 'error') */
+  status: string
+  /** The actual material variant item data */
+  item: {
+    id: number
+    code: string
+    name: string
+    properties: Record<string, BitrixProperty>
+  }
+}
+
 class PostMessageBridge {
   private targetOrigin: string = '*'
   private listeners: Map<MessageType | '*', Set<(message: PwrtMessage) => void>> = new Map()
@@ -396,6 +446,24 @@ class PostMessageBridge {
 
   sendCalcMaterialRequest(id: number, iblockId: number, iblockType: string, lang: string) {
     return this.sendMessage('CALC_MATERIAL_REQUEST', {
+      id,
+      iblockId,
+      iblockType,
+      lang,
+    })
+  }
+
+  sendCalcOperationVariantRequest(id: number, iblockId: number, iblockType: string, lang: string) {
+    return this.sendMessage('CALC_OPERATION_VARIANT_REQUEST', {
+      id,
+      iblockId,
+      iblockType,
+      lang,
+    })
+  }
+
+  sendCalcMaterialVariantRequest(id: number, iblockId: number, iblockType: string, lang: string) {
+    return this.sendMessage('CALC_MATERIAL_VARIANT_REQUEST', {
       id,
       iblockId,
       iblockType,

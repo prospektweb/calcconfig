@@ -20,6 +20,8 @@ import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore, CalcSettingsItem } from '@/stores/calculator-settings-store'
 import { useOperationSettingsStore } from '@/stores/operation-settings-store'
 import { useMaterialSettingsStore } from '@/stores/material-settings-store'
+import { useOperationVariantStore } from '@/stores/operation-variant-store'
+import { useMaterialVariantStore } from '@/stores/material-variant-store'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { cn } from '@/lib/utils'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
@@ -199,22 +201,26 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   const operationSettings = useOperationSettingsStore(s => s.operations)
   const materialSettings = useMaterialSettingsStore(s => s.materials)
   
+  // Get variant stores for units
+  const operationVariants = useOperationVariantStore(s => s.variants)
+  const materialVariants = useMaterialVariantStore(s => s.variants)
+  
   // Helper function to get operation unit
-  const getOperationUnit = (operationId: number | null): string | null => {
-    if (!operationId) return null
-    const operation = operationSettings[operationId.toString()]
-    if (!operation) return null
-    const measureUnit = getProperty(operation, 'MEASURE_UNIT')
-    return getPropertyStringValue(measureUnit)
+  const getOperationUnit = (operationId: number | null): string => {
+    if (!operationId) return 'ед.'
+    const variant = operationVariants[operationId.toString()]
+    if (!variant?.properties?.MEASURE_UNIT) return 'ед.'
+    const value = variant.properties.MEASURE_UNIT.VALUE
+    return typeof value === 'string' ? value : 'ед.'
   }
   
   // Helper function to get material unit
-  const getMaterialUnit = (materialId: number | null): string | null => {
-    if (!materialId) return null
-    const material = materialSettings[materialId.toString()]
-    if (!material) return null
-    const measureUnit = getProperty(material, 'MEASURE_UNIT')
-    return getPropertyStringValue(measureUnit)
+  const getMaterialUnit = (materialId: number | null): string => {
+    if (!materialId) return 'шт.'
+    const variant = materialVariants[materialId.toString()]
+    if (!variant?.properties?.MEASURE_UNIT) return 'шт.'
+    const value = variant.properties.MEASURE_UNIT.VALUE
+    return typeof value === 'string' ? value : 'шт.'
   }
   
   const safeCalculators = calculators || []
@@ -537,7 +543,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                                 equipmentId: null,
                               })
                               
-                              // Отправить запрос данных операции
+                              // Отправить запрос данных варианта операции
                               if (value && bitrixMeta) {
                                 const context = getBitrixContext()
                                 const iblockId = bitrixMeta.iblocks.calcOperationsVariants
@@ -546,7 +552,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                                   const iblockType = bitrixMeta.iblocksTypes[iblockId]
                                   
                                   if (iblockType) {
-                                    postMessageBridge.sendCalcOperationRequest(
+                                    postMessageBridge.sendCalcOperationVariantRequest(
                                       parseInt(value, 10),
                                       iblockId,
                                       iblockType,
@@ -711,7 +717,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                               materialId: parseInt(value)
                             })
                             
-                            // Отправить запрос данных материала
+                            // Отправить запрос данных варианта материала
                             if (value && bitrixMeta) {
                               const context = getBitrixContext()
                               const iblockId = bitrixMeta.iblocks.calcMaterialsVariants
@@ -720,7 +726,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                                 const iblockType = bitrixMeta.iblocksTypes[iblockId]
                                 
                                 if (iblockType) {
-                                  postMessageBridge.sendCalcMaterialRequest(
+                                  postMessageBridge.sendCalcMaterialVariantRequest(
                                     parseInt(value, 10),
                                     iblockId,
                                     iblockType,
