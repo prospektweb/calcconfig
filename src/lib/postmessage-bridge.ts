@@ -20,6 +20,10 @@ export type MessageType =
   | 'REFRESH_RESULT'
   | 'CALC_SETTINGS_REQUEST'
   | 'CALC_SETTINGS_RESPONSE'
+  | 'CALC_OPERATION_REQUEST'
+  | 'CALC_OPERATION_RESPONSE'
+  | 'CALC_MATERIAL_REQUEST'
+  | 'CALC_MATERIAL_RESPONSE'
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -166,6 +170,52 @@ export interface CalcSettingsResponsePayload {
     measure?: string | null
     measureRatio?: number | null
     prices?: any[]
+    properties: Record<string, BitrixProperty>
+  }
+}
+
+/**
+ * Payload for operation response from Bitrix.
+ * The actual operation data is nested in the `item` field.
+ */
+export interface CalcOperationResponsePayload {
+  id: number
+  /** Bitrix information block ID */
+  iblockId: number
+  /** Bitrix information block type identifier */
+  iblockType: string
+  /** Language code (e.g., 'ru', 'en') */
+  lang: string
+  /** Response status from Bitrix (e.g., 'ok', 'error') */
+  status: string
+  /** The actual operation item data */
+  item: {
+    id: number
+    code: string
+    name: string
+    properties: Record<string, BitrixProperty>
+  }
+}
+
+/**
+ * Payload for material response from Bitrix.
+ * The actual material data is nested in the `item` field.
+ */
+export interface CalcMaterialResponsePayload {
+  id: number
+  /** Bitrix information block ID */
+  iblockId: number
+  /** Bitrix information block type identifier */
+  iblockType: string
+  /** Language code (e.g., 'ru', 'en') */
+  lang: string
+  /** Response status from Bitrix (e.g., 'ok', 'error') */
+  status: string
+  /** The actual material item data */
+  item: {
+    id: number
+    code: string
+    name: string
     properties: Record<string, BitrixProperty>
   }
 }
@@ -328,6 +378,24 @@ class PostMessageBridge {
 
   sendCalcSettingsRequest(id: number, iblockId: number, iblockType: string, lang: string) {
     return this.sendMessage('CALC_SETTINGS_REQUEST', {
+      id,
+      iblockId,
+      iblockType,
+      lang,
+    })
+  }
+
+  sendCalcOperationRequest(id: number, iblockId: number, iblockType: string, lang: string) {
+    return this.sendMessage('CALC_OPERATION_REQUEST', {
+      id,
+      iblockId,
+      iblockType,
+      lang,
+    })
+  }
+
+  sendCalcMaterialRequest(id: number, iblockId: number, iblockType: string, lang: string) {
+    return this.sendMessage('CALC_MATERIAL_REQUEST', {
       id,
       iblockId,
       iblockType,
