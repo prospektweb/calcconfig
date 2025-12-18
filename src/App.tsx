@@ -391,26 +391,65 @@ function App() {
 
   useEffect(() => {
     const unsubscribeCalcSettings = postMessageBridge.on('CALC_SETTINGS_RESPONSE', (message) => {
-      console.info('[FROM_BITRIX] CALC_SETTINGS_RESPONSE', message)
+      console.log('[CALC_SETTINGS_RESPONSE][DEBUG] Raw message received:', message)
+      console.log('[CALC_SETTINGS_RESPONSE][DEBUG] Payload:', message.payload)
 
-      if (!message.payload) return
+      if (!message.payload) {
+        console.warn('[CALC_SETTINGS_RESPONSE][DEBUG] No payload in message')
+        return
+      }
 
       const payload = message.payload as CalcSettingsResponsePayload
       
+      console.log('[CALC_SETTINGS_RESPONSE][DEBUG] Parsed payload:', {
+        id: payload.id,
+        status: payload.status,
+        hasItem: !!payload.item,
+        itemId: payload.item?.id,
+        itemName: payload.item?.name,
+        itemProperties: payload.item?.properties ? Object.keys(payload.item.properties) : [],
+      })
+
       // Check that item exists
       if (!payload.item) {
-        console.warn('[CALC_SETTINGS] No item in payload')
+        console.warn('[CALC_SETTINGS_RESPONSE][DEBUG] No item in payload')
         return
       }
+
+      // Log important properties
+      const props = payload.item.properties || {}
+      console.log('[CALC_SETTINGS_RESPONSE][DEBUG] Key properties:', {
+        USE_OPERATION: props.USE_OPERATION?.VALUE,
+        USE_OPERATION_XML_ID: props.USE_OPERATION?.VALUE_XML_ID,
+        USE_MATERIAL: props.USE_MATERIAL?.VALUE,
+        USE_MATERIAL_XML_ID: props.USE_MATERIAL?.VALUE_XML_ID,
+        USE_OPERATION_QUANTITY: props.USE_OPERATION_QUANTITY?.VALUE,
+        USE_MATERIAL_QUANTITY: props.USE_MATERIAL_QUANTITY?.VALUE,
+        SUPPORTED_EQUIPMENT_LIST: props.SUPPORTED_EQUIPMENT_LIST?.VALUE,
+        DEFAULT_OPERATION: props.DEFAULT_OPERATION?.VALUE,
+        DEFAULT_MATERIAL: props.DEFAULT_MATERIAL?.VALUE,
+      })
       
       const settingsStore = useCalculatorSettingsStore.getState()
+      
+      const settingsKey = payload.item.id.toString()
+      console.log('[CALC_SETTINGS_RESPONSE][DEBUG] Saving to store with key:', settingsKey)
 
       // Save settings to store using the calculator ID as key
-      // IMPORTANT: data is located in payload.item, not directly in payload!
-      settingsStore.setSettings(payload.item.id.toString(), {
+      settingsStore.setSettings(settingsKey, {
         id: payload.item.id,
         name: payload.item.name,
         properties: payload.item.properties,
+      })
+
+      // Verify save
+      const savedSettings = settingsStore.getSettings(settingsKey)
+      console.log('[CALC_SETTINGS_RESPONSE][DEBUG] Verified saved settings:', {
+        key: settingsKey,
+        found: !!savedSettings,
+        savedId: savedSettings?.id,
+        savedName: savedSettings?.name,
+        savedPropertiesCount: savedSettings?.properties ? Object.keys(savedSettings.properties).length : 0,
       })
 
       console.info('[CALC_SETTINGS] saved settings for calculator', payload.item.id, payload.item.name)
