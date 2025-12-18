@@ -142,12 +142,21 @@ export interface SaveResultPayload {
   message?: string
 }
 
+/**
+ * Payload for calculator settings response from Bitrix.
+ * The actual calculator data is nested in the `item` field.
+ */
 export interface CalcSettingsResponsePayload {
   id: number
+  /** Bitrix information block ID */
   iblockId: number
+  /** Bitrix information block type identifier */
   iblockType: string
+  /** Language code (e.g., 'ru', 'en') */
   lang: string
+  /** Response status from Bitrix (e.g., 'ok', 'error') */
   status: string
+  /** The actual calculator item data */
   item: {
     id: number
     code: string
