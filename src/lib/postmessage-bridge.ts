@@ -142,6 +142,24 @@ export interface SaveResultPayload {
   message?: string
 }
 
+export interface CalcSettingsPayload {
+  item: {
+    id: number
+    name: string
+    properties: {
+      CAN_BE_FIRST?: { VALUE: string }
+      REQUIRES_BEFORE?: { VALUE: string | number | null }
+      USE_OPERATION?: { VALUE: string }
+      USE_MATERIAL?: { VALUE: string }
+      DEFAULT_OPERATION?: { VALUE: string | number | null }
+      DEFAULT_MATERIAL?: { VALUE: string | number | null }
+      SUPPORTED_EQUIPMENT_LIST?: { VALUE: (string | number)[] }
+    }
+  }
+  requestId?: string
+  calculatorId: number
+}
+
 class PostMessageBridge {
   private targetOrigin: string = '*'
   private listeners: Map<MessageType | '*', Set<(message: PwrtMessage) => void>> = new Map()
