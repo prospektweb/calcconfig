@@ -1,5 +1,5 @@
 import { AppState, Detail, Binding, HeaderElement, CostingSettings, SalePricesSettings, HeaderTabsState } from './types'
-import { BitrixTreeItem } from './bitrix-transformers'
+import { BitrixTreeItem, BitrixProperty } from './bitrix-transformers'
 
 export type MessageType =
   | 'READY'
@@ -145,15 +145,7 @@ export interface SaveResultPayload {
 export interface CalcSettingsResponsePayload {
   id: number
   name: string
-  properties: {
-    CAN_BE_FIRST: { VALUE: string }
-    REQUIRES_BEFORE: { VALUE: string | null }
-    USE_OPERATION: { VALUE: string }
-    USE_MATERIAL: { VALUE: string }
-    DEFAULT_OPERATION: { VALUE: string | null }
-    DEFAULT_MATERIAL: { VALUE: string | null }
-    SUPPORTED_EQUIPMENT_LIST: { VALUE: string[] }
-  }
+  properties: Record<string, BitrixProperty>
 }
 
 class PostMessageBridge {

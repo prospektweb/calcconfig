@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { getBitrixContext, openBitrixAdmin } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
+import { BitrixProperty } from '@/lib/bitrix-transformers'
 
 interface CalculatorTabsProps {
   calculators: CalculatorInstance[]
@@ -38,6 +39,43 @@ const TAB_COLORS = [
   'hsl(var(--chart-4))',
   'hsl(var(--chart-5))',
 ]
+
+// Вспомогательные функции для безопасного доступа к свойствам
+const getPropertyValue = (prop: BitrixProperty | undefined): string | string[] | null => {
+  return prop?.VALUE ?? null
+}
+
+const getPropertyXmlId = (prop: BitrixProperty | undefined): string | string[] | null => {
+  return prop?.VALUE_XML_ID ?? null
+}
+
+const isPropertyEnabled = (prop: BitrixProperty | undefined): boolean => {
+  // Проверяем VALUE_XML_ID в первую очередь, затем VALUE
+  const xmlId = prop?.VALUE_XML_ID
+  const value = prop?.VALUE
+  
+  if (typeof xmlId === 'string') {
+    return xmlId === 'Y' || xmlId === 'yes' || xmlId === '1'
+  }
+  if (typeof value === 'string') {
+    return value === 'Y' || value === 'yes' || value === '1' || value === 'Да'
+  }
+  return false
+}
+
+const getPropertyArrayValue = (prop: BitrixProperty | undefined): string[] => {
+  const value = prop?.VALUE
+  if (Array.isArray(value)) return value
+  if (typeof value === 'string' && value) return [value]
+  return []
+}
+
+const getPropertyStringValue = (prop: BitrixProperty | undefined): string | null => {
+  const value = prop?.VALUE
+  if (typeof value === 'string') return value
+  if (Array.isArray(value) && value.length > 0) return value[0]
+  return null
+}
 
 export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onValidationMessage }: CalculatorTabsProps) {
   const [activeTab, setActiveTab] = useState(0)
@@ -219,7 +257,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       if (!settings) return
       
       // Validation: CAN_BE_FIRST
-      if (index === 0 && settings.properties.CAN_BE_FIRST.VALUE !== 'Y') {
+      if (index === 0 && !isPropertyEnabled(settings.properties.CAN_BE_FIRST)) {
         if (onValidationMessage) {
           onValidationMessage('error', `Калькулятор ${settings.name} не может быть размещен на первом этапе`)
         }
@@ -227,7 +265,8 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       }
       
       // Validation: REQUIRES_BEFORE (check both for index === 0 AND index > 0)
-      if (settings.properties.REQUIRES_BEFORE.VALUE) {
+      const requiresBeforeValue = getPropertyStringValue(settings.properties.REQUIRES_BEFORE)
+      if (requiresBeforeValue) {
         if (index === 0) {
           // Калькулятор требует предшественника, но размещен на первом этапе
           if (onValidationMessage) {
@@ -237,7 +276,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         } else {
           // Проверяем, что предыдущий калькулятор соответствует требованию
           const prevCalc = safeCalculators[index - 1]
-          if (!prevCalc.calculatorCode || prevCalc.calculatorCode !== settings.properties.REQUIRES_BEFORE.VALUE) {
+          if (!prevCalc.calculatorCode || prevCalc.calculatorCode !== requiresBeforeValue) {
             const prevSettings = prevCalc.calculatorCode ? calculatorSettings[prevCalc.calculatorCode] : null
             const prevName = prevSettings?.name || 'неизвестный калькулятор'
             if (onValidationMessage) {
@@ -249,16 +288,18 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       }
       
       // Auto-select DEFAULT_OPERATION
-      if (settings.properties.DEFAULT_OPERATION.VALUE && !calc.operationId) {
-        const defaultOpId = parseInt(settings.properties.DEFAULT_OPERATION.VALUE, 10)
+      const defaultOpValue = getPropertyStringValue(settings.properties.DEFAULT_OPERATION)
+      if (defaultOpValue && !calc.operationId) {
+        const defaultOpId = parseInt(defaultOpValue, 10)
         if (!isNaN(defaultOpId) && calc.operationId !== defaultOpId) {
           handleUpdateCalculator(index, { operationId: defaultOpId })
         }
       }
       
       // Auto-select DEFAULT_MATERIAL  
-      if (settings.properties.DEFAULT_MATERIAL.VALUE && !calc.materialId) {
-        const defaultMatId = parseInt(settings.properties.DEFAULT_MATERIAL.VALUE, 10)
+      const defaultMatValue = getPropertyStringValue(settings.properties.DEFAULT_MATERIAL)
+      if (defaultMatValue && !calc.materialId) {
+        const defaultMatId = parseInt(defaultMatValue, 10)
         if (!isNaN(defaultMatId) && calc.materialId !== defaultMatId) {
           handleUpdateCalculator(index, { materialId: defaultMatId })
         }
@@ -363,11 +404,12 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           const settings = calc.calculatorCode ? calculatorSettings[calc.calculatorCode] : undefined
           
           // Filter equipment based on SUPPORTED_EQUIPMENT_LIST
-          const filteredEquipmentHierarchy = settings?.properties.SUPPORTED_EQUIPMENT_LIST.VALUE.length
+          const supportedEquipmentList = getPropertyArrayValue(settings?.properties?.SUPPORTED_EQUIPMENT_LIST)
+          const filteredEquipmentHierarchy = supportedEquipmentList.length
             ? equipmentHierarchy.map(category => ({
                 ...category,
                 children: category.children?.filter(item => 
-                  settings.properties.SUPPORTED_EQUIPMENT_LIST.VALUE.includes(item.value)
+                  supportedEquipmentList.includes(item.value)
                 ) || []
               })).filter(category => category.children && category.children.length > 0)
             : equipmentHierarchy
@@ -422,7 +464,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                   </div>
                 </div>
 
-                {settings && settings.properties.USE_OPERATION.VALUE === 'Y' && (
+                {settings && isPropertyEnabled(settings?.properties?.USE_OPERATION) && (
                   <div className="flex-1 space-y-2">
                     <Label>Операция</Label>
                     <div className="flex gap-2 items-center">
@@ -492,7 +534,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                   </div>
                 )}
 
-                {settings && calc.operationId && settings.properties.SUPPORTED_EQUIPMENT_LIST.VALUE.length > 0 && (
+                {settings && calc.operationId && supportedEquipmentList.length > 0 && (
                   <div className="flex-1 space-y-2">
                     <Label>Оборудование</Label>
                     <div className="flex gap-2">
@@ -558,7 +600,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                 )}
               </div>
 
-              {settings && settings.properties.USE_MATERIAL.VALUE === 'Y' && (
+              {settings && isPropertyEnabled(settings?.properties?.USE_MATERIAL) && (
                 <div className="space-y-2">
                   <Label>Материал</Label>
                   <div className="flex gap-2 items-center">
