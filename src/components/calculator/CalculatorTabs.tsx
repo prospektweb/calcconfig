@@ -123,7 +123,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   const materialsHierarchy = useReferencesStore(s => s.materialsHierarchy)
   
   // Get calculator settings from store
-  const getCalculatorSettings = useCalculatorSettingsStore(s => s.getSettings)
+  const calculatorSettings = useCalculatorSettingsStore(s => s.settings)
   
   const safeCalculators = calculators || []
 
@@ -215,7 +215,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
     safeCalculators.forEach((calc, index) => {
       if (!calc.calculatorCode) return
       
-      const settings = getCalculatorSettings(calc.calculatorCode)
+      const settings = calculatorSettings[calc.calculatorCode]
       if (!settings) return
       
       // Validation: CAN_BE_FIRST
@@ -238,7 +238,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           // Проверяем, что предыдущий калькулятор соответствует требованию
           const prevCalc = safeCalculators[index - 1]
           if (!prevCalc.calculatorCode || prevCalc.calculatorCode !== settings.properties.REQUIRES_BEFORE.VALUE) {
-            const prevSettings = prevCalc.calculatorCode ? getCalculatorSettings(prevCalc.calculatorCode) : null
+            const prevSettings = prevCalc.calculatorCode ? calculatorSettings[prevCalc.calculatorCode] : null
             const prevName = prevSettings?.name || 'неизвестный калькулятор'
             if (onValidationMessage) {
               onValidationMessage('error', `Калькулятор ${settings.name} не может быть размещен после калькулятора ${prevName}`)
@@ -264,7 +264,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         }
       }
     })
-  }, [safeCalculators, getCalculatorSettings, onValidationMessage])
+  }, [safeCalculators, calculatorSettings, onValidationMessage])
   
   const getTabColor = (index: number) => {
     return TAB_COLORS[index % TAB_COLORS.length]
@@ -360,7 +360,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
 
         {safeCalculators.map((calc, index) => {
           // Get settings from store if calculatorCode is set
-          const settings = calc.calculatorCode ? getCalculatorSettings(calc.calculatorCode) : undefined
+          const settings = calc.calculatorCode ? calculatorSettings[calc.calculatorCode] : undefined
           
           // Filter equipment based on SUPPORTED_EQUIPMENT_LIST
           const filteredEquipmentHierarchy = settings?.properties.SUPPORTED_EQUIPMENT_LIST.VALUE.length
