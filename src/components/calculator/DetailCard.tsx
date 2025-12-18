@@ -18,9 +18,10 @@ interface DetailCardProps {
   onDragStart?: (element: HTMLElement, e: React.MouseEvent) => void
   isDragging?: boolean
   bitrixMeta?: InitPayload | null
+  onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
 }
 
-export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, isDragging = false, bitrixMeta }: DetailCardProps) {
+export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, isDragging = false, bitrixMeta, onValidationMessage }: DetailCardProps) {
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !detail.isExpanded })
   }
@@ -142,6 +143,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
             calculators={detail.calculators}
             onChange={(calculators) => onUpdate({ calculators })}
             bitrixMeta={bitrixMeta}
+            onValidationMessage={onValidationMessage}
           />
         </div>
       )}

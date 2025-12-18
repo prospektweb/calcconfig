@@ -23,6 +23,7 @@ interface BindingCardProps {
   onDragStart?: (element: HTMLElement, e: React.MouseEvent) => void
   isDragging?: boolean
   bitrixMeta?: InitPayload | null
+  onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
 }
 
   export function BindingCard({
@@ -39,7 +40,8 @@ interface BindingCardProps {
   detailStartIndex,
   onDragStart,
   isDragging = false,
-  bitrixMeta = null
+  bitrixMeta = null,
+  onValidationMessage
 }: BindingCardProps) {
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !binding.isExpanded })
@@ -147,6 +149,7 @@ interface BindingCardProps {
               calculators={binding.calculators || []}
               onChange={(calculators) => onUpdate({ calculators })}
               bitrixMeta={bitrixMeta}
+              onValidationMessage={onValidationMessage}
             />
           </div>
 
@@ -162,6 +165,7 @@ interface BindingCardProps {
                   isInBinding={true}
                   orderNumber={detailStartIndex + index + 1}
                   bitrixMeta={bitrixMeta}
+                  onValidationMessage={onValidationMessage}
                 />
               ))}
             </div>
@@ -193,6 +197,7 @@ interface BindingCardProps {
                       orderNumber={index + 1}
                       detailStartIndex={0}
                       bitrixMeta={bitrixMeta}
+                      onValidationMessage={onValidationMessage}
                     />
                   </div>
                 )
@@ -221,6 +226,8 @@ interface BindingCardProps {
               <CalculatorTabs
                 calculators={binding.finishingCalculators || []}
                 onChange={(finishingCalculators) => onUpdate({ finishingCalculators })}
+                bitrixMeta={bitrixMeta}
+                onValidationMessage={onValidationMessage}
               />
             </div>
           )}
