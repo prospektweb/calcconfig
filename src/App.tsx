@@ -392,16 +392,24 @@ function App() {
       if (!message.payload) return
 
       const payload = message.payload as CalcSettingsResponsePayload
+      
+      // Check that item exists
+      if (!payload.item) {
+        console.warn('[CALC_SETTINGS] No item in payload')
+        return
+      }
+      
       const settingsStore = useCalculatorSettingsStore.getState()
 
       // Save settings to store using the calculator ID as key
-      settingsStore.setSettings(payload.id.toString(), {
-        id: payload.id,
-        name: payload.name,
-        properties: payload.properties,
+      // IMPORTANT: data is located in payload.item, not directly in payload!
+      settingsStore.setSettings(payload.item.id.toString(), {
+        id: payload.item.id,
+        name: payload.item.name,
+        properties: payload.item.properties,
       })
 
-      console.info('[CALC_SETTINGS] saved settings for calculator', payload.id, payload.name)
+      console.info('[CALC_SETTINGS] saved settings for calculator', payload.item.id, payload.item.name)
     })
 
     return () => {
