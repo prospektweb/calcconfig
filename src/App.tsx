@@ -38,13 +38,15 @@ import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
-import { postMessageBridge, InitPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload } from '@/lib/postmessage-bridge'
+import { postMessageBridge, InitPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext } from '@/lib/bitrix-utils'
 import { createEmptyHeaderTabs, normalizeHeaderTabs } from '@/lib/header-tabs'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { useOperationSettingsStore } from '@/stores/operation-settings-store'
 import { useMaterialSettingsStore } from '@/stores/material-settings-store'
+import { useOperationVariantStore } from '@/stores/operation-variant-store'
+import { useMaterialVariantStore } from '@/stores/material-variant-store'
 import { transformBitrixTreeSelectElement, transformBitrixTreeSelectChild } from '@/lib/bitrix-transformers'
 
 type DragItem = {
@@ -450,10 +452,48 @@ function App() {
       console.info('[CALC_MATERIAL] saved material', item.id, item.name)
     })
 
+    const unsubscribeOperationVariant = postMessageBridge.on('CALC_OPERATION_VARIANT_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] CALC_OPERATION_VARIANT_RESPONSE', message)
+
+      if (!message.payload?.item) return
+
+      const payload = message.payload as CalcOperationVariantResponsePayload
+      const item = payload.item
+      const operationVariantStore = useOperationVariantStore.getState()
+
+      operationVariantStore.setVariant(item.id.toString(), {
+        id: item.id,
+        name: item.name,
+        properties: item.properties,
+      })
+
+      console.info('[CALC_OPERATION_VARIANT] saved operation variant', item.id, item.name)
+    })
+
+    const unsubscribeMaterialVariant = postMessageBridge.on('CALC_MATERIAL_VARIANT_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] CALC_MATERIAL_VARIANT_RESPONSE', message)
+
+      if (!message.payload?.item) return
+
+      const payload = message.payload as CalcMaterialVariantResponsePayload
+      const item = payload.item
+      const materialVariantStore = useMaterialVariantStore.getState()
+
+      materialVariantStore.setVariant(item.id.toString(), {
+        id: item.id,
+        name: item.name,
+        properties: item.properties,
+      })
+
+      console.info('[CALC_MATERIAL_VARIANT] saved material variant', item.id, item.name)
+    })
+
     return () => {
       unsubscribeCalcSettings()
       unsubscribeOperation()
       unsubscribeMaterial()
+      unsubscribeOperationVariant()
+      unsubscribeMaterialVariant()
     }
   }, [])
   
