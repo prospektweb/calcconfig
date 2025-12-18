@@ -310,11 +310,52 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
 
   // Handle validation and auto-selection when settings are loaded
   useEffect(() => {
+    console.log('[CalculatorTabs][DEBUG] Settings validation effect triggered', {
+      calculatorsCount: safeCalculators.length,
+      calculatorSettingsKeys: Object.keys(calculatorSettings),
+      calculatorSettings: calculatorSettings,
+    })
+
     safeCalculators.forEach((calc, index) => {
-      if (!calc.calculatorCode) return
+      console.log('[CalculatorTabs][DEBUG] Processing calculator', {
+        index,
+        id: calc.id,
+        calculatorCode: calc.calculatorCode,
+        operationId: calc.operationId,
+        materialId: calc.materialId,
+        equipmentId: calc.equipmentId,
+      })
+
+      if (!calc.calculatorCode) {
+        console.log('[CalculatorTabs][DEBUG] No calculatorCode, skipping')
+        return
+      }
       
       const settings = calculatorSettings[calc.calculatorCode]
-      if (!settings?.properties) return
+      console.log('[CalculatorTabs][DEBUG] Found settings for code', {
+        code: calc.calculatorCode,
+        hasSettings: !!settings,
+        settingsId: settings?.id,
+        settingsName: settings?.name,
+        hasProperties: !!settings?.properties,
+        propertiesKeys: settings?.properties ? Object.keys(settings.properties) : [],
+      })
+
+      if (!settings?.properties) {
+        console.log('[CalculatorTabs][DEBUG] No properties in settings')
+        return
+      }
+
+      // Log property checks
+      const useOperation = getProperty(settings, 'USE_OPERATION')
+      const useMaterial = getProperty(settings, 'USE_MATERIAL')
+      
+      console.log('[CalculatorTabs][DEBUG] Property check results', {
+        useOperation: useOperation,
+        useOperationEnabled: isPropertyEnabled(useOperation),
+        useMaterial: useMaterial,
+        useMaterialEnabled: isPropertyEnabled(useMaterial),
+      })
       
       // Validation: CAN_BE_FIRST
       const canBeFirst = getProperty(settings, 'CAN_BE_FIRST')
@@ -494,6 +535,12 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                         items={calculatorsHierarchy}
                         value={calc.calculatorCode || null}
                         onValueChange={(value) => {
+                          console.log('[CalculatorTabs][DEBUG] Calculator selected', {
+                            newValue: value,
+                            previousCode: calc.calculatorCode,
+                            index: index,
+                          })
+
                           handleUpdateCalculator(index, {
                             calculatorCode: value,
                             operationId: null,
@@ -506,8 +553,23 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                             const context = getBitrixContext()
                             const iblockId = bitrixMeta.iblocks.calcSettings
                             
+                            console.log('[CalculatorTabs][DEBUG] Preparing CALC_SETTINGS_REQUEST', {
+                              value: value,
+                              hasBitrixMeta: !!bitrixMeta,
+                              hasContext: !!context,
+                              iblockId: iblockId,
+                              contextLang: context?.lang,
+                            })
+                            
                             if (context && iblockId) {
                               const iblockType = bitrixMeta.iblocksTypes[iblockId]
+                              
+                              console.log('[CalculatorTabs][DEBUG] Sending CALC_SETTINGS_REQUEST', {
+                                id: parseInt(value, 10),
+                                iblockId: iblockId,
+                                iblockType: iblockType,
+                                lang: context.lang,
+                              })
                               
                               if (iblockType) {
                                 postMessageBridge.sendCalcSettingsRequest(
@@ -516,7 +578,15 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                                   iblockType,
                                   context.lang
                                 )
+                                console.log('[CalculatorTabs][DEBUG] CALC_SETTINGS_REQUEST sent')
+                              } else {
+                                console.warn('[CalculatorTabs][DEBUG] No iblockType found for iblockId:', iblockId)
                               }
+                            } else {
+                              console.warn('[CalculatorTabs][DEBUG] Missing context or iblockId', {
+                                context: context,
+                                iblockId: iblockId,
+                              })
                             }
                           }
                         }}
@@ -527,6 +597,16 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                     {renderSelectedId(toNumber(calc.calculatorCode), 'calculator', 'btn-open-calculator-bitrix')}
                   </div>
                 </div>
+
+                {(() => {
+                  console.log('[CalculatorTabs][DEBUG] Render check for Operation field', {
+                    hasSettings: !!settings,
+                    settingsId: settings?.id,
+                    useOperationProp: settings ? getProperty(settings, 'USE_OPERATION') : null,
+                    isEnabled: settings ? isPropertyEnabled(getProperty(settings, 'USE_OPERATION')) : false,
+                  })
+                  return null
+                })()}
 
                 {settings && isPropertyEnabled(getProperty(settings, 'USE_OPERATION')) && (
                   <div className="flex-1 space-y-2">
