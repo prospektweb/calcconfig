@@ -226,23 +226,32 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         return
       }
       
-      // Validation: REQUIRES_BEFORE
-      if (settings.properties.REQUIRES_BEFORE.VALUE && index > 0) {
-        const prevCalc = safeCalculators[index - 1]
-        if (!prevCalc.calculatorCode || prevCalc.calculatorCode !== settings.properties.REQUIRES_BEFORE.VALUE) {
-          const prevSettings = prevCalc.calculatorCode ? getCalculatorSettings(prevCalc.calculatorCode) : null
-          const prevName = prevSettings?.name || 'неизвестный калькулятор'
+      // Validation: REQUIRES_BEFORE (check both for index === 0 AND index > 0)
+      if (settings.properties.REQUIRES_BEFORE.VALUE) {
+        if (index === 0) {
+          // Калькулятор требует предшественника, но размещен на первом этапе
           if (onValidationMessage) {
-            onValidationMessage('error', `Калькулятор ${settings.name} не может быть размещен после калькулятора ${prevName}`)
+            onValidationMessage('error', `Калькулятор ${settings.name} не может быть размещен на первом этапе (требует предшественника)`)
           }
           return
+        } else {
+          // Проверяем, что предыдущий калькулятор соответствует требованию
+          const prevCalc = safeCalculators[index - 1]
+          if (!prevCalc.calculatorCode || prevCalc.calculatorCode !== settings.properties.REQUIRES_BEFORE.VALUE) {
+            const prevSettings = prevCalc.calculatorCode ? getCalculatorSettings(prevCalc.calculatorCode) : null
+            const prevName = prevSettings?.name || 'неизвестный калькулятор'
+            if (onValidationMessage) {
+              onValidationMessage('error', `Калькулятор ${settings.name} не может быть размещен после калькулятора ${prevName}`)
+            }
+            return
+          }
         }
       }
       
       // Auto-select DEFAULT_OPERATION
       if (settings.properties.DEFAULT_OPERATION.VALUE && !calc.operationId) {
         const defaultOpId = parseInt(settings.properties.DEFAULT_OPERATION.VALUE, 10)
-        if (!isNaN(defaultOpId)) {
+        if (!isNaN(defaultOpId) && calc.operationId !== defaultOpId) {
           handleUpdateCalculator(index, { operationId: defaultOpId })
         }
       }
@@ -250,7 +259,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       // Auto-select DEFAULT_MATERIAL  
       if (settings.properties.DEFAULT_MATERIAL.VALUE && !calc.materialId) {
         const defaultMatId = parseInt(settings.properties.DEFAULT_MATERIAL.VALUE, 10)
-        if (!isNaN(defaultMatId)) {
+        if (!isNaN(defaultMatId) && calc.materialId !== defaultMatId) {
           handleUpdateCalculator(index, { materialId: defaultMatId })
         }
       }
