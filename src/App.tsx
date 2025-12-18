@@ -38,10 +38,11 @@ import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
-import { postMessageBridge, InitPayload } from '@/lib/postmessage-bridge'
+import { postMessageBridge, InitPayload, CalcSettingsResponsePayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext } from '@/lib/bitrix-utils'
 import { createEmptyHeaderTabs, normalizeHeaderTabs } from '@/lib/header-tabs'
 import { useReferencesStore } from '@/stores/references-store'
+import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { transformBitrixTreeSelectElement, transformBitrixTreeSelectChild } from '@/lib/bitrix-transformers'
 
 type DragItem = {
@@ -383,6 +384,30 @@ function App() {
       unsubscribeSelectDone()
     }
   }, [dedupeById, mergeUniqueById, updateHeaderTabs])
+
+  useEffect(() => {
+    const unsubscribeCalcSettings = postMessageBridge.on('CALC_SETTINGS_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] CALC_SETTINGS_RESPONSE', message)
+
+      if (!message.payload) return
+
+      const payload = message.payload as CalcSettingsResponsePayload
+      const settingsStore = useCalculatorSettingsStore.getState()
+
+      // Save settings to store using the calculator ID as key
+      settingsStore.setSettings(payload.id.toString(), {
+        id: payload.id,
+        name: payload.name,
+        properties: payload.properties,
+      })
+
+      console.info('[CALC_SETTINGS] saved settings for calculator', payload.id, payload.name)
+    })
+
+    return () => {
+      unsubscribeCalcSettings()
+    }
+  }, [])
   
   const addInfoMessage = (type: InfoMessage['type'], message: string) => {
     const newMessage: InfoMessage = {
@@ -883,6 +908,7 @@ function App() {
                     onDragStart={handleDetailDragStart}
                     isDragging={isDraggingThis}
                     bitrixMeta={bitrixMeta}
+                    onValidationMessage={addInfoMessage}
                   />
                 ) : (
                   <BindingCard
@@ -907,6 +933,7 @@ function App() {
                     onDragStart={handleBindingDragStart}
                     isDragging={isDraggingThis}
                     bitrixMeta={bitrixMeta}
+                    onValidationMessage={addInfoMessage}
                   />
                 )}
                 

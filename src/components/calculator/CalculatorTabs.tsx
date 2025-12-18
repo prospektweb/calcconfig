@@ -17,6 +17,7 @@ import { Plus, X, DotsSixVertical, Package, Wrench, Hammer, ArrowSquareOut } fro
 import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
 import { MultiLevelSelect } from './MultiLevelSelect'
 import { useReferencesStore } from '@/stores/references-store'
+import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { cn } from '@/lib/utils'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
@@ -27,6 +28,7 @@ interface CalculatorTabsProps {
   calculators: CalculatorInstance[]
   onChange: (calculators: CalculatorInstance[]) => void
   bitrixMeta?: InitPayload | null
+  onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
 }
 
 const TAB_COLORS = [
@@ -37,7 +39,7 @@ const TAB_COLORS = [
   'hsl(var(--chart-5))',
 ]
 
-export function CalculatorTabs({ calculators, onChange, bitrixMeta = null }: CalculatorTabsProps) {
+export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onValidationMessage }: CalculatorTabsProps) {
   const [activeTab, setActiveTab] = useState(0)
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
@@ -119,6 +121,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null }: Cal
   const equipmentHierarchy = useReferencesStore(s => s.equipmentHierarchy)
   const operationsHierarchy = useReferencesStore(s => s.operationsHierarchy)
   const materialsHierarchy = useReferencesStore(s => s.materialsHierarchy)
+  
+  // Get calculator settings from store
+  const getCalculatorSettings = useCalculatorSettingsStore(s => s.getSettings)
   
   const safeCalculators = calculators || []
 
@@ -205,15 +210,61 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null }: Cal
     }
   }, [dragState, safeCalculators, setDropTarget, endDrag, cancelDrag])
 
-  const getCalculatorByCode = (code: string | null) => {
-    // TODO: Fetch from Bitrix instead of using mock data
-    return undefined
-  }
-
-  const getAvailableEquipment = (operationId: number | null) => {
-    // TODO: Fetch from Bitrix instead of using mock data
-    return []
-  }
+  // Handle validation and auto-selection when settings are loaded
+  useEffect(() => {
+    safeCalculators.forEach((calc, index) => {
+      if (!calc.calculatorCode) return
+      
+      const settings = getCalculatorSettings(calc.calculatorCode)
+      if (!settings) return
+      
+      // Validation: CAN_BE_FIRST
+      if (index === 0 && settings.properties.CAN_BE_FIRST.VALUE !== 'Y') {
+        if (onValidationMessage) {
+          onValidationMessage('error', `Калькулятор ${settings.name} не может быть размещен на первом этапе`)
+        }
+        return
+      }
+      
+      // Validation: REQUIRES_BEFORE (check both for index === 0 AND index > 0)
+      if (settings.properties.REQUIRES_BEFORE.VALUE) {
+        if (index === 0) {
+          // Калькулятор требует предшественника, но размещен на первом этапе
+          if (onValidationMessage) {
+            onValidationMessage('error', `Калькулятор ${settings.name} не может быть размещен на первом этапе (требует предшественника)`)
+          }
+          return
+        } else {
+          // Проверяем, что предыдущий калькулятор соответствует требованию
+          const prevCalc = safeCalculators[index - 1]
+          if (!prevCalc.calculatorCode || prevCalc.calculatorCode !== settings.properties.REQUIRES_BEFORE.VALUE) {
+            const prevSettings = prevCalc.calculatorCode ? getCalculatorSettings(prevCalc.calculatorCode) : null
+            const prevName = prevSettings?.name || 'неизвестный калькулятор'
+            if (onValidationMessage) {
+              onValidationMessage('error', `Калькулятор ${settings.name} не может быть размещен после калькулятора ${prevName}`)
+            }
+            return
+          }
+        }
+      }
+      
+      // Auto-select DEFAULT_OPERATION
+      if (settings.properties.DEFAULT_OPERATION.VALUE && !calc.operationId) {
+        const defaultOpId = parseInt(settings.properties.DEFAULT_OPERATION.VALUE, 10)
+        if (!isNaN(defaultOpId) && calc.operationId !== defaultOpId) {
+          handleUpdateCalculator(index, { operationId: defaultOpId })
+        }
+      }
+      
+      // Auto-select DEFAULT_MATERIAL  
+      if (settings.properties.DEFAULT_MATERIAL.VALUE && !calc.materialId) {
+        const defaultMatId = parseInt(settings.properties.DEFAULT_MATERIAL.VALUE, 10)
+        if (!isNaN(defaultMatId) && calc.materialId !== defaultMatId) {
+          handleUpdateCalculator(index, { materialId: defaultMatId })
+        }
+      }
+    })
+  }, [safeCalculators, getCalculatorSettings, onValidationMessage])
   
   const getTabColor = (index: number) => {
     return TAB_COLORS[index % TAB_COLORS.length]
@@ -308,8 +359,18 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null }: Cal
         )}
 
         {safeCalculators.map((calc, index) => {
-          const calculatorDef = getCalculatorByCode(calc.calculatorCode)
-          const availableEquipment = getAvailableEquipment(calc.operationId)
+          // Get settings from store if calculatorCode is set
+          const settings = calc.calculatorCode ? getCalculatorSettings(calc.calculatorCode) : undefined
+          
+          // Filter equipment based on SUPPORTED_EQUIPMENT_LIST
+          const filteredEquipmentHierarchy = settings?.properties.SUPPORTED_EQUIPMENT_LIST.VALUE.length
+            ? equipmentHierarchy.map(category => ({
+                ...category,
+                children: category.children?.filter(item => 
+                  settings.properties.SUPPORTED_EQUIPMENT_LIST.VALUE.includes(item.value)
+                ) || []
+              })).filter(category => category.children && category.children.length > 0)
+            : equipmentHierarchy
 
           return (
             <TabsContent 
@@ -361,7 +422,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null }: Cal
                   </div>
                 </div>
 
-                {calculatorDef && calculatorDef.fields?.operation?.visible && (
+                {settings && settings.properties.USE_OPERATION.VALUE === 'Y' && (
                   <div className="flex-1 space-y-2">
                     <Label>Операция</Label>
                     <div className="flex gap-2 items-center">
@@ -427,33 +488,17 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null }: Cal
                             : "text-muted-foreground"
                         )} />
                       </div>
-                      {calculatorDef.fields.operation?.quantityField && (
-                        <div className="flex gap-1 items-center">
-                          <Input
-                            type="number"
-                            min="1"
-                            value={calc.operationQuantity}
-                            onChange={(e) => handleUpdateCalculator(index, {
-                              operationQuantity: parseInt(e.target.value) || 1
-                            })}
-                            className="w-20 max-w-[80px]"
-                          />
-                          <span className="text-sm text-muted-foreground w-[40px] text-right">
-                            ед.
-                          </span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
 
-                {calculatorDef && calculatorDef.fields?.equipment?.visible && (
+                {settings && calc.operationId && settings.properties.SUPPORTED_EQUIPMENT_LIST.VALUE.length > 0 && (
                   <div className="flex-1 space-y-2">
                     <Label>Оборудование</Label>
                     <div className="flex gap-2">
                       <div className="flex-1">
                         <MultiLevelSelect
-                          items={equipmentHierarchy}
+                          items={filteredEquipmentHierarchy}
                           value={calc.equipmentId?.toString() || null}
                           onValueChange={(value) => handleUpdateCalculator(index, { 
                             equipmentId: parseInt(value) 
@@ -513,138 +558,71 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null }: Cal
                 )}
               </div>
 
-              {calculatorDef && (
-                <>
-
-                  {calculatorDef.fields?.material?.visible && (
-                    <div className="space-y-2">
-                      <Label>Материал</Label>
-                      <div className="flex gap-2 items-center">
-                        <div className="flex-1 flex items-center gap-2">
-                          <div className="flex-1">
-                            <MultiLevelSelect
-                              items={materialsHierarchy}
-                              value={calc.materialId?.toString() || null}
-                              onValueChange={(value) => handleUpdateCalculator(index, {
-                                materialId: parseInt(value)
-                              })}
-                              placeholder="Выберите материал..."
-                            />
-                          </div>
-                          {renderSelectedId(toNumber(calc.materialId), 'material', 'btn-open-material-bitrix')}
-                        </div>
-                        <div
-                          className={cn(
-                            "w-[60px] h-10 border-2 border-dashed rounded flex items-center justify-center flex-shrink-0 transition-all",
-                            materialDropZoneHover === index
-                              ? "border-accent bg-accent/10"
-                              : "border-border bg-muted/30"
-                          )}
-                          onDragOver={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            setMaterialDropZoneHover(index)
-                          }}
-                          onDragLeave={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            setMaterialDropZoneHover(null)
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            setMaterialDropZoneHover(null)
-
-                            try {
-                              const jsonData = e.dataTransfer.getData('application/json')
-                              if (jsonData) {
-                                const data = JSON.parse(jsonData)
-
-                                if (data.type === 'header-material') {
-                                  handleUpdateCalculator(index, {
-                                    materialId: data.materialId
-                                  })
-                                }
-                              }
-                            } catch (error) {
-                              console.error('Material drop error:', error)
-                            }
-                          }}
-                          title="Перетащите материал из шапки сюда"
-                        >
-                          <Package className={cn(
-                            "w-5 h-5",
-                            materialDropZoneHover === index
-                              ? "text-accent-foreground"
-                              : "text-muted-foreground"
-                          )} />
-                        </div>
-                        {calculatorDef.fields.material?.quantityField && (
-                          <div className="flex gap-1 items-center">
-                            <Input
-                              type="number"
-                              min="1"
-                              value={calc.materialQuantity}
-                              onChange={(e) => handleUpdateCalculator(index, {
-                                materialQuantity: parseInt(e.target.value) || 1
-                              })}
-                              className="w-20 max-w-[80px]"
-                            />
-                            <span className="text-sm text-muted-foreground w-[40px] text-right">
-                              {calculatorDef.fields.material?.quantityUnit || 'шт.'}
-                            </span>
-                          </div>
-                        )}
+              {settings && settings.properties.USE_MATERIAL.VALUE === 'Y' && (
+                <div className="space-y-2">
+                  <Label>Материал</Label>
+                  <div className="flex gap-2 items-center">
+                    <div className="flex-1 flex items-center gap-2">
+                      <div className="flex-1">
+                        <MultiLevelSelect
+                          items={materialsHierarchy}
+                          value={calc.materialId?.toString() || null}
+                          onValueChange={(value) => handleUpdateCalculator(index, {
+                            materialId: parseInt(value)
+                          })}
+                          placeholder="Выберите материал..."
+                        />
                       </div>
+                      {renderSelectedId(toNumber(calc.materialId), 'material', 'btn-open-material-bitrix')}
                     </div>
-                  )}
+                    <div
+                      className={cn(
+                        "w-[60px] h-10 border-2 border-dashed rounded flex items-center justify-center flex-shrink-0 transition-all",
+                        materialDropZoneHover === index
+                          ? "border-accent bg-accent/10"
+                          : "border-border bg-muted/30"
+                      )}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setMaterialDropZoneHover(index)
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setMaterialDropZoneHover(null)
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setMaterialDropZoneHover(null)
 
-                  {calculatorDef.extraOptions && calculatorDef.extraOptions.length > 0 && (
-                    <div className="space-y-3 border-t border-border pt-3">
-                      {calculatorDef.extraOptions.map(option => (
-                        <div key={option.code} className="space-y-2">
-                          <Label>{option.label}</Label>
-                          {option.type === 'checkbox' ? (
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                id={`${calc.id}-${option.code}`}
-                                checked={calc.extraOptions?.[option.code] ?? option.default}
-                                onCheckedChange={(checked) => handleUpdateCalculator(index, {
-                                  extraOptions: {
-                                    ...(calc.extraOptions || {}),
-                                    [option.code]: checked,
-                                  }
-                                })}
-                              />
-                              <label htmlFor={`${calc.id}-${option.code}`} className="text-sm">
-                                {option.label}
-                              </label>
-                            </div>
-                          ) : (
-                            <div className="flex gap-1 items-center">
-                              <Input
-                                type="number"
-                                min={option.min}
-                                max={option.max}
-                                value={calc.extraOptions?.[option.code] ?? option.default}
-                                onChange={(e) => handleUpdateCalculator(index, {
-                                  extraOptions: {
-                                    ...(calc.extraOptions || {}),
-                                    [option.code]: parseFloat(e.target.value) || option.default,
-                                  }
-                                })}
-                                className="flex-1 max-w-[80px]"
-                              />
-                              <span className="text-sm text-muted-foreground w-[40px] text-right">
-                                {option.code === 'FIELD_MM' ? 'мм' : option.label.includes('%') ? '%' : ''}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        try {
+                          const jsonData = e.dataTransfer.getData('application/json')
+                          if (jsonData) {
+                            const data = JSON.parse(jsonData)
+
+                            if (data.type === 'header-material') {
+                              handleUpdateCalculator(index, {
+                                materialId: data.materialId
+                              })
+                            }
+                          }
+                        } catch (error) {
+                          console.error('Material drop error:', error)
+                        }
+                      }}
+                      title="Перетащите материал из шапки сюда"
+                    >
+                      <Package className={cn(
+                        "w-5 h-5",
+                        materialDropZoneHover === index
+                          ? "text-accent-foreground"
+                          : "text-muted-foreground"
+                      )} />
                     </div>
-                  )}
-                </>
+                  </div>
+                </div>
               )}
             </TabsContent>
           )
