@@ -467,7 +467,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
             ? equipmentHierarchy.map(category => ({
                 ...category,
                 children: category.children?.filter(item => 
-                  supportedEquipmentList.includes(item.value)
+                  item.value && supportedEquipmentList.includes(item.value)
                 ) || []
               })).filter(category => category.children && category.children.length > 0)
             : equipmentHierarchy
