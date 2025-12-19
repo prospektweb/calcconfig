@@ -566,12 +566,12 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           const settings = calc.calculatorCode ? calculatorSettings[calc.calculatorCode] : undefined
           
           // Get operation settings from store
-          const operationSettings = calc.operationId 
+          const operationSettingsItem = calc.operationId 
             ? operationSettings[calc.operationId.toString()]
             : undefined
           
           // Filter equipment based on SUPPORTED_EQUIPMENT_LIST from operation settings
-          const supportedEquipmentList = getPropertyArrayValue(getProperty(operationSettings, 'SUPPORTED_EQUIPMENT_LIST'))
+          const supportedEquipmentList = getPropertyArrayValue(getProperty(operationSettingsItem, 'SUPPORTED_EQUIPMENT_LIST'))
           const filteredEquipmentHierarchy = supportedEquipmentList.length > 0
             ? equipmentHierarchy.map(category => ({
                 ...category,
@@ -582,7 +582,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
             : equipmentHierarchy
           
           // Filter materials based on SUPPORTED_MATERIALS_VARIANTS_LIST from operation settings
-          const supportedMaterialsVariantsList = getPropertyArrayValue(getProperty(operationSettings, 'SUPPORTED_MATERIALS_VARIANTS_LIST'))
+          const supportedMaterialsVariantsList = getPropertyArrayValue(getProperty(operationSettingsItem, 'SUPPORTED_MATERIALS_VARIANTS_LIST'))
           const filteredMaterialsHierarchy = supportedMaterialsVariantsList.length > 0
             ? materialsHierarchy.map(category => ({
                 ...category,
