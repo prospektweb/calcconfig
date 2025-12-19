@@ -412,6 +412,63 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
     })
   }, [safeCalculators, calculatorSettings, onValidationMessage])
   
+  // Auto-select first equipment/material when operation settings are loaded
+  useEffect(() => {
+    safeCalculators.forEach((calc, index) => {
+      if (!calc.operationId) return
+      
+      const operationSettingsItem = operationSettings[calc.operationId.toString()]
+      if (!operationSettingsItem) return
+      
+      // Auto-select first equipment if not set and list is filtered
+      const supportedEquipmentList = getPropertyArrayValue(getProperty(operationSettingsItem, 'SUPPORTED_EQUIPMENT_LIST'))
+      if (!calc.equipmentId && supportedEquipmentList.length > 0) {
+        // Find first matching equipment in hierarchy
+        for (const category of equipmentHierarchy) {
+          const firstMatch = category.children?.find(item => 
+            item.value && supportedEquipmentList.includes(item.value)
+          )
+          if (firstMatch?.value) {
+            handleUpdateCalculator(index, { equipmentId: parseInt(firstMatch.value) })
+            break
+          }
+        }
+      }
+      
+      // Auto-select first material if not set and list is filtered
+      const supportedMaterialsVariantsList = getPropertyArrayValue(getProperty(operationSettingsItem, 'SUPPORTED_MATERIALS_VARIANTS_LIST'))
+      if (!calc.materialId && supportedMaterialsVariantsList.length > 0) {
+        // Find first matching material in hierarchy
+        for (const category of materialsHierarchy) {
+          const firstMatch = category.children?.find(item => 
+            item.value && supportedMaterialsVariantsList.includes(item.value)
+          )
+          if (firstMatch?.value) {
+            handleUpdateCalculator(index, { materialId: parseInt(firstMatch.value) })
+            
+            // Send request for material variant data
+            if (bitrixMeta) {
+              const context = getBitrixContext()
+              const iblockId = bitrixMeta.iblocks.calcMaterialsVariants
+              if (context && iblockId) {
+                const iblockType = bitrixMeta.iblocksTypes[iblockId]
+                if (iblockType) {
+                  postMessageBridge.sendCalcMaterialVariantRequest(
+                    parseInt(firstMatch.value),
+                    iblockId,
+                    iblockType,
+                    context.lang
+                  )
+                }
+              }
+            }
+            break
+          }
+        }
+      }
+    })
+  }, [safeCalculators, operationSettings, equipmentHierarchy, materialsHierarchy])
+  
   const getTabColor = (index: number) => {
     return TAB_COLORS[index % TAB_COLORS.length]
   }
@@ -508,8 +565,13 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           // Get settings from store if calculatorCode is set
           const settings = calc.calculatorCode ? calculatorSettings[calc.calculatorCode] : undefined
           
-          // Filter equipment based on SUPPORTED_EQUIPMENT_LIST
-          const supportedEquipmentList = getPropertyArrayValue(getProperty(settings, 'SUPPORTED_EQUIPMENT_LIST'))
+          // Get operation settings from store
+          const operationSettings = calc.operationId 
+            ? operationSettings[calc.operationId.toString()]
+            : undefined
+          
+          // Filter equipment based on SUPPORTED_EQUIPMENT_LIST from operation settings
+          const supportedEquipmentList = getPropertyArrayValue(getProperty(operationSettings, 'SUPPORTED_EQUIPMENT_LIST'))
           const filteredEquipmentHierarchy = supportedEquipmentList.length > 0
             ? equipmentHierarchy.map(category => ({
                 ...category,
@@ -518,6 +580,17 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                 ) || []
               })).filter(category => category.children && category.children.length > 0)
             : equipmentHierarchy
+          
+          // Filter materials based on SUPPORTED_MATERIALS_VARIANTS_LIST from operation settings
+          const supportedMaterialsVariantsList = getPropertyArrayValue(getProperty(operationSettings, 'SUPPORTED_MATERIALS_VARIANTS_LIST'))
+          const filteredMaterialsHierarchy = supportedMaterialsVariantsList.length > 0
+            ? materialsHierarchy.map(category => ({
+                ...category,
+                children: category.children?.filter(item => 
+                  item.value && supportedMaterialsVariantsList.includes(item.value)
+                ) || []
+              })).filter(category => category.children && category.children.length > 0)
+            : materialsHierarchy
 
           return (
             <TabsContent 
@@ -618,22 +691,25 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                             items={operationsHierarchy}
                             value={calc.operationId?.toString() || null}
                             onValueChange={(value) => {
+                              const newOperationId = parseInt(value)
+                              
                               handleUpdateCalculator(index, {
-                                operationId: parseInt(value),
-                                equipmentId: null,
+                                operationId: newOperationId,
+                                equipmentId: null,  // Сбрасываем при смене операции
+                                materialId: null,   // Сбрасываем при смене операции
                               })
                               
-                              // Отправить запрос данных варианта операции
+                              // Отправить запрос данных операции
                               if (value && bitrixMeta) {
                                 const context = getBitrixContext()
-                                const iblockId = bitrixMeta.iblocks.calcOperationsVariants
+                                const iblockId = bitrixMeta.iblocks.calcOperations
                                 
                                 if (context && iblockId) {
                                   const iblockType = bitrixMeta.iblocksTypes[iblockId]
                                   
                                   if (iblockType) {
                                     postMessageBridge.sendCalcOperationVariantRequest(
-                                      parseInt(value, 10),
+                                      newOperationId,
                                       iblockId,
                                       iblockType,
                                       context.lang
@@ -717,7 +793,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                   </div>
                 )}
 
-                {settings && calc.operationId && supportedEquipmentList.length > 0 && (
+                {settings && calc.operationId && (
                   <div className="flex-1 space-y-2">
                     <Label>Оборудование</Label>
                     <div className="flex gap-2">
@@ -790,7 +866,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                     <div className="flex-1 flex items-center gap-2">
                       <div className="flex-1">
                         <MultiLevelSelect
-                          items={materialsHierarchy}
+                          items={filteredMaterialsHierarchy}
                           value={calc.materialId?.toString() || null}
                           onValueChange={(value) => {
                             handleUpdateCalculator(index, {
