@@ -258,14 +258,43 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
   // Universal handler for all header elements
   const handleElementDragStart = (element: HeaderElement) => (e: React.DragEvent) => {
     e.dataTransfer.effectAllowed = 'copy'
-    e.dataTransfer.setData('application/json', JSON.stringify({
-      type: 'header-detail',
-      detailId: element.itemId,
-      detailName: element.name
-    }))
     
-    // Call callback to show drop zone
-    if (onDetailDragStart) {
+    // Маппинг типа элемента шапки на тип для drag'n'drop
+    const typeMap: Record<HeaderTabType, string> = {
+      detailsVariants: 'header-detail',
+      materialsVariants: 'header-material',
+      operationsVariants: 'header-operation',
+      equipment: 'header-equipment',
+    }
+    
+    const dragType = typeMap[element.type]
+    
+    // Формируем payload в зависимости от типа
+    let payload: Record<string, any> = { type: dragType }
+    
+    switch (element.type) {
+      case 'detailsVariants':
+        payload.detailId = element.itemId
+        payload.detailName = element.name
+        break
+      case 'materialsVariants':
+        payload.materialId = element.itemId
+        payload.materialName = element.name
+        break
+      case 'operationsVariants':
+        payload.operationId = element.itemId
+        payload.operationName = element.name
+        break
+      case 'equipment':
+        payload.equipmentId = element.itemId
+        payload.equipmentName = element.name
+        break
+    }
+    
+    e.dataTransfer.setData('application/json', JSON.stringify(payload))
+    
+    // Call callback to show drop zone (только для деталей)
+    if (element.type === 'detailsVariants' && onDetailDragStart) {
       onDetailDragStart(element.itemId, element.name)
     }
   }

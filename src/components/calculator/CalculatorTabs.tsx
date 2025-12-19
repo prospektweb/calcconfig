@@ -614,9 +614,8 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
               className="space-y-4 mt-4 border rounded-lg p-2 bg-card"
               data-pwcode="stage-content"
             >
-              <div className="flex gap-2 items-start">
-                <div className="flex-1 space-y-2">
-                  <Label>Калькулятор</Label>
+              <div className="space-y-2">
+                <Label>Калькулятор</Label>
                   <div className="flex items-center gap-2">
                     <div className="flex-1">
                       <MultiLevelSelect
@@ -681,12 +680,12 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                         placeholder="Выберите калькулятор..."
                         data-pwcode="select-calculator"
                       />
-                    </div>
-                    {renderSelectedId(toNumber(calc.calculatorCode), 'calculator', 'btn-open-calculator-bitrix')}
                   </div>
+                  {renderSelectedId(toNumber(calc.calculatorCode), 'calculator', 'btn-open-calculator-bitrix')}
                 </div>
+              </div>
 
-                {(() => {
+              {(() => {
                   console.log('[CalculatorTabs][DEBUG] Render check for Operation field', {
                     hasSettings: !!settings,
                     settingsId: settings?.id,
@@ -696,9 +695,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                   return null
                 })()}
 
-                {settings && isPropertyEnabled(getProperty(settings, 'USE_OPERATION_VARIANT')) && (
-                  <div className="flex-1 space-y-2">
-                    <Label>Операция</Label>
+              {settings && isPropertyEnabled(getProperty(settings, 'USE_OPERATION_VARIANT')) && (
+                <div className="space-y-2">
+                  <Label>Операция</Label>
                     <div className="flex gap-2 items-center">
                       <div className="flex-1 flex items-center gap-2">
                         <div className="flex-1">
@@ -803,14 +802,14 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                             ? "text-accent-foreground"
                             : "text-muted-foreground"
                         )} />
-                      </div>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
 
-                {settings && calc.operationId && (
-                  <div className="flex-1 space-y-2">
-                    <Label>Оборудование</Label>
+              {settings && calc.operationId && (
+                <div className="space-y-2">
+                  <Label>Оборудование</Label>
                     <div className="flex gap-2">
                       <div className="flex-1">
                         <MultiLevelSelect
@@ -872,7 +871,6 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                     </div>
                   </div>
                 )}
-              </div>
 
               {settings && isPropertyEnabled(getProperty(settings, 'USE_MATERIAL_VARIANT')) && (
                 <div className="space-y-2">
