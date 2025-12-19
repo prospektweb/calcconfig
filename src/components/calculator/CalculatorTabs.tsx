@@ -121,6 +121,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   const [materialDropZoneHover, setMaterialDropZoneHover] = useState<number | null>(null)
   const [operationDropZoneHover, setOperationDropZoneHover] = useState<number | null>(null)
   const [equipmentDropZoneHover, setEquipmentDropZoneHover] = useState<number | null>(null)
+  const reportedValidationKeysRef = useRef<Set<string>>(new Set())
 
   const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material') => {
     if (!bitrixMeta) return null
@@ -316,6 +317,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       calculatorSettings: calculatorSettings,
     })
 
+    const previousViolations = reportedValidationKeysRef.current
+    const nextViolations = new Set<string>()
+
     safeCalculators.forEach((calc, index) => {
       console.log('[CalculatorTabs][DEBUG] Processing calculator', {
         index,
@@ -359,10 +363,17 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       
       // Validation: CAN_BE_FIRST
       const canBeFirst = getProperty(settings, 'CAN_BE_FIRST')
-      if (index === 0 && !isPropertyEnabled(canBeFirst)) {
-        if (onValidationMessage) {
-          onValidationMessage('error', `Калькулятор ${settings.name} не может быть размещен на первом этапе`)
+      const violationKeyBase = `${calc.id ?? calc.calculatorCode ?? 'calculator'}-${index}`
+
+      const reportValidationOnce = (key: string, message: string) => {
+        nextViolations.add(key)
+        if (onValidationMessage && !previousViolations.has(key)) {
+          onValidationMessage('error', message)
         }
+      }
+
+      if (index === 0 && !isPropertyEnabled(canBeFirst)) {
+        reportValidationOnce(`${violationKeyBase}-cannot-be-first`, `Калькулятор ${settings.name} не может быть размещен на первом этапе`)
         return
       }
       
@@ -372,9 +383,10 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       if (requiresBeforeValue) {
         if (index === 0) {
           // Калькулятор требует предшественника, но размещен на первом этапе
-          if (onValidationMessage) {
-            onValidationMessage('error', `Калькулятор ${settings.name} не может быть размещен на первом этапе (требует предшественника)`)
-          }
+          reportValidationOnce(
+            `${violationKeyBase}-requires-before-first`,
+            `Калькулятор ${settings.name} не может быть размещен на первом этапе (требует предшественника)`
+          )
           return
         } else {
           // Проверяем, что предыдущий калькулятор соответствует требованию
@@ -382,14 +394,15 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           if (!prevCalc.calculatorCode || prevCalc.calculatorCode !== requiresBeforeValue) {
             const prevSettings = prevCalc.calculatorCode ? calculatorSettings[prevCalc.calculatorCode] : null
             const prevName = prevSettings?.name || 'неизвестный калькулятор'
-            if (onValidationMessage) {
-              onValidationMessage('error', `Калькулятор ${settings.name} не может быть размещен после калькулятора ${prevName}`)
-            }
+            reportValidationOnce(
+              `${violationKeyBase}-requires-before-${requiresBeforeValue}`,
+              `Калькулятор ${settings.name} не может быть размещен после калькулятора ${prevName}`
+            )
             return
           }
         }
       }
-      
+
       // Auto-select DEFAULT_OPERATION_VARIANT
       const defaultOperationVariant = getProperty(settings, 'DEFAULT_OPERATION_VARIANT')
       const defaultOpValue = getPropertyStringValue(defaultOperationVariant)
@@ -410,6 +423,8 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         }
       }
     })
+
+    reportedValidationKeysRef.current = nextViolations
   }, [safeCalculators, calculatorSettings, onValidationMessage])
   
   // Auto-select first equipment/material when operation settings are loaded
