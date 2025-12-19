@@ -51,7 +51,7 @@ const getProperty = (settings: CalcSettingsItem | undefined, key: string): Bitri
   return settings?.properties?.[key]
 }
 
-// Проверка активности свойства (USE_OPERATION, USE_MATERIAL, CAN_BE_FIRST и т.д.)
+// Проверка активности свойства (USE_OPERATION_VARIANT, USE_MATERIAL_VARIANT, CAN_BE_FIRST и т.д.)
 const isPropertyEnabled = (prop: BitrixProperty | undefined): boolean => {
   if (!prop) return false
   
@@ -84,7 +84,7 @@ const getPropertyArrayValue = (prop: BitrixProperty | undefined): string[] => {
   return []
 }
 
-// Парсинг extraOptions из DEFAULT_OPTIONS
+// Парсинг extraOptions из OTHER_OPTIONS
 interface ExtraOption {
   code: string
   label: string
@@ -98,17 +98,17 @@ interface ExtraOption {
 const getExtraOptions = (settings: CalcSettingsItem | undefined): ExtraOption[] => {
   if (!settings) return []
   
-  const defaultOptions = getProperty(settings, 'DEFAULT_OPTIONS')
+  const defaultOptions = getProperty(settings, 'OTHER_OPTIONS')
   const optionsValue = getPropertyStringValue(defaultOptions)
   
   if (!optionsValue) return []
   
   try {
-    // Предполагается, что DEFAULT_OPTIONS содержит JSON массив опций
+    // Предполагается, что OTHER_OPTIONS содержит JSON массив опций
     const parsed = JSON.parse(optionsValue)
     return Array.isArray(parsed) ? parsed : []
   } catch (error) {
-    console.error('Failed to parse DEFAULT_OPTIONS:', error)
+    console.error('Failed to parse OTHER_OPTIONS:', error)
     return []
   }
 }
@@ -347,14 +347,14 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       }
 
       // Log property checks
-      const useOperation = getProperty(settings, 'USE_OPERATION')
-      const useMaterial = getProperty(settings, 'USE_MATERIAL')
+      const useOperationVariant = getProperty(settings, 'USE_OPERATION_VARIANT')
+      const useMaterialVariant = getProperty(settings, 'USE_MATERIAL_VARIANT')
       
       console.log('[CalculatorTabs][DEBUG] Property check results', {
-        useOperation: useOperation,
-        useOperationEnabled: isPropertyEnabled(useOperation),
-        useMaterial: useMaterial,
-        useMaterialEnabled: isPropertyEnabled(useMaterial),
+        useOperationVariant: useOperationVariant,
+        useOperationVariantEnabled: isPropertyEnabled(useOperationVariant),
+        useMaterialVariant: useMaterialVariant,
+        useMaterialVariantEnabled: isPropertyEnabled(useMaterialVariant),
       })
       
       // Validation: CAN_BE_FIRST
@@ -390,9 +390,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         }
       }
       
-      // Auto-select DEFAULT_OPERATION
-      const defaultOperation = getProperty(settings, 'DEFAULT_OPERATION')
-      const defaultOpValue = getPropertyStringValue(defaultOperation)
+      // Auto-select DEFAULT_OPERATION_VARIANT
+      const defaultOperationVariant = getProperty(settings, 'DEFAULT_OPERATION_VARIANT')
+      const defaultOpValue = getPropertyStringValue(defaultOperationVariant)
       if (defaultOpValue && !calc.operationId) {
         const defaultOpId = parseInt(defaultOpValue, 10)
         if (!isNaN(defaultOpId) && calc.operationId !== defaultOpId) {
@@ -400,9 +400,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         }
       }
       
-      // Auto-select DEFAULT_MATERIAL  
-      const defaultMaterial = getProperty(settings, 'DEFAULT_MATERIAL')
-      const defaultMatValue = getPropertyStringValue(defaultMaterial)
+      // Auto-select DEFAULT_MATERIAL_VARIANT  
+      const defaultMaterialVariant = getProperty(settings, 'DEFAULT_MATERIAL_VARIANT')
+      const defaultMatValue = getPropertyStringValue(defaultMaterialVariant)
       if (defaultMatValue && !calc.materialId) {
         const defaultMatId = parseInt(defaultMatValue, 10)
         if (!isNaN(defaultMatId) && calc.materialId !== defaultMatId) {
@@ -675,13 +675,13 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                   console.log('[CalculatorTabs][DEBUG] Render check for Operation field', {
                     hasSettings: !!settings,
                     settingsId: settings?.id,
-                    useOperationProp: settings ? getProperty(settings, 'USE_OPERATION') : null,
-                    isEnabled: settings ? isPropertyEnabled(getProperty(settings, 'USE_OPERATION')) : false,
+                    useOperationVariantProp: settings ? getProperty(settings, 'USE_OPERATION_VARIANT') : null,
+                    isEnabled: settings ? isPropertyEnabled(getProperty(settings, 'USE_OPERATION_VARIANT')) : false,
                   })
                   return null
                 })()}
 
-                {settings && isPropertyEnabled(getProperty(settings, 'USE_OPERATION')) && (
+                {settings && isPropertyEnabled(getProperty(settings, 'USE_OPERATION_VARIANT')) && (
                   <div className="flex-1 space-y-2">
                     <Label>Операция</Label>
                     <div className="flex gap-2 items-center">
@@ -859,7 +859,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                 )}
               </div>
 
-              {settings && isPropertyEnabled(getProperty(settings, 'USE_MATERIAL')) && (
+              {settings && isPropertyEnabled(getProperty(settings, 'USE_MATERIAL_VARIANT')) && (
                 <div className="space-y-2">
                   <Label>Материал</Label>
                   <div className="flex gap-2 items-center">
