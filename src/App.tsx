@@ -499,14 +499,29 @@ function App() {
       const payload = message.payload as CalcOperationVariantResponsePayload
       const item = payload.item
       const operationVariantStore = useOperationVariantStore.getState()
+      const operationStore = useOperationSettingsStore.getState()
 
+      // Save to operation variant store (for unit data)
       operationVariantStore.setVariant(item.id.toString(), {
         id: item.id,
         name: item.name,
-        properties: item.properties,
+        properties: item.properties || {},
       })
 
-      console.info('[CALC_OPERATION_VARIANT] saved operation variant', item.id, item.name)
+      // Save to operation settings store (for SUPPORTED lists)
+      operationStore.setOperation(item.id.toString(), {
+        id: item.id,
+        name: item.name,
+        properties: item.properties || {},
+      })
+
+      console.info('[CALC_OPERATION_VARIANT] saved operation with properties', {
+        id: item.id,
+        name: item.name,
+        propertiesCount: Object.keys(item.properties || {}).length,
+        supportedEquipment: item.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE,
+        supportedMaterials: item.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE,
+      })
     })
 
     const unsubscribeMaterialVariant = postMessageBridge.on('CALC_MATERIAL_VARIANT_RESPONSE', (message) => {
