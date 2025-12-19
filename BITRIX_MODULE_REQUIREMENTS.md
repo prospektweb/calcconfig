@@ -2,14 +2,14 @@
 
 ## Настройки свойств калькулятора
 
-При установке модуля для свойств `USE_OPERATION` и `USE_MATERIAL` должны быть установлены следующие значения:
+При установке модуля для свойств `USE_OPERATION_VARIANT` и `USE_MATERIAL_VARIANT` должны быть установлены следующие значения:
 
-### USE_OPERATION
+### USE_OPERATION_VARIANT
 
 ```php
 [
-    'CODE' => 'USE_OPERATION',
-    'NAME' => 'Активировать Операцию',
+    'CODE' => 'USE_OPERATION_VARIANT',
+    'NAME' => 'Активировать выбор варианта Операции',
     'PROPERTY_TYPE' => 'L',
     'IS_REQUIRED' => 'Y',
     'DEFAULT_VALUE' => 'Y',
@@ -20,12 +20,12 @@
 ]
 ```
 
-### USE_MATERIAL
+### USE_MATERIAL_VARIANT
 
 ```php
 [
-    'CODE' => 'USE_MATERIAL', 
-    'NAME' => 'Активировать Материал',
+    'CODE' => 'USE_MATERIAL_VARIANT', 
+    'NAME' => 'Активировать выбор варианта Материала',
     'PROPERTY_TYPE' => 'L',
     'IS_REQUIRED' => 'Y',
     'DEFAULT_VALUE' => 'Y',
@@ -33,6 +33,39 @@
     'VALUES' => [
         ['VALUE' => 'Да', 'XML_ID' => 'Y', 'DEF' => 'Y'],
     ],
+]
+```
+
+### DEFAULT_OPERATION_VARIANT
+
+```php
+[
+    'CODE' => 'DEFAULT_OPERATION_VARIANT',
+    'NAME' => 'Операция по умолчанию',
+    'PROPERTY_TYPE' => 'S',
+    'IS_REQUIRED' => 'N',
+]
+```
+
+### DEFAULT_MATERIAL_VARIANT
+
+```php
+[
+    'CODE' => 'DEFAULT_MATERIAL_VARIANT',
+    'NAME' => 'Материал по умолчанию',
+    'PROPERTY_TYPE' => 'S',
+    'IS_REQUIRED' => 'N',
+]
+```
+
+### OTHER_OPTIONS
+
+```php
+[
+    'CODE' => 'OTHER_OPTIONS',
+    'NAME' => 'Дополнительные опции',
+    'PROPERTY_TYPE' => 'S',
+    'IS_REQUIRED' => 'N',
 ]
 ```
 
