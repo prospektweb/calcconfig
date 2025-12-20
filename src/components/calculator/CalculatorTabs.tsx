@@ -152,8 +152,13 @@ const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionF
   if (!jsonString) return []
   
   try {
-    const parsed = JSON.parse(jsonString) as OtherOptionsConfig
-    return Array.isArray(parsed.fields) ? parsed.fields : []
+    const parsed = JSON.parse(jsonString)
+    // Validate structure before type assertion
+    if (typeof parsed !== 'object' || parsed === null || !Array.isArray(parsed.fields)) {
+      console.warn('[CalculatorTabs] OTHER_OPTIONS has invalid structure:', parsed)
+      return []
+    }
+    return parsed.fields as OtherOptionField[]
   } catch (e) {
     console.warn('[CalculatorTabs] Failed to parse OTHER_OPTIONS:', e)
     return []
@@ -1080,7 +1085,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                             <div className="flex items-center gap-1">
                               <Input
                                 type="number"
-                                value={calc.extraOptions?.[field.code] ?? field.default ?? 0}
+                                value={typeof calc.extraOptions?.[field.code] === 'number' 
+                                  ? calc.extraOptions[field.code]
+                                  : typeof field.default === 'number' ? field.default : 0}
                                 onChange={(e) => handleUpdateCalculator(index, {
                                   extraOptions: {
                                     ...calc.extraOptions,
@@ -1100,7 +1107,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           
                           {field.type === 'checkbox' && (
                             <Checkbox
-                              checked={calc.extraOptions?.[field.code] ?? field.default ?? false}
+                              checked={Boolean(calc.extraOptions?.[field.code] ?? field.default)}
                               onCheckedChange={(checked) => handleUpdateCalculator(index, {
                                 extraOptions: {
                                   ...calc.extraOptions,
@@ -1113,7 +1120,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           {field.type === 'text' && (
                             <Input
                               type="text"
-                              value={calc.extraOptions?.[field.code] ?? field.default ?? ''}
+                              value={String(calc.extraOptions?.[field.code] ?? field.default ?? '')}
                               onChange={(e) => handleUpdateCalculator(index, {
                                 extraOptions: {
                                   ...calc.extraOptions,
@@ -1126,7 +1133,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           
                           {field.type === 'select' && field.options && (
                             <Select
-                              value={calc.extraOptions?.[field.code] ?? field.default ?? ''}
+                              value={String(calc.extraOptions?.[field.code] ?? field.default ?? '')}
                               onValueChange={(value) => handleUpdateCalculator(index, {
                                 extraOptions: {
                                   ...calc.extraOptions,
