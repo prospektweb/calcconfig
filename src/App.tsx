@@ -253,26 +253,34 @@ function App() {
         const referencesStore = useReferencesStore.getState()
         
         if (initPayload.iblocksTree?.calcSettings) {
+          const iblockId = initPayload.iblocks.calcSettings
+          const iblockType = iblockId ? initPayload.iblocksTypes[iblockId] : undefined
           referencesStore.setCalculatorsHierarchy(
-            transformBitrixTreeSelectElement(initPayload.iblocksTree.calcSettings)
+            transformBitrixTreeSelectElement(initPayload.iblocksTree.calcSettings, iblockType)
           )
         }
         
         if (initPayload.iblocksTree?.calcEquipment) {
+          const iblockId = initPayload.iblocks.calcEquipment
+          const iblockType = iblockId ? initPayload.iblocksTypes[iblockId] : undefined
           referencesStore.setEquipmentHierarchy(
-            transformBitrixTreeSelectElement(initPayload.iblocksTree.calcEquipment)
+            transformBitrixTreeSelectElement(initPayload.iblocksTree.calcEquipment, iblockType)
           )
         }
         
         if (initPayload.iblocksTree?.calcOperations) {
+          const iblockId = initPayload.iblocks.calcOperations
+          const iblockType = iblockId ? initPayload.iblocksTypes[iblockId] : undefined
           referencesStore.setOperationsHierarchy(
-            transformBitrixTreeSelectChild(initPayload.iblocksTree.calcOperations)
+            transformBitrixTreeSelectChild(initPayload.iblocksTree.calcOperations, iblockType)
           )
         }
         
         if (initPayload.iblocksTree?.calcMaterials) {
+          const iblockId = initPayload.iblocks.calcMaterials
+          const iblockType = iblockId ? initPayload.iblocksTypes[iblockId] : undefined
           referencesStore.setMaterialsHierarchy(
-            transformBitrixTreeSelectChild(initPayload.iblocksTree.calcMaterials)
+            transformBitrixTreeSelectChild(initPayload.iblocksTree.calcMaterials, iblockType)
           )
         }
         
