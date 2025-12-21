@@ -6,7 +6,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { CaretDown, CaretRight, Check } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, Check, ArrowSquareOut } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 
 export interface MultiLevelItem {
@@ -14,6 +14,10 @@ export interface MultiLevelItem {
   label: string
   value?: string
   children?: MultiLevelItem[]
+  // New fields for Bitrix integration
+  iblockId?: number
+  iblockType?: string
+  itemType?: 'section' | 'element'
 }
 
 interface MultiLevelSelectProps {
@@ -58,6 +62,24 @@ export function MultiLevelSelect({ items, value, onValueChange, placeholder = '�
 
   const selectedLabel = value ? getFullPath(items, value) : null
 
+  const handleOpenBitrixItem = (item: MultiLevelItem, e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    if (!item.iblockId || !item.iblockType || !item.itemType) {
+      console.warn('[MultiLevelSelect] Missing Bitrix metadata for item:', item)
+      return
+    }
+
+    // Send postMessage to parent window (Bitrix)
+    window.parent.postMessage({
+      action: 'openBitrixItem',
+      type: item.itemType,
+      id: item.id,
+      iblockId: item.iblockId,
+      iblockType: item.iblockType
+    }, '*')
+  }
+
   const renderItem = (item: MultiLevelItem, level: number = 0) => {
     const hasChildren = item.children && item.children.length > 0
     const isExpanded = expandedIds.has(item.id)
@@ -67,7 +89,7 @@ export function MultiLevelSelect({ items, value, onValueChange, placeholder = '�
       <div key={item.id}>
         <div
           className={cn(
-            'flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-sm transition-colors',
+            'flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-sm transition-colors group',
             isSelected && 'bg-accent text-accent-foreground'
           )}
           style={{ marginLeft: `${level * 16}px` }}
@@ -89,6 +111,16 @@ export function MultiLevelSelect({ items, value, onValueChange, placeholder = '�
           )}
           <span className="flex-1 text-sm">{item.label}</span>
           {isSelected && <Check className="w-4 h-4" />}
+          {item.iblockId && item.iblockType && item.itemType && (
+            <button
+              className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1 rounded hover:bg-primary/10"
+              onClick={(e) => handleOpenBitrixItem(item, e)}
+              data-pwcode={`btn-open-${item.itemType}-bitrix`}
+              title="Открыть в Bitrix"
+            >
+              <ArrowSquareOut className="w-3.5 h-3.5 text-muted-foreground hover:text-primary" />
+            </button>
+          )}
         </div>
         {hasChildren && isExpanded && (
           <div className="mt-1">
