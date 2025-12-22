@@ -83,7 +83,7 @@ export function CostPanel({ messages, isExpanded, onToggle, settings, onSettings
             <div className="flex items-end gap-2 flex-wrap">
               <div className="space-y-2">
                 <Label htmlFor="costing-based-on">Считать на основании</Label>
-                <Select value={settings.basedOn} onValueChange={handleBasedOnChange}>
+                <Select value={settings.basedOn} onValueChange={handleBasedOnChange} disabled>
                   <SelectTrigger id="costing-based-on" className="w-[400px]" data-pwcode="select-costing-basedon">
                     <SelectValue />
                   </SelectTrigger>
