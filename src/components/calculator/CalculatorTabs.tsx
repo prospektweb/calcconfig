@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, X, DotsSixVertical, Package, Wrench, Hammer, ArrowSquareOut } from '@phosphor-icons/react'
 import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
-import { MultiLevelSelect } from './MultiLevelSelect'
+import { MultiLevelSelect, MultiLevelItem } from './MultiLevelSelect'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore, CalcSettingsItem } from '@/stores/calculator-settings-store'
 import { useOperationSettingsStore } from '@/stores/operation-settings-store'
@@ -43,6 +43,48 @@ const TAB_COLORS = [
   'hsl(var(--chart-4))',
   'hsl(var(--chart-5))',
 ]
+
+// Рекурсивная функция фильтрации иерархии по списку разрешённых значений
+const filterHierarchyByValues = (
+  items: MultiLevelItem[], 
+  allowedValues: string[]
+): MultiLevelItem[] => {
+  return items
+    .map(item => {
+      // Если это конечный элемент (есть value и нет детей) — проверяем, входит ли в список
+      if (item.value && (!item.children || item.children.length === 0)) {
+        return allowedValues.includes(item.value) ? item : null
+      }
+      
+      // Если это раздел с детьми — рекурсивно фильтруем детей
+      if (item.children && item.children.length > 0) {
+        const filteredChildren = filterHierarchyByValues(item.children, allowedValues)
+        // Оставляем раздел только если в нём есть отфильтрованные дети
+        if (filteredChildren.length > 0) {
+          return { ...item, children: filteredChildren }
+        }
+      }
+      
+      return null
+    })
+    .filter((item): item is MultiLevelItem => item !== null)
+}
+
+// Рекурсивный поиск первого элемента с value в иерархии
+const findFirstSelectableValue = (items: MultiLevelItem[]): string | null => {
+  for (const item of items) {
+    // Если это конечный элемент с value
+    if (item.value && (!item.children || item.children.length === 0)) {
+      return item.value
+    }
+    // Если есть дети — ищем рекурсивно
+    if (item.children && item.children.length > 0) {
+      const found = findFirstSelectableValue(item.children)
+      if (found) return found
+    }
+  }
+  return null
+}
 
 // Вспомогательные функции для безопасного доступа к свойствам
 
@@ -511,22 +553,12 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         
         // Ищем первое подходящее оборудование
         const hierarchyToSearch = supportedEquipmentList.length > 0
-          ? equipmentHierarchy.map(category => ({
-              ...category,
-              children: category.children?.filter(item => 
-                item.value && supportedEquipmentList.includes(item.value)
-              ) || []
-            })).filter(category => category.children && category.children.length > 0)
+          ? filterHierarchyByValues(equipmentHierarchy, supportedEquipmentList)
           : equipmentHierarchy
         
-        for (const category of hierarchyToSearch) {
-          if (category.children && category.children.length > 0) {
-            const firstEquipment = category.children[0]
-            if (firstEquipment?.value) {
-              handleUpdateCalculator(index, { equipmentId: parseInt(firstEquipment.value) })
-              break
-            }
-          }
+        const firstEquipmentValue = findFirstSelectableValue(hierarchyToSearch)
+        if (firstEquipmentValue) {
+          handleUpdateCalculator(index, { equipmentId: parseInt(firstEquipmentValue) })
         }
       }
       
@@ -544,37 +576,27 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         
         // Ищем первый подходящий материал
         const hierarchyToSearch = supportedMaterialsVariantsList.length > 0
-          ? materialsHierarchy.map(category => ({
-              ...category,
-              children: category.children?.filter(item => 
-                item.value && supportedMaterialsVariantsList.includes(item.value)
-              ) || []
-            })).filter(category => category.children && category.children.length > 0)
+          ? filterHierarchyByValues(materialsHierarchy, supportedMaterialsVariantsList)
           : materialsHierarchy
         
-        for (const category of hierarchyToSearch) {
-          if (category.children && category.children.length > 0) {
-            const firstMaterial = category.children[0]
-            if (firstMaterial?.value) {
-              handleUpdateCalculator(index, { materialId: parseInt(firstMaterial.value) })
-              
-              // Send request for material variant data
-              if (bitrixMeta) {
-                const context = getBitrixContext()
-                const iblockId = bitrixMeta.iblocks.calcMaterialsVariants
-                if (context && iblockId) {
-                  const iblockType = bitrixMeta.iblocksTypes[iblockId]
-                  if (iblockType) {
-                    postMessageBridge.sendCalcMaterialVariantRequest(
-                      parseInt(firstMaterial.value),
-                      iblockId,
-                      iblockType,
-                      context.lang
-                    )
-                  }
-                }
+        const firstMaterialValue = findFirstSelectableValue(hierarchyToSearch)
+        if (firstMaterialValue) {
+          handleUpdateCalculator(index, { materialId: parseInt(firstMaterialValue) })
+          
+          // Send request for material variant data
+          if (bitrixMeta) {
+            const context = getBitrixContext()
+            const iblockId = bitrixMeta.iblocks.calcMaterialsVariants
+            if (context && iblockId) {
+              const iblockType = bitrixMeta.iblocksTypes[iblockId]
+              if (iblockType) {
+                postMessageBridge.sendCalcMaterialVariantRequest(
+                  parseInt(firstMaterialValue),
+                  iblockId,
+                  iblockType,
+                  context.lang
+                )
               }
-              break
             }
           }
         }
@@ -693,13 +715,15 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           
           // Filter equipment based on SUPPORTED_EQUIPMENT_LIST from operation settings
           const filteredEquipmentHierarchy = supportedEquipmentList.length > 0
-            ? equipmentHierarchy.map(category => ({
-                ...category,
-                children: category.children?.filter(item => 
-                  item.value && supportedEquipmentList.includes(item.value)
-                ) || []
-              })).filter(category => category.children && category.children.length > 0)
+            ? filterHierarchyByValues(equipmentHierarchy, supportedEquipmentList)
             : equipmentHierarchy
+          
+          console.log('[CalculatorTabs][DEBUG] Filtering equipment', {
+            supportedEquipmentList,
+            originalCount: equipmentHierarchy.length,
+            filteredCount: filteredEquipmentHierarchy.length,
+            filteredHierarchy: filteredEquipmentHierarchy,
+          })
           
           // Filter materials based on SUPPORTED_MATERIALS_VARIANTS_LIST from operation settings
           const supportedMaterialsVariantsList = parentOperation?.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE
@@ -708,13 +732,15 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                 : [parentOperation.properties.SUPPORTED_MATERIALS_VARIANTS_LIST.VALUE])
             : []
           const filteredMaterialsHierarchy = supportedMaterialsVariantsList.length > 0
-            ? materialsHierarchy.map(category => ({
-                ...category,
-                children: category.children?.filter(item => 
-                  item.value && supportedMaterialsVariantsList.includes(item.value)
-                ) || []
-              })).filter(category => category.children && category.children.length > 0)
+            ? filterHierarchyByValues(materialsHierarchy, supportedMaterialsVariantsList)
             : materialsHierarchy
+          
+          console.log('[CalculatorTabs][DEBUG] Filtering materials', {
+            supportedMaterialsVariantsList,
+            originalCount: materialsHierarchy.length,
+            filteredCount: filteredMaterialsHierarchy.length,
+            filteredHierarchy: filteredMaterialsHierarchy,
+          })
 
           return (
             <TabsContent 
