@@ -134,45 +134,42 @@ const normalizeToStringArray = (value: string | string[] | null | undefined): st
 }
 
 /**
+ * Проверка что значение является валидной строкой для фильтрации
+ */
+const isValidStringValue = (v: unknown): v is string => {
+  return (
+    v !== null && 
+    v !== undefined && 
+    v !== false && 
+    v !== 'false' && 
+    v !== '' &&
+    typeof v === 'string'
+  )
+}
+
+/**
  * Безопасное получение массива значений из свойства Bitrix.
  * Обрабатывает случаи когда значение: null, undefined, false, "false", "", пустой массив.
  * Возвращает пустой массив если значение невалидно — это означает "показать все".
  */
 const getSupportedList = (value: unknown): string[] => {
   // Пустые/невалидные значения — вернуть пустой массив (показать все)
-  if (
-    value === null || 
-    value === undefined || 
-    value === false || 
-    value === 'false' || 
-    value === ''
-  ) {
+  if (!isValidStringValue(value)) {
+    // Массив — фильтруем пустые и невалидные элементы
+    if (Array.isArray(value)) {
+      return value.filter(isValidStringValue)
+    }
+    
+    // Число — преобразуем в строку
+    if (typeof value === 'number') {
+      return [String(value)]
+    }
+    
     return []
   }
   
-  // Массив — фильтруем пустые и невалидные элементы
-  if (Array.isArray(value)) {
-    return value.filter(v => 
-      v !== null && 
-      v !== undefined && 
-      v !== false && 
-      v !== 'false' && 
-      v !== '' &&
-      typeof v === 'string'
-    ) as string[]
-  }
-  
   // Строка — возвращаем как массив из одного элемента
-  if (typeof value === 'string' && value && value !== 'false') {
-    return [value]
-  }
-  
-  // Число — преобразуем в строку
-  if (typeof value === 'number') {
-    return [String(value)]
-  }
-  
-  return []
+  return [value]
 }
 
 // Парсинг extraOptions из OTHER_OPTIONS
