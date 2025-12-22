@@ -126,10 +126,42 @@ const getPropertyArrayValue = (prop: BitrixProperty | undefined): string[] => {
   return []
 }
 
-// Нормализация любого значения в массив строк
-const normalizeToStringArray = (value: string | string[] | null | undefined): string[] => {
-  if (Array.isArray(value)) return value
-  if (value != null) return [String(value)]
+/**
+ * Проверка что значение является валидной строкой для фильтрации.
+ * 
+ * @param v - Значение для проверки
+ * @returns true если это непустая строка и не "false" (которое Bitrix возвращает вместо пустого списка)
+ * 
+ * @remarks
+ * Строка "false" специально считается невалидной, так как Bitrix возвращает её
+ * когда свойство не заполнено, что должно означать "показать все элементы"
+ */
+const isValidStringValue = (v: unknown): v is string => {
+  return typeof v === 'string' && v !== '' && v !== 'false'
+}
+
+/**
+ * Безопасное получение массива значений из свойства Bitrix.
+ * Обрабатывает случаи когда значение: null, undefined, false, "false", "", пустой массив.
+ * Возвращает пустой массив если значение невалидно — это означает "показать все".
+ */
+const getSupportedList = (value: unknown): string[] => {
+  // Число — преобразуем в строку
+  if (typeof value === 'number') {
+    return [String(value)]
+  }
+  
+  // Валидная строка — возвращаем как массив из одного элемента
+  if (isValidStringValue(value)) {
+    return [value]
+  }
+  
+  // Массив — фильтруем пустые и невалидные элементы
+  if (Array.isArray(value)) {
+    return value.filter(isValidStringValue)
+  }
+  
+  // Пустые/невалидные значения — вернуть пустой массив (показать все)
   return []
 }
 
@@ -577,12 +609,12 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       if (!parentOperation) return
       
       // Get supported equipment list from parent operation
-      const supportedEquipmentList = normalizeToStringArray(
+      const supportedEquipmentList = getSupportedList(
         parentOperation.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE
       )
       
       // Get supported materials list from parent operation
-      const supportedMaterialsVariantsList = normalizeToStringArray(
+      const supportedMaterialsVariantsList = getSupportedList(
         parentOperation.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE
       )
       
@@ -732,7 +764,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           
           // SUPPORTED_EQUIPMENT_LIST находится в родительской операции (itemParent)
           const parentOperation = operationSettingsItem?.itemParent
-          const supportedEquipmentList = normalizeToStringArray(
+          const supportedEquipmentList = getSupportedList(
             parentOperation?.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE
           )
           
@@ -742,14 +774,16 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
             : equipmentHierarchy
           
           console.log('[CalculatorTabs][DEBUG] Filtering equipment', {
-            supportedEquipmentList,
+            rawValue: parentOperation?.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE,
+            parsedList: supportedEquipmentList,
+            willFilter: supportedEquipmentList.length > 0,
             originalCount: equipmentHierarchy.length,
             filteredCount: filteredEquipmentHierarchy.length,
             filteredHierarchy: filteredEquipmentHierarchy,
           })
           
           // Filter materials based on SUPPORTED_MATERIALS_VARIANTS_LIST from operation settings
-          const supportedMaterialsVariantsList = normalizeToStringArray(
+          const supportedMaterialsVariantsList = getSupportedList(
             parentOperation?.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE
           )
           const filteredMaterialsHierarchy = supportedMaterialsVariantsList.length > 0
@@ -757,7 +791,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
             : materialsHierarchy
           
           console.log('[CalculatorTabs][DEBUG] Filtering materials', {
-            supportedMaterialsVariantsList,
+            rawValue: parentOperation?.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE,
+            parsedList: supportedMaterialsVariantsList,
+            willFilter: supportedMaterialsVariantsList.length > 0,
             originalCount: materialsHierarchy.length,
             filteredCount: filteredMaterialsHierarchy.length,
             filteredHierarchy: filteredMaterialsHierarchy,
