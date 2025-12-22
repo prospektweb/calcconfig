@@ -3,6 +3,7 @@ interface OpenBitrixAdminParams {
   type: string
   lang: string
   id?: number
+  isSection?: boolean
 }
 
 interface BitrixContext {
@@ -26,7 +27,7 @@ export function openBitrixAdmin(params: OpenBitrixAdminParams) {
     throw new Error('Контекст Bitrix не инициализирован')
   }
 
-  const { iblockId, type, lang, id } = params
+  const { iblockId, type, lang, id, isSection = false } = params
   const { baseUrl } = bitrixContext
 
   if (!iblockId || !type || !lang) {
@@ -37,7 +38,11 @@ export function openBitrixAdmin(params: OpenBitrixAdminParams) {
   let url: string
 
   if (id !== undefined) {
-    url = `${baseUrl}/bitrix/admin/iblock_element_edit.php?IBLOCK_ID=${iblockId}&type=${type}&lang=${lang}&ID=${id}`
+    if (isSection) {
+      url = `${baseUrl}/bitrix/admin/iblock_section_edit.php?IBLOCK_ID=${iblockId}&type=${type}&lang=${lang}&ID=${id}`
+    } else {
+      url = `${baseUrl}/bitrix/admin/iblock_element_edit.php?IBLOCK_ID=${iblockId}&type=${type}&lang=${lang}&ID=${id}`
+    }
   } else {
     url = `${baseUrl}/bitrix/admin/iblock_list_admin.php?IBLOCK_ID=${iblockId}&type=${type}&lang=${lang}&find_section_section=0`
   }

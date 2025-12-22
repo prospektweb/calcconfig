@@ -136,24 +136,25 @@ const getExtraOptions = (settings: CalcSettingsItem | undefined): ExtraOption[] 
 const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionField[] => {
   if (!settings) return []
   
-  const otherOptions = getProperty(settings, 'OTHER_OPTIONS')
+  const otherOptions = settings.properties?.OTHER_OPTIONS
   if (!otherOptions) return []
   
-  // OTHER_OPTIONS может быть HTML-типом с TEXT полем
-  const rawValue = otherOptions.VALUE
   let jsonString = ''
   
-  if (typeof rawValue === 'object' && rawValue !== null && 'TEXT' in rawValue) {
-    jsonString = (rawValue as { TEXT: string }).TEXT
-  } else if (typeof rawValue === 'string') {
-    jsonString = rawValue
+  // Проверяем ~VALUE.TEXT (приоритет)
+  const tildeValue = (otherOptions as any)['~VALUE']
+  if (tildeValue && typeof tildeValue === 'object' && 'TEXT' in tildeValue) {
+    jsonString = tildeValue.TEXT
+  } else if (typeof otherOptions.VALUE === 'object' && otherOptions.VALUE !== null && 'TEXT' in otherOptions.VALUE) {
+    jsonString = (otherOptions.VALUE as { TEXT: string }).TEXT
+  } else if (typeof otherOptions.VALUE === 'string') {
+    jsonString = otherOptions.VALUE
   }
   
   if (!jsonString) return []
   
   try {
     const parsed = JSON.parse(jsonString)
-    // Validate structure before type assertion
     if (typeof parsed !== 'object' || parsed === null || !Array.isArray(parsed.fields)) {
       console.warn('[CalculatorTabs] OTHER_OPTIONS has invalid structure:', parsed)
       return []
@@ -258,22 +259,36 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   const operationVariants = useOperationVariantStore(s => s.variants)
   const materialVariants = useMaterialVariantStore(s => s.variants)
   
-  // Helper function to get operation unit
+  // Helper function to get operation unit from measure.symbol
   const getOperationUnit = (operationId: number | null): string => {
     if (!operationId) return 'ед.'
     const variant = operationVariants[operationId.toString()]
-    if (!variant?.properties?.MEASURE_UNIT) return 'ед.'
-    const value = variant.properties.MEASURE_UNIT.VALUE
-    return typeof value === 'string' ? value : 'ед.'
+    // Сначала проверяем measure.symbol
+    if (variant?.measure?.symbol) {
+      return variant.measure.symbol
+    }
+    // Fallback на свойство MEASURE_UNIT
+    if (variant?.properties?.MEASURE_UNIT?.VALUE) {
+      const value = variant.properties.MEASURE_UNIT.VALUE
+      return typeof value === 'string' ? value : 'ед.'
+    }
+    return 'ед.'
   }
   
-  // Helper function to get material unit
+  // Helper function to get material unit from measure.symbol
   const getMaterialUnit = (materialId: number | null): string => {
     if (!materialId) return 'шт.'
     const variant = materialVariants[materialId.toString()]
-    if (!variant?.properties?.MEASURE_UNIT) return 'шт.'
-    const value = variant.properties.MEASURE_UNIT.VALUE
-    return typeof value === 'string' ? value : 'шт.'
+    // Сначала проверяем measure.symbol
+    if (variant?.measure?.symbol) {
+      return variant.measure.symbol
+    }
+    // Fallback на свойство MEASURE_UNIT
+    if (variant?.properties?.MEASURE_UNIT?.VALUE) {
+      const value = variant.properties.MEASURE_UNIT.VALUE
+      return typeof value === 'string' ? value : 'шт.'
+    }
+    return 'шт.'
   }
   
   const safeCalculators = calculators || []
@@ -482,54 +497,85 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   // Auto-select first equipment/material when operation settings are loaded
   useEffect(() => {
     safeCalculators.forEach((calc, index) => {
-      if (!calc.operationId) return
-      
-      const operationSettingsItem = operationSettings[calc.operationId.toString()]
-      if (!operationSettingsItem) return
-      
-      // Auto-select first equipment if not set and list is filtered
-      const supportedEquipmentList = getPropertyArrayValue(getProperty(operationSettingsItem, 'SUPPORTED_EQUIPMENT_LIST'))
-      if (!calc.equipmentId && supportedEquipmentList.length > 0) {
-        // Find first matching equipment in hierarchy
-        for (const category of equipmentHierarchy) {
-          const firstMatch = category.children?.find(item => 
-            item.value && supportedEquipmentList.includes(item.value)
-          )
-          if (firstMatch?.value) {
-            handleUpdateCalculator(index, { equipmentId: parseInt(firstMatch.value) })
-            break
+      // Автовыбор оборудования если не выбрано
+      if (!calc.equipmentId && calc.operationId) {
+        const operationSettingsItem = operationSettings[calc.operationId.toString()]
+        
+        // SUPPORTED_EQUIPMENT_LIST находится в родительской операции (itemParent)
+        const parentOperation = operationSettingsItem?.itemParent
+        const supportedEquipmentList = parentOperation?.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE
+          ? (Array.isArray(parentOperation.properties.SUPPORTED_EQUIPMENT_LIST.VALUE) 
+              ? parentOperation.properties.SUPPORTED_EQUIPMENT_LIST.VALUE 
+              : [parentOperation.properties.SUPPORTED_EQUIPMENT_LIST.VALUE])
+          : []
+        
+        // Ищем первое подходящее оборудование
+        const hierarchyToSearch = supportedEquipmentList.length > 0
+          ? equipmentHierarchy.map(category => ({
+              ...category,
+              children: category.children?.filter(item => 
+                item.value && supportedEquipmentList.includes(item.value)
+              ) || []
+            })).filter(category => category.children && category.children.length > 0)
+          : equipmentHierarchy
+        
+        for (const category of hierarchyToSearch) {
+          if (category.children && category.children.length > 0) {
+            const firstEquipment = category.children[0]
+            if (firstEquipment?.value) {
+              handleUpdateCalculator(index, { equipmentId: parseInt(firstEquipment.value) })
+              break
+            }
           }
         }
       }
       
-      // Auto-select first material if not set and list is filtered
-      const supportedMaterialsVariantsList = getPropertyArrayValue(getProperty(operationSettingsItem, 'SUPPORTED_MATERIALS_VARIANTS_LIST'))
-      if (!calc.materialId && supportedMaterialsVariantsList.length > 0) {
-        // Find first matching material in hierarchy
-        for (const category of materialsHierarchy) {
-          const firstMatch = category.children?.find(item => 
-            item.value && supportedMaterialsVariantsList.includes(item.value)
-          )
-          if (firstMatch?.value) {
-            handleUpdateCalculator(index, { materialId: parseInt(firstMatch.value) })
-            
-            // Send request for material variant data
-            if (bitrixMeta) {
-              const context = getBitrixContext()
-              const iblockId = bitrixMeta.iblocks.calcMaterialsVariants
-              if (context && iblockId) {
-                const iblockType = bitrixMeta.iblocksTypes[iblockId]
-                if (iblockType) {
-                  postMessageBridge.sendCalcMaterialVariantRequest(
-                    parseInt(firstMatch.value),
-                    iblockId,
-                    iblockType,
-                    context.lang
-                  )
+      // Автовыбор материала если не выбран
+      if (!calc.materialId && calc.operationId) {
+        const operationSettingsItem = operationSettings[calc.operationId.toString()]
+        
+        // SUPPORTED_MATERIALS_VARIANTS_LIST находится в родительской операции (itemParent)
+        const parentOperation = operationSettingsItem?.itemParent
+        const supportedMaterialsVariantsList = parentOperation?.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE
+          ? (Array.isArray(parentOperation.properties.SUPPORTED_MATERIALS_VARIANTS_LIST.VALUE) 
+              ? parentOperation.properties.SUPPORTED_MATERIALS_VARIANTS_LIST.VALUE 
+              : [parentOperation.properties.SUPPORTED_MATERIALS_VARIANTS_LIST.VALUE])
+          : []
+        
+        // Ищем первый подходящий материал
+        const hierarchyToSearch = supportedMaterialsVariantsList.length > 0
+          ? materialsHierarchy.map(category => ({
+              ...category,
+              children: category.children?.filter(item => 
+                item.value && supportedMaterialsVariantsList.includes(item.value)
+              ) || []
+            })).filter(category => category.children && category.children.length > 0)
+          : materialsHierarchy
+        
+        for (const category of hierarchyToSearch) {
+          if (category.children && category.children.length > 0) {
+            const firstMaterial = category.children[0]
+            if (firstMaterial?.value) {
+              handleUpdateCalculator(index, { materialId: parseInt(firstMaterial.value) })
+              
+              // Send request for material variant data
+              if (bitrixMeta) {
+                const context = getBitrixContext()
+                const iblockId = bitrixMeta.iblocks.calcMaterialsVariants
+                if (context && iblockId) {
+                  const iblockType = bitrixMeta.iblocksTypes[iblockId]
+                  if (iblockType) {
+                    postMessageBridge.sendCalcMaterialVariantRequest(
+                      parseInt(firstMaterial.value),
+                      iblockId,
+                      iblockType,
+                      context.lang
+                    )
+                  }
                 }
               }
+              break
             }
-            break
           }
         }
       }
@@ -637,8 +683,15 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
             ? operationSettings[calc.operationId.toString()]
             : undefined
           
+          // SUPPORTED_EQUIPMENT_LIST находится в родительской операции (itemParent)
+          const parentOperation = operationSettingsItem?.itemParent
+          const supportedEquipmentList = parentOperation?.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE
+            ? (Array.isArray(parentOperation.properties.SUPPORTED_EQUIPMENT_LIST.VALUE) 
+                ? parentOperation.properties.SUPPORTED_EQUIPMENT_LIST.VALUE 
+                : [parentOperation.properties.SUPPORTED_EQUIPMENT_LIST.VALUE])
+            : []
+          
           // Filter equipment based on SUPPORTED_EQUIPMENT_LIST from operation settings
-          const supportedEquipmentList = getPropertyArrayValue(getProperty(operationSettingsItem, 'SUPPORTED_EQUIPMENT_LIST'))
           const filteredEquipmentHierarchy = supportedEquipmentList.length > 0
             ? equipmentHierarchy.map(category => ({
                 ...category,
@@ -649,7 +702,11 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
             : equipmentHierarchy
           
           // Filter materials based on SUPPORTED_MATERIALS_VARIANTS_LIST from operation settings
-          const supportedMaterialsVariantsList = getPropertyArrayValue(getProperty(operationSettingsItem, 'SUPPORTED_MATERIALS_VARIANTS_LIST'))
+          const supportedMaterialsVariantsList = parentOperation?.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE
+            ? (Array.isArray(parentOperation.properties.SUPPORTED_MATERIALS_VARIANTS_LIST.VALUE) 
+                ? parentOperation.properties.SUPPORTED_MATERIALS_VARIANTS_LIST.VALUE 
+                : [parentOperation.properties.SUPPORTED_MATERIALS_VARIANTS_LIST.VALUE])
+            : []
           const filteredMaterialsHierarchy = supportedMaterialsVariantsList.length > 0
             ? materialsHierarchy.map(category => ({
                 ...category,
@@ -731,6 +788,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                         }}
                         placeholder="Выберите калькулятор..."
                         data-pwcode="select-calculator"
+                        bitrixMeta={bitrixMeta}
                       />
                   </div>
                   {renderSelectedId(toNumber(calc.calculatorCode), 'calculator', 'btn-open-calculator-bitrix')}
@@ -785,6 +843,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           }}
                           placeholder="Выберите операцию..."
                           data-pwcode="select-operation"
+                          bitrixMeta={bitrixMeta}
                         />
                       </div>
                       {renderSelectedId(toNumber(calc.operationId), 'operation', 'btn-open-operation-bitrix')}
@@ -870,6 +929,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           })}
                           placeholder="Выберите оборудование..."
                           disabled={!calc.operationId}
+                          bitrixMeta={bitrixMeta}
                         />
                       </div>
                       
@@ -997,6 +1057,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           }
                         }}
                         placeholder="Выберите материал..."
+                        bitrixMeta={bitrixMeta}
                       />
                     </div>
                     {renderSelectedId(toNumber(calc.materialId), 'material', 'btn-open-material-bitrix')}

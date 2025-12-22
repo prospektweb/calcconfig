@@ -5,6 +5,11 @@ export interface MaterialItem {
   id: number
   name: string
   properties: Record<string, BitrixProperty>
+  itemParent?: {
+    id: number
+    name: string
+    properties: Record<string, BitrixProperty>
+  }
 }
 
 interface MaterialSettingsState {
