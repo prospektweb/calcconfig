@@ -127,7 +127,14 @@ const getPropertyArrayValue = (prop: BitrixProperty | undefined): string[] => {
 }
 
 /**
- * Проверка что значение является валидной строкой для фильтрации
+ * Проверка что значение является валидной строкой для фильтрации.
+ * 
+ * @param v - Значение для проверки
+ * @returns true если это непустая строка и не "false" (которое Bitrix возвращает вместо пустого списка)
+ * 
+ * @remarks
+ * Строка "false" специально считается невалидной, так как Bitrix возвращает её
+ * когда свойство не заполнено, что должно означать "показать все элементы"
  */
 const isValidStringValue = (v: unknown): v is string => {
   return typeof v === 'string' && v !== '' && v !== 'false'
