@@ -126,6 +126,13 @@ const getPropertyArrayValue = (prop: BitrixProperty | undefined): string[] => {
   return []
 }
 
+// Нормализация любого значения в массив строк
+const normalizeToStringArray = (value: any): string[] => {
+  if (Array.isArray(value)) return value
+  if (value != null) return [String(value)]
+  return []
+}
+
 // Парсинг extraOptions из OTHER_OPTIONS
 interface ExtraOption {
   code: string
@@ -570,16 +577,14 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       if (!parentOperation) return
       
       // Get supported equipment list from parent operation
-      const supportedEquipmentListRaw = parentOperation.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE
-      const supportedEquipmentList: string[] = Array.isArray(supportedEquipmentListRaw) 
-        ? supportedEquipmentListRaw 
-        : (supportedEquipmentListRaw ? [String(supportedEquipmentListRaw)] : [])
+      const supportedEquipmentList = normalizeToStringArray(
+        parentOperation.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE
+      )
       
       // Get supported materials list from parent operation
-      const supportedMaterialsListRaw = parentOperation.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE
-      const supportedMaterialsVariantsList: string[] = Array.isArray(supportedMaterialsListRaw)
-        ? supportedMaterialsListRaw
-        : (supportedMaterialsListRaw ? [String(supportedMaterialsListRaw)] : [])
+      const supportedMaterialsVariantsList = normalizeToStringArray(
+        parentOperation.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE
+      )
       
       // Auto-select equipment if not selected
       if (!calc.equipmentId) {
@@ -727,11 +732,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           
           // SUPPORTED_EQUIPMENT_LIST находится в родительской операции (itemParent)
           const parentOperation = operationSettingsItem?.itemParent
-          const supportedEquipmentList = parentOperation?.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE
-            ? (Array.isArray(parentOperation.properties.SUPPORTED_EQUIPMENT_LIST.VALUE) 
-                ? parentOperation.properties.SUPPORTED_EQUIPMENT_LIST.VALUE 
-                : [parentOperation.properties.SUPPORTED_EQUIPMENT_LIST.VALUE])
-            : []
+          const supportedEquipmentList = normalizeToStringArray(
+            parentOperation?.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE
+          )
           
           // Filter equipment based on SUPPORTED_EQUIPMENT_LIST from operation settings
           const filteredEquipmentHierarchy = supportedEquipmentList.length > 0
@@ -746,11 +749,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           })
           
           // Filter materials based on SUPPORTED_MATERIALS_VARIANTS_LIST from operation settings
-          const supportedMaterialsVariantsList = parentOperation?.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE
-            ? (Array.isArray(parentOperation.properties.SUPPORTED_MATERIALS_VARIANTS_LIST.VALUE) 
-                ? parentOperation.properties.SUPPORTED_MATERIALS_VARIANTS_LIST.VALUE 
-                : [parentOperation.properties.SUPPORTED_MATERIALS_VARIANTS_LIST.VALUE])
-            : []
+          const supportedMaterialsVariantsList = normalizeToStringArray(
+            parentOperation?.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE
+          )
           const filteredMaterialsHierarchy = supportedMaterialsVariantsList.length > 0
             ? filterHierarchyByValues(materialsHierarchy, supportedMaterialsVariantsList)
             : materialsHierarchy
