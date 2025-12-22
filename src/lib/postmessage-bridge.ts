@@ -244,6 +244,20 @@ export interface CalcOperationVariantResponsePayload {
     code: string
     name: string
     properties: Record<string, BitrixProperty>
+    /** Родительская операция с SUPPORTED_EQUIPMENT_LIST и SUPPORTED_MATERIALS_VARIANTS_LIST */
+    itemParent?: {
+      id: number
+      name: string
+      code?: string
+      properties: Record<string, BitrixProperty>
+    }
+    /** Единица измерения */
+    measure?: {
+      id: number
+      code: string
+      symbol: string
+      name?: string
+    }
   }
 }
 
@@ -267,6 +281,20 @@ export interface CalcMaterialVariantResponsePayload {
     code: string
     name: string
     properties: Record<string, BitrixProperty>
+    /** Родительский материал */
+    itemParent?: {
+      id: number
+      name: string
+      code?: string
+      properties: Record<string, BitrixProperty>
+    }
+    /** Единица измерения */
+    measure?: {
+      id: number
+      code: string
+      symbol: string
+      name?: string
+    }
   }
 }
 

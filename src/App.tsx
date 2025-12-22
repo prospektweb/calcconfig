@@ -516,21 +516,24 @@ function App() {
         id: item.id,
         name: item.name,
         properties: item.properties || {},
+        measure: item.measure,  // ← ДОБАВИТЬ для единиц измерения
       })
 
-      // Save to operation settings store (for SUPPORTED lists)
+      // Save to operation settings store (for SUPPORTED lists from itemParent)
       operationStore.setOperation(item.id.toString(), {
         id: item.id,
         name: item.name,
         properties: item.properties || {},
+        itemParent: item.itemParent,  // ← ДОБАВИТЬ itemParent
       })
 
-      console.info('[CALC_OPERATION_VARIANT] saved operation with properties', {
+      console.info('[CALC_OPERATION_VARIANT] saved operation with itemParent', {
         id: item.id,
         name: item.name,
-        propertiesCount: Object.keys(item.properties || {}).length,
-        supportedEquipment: item.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE,
-        supportedMaterials: item.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE,
+        hasItemParent: !!item.itemParent,
+        itemParentId: item.itemParent?.id,
+        supportedEquipment: item.itemParent?.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE,
+        supportedMaterials: item.itemParent?.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE,
       })
     })
 
@@ -547,6 +550,7 @@ function App() {
         id: item.id,
         name: item.name,
         properties: item.properties,
+        measure: item.measure,  // ← ДОБАВИТЬ
       })
 
       console.info('[CALC_MATERIAL_VARIANT] saved material variant', item.id, item.name)
