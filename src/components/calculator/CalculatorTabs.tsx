@@ -126,25 +126,11 @@ const getPropertyArrayValue = (prop: BitrixProperty | undefined): string[] => {
   return []
 }
 
-// Нормализация любого значения в массив строк
-const normalizeToStringArray = (value: string | string[] | null | undefined): string[] => {
-  if (Array.isArray(value)) return value
-  if (value != null) return [String(value)]
-  return []
-}
-
 /**
  * Проверка что значение является валидной строкой для фильтрации
  */
 const isValidStringValue = (v: unknown): v is string => {
-  return (
-    v !== null && 
-    v !== undefined && 
-    v !== false && 
-    v !== 'false' && 
-    v !== '' &&
-    typeof v === 'string'
-  )
+  return typeof v === 'string' && v !== '' && v !== 'false'
 }
 
 /**
