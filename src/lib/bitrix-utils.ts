@@ -73,12 +73,10 @@ export function openIblockEditPage(iblockId: number, type: string = 'calculator'
   const url = `${baseUrl}/bitrix/admin/iblock_edit.php?type=${type}&lang=${lang}&ID=${iblockId}`
 
   try {
-    const newWindow = window.open('', '_blank')
+    const newWindow = window.open(url, '_blank', 'noopener')
     if (!newWindow) {
       throw new Error('Всплывающее окно заблокировано браузером')
     }
-    newWindow.opener = null
-    newWindow.location.href = url
   } catch (error) {
     console.error('[openIblockEditPage] Failed to open window', error)
     throw error

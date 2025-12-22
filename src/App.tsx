@@ -870,7 +870,7 @@ function App() {
 
       let pathToScript: string | undefined
 
-      if (calculatorCode !== undefined && calculatorCode !== null) {
+      if (calculatorCode != null) {
         const settings = useCalculatorSettingsStore.getState().getSettings(calculatorCode.toString())
         pathToScript = settings?.properties?.PATH_TO_SCRIPT?.VALUE
       }
