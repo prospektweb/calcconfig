@@ -527,13 +527,18 @@ function App() {
         itemParent: item.itemParent,  // ← ДОБАВИТЬ itemParent
       })
 
+      const rawEquipment = item.itemParent?.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE
+      const rawMaterials = item.itemParent?.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE
+
       console.info('[CALC_OPERATION_VARIANT] saved operation with itemParent', {
         id: item.id,
         name: item.name,
         hasItemParent: !!item.itemParent,
         itemParentId: item.itemParent?.id,
-        supportedEquipment: item.itemParent?.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE,
-        supportedMaterials: item.itemParent?.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE,
+        supportedEquipment: rawEquipment,
+        supportedEquipmentParsed: rawEquipment === false || rawEquipment === 'false' ? '(all)' : rawEquipment,
+        supportedMaterials: rawMaterials,
+        supportedMaterialsParsed: rawMaterials === false || rawMaterials === 'false' ? '(all)' : rawMaterials,
       })
     })
 
