@@ -153,23 +153,23 @@ const isValidStringValue = (v: unknown): v is string => {
  * Возвращает пустой массив если значение невалидно — это означает "показать все".
  */
 const getSupportedList = (value: unknown): string[] => {
-  // Пустые/невалидные значения — вернуть пустой массив (показать все)
-  if (!isValidStringValue(value)) {
-    // Массив — фильтруем пустые и невалидные элементы
-    if (Array.isArray(value)) {
-      return value.filter(isValidStringValue)
-    }
-    
-    // Число — преобразуем в строку
-    if (typeof value === 'number') {
-      return [String(value)]
-    }
-    
-    return []
+  // Число — преобразуем в строку
+  if (typeof value === 'number') {
+    return [String(value)]
   }
   
-  // Строка — возвращаем как массив из одного элемента
-  return [value]
+  // Валидная строка — возвращаем как массив из одного элемента
+  if (isValidStringValue(value)) {
+    return [value]
+  }
+  
+  // Массив — фильтруем пустые и невалидные элементы
+  if (Array.isArray(value)) {
+    return value.filter(isValidStringValue)
+  }
+  
+  // Пустые/невалидные значения — вернуть пустой массив (показать все)
+  return []
 }
 
 // Парсинг extraOptions из OTHER_OPTIONS
