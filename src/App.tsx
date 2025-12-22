@@ -180,7 +180,7 @@ function App() {
   const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
 
   const [costingSettings, setCostingSettings] = useConfigKV<CostingSettings>('calc_costing_settings', {
-    basedOn: 'COMPONENT_PURCHASE',
+    basedOn: 'COMPONENT_BASE',
     roundingStep: 1,
     markupValue: 0,
     markupUnit: 'RUB',
@@ -834,12 +834,98 @@ function App() {
     setIsCalculating(true)
     setCalculationProgress(0)
     
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise(resolve => setTimeout(resolve, 200))
-      setCalculationProgress(i)
+    try {
+      // 1. Collect data from main page
+      const collectedData = {
+        details: details || [],
+        bindings: bindings || [],
+        headerTabs: headerTabs || createEmptyHeaderTabs(),
+        costingSettings: costingSettings || { basedOn: 'COMPONENT_BASE', roundingStep: 1, markupValue: 0, markupUnit: 'RUB' },
+        salePricesSettings: salePricesSettings || { selectedTypes: [], types: {} },
+      }
+
+      // 2. Collect test variant data
+      const selectedOffer = testVariantId ? selectedOffers.find(o => o.id === testVariantId) : undefined
+      const testVariant = {
+        id: testVariantId,
+        offer: selectedOffer,
+      }
+
+      // 3. Determine what to calculate based on active panels
+      const calculateCost = isCostActive
+      const calculatePrices = isPriceActive
+
+      // 4. Log collected data to console
+      console.log('[TEST_CALCULATION] Collected data:', {
+        ...collectedData,
+        testVariant,
+        calculateCost,
+        calculatePrices,
+      })
+
+      // 5. Get PATH_TO_SCRIPT from calculator settings
+      const firstDetail = details && details.length > 0 ? details[0] : null
+      const firstCalculator = firstDetail?.calculators && firstDetail.calculators.length > 0 ? firstDetail.calculators[0] : null
+      const calculatorCode = firstCalculator?.calculatorCode
+
+      let pathToScript: string | undefined
+
+      if (calculatorCode) {
+        const settings = useCalculatorSettingsStore.getState().getSettings(calculatorCode.toString())
+        pathToScript = settings?.properties?.PATH_TO_SCRIPT?.VALUE
+      }
+
+      console.log('[TEST_CALCULATION] PATH_TO_SCRIPT:', pathToScript)
+
+      // 6. Send data to server if PATH_TO_SCRIPT exists
+      if (pathToScript) {
+        setCalculationProgress(25)
+        
+        const requestBody = {
+          ...collectedData,
+          testVariant,
+          calculateCost,
+          calculatePrices,
+        }
+
+        const response = await fetch(pathToScript, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        })
+
+        setCalculationProgress(75)
+
+        if (!response.ok) {
+          throw new Error(`Server responded with status ${response.status}`)
+        }
+
+        const responseData = await response.json()
+
+        // 7. Log server response to console
+        console.log('[TEST_CALCULATION] Server response:', responseData)
+
+        setCalculationProgress(100)
+        toast.success('Тестовый расчет выполнен успешно')
+      } else {
+        // 8. Handle case when PATH_TO_SCRIPT is not found
+        console.warn('[TEST_CALCULATION] PATH_TO_SCRIPT not found. Calculator code:', calculatorCode)
+        toast.warning('PATH_TO_SCRIPT не найден в настройках калькулятора')
+        
+        // Simulate progress animation
+        for (let i = 0; i <= 100; i += 10) {
+          await new Promise(resolve => setTimeout(resolve, 200))
+          setCalculationProgress(i)
+        }
+      }
+    } catch (error) {
+      console.error('[TEST_CALCULATION] Error:', error)
+      toast.error('Ошибка при выполнении тестового расчета')
+    } finally {
+      setIsCalculating(false)
     }
-    
-    setIsCalculating(false)
   }
 
   const handleFullCalculation = async () => {
@@ -961,7 +1047,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} bitrixMeta={bitrixMeta} />
       
       {dragState.isDragging && getDraggedElement()}
       

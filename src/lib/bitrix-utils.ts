@@ -62,3 +62,25 @@ export function openBitrixAdmin(params: OpenBitrixAdminParams) {
     throw error
   }
 }
+
+export function openIblockEditPage(iblockId: number, type: string = 'calculator', lang: string = 'ru') {
+  if (!bitrixContext) {
+    console.error('[openIblockEditPage] Bitrix context not initialized')
+    throw new Error('Контекст Bitrix не инициализирован')
+  }
+
+  const { baseUrl } = bitrixContext
+  const url = `${baseUrl}/bitrix/admin/iblock_edit.php?type=${type}&lang=${lang}&ID=${iblockId}`
+
+  try {
+    const newWindow = window.open('', '_blank')
+    if (!newWindow) {
+      throw new Error('Всплывающее окно заблокировано браузером')
+    }
+    newWindow.opener = window
+    newWindow.location.href = url
+  } catch (error) {
+    console.error('[openIblockEditPage] Failed to open window', error)
+    throw error
+  }
+}
