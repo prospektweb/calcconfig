@@ -8,6 +8,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { CaretDown, CaretRight, Check, ArrowSquareOut } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import { openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
+import { InitPayload } from '@/lib/postmessage-bridge'
 
 export interface MultiLevelItem {
   id: string
@@ -26,9 +28,10 @@ interface MultiLevelSelectProps {
   onValueChange: (value: string, label?: string) => void
   placeholder?: string
   disabled?: boolean
+  bitrixMeta?: InitPayload | null
 }
 
-export function MultiLevelSelect({ items, value, onValueChange, placeholder = 'Выберите...', disabled = false }: MultiLevelSelectProps) {
+export function MultiLevelSelect({ items, value, onValueChange, placeholder = 'Выберите...', disabled = false, bitrixMeta = null }: MultiLevelSelectProps) {
   const [open, setOpen] = useState(false)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
@@ -70,14 +73,30 @@ export function MultiLevelSelect({ items, value, onValueChange, placeholder = '�
       return
     }
 
-    // Send postMessage to parent window (Bitrix)
-    window.parent.postMessage({
-      action: 'openBitrixItem',
-      type: item.itemType,
-      id: item.id,
-      iblockId: item.iblockId,
-      iblockType: item.iblockType
-    }, '*')
+    if (!bitrixMeta) {
+      console.warn('[MultiLevelSelect] bitrixMeta not provided')
+      return
+    }
+
+    const context = getBitrixContext()
+    if (!context) {
+      console.warn('[MultiLevelSelect] Bitrix context not initialized')
+      return
+    }
+
+    try {
+      // Для разделов используем iblock_section_edit.php
+      // Для элементов используем iblock_element_edit.php
+      openBitrixAdmin({
+        iblockId: item.iblockId,
+        type: item.iblockType,
+        lang: context.lang,
+        id: parseInt(item.id),
+        isSection: item.itemType === 'section' // Добавить поддержку разделов в openBitrixAdmin
+      })
+    } catch (error) {
+      console.error('[MultiLevelSelect] Failed to open Bitrix item:', error)
+    }
   }
 
   const renderItem = (item: MultiLevelItem, level: number = 0) => {
@@ -113,12 +132,12 @@ export function MultiLevelSelect({ items, value, onValueChange, placeholder = '�
           {isSelected && <Check className="w-4 h-4" />}
           {item.iblockId && item.iblockType && item.itemType && (
             <button
-              className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1 rounded hover:bg-primary/10"
+              className="ml-2 p-1 rounded hover:bg-white/20 transition-colors"
               onClick={(e) => handleOpenBitrixItem(item, e)}
               data-pwcode={`btn-open-${item.itemType}-bitrix`}
               title="Открыть в Bitrix"
             >
-              <ArrowSquareOut className="w-3.5 h-3.5 text-muted-foreground hover:text-primary" />
+              <ArrowSquareOut className="w-3.5 h-3.5 text-muted-foreground group-hover:text-white transition-colors" />
             </button>
           )}
         </div>

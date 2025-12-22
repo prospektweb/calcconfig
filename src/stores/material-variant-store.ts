@@ -5,6 +5,11 @@ export interface MaterialVariantItem {
   id: number
   name: string
   properties: Record<string, BitrixProperty>
+  measure?: {
+    symbol: string
+    id?: number
+    name?: string
+  }
 }
 
 interface MaterialVariantState {

@@ -5,6 +5,11 @@ export interface OperationItem {
   id: number
   name: string
   properties: Record<string, BitrixProperty>
+  itemParent?: {
+    id: number
+    name: string
+    properties: Record<string, BitrixProperty>
+  }
 }
 
 interface OperationSettingsState {
