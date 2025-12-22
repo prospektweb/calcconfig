@@ -77,7 +77,7 @@ export function openIblockEditPage(iblockId: number, type: string = 'calculator'
     if (!newWindow) {
       throw new Error('Всплывающее окно заблокировано браузером')
     }
-    newWindow.opener = window
+    newWindow.opener = null
     newWindow.location.href = url
   } catch (error) {
     console.error('[openIblockEditPage] Failed to open window', error)
