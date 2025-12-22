@@ -127,7 +127,7 @@ const getPropertyArrayValue = (prop: BitrixProperty | undefined): string[] => {
 }
 
 // Нормализация любого значения в массив строк
-const normalizeToStringArray = (value: any): string[] => {
+const normalizeToStringArray = (value: string | string[] | null | undefined): string[] => {
   if (Array.isArray(value)) return value
   if (value != null) return [String(value)]
   return []
