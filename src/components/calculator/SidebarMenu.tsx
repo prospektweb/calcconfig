@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Info, FolderOpen } from '@phosphor-icons/react'
+import { Info, FolderOpen, Gear, Ruler, CurrencyCircleDollar } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { AboutDialog } from './AboutDialog'
 import { InitPayload } from '@/lib/postmessage-bridge'
@@ -76,6 +76,54 @@ export function SidebarMenu({ isOpen, onClose, bitrixMeta }: SidebarMenuProps) {
                     {link.label}
                   </Button>
                 ))}
+                <Separator />
+              </>
+            )}
+            
+            {bitrixMeta?.context && (
+              <>
+                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
+                  Системные настройки
+                </div>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    const baseUrl = bitrixMeta.context.url
+                    const lang = bitrixMeta.context.lang
+                    window.open(`https://${baseUrl}/bitrix/admin/settings.php?lang=${lang}&mid=prospektweb.calc&mid_menu=1`, '_blank')
+                  }}
+                  data-pwcode="btn-module-settings"
+                >
+                  <Gear className="w-4 h-4 mr-2" />
+                  Настройки модуля
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    const baseUrl = bitrixMeta.context.url
+                    const lang = bitrixMeta.context.lang
+                    window.open(`https://${baseUrl}/bitrix/admin/cat_measure_list.php?lang=${lang}`, '_blank')
+                  }}
+                  data-pwcode="btn-measure-units"
+                >
+                  <Ruler className="w-4 h-4 mr-2" />
+                  Единицы измерения
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    const baseUrl = bitrixMeta.context.url
+                    const lang = bitrixMeta.context.lang
+                    window.open(`https://${baseUrl}/bitrix/admin/cat_group_admin.php?lang=${lang}`, '_blank')
+                  }}
+                  data-pwcode="btn-price-types"
+                >
+                  <CurrencyCircleDollar className="w-4 h-4 mr-2" />
+                  Типы цен
+                </Button>
                 <Separator />
               </>
             )}
