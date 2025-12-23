@@ -161,7 +161,7 @@ function App() {
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
   const [draggedHeaderDetail, setDraggedHeaderDetail] = useState<{id: number, name: string} | null>(null)
-  const [activeHeaderTab, setActiveHeaderTab] = useState<HeaderTabType>('detailsVariants')
+  const [activeHeaderTab, setActiveHeaderTab] = useState<HeaderTabType>('details')
   const [isGabVesActive, setIsGabVesActive] = useState(false)
   const [isGabVesPanelExpanded, setIsGabVesPanelExpanded] = useState(false)
   const [gabVesMessages, setGabVesMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
@@ -727,7 +727,7 @@ function App() {
       if (jsonData) {
         const data = JSON.parse(jsonData)
         
-        if (data.type === 'header-detail' && activeHeaderTab === 'detailsVariants') {
+        if (data.type === 'header-detail' && activeHeaderTab === 'details') {
           // Create detail with data from drag event
           const newDetail = createEmptyDetail(data.detailName, data.detailId)
           // Real data can be retrieved later via REFRESH
@@ -1076,7 +1076,7 @@ function App() {
           pwcode="mainarea"
         >
           <div className="space-y-0">
-            {allItems.length === 0 && draggedHeaderDetail && activeHeaderTab === 'detailsVariants' && (
+            {allItems.length === 0 && draggedHeaderDetail && activeHeaderTab === 'details' && (
               <div
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center transition-all",
@@ -1117,7 +1117,7 @@ function App() {
               </div>
             )}
             
-            {draggedHeaderDetail && activeHeaderTab === 'detailsVariants' && allItems.length > 0 && (
+            {draggedHeaderDetail && activeHeaderTab === 'details' && allItems.length > 0 && (
               <div 
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
@@ -1202,7 +1202,7 @@ function App() {
                   </div>
                 )}
                 
-                {draggedHeaderDetail && activeHeaderTab === 'detailsVariants' && (
+                {draggedHeaderDetail && activeHeaderTab === 'details' && (
                   <div 
                     className={cn(
                       "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",

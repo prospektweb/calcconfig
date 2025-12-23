@@ -38,8 +38,8 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
 
       try {
         openBitrixAdmin({
-          iblockId: bitrixMeta.iblocks.calcDetailsVariants,
-          type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetailsVariants],
+          iblockId: bitrixMeta.iblocks.calcDetails,
+          type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
           lang: context.lang,
           id: detailIdNumber,
         })

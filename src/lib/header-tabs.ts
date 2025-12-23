@@ -4,7 +4,7 @@ export const createEmptyHeaderTabs = (): HeaderTabsState => ({
   equipment: [],
   materialsVariants: [],
   operationsVariants: [],
-  detailsVariants: [],
+  details: [],
 })
 
 const toHeaderElements = (value: any, overrideType?: HeaderTabType): HeaderElement[] => {
@@ -29,13 +29,13 @@ export function normalizeHeaderTabs(raw: any): HeaderTabsState {
     equipment: toHeaderElements(raw.equipment, 'equipment'),
     materialsVariants: toHeaderElements(raw.materialsVariants || raw.materials, 'materialsVariants'),
     operationsVariants: toHeaderElements(raw.operationsVariants || raw.operations, 'operationsVariants'),
-    detailsVariants: toHeaderElements(raw.detailsVariants || raw.details, 'detailsVariants'),
+    details: toHeaderElements(raw.details || raw.detailsVariants, 'details'),
   }
 
   return {
     equipment: normalized.equipment || [],
     materialsVariants: normalized.materialsVariants || [],
     operationsVariants: normalized.operationsVariants || [],
-    detailsVariants: normalized.detailsVariants || [],
+    details: normalized.details || [],
   }
 }
