@@ -28,6 +28,8 @@ export type MessageType =
   | 'CALC_OPERATION_VARIANT_RESPONSE'
   | 'CALC_MATERIAL_VARIANT_REQUEST'
   | 'CALC_MATERIAL_VARIANT_RESPONSE'
+  | 'SYNC_VARIANTS_REQUEST'
+  | 'SYNC_VARIANTS_RESPONSE'
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -298,6 +300,86 @@ export interface CalcMaterialVariantResponsePayload {
   }
 }
 
+/**
+ * Payload for sync variants request
+ */
+export interface SyncVariantsRequestPayload {
+  items: Array<{
+    id: string
+    type: 'detail' | 'binding'
+    name: string
+    bitrixId?: number
+    calculators: Array<{
+      id: string
+      calculatorCode?: number
+      operationVariantId?: number
+      materialVariantId?: number
+      equipmentId?: number
+      operationQuantity?: number
+      materialQuantity?: number
+      otherOptions?: Record<string, any>
+      configId?: number
+    }>
+    // Только для скреплений
+    bindingCalculators?: Array<{
+      id: string
+      calculatorCode?: number
+      operationVariantId?: number
+      materialVariantId?: number
+      equipmentId?: number
+      operationQuantity?: number
+      materialQuantity?: number
+      otherOptions?: Record<string, any>
+      configId?: number
+    }>
+    finishingCalculators?: Array<{
+      id: string
+      calculatorCode?: number
+      operationVariantId?: number
+      materialVariantId?: number
+      equipmentId?: number
+      operationQuantity?: number
+      materialQuantity?: number
+      otherOptions?: Record<string, any>
+      configId?: number
+    }>
+    childIds?: string[]
+  }>
+  offerIds: number[]
+  deletedConfigIds?: number[]
+  context: {
+    mode: 'NEW_CONFIG' | 'EXISTING_CONFIG'
+    configId?: number
+    timestamp: number
+  }
+}
+
+/**
+ * Payload for sync variants response
+ */
+export interface SyncVariantsResponsePayload {
+  status: 'ok' | 'error' | 'partial'
+  items: Array<{
+    id: string
+    bitrixId: number
+    type: 'detail' | 'binding'
+    calculators: Array<{
+      id: string
+      configId: number
+    }>
+  }>
+  canCalculate: boolean
+  stats: {
+    detailsCreated: number
+    detailsUpdated: number
+    configsCreated: number
+  }
+  errors?: Array<{
+    itemId?: string
+    message: string
+  }>
+}
+
 class PostMessageBridge {
   private targetOrigin: string = '*'
   private listeners: Map<MessageType | '*', Set<(message: PwrtMessage) => void>> = new Map()
@@ -525,6 +607,12 @@ class PostMessageBridge {
     this.sendMessage('REFRESH_REQUEST', {
       offerIds,
     })
+  }
+
+  sendSyncVariantsRequest(payload: SyncVariantsRequestPayload): string {
+    const requestId = `sync_variants_${Date.now()}`
+    this.sendMessage('SYNC_VARIANTS_REQUEST', payload, requestId)
+    return requestId
   }
 
   on(type: MessageType | '*', callback: (message: PwrtMessage) => void): () => void {

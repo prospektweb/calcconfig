@@ -11,7 +11,8 @@ import {
   CurrencyDollar,
   Tag,
   FloppyDisk,
-  X
+  X,
+  Link
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -38,7 +39,7 @@ import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
-import { postMessageBridge, InitPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload } from '@/lib/postmessage-bridge'
+import { postMessageBridge, InitPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload, SyncVariantsRequestPayload, SyncVariantsResponsePayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext } from '@/lib/bitrix-utils'
 import { createEmptyHeaderTabs, normalizeHeaderTabs } from '@/lib/header-tabs'
 import { useReferencesStore } from '@/stores/references-store'
@@ -65,6 +66,7 @@ function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const pendingRequestsRef = useRef<Map<string, { tab?: HeaderTabType }>>(new Map())
   const [isBitrixLoading, setIsBitrixLoading] = useState(false)
+  const [canCalculate, setCanCalculate] = useState(false)
   
   // Initialize headerTabs directly from localStorage
   const [headerTabs, setHeaderTabsState] = useState<HeaderTabsState>(() => {
@@ -561,12 +563,80 @@ function App() {
       console.info('[CALC_MATERIAL_VARIANT] saved material variant', item.id, item.name)
     })
 
+    const unsubscribeSyncVariants = postMessageBridge.on('SYNC_VARIANTS_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] SYNC_VARIANTS_RESPONSE', message)
+      
+      if (!message.payload) return
+      
+      const payload = message.payload as SyncVariantsResponsePayload
+      
+      // Update bitrixId for details and bindings
+      if (payload.items) {
+        payload.items.forEach((syncItem) => {
+          if (syncItem.type === 'detail') {
+            setDetails(prev => 
+              (prev || []).map(d => 
+                d.id === syncItem.id 
+                  ? { 
+                      ...d, 
+                      bitrixId: syncItem.bitrixId,
+                      calculators: d.calculators.map(calc => {
+                        const syncCalc = syncItem.calculators.find(sc => sc.id === calc.id)
+                        return syncCalc ? { ...calc, configId: syncCalc.configId } : calc
+                      })
+                    }
+                  : d
+              )
+            )
+          } else if (syncItem.type === 'binding') {
+            setBindings(prev => 
+              (prev || []).map(b => 
+                b.id === syncItem.id 
+                  ? { 
+                      ...b, 
+                      bitrixId: syncItem.bitrixId,
+                      calculators: b.calculators.map(calc => {
+                        const syncCalc = syncItem.calculators.find(sc => sc.id === calc.id)
+                        return syncCalc ? { ...calc, configId: syncCalc.configId } : calc
+                      })
+                    }
+                  : b
+              )
+            )
+          }
+        })
+      }
+      
+      // Update canCalculate state
+      setCanCalculate(payload.canCalculate)
+      
+      // Show toast with result
+      if (payload.status === 'ok') {
+        toast.success(`Успешно обновлено: деталей создано ${payload.stats.detailsCreated}, обновлено ${payload.stats.detailsUpdated}, конфигураций создано ${payload.stats.configsCreated}`)
+      } else if (payload.status === 'partial') {
+        toast.warning(`Частично обновлено с ошибками. Деталей создано ${payload.stats.detailsCreated}, обновлено ${payload.stats.detailsUpdated}`)
+        if (payload.errors) {
+          payload.errors.forEach(err => {
+            addInfoMessage('error', `Ошибка: ${err.message}`)
+          })
+        }
+      } else {
+        toast.error('Ошибка при обновлении связей')
+        if (payload.errors) {
+          payload.errors.forEach(err => {
+            addInfoMessage('error', `Ошибка: ${err.message}`)
+          })
+        }
+      }
+    })
+
     return () => {
       unsubscribeCalcSettings()
       unsubscribeOperation()
       unsubscribeMaterial()
       unsubscribeOperationVariant()
       unsubscribeMaterialVariant()
+      unsubscribeSyncVariants()
     }
   }, [])
   
@@ -828,6 +898,94 @@ function App() {
     
     setBindings(prev => [...(prev || []), newBinding])
     addInfoMessage('success', `Создано скрепление`)
+  }
+
+  const handleSyncVariants = () => {
+    // Collect data from getAllItemsInOrder
+    const allItems = getAllItemsInOrder()
+    
+    const items: SyncVariantsRequestPayload['items'] = allItems.map((item) => {
+      if (item.type === 'detail') {
+        const detail = item.item as Detail
+        return {
+          id: detail.id,
+          type: 'detail',
+          name: detail.name,
+          bitrixId: detail.bitrixId,
+          calculators: detail.calculators.map(calc => ({
+            id: calc.id,
+            calculatorCode: calc.calculatorCode || undefined,
+            operationVariantId: calc.operationId || undefined,
+            materialVariantId: calc.materialId || undefined,
+            equipmentId: calc.equipmentId || undefined,
+            operationQuantity: calc.operationQuantity || undefined,
+            materialQuantity: calc.materialQuantity || undefined,
+            otherOptions: calc.extraOptions || undefined,
+            configId: calc.configId || undefined,
+          })),
+        }
+      } else {
+        const binding = item.item as Binding
+        return {
+          id: binding.id,
+          type: 'binding',
+          name: binding.name,
+          bitrixId: binding.bitrixId,
+          calculators: binding.calculators.map(calc => ({
+            id: calc.id,
+            calculatorCode: calc.calculatorCode || undefined,
+            operationVariantId: calc.operationId || undefined,
+            materialVariantId: calc.materialId || undefined,
+            equipmentId: calc.equipmentId || undefined,
+            operationQuantity: calc.operationQuantity || undefined,
+            materialQuantity: calc.materialQuantity || undefined,
+            otherOptions: calc.extraOptions || undefined,
+            configId: calc.configId || undefined,
+          })),
+          bindingCalculators: binding.bindingCalculators?.map(calc => ({
+            id: calc.id,
+            calculatorCode: calc.calculatorCode || undefined,
+            operationVariantId: calc.operationId || undefined,
+            materialVariantId: calc.materialId || undefined,
+            equipmentId: calc.equipmentId || undefined,
+            operationQuantity: calc.operationQuantity || undefined,
+            materialQuantity: calc.materialQuantity || undefined,
+            otherOptions: calc.extraOptions || undefined,
+            configId: calc.configId || undefined,
+          })) || undefined,
+          finishingCalculators: binding.finishingCalculators?.map(calc => ({
+            id: calc.id,
+            calculatorCode: calc.calculatorCode || undefined,
+            operationVariantId: calc.operationId || undefined,
+            materialVariantId: calc.materialId || undefined,
+            equipmentId: calc.equipmentId || undefined,
+            operationQuantity: calc.operationQuantity || undefined,
+            materialQuantity: calc.materialQuantity || undefined,
+            otherOptions: calc.extraOptions || undefined,
+            configId: calc.configId || undefined,
+          })) || undefined,
+          childIds: [...(binding.detailIds || []), ...(binding.bindingIds || [])],
+        }
+      }
+    })
+    
+    // Collect offerIds
+    const offerIds = selectedOffers.map(o => o.id)
+    
+    // Prepare payload
+    const payload: SyncVariantsRequestPayload = {
+      items,
+      offerIds,
+      context: {
+        mode: bitrixMeta?.mode || 'NEW_CONFIG',
+        configId: bitrixMeta?.config?.id,
+        timestamp: Date.now(),
+      },
+    }
+    
+    // Send postMessage
+    postMessageBridge.sendSyncVariantsRequest(payload)
+    toast.info('Запрос на обновление связей отправлен...')
   }
 
   const handleTestCalculation = async () => {
@@ -1341,31 +1499,36 @@ function App() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={handleTestCalculation} 
-                disabled={isCalculating}
-                pwcode="btn-test-calc"
-              >
-                <Calculator className="w-4 h-4 mr-2" />
-                Тест
-              </Button>
-              <Button 
-                size="sm" 
-                onClick={handleFullCalculation} 
-                disabled={isCalculating}
-                pwcode="btn-full-calc"
-              >
-                <Calculator className="w-4 h-4 mr-2" />
-                Рассчитать
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => {}}
+                onClick={handleSyncVariants}
                 pwcode="btn-save"
+                title="Будут созданы/подготовлены варианты деталей и связаны с выбранными торговыми предложениями"
               >
-                <FloppyDisk className="w-4 h-4 mr-2" />
-                Сохранить
+                <Link className="w-4 h-4 mr-2" />
+                Обновить связи
               </Button>
+              {canCalculate && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleTestCalculation} 
+                    disabled={isCalculating}
+                    pwcode="btn-test-calc"
+                  >
+                    <Calculator className="w-4 h-4 mr-2" />
+                    Тест
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={handleFullCalculation} 
+                    disabled={isCalculating}
+                    pwcode="btn-full-calc"
+                  >
+                    <Calculator className="w-4 h-4 mr-2" />
+                    Рассчитать
+                  </Button>
+                </>
+              )}
               <Button 
                 variant="outline" 
                 size="sm" 

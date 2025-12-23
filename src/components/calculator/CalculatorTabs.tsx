@@ -359,7 +359,17 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   // Helper function to get material unit from measure.symbol
   const getMaterialUnit = (materialId: number | null): string => {
     if (!materialId) return 'шт.'
-    const variant = materialVariants[materialId.toString()]
+    
+    // Пробуем оба варианта ключа
+    const variant = materialVariants[materialId.toString()] || materialVariants[materialId]
+    
+    console.log('[getMaterialUnit] Debug:', {
+      materialId,
+      variantFound: !!variant,
+      measureSymbol: variant?.measure?.symbol,
+      measureUnit: variant?.properties?.MEASURE_UNIT?.VALUE,
+    })
+    
     // Сначала проверяем measure.symbol
     if (variant?.measure?.symbol) {
       return variant.measure.symbol
