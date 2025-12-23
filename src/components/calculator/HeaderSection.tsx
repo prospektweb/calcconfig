@@ -50,10 +50,10 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
         return 'operationsVariants'
       case 'equipment':
         return 'equipment'
-      case 'detailsVariants':
       case 'details':
+      case 'detailsVariants':
       default:
-        return 'detailsVariants'
+        return 'details'
     }
   }
 
@@ -117,7 +117,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     if (!bitrixMeta) return null
 
     const iblockMap: Record<HeaderTabType, number> = {
-      detailsVariants: forCatalog ? bitrixMeta.iblocks.calcDetails : bitrixMeta.iblocks.calcDetailsVariants,
+      details: bitrixMeta.iblocks.calcDetails,
       materialsVariants: forCatalog ? bitrixMeta.iblocks.calcMaterials : bitrixMeta.iblocks.calcMaterialsVariants,
       operationsVariants: forCatalog ? bitrixMeta.iblocks.calcOperations : bitrixMeta.iblocks.calcOperationsVariants,
       equipment: bitrixMeta.iblocks.calcEquipment,
@@ -198,7 +198,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     })
 
     const kindMap: Record<HeaderTabType, 'detail' | 'material' | 'operation' | 'equipment'> = {
-      detailsVariants: 'detail',
+      details: 'detail',
       materialsVariants: 'material',
       operationsVariants: 'operation',
       equipment: 'equipment',
@@ -261,7 +261,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     
     // Маппинг типа элемента шапки на тип для drag'n'drop
     const typeMap: Record<HeaderTabType, string> = {
-      detailsVariants: 'header-detail',
+      details: 'header-detail',
       materialsVariants: 'header-material',
       operationsVariants: 'header-operation',
       equipment: 'header-equipment',
@@ -273,7 +273,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     let payload: Record<string, any> = { type: dragType }
     
     switch (element.type) {
-      case 'detailsVariants':
+      case 'details':
         payload.detailId = element.itemId
         payload.detailName = element.name
         break
@@ -294,7 +294,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
     e.dataTransfer.setData('application/json', JSON.stringify(payload))
     
     // Call callback to show drop zone (только для деталей)
-    if (element.type === 'detailsVariants' && onDetailDragStart) {
+    if (element.type === 'details' && onDetailDragStart) {
       onDetailDragStart(element.itemId, element.name)
     }
   }
@@ -310,7 +310,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
       case 'materialsVariants': return 'Материалы'
       case 'operationsVariants': return 'Операции'
       case 'equipment': return 'Оборудование'
-      case 'detailsVariants': return 'Детали'
+      case 'details': return 'Детали'
     }
   }
 
@@ -319,7 +319,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
       case 'materialsVariants': return <div className="w-4 h-4 flex items-center justify-center"><Package className="w-4 h-4" /></div>
       case 'operationsVariants': return <div className="w-4 h-4 flex items-center justify-center"><Wrench className="w-4 h-4" /></div>
       case 'equipment': return <div className="w-4 h-4 flex items-center justify-center"><Printer className="w-4 h-4" /></div>
-      case 'detailsVariants': return <div className="w-4 h-4 flex items-center justify-center"><Notebook className="w-4 h-4" /></div>
+      case 'details': return <div className="w-4 h-4 flex items-center justify-center"><Notebook className="w-4 h-4" /></div>
     }
   }
 
@@ -350,8 +350,8 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
             <ArrowsClockwise className={`w-5 h-5 ${externalIsRefreshing ? 'animate-spin' : ''}`} />
           </Button>
           <TabsList className="flex-1 grid grid-cols-4 rounded-none h-auto bg-transparent border-0" data-pwcode="header-tabs">
-            <TabsTrigger value="detailsVariants" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-details">
-              {getTabIcon('detailsVariants')}
+            <TabsTrigger value="details" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-details">
+              {getTabIcon('details')}
               Детали
             </TabsTrigger>
             <TabsTrigger value="materialsVariants" className="data-[state=active]:bg-card gap-2" data-pwcode="tab-materials">
@@ -369,7 +369,7 @@ export function HeaderSection({ headerTabs, setHeaderTabs, addInfoMessage, onOpe
           </TabsList>
         </div>
 
-        {(['detailsVariants', 'materialsVariants', 'operationsVariants', 'equipment'] as HeaderTabType[]).map(tabType => {
+        {(['details', 'materialsVariants', 'operationsVariants', 'equipment'] as HeaderTabType[]).map(tabType => {
           const visibleElements = ((headerTabs?.[tabType] as HeaderElement[]) || []).filter(element => !element.deleted)
 
           return (

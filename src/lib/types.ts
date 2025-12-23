@@ -35,7 +35,7 @@ export interface DetailVariant {
   length: number
 }
 
-export type HeaderTabType = 'materialsVariants' | 'operationsVariants' | 'equipment' | 'detailsVariants'
+export type HeaderTabType = 'materialsVariants' | 'operationsVariants' | 'equipment' | 'details'
 
 export interface HeaderElement {
   id: string
@@ -49,7 +49,7 @@ export interface HeaderTabsState {
   materialsVariants: HeaderElement[]
   operationsVariants: HeaderElement[]
   equipment: HeaderElement[]
-  detailsVariants: HeaderElement[]
+  details: HeaderElement[]
 }
 
 export interface CalculatorInstance {
