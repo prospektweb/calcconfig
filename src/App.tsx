@@ -3,6 +3,11 @@ import { useConfigKV } from '@/hooks/use-config-kv'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { 
   Calculator,
   Package,
@@ -12,7 +17,9 @@ import {
   Tag,
   FloppyDisk,
   X,
-  Link
+  Link,
+  Plus,
+  FolderOpen
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -67,6 +74,23 @@ function App() {
   const pendingRequestsRef = useRef<Map<string, { tab?: HeaderTabType }>>(new Map())
   const [isBitrixLoading, setIsBitrixLoading] = useState(false)
   const [canCalculate, setCanCalculate] = useState(false)
+  
+  // Dialog states for detail management
+  const [isCreateDetailDialogOpen, setIsCreateDetailDialogOpen] = useState(false)
+  const [newDetailName, setNewDetailName] = useState('')
+  const [isSelectDetailDialogOpen, setIsSelectDetailDialogOpen] = useState(false)
+  const [selectedDetailForDialog, setSelectedDetailForDialog] = useState<any>(null)
+  const [selectDetailMode, setSelectDetailMode] = useState<'copy' | 'use'>('copy')
+  const [isDeleteStageDialogOpen, setIsDeleteStageDialogOpen] = useState(false)
+  const [stageToDelete, setStageToDelete] = useState<{detailId: string, calcIndex: number} | null>(null)
+  const [isDeleteDetailDialogOpen, setIsDeleteDetailDialogOpen] = useState(false)
+  const [detailToDelete, setDetailToDelete] = useState<string | null>(null)
+  const [isDeleteGroupDialogOpen, setIsDeleteGroupDialogOpen] = useState(false)
+  const [groupToDelete, setGroupToDelete] = useState<any>(null)
+  const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = useState(false)
+  const [groupDetailsToMerge, setGroupDetailsToMerge] = useState<(number | string)[]>([])
+  const [newGroupName, setNewGroupName] = useState('')
+  const detailCounter = useRef(1)
   
   // Initialize headerTabs directly from localStorage
   const [headerTabs, setHeaderTabsState] = useState<HeaderTabsState>(() => {
@@ -630,6 +654,92 @@ function App() {
       }
     })
 
+    const unsubscribeAddNewDetail = postMessageBridge.on('ADD_NEW_DETAIL_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] ADD_NEW_DETAIL_RESPONSE', message)
+      
+      if (!message.payload?.detail) return
+      
+      const newDetail = message.payload.detail
+      
+      setDetails(prev => {
+        const updated = [...(prev || []), newDetail]
+        
+        // If now 2 details and no group - create group
+        if (updated.length === 2 && bindings.length === 0) {
+          setGroupDetailsToMerge(updated.map(d => d.bitrixId || d.id))
+          setNewGroupName('')
+          setIsCreateGroupDialogOpen(true)
+        }
+        
+        return updated
+      })
+      
+      toast.success(`Деталь "${newDetail.name}" создана`)
+    })
+
+    const unsubscribeGetDetail = postMessageBridge.on('GET_DETAIL_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] GET_DETAIL_RESPONSE', message)
+      
+      if (!message.payload?.detail) return
+      
+      // Show dialog "Copy or Use"
+      setSelectedDetailForDialog(message.payload.detail)
+      setSelectDetailMode('copy')
+      setIsSelectDetailDialogOpen(true)
+    })
+
+    const unsubscribeCopyDetail = postMessageBridge.on('COPY_DETAIL_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] COPY_DETAIL_RESPONSE', message)
+      
+      if (!message.payload?.detail) return
+      
+      const copiedDetail = message.payload.detail
+      setDetails(prev => [...(prev || []), copiedDetail])
+      toast.success(`Деталь "${copiedDetail.name}" скопирована`)
+    })
+
+    const unsubscribeUseDetail = postMessageBridge.on('USE_DETAIL_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] USE_DETAIL_RESPONSE', message)
+      
+      if (!message.payload?.detail) return
+      
+      const detail = message.payload.detail
+      setDetails(prev => [...(prev || []), detail])
+      toast.success(`Деталь "${detail.name}" добавлена`)
+    })
+
+    const unsubscribeAddNewGroup = postMessageBridge.on('ADD_NEW_GROUP_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] ADD_NEW_GROUP_RESPONSE', message)
+      
+      if (!message.payload?.group) return
+      
+      toast.success('Группа создана')
+    })
+
+    const unsubscribeAddNewStage = postMessageBridge.on('ADD_NEW_STAGE_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] ADD_NEW_STAGE_RESPONSE', message)
+      
+      toast.success('Этап создан')
+    })
+
+    const unsubscribeDeleteStage = postMessageBridge.on('DELETE_STAGE_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] DELETE_STAGE_RESPONSE', message)
+      // Already handled in UI
+    })
+
+    const unsubscribeDeleteDetail = postMessageBridge.on('DELETE_DETAIL_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] DELETE_DETAIL_RESPONSE', message)
+      // Already handled in UI
+    })
+
+    const unsubscribeChangeNameDetail = postMessageBridge.on('CHANGE_NAME_DETAIL_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] CHANGE_NAME_DETAIL_RESPONSE', message)
+      
+      if (message.payload?.success) {
+        toast.success('Имя детали обновлено')
+      }
+    })
+
     return () => {
       unsubscribeCalcSettings()
       unsubscribeOperation()
@@ -637,6 +747,15 @@ function App() {
       unsubscribeOperationVariant()
       unsubscribeMaterialVariant()
       unsubscribeSyncVariants()
+      unsubscribeAddNewDetail()
+      unsubscribeGetDetail()
+      unsubscribeCopyDetail()
+      unsubscribeUseDetail()
+      unsubscribeAddNewGroup()
+      unsubscribeAddNewStage()
+      unsubscribeDeleteStage()
+      unsubscribeDeleteDetail()
+      unsubscribeChangeNameDetail()
     }
   }, [])
   
@@ -692,6 +811,207 @@ function App() {
     setDetails(prev => [...(prev || []), newDetail])
     addInfoMessage('info', `Добавлена деталь: ${newDetail.name}`)
   }
+
+  const handleCreateDetail = () => {
+    setNewDetailName('')
+    setIsCreateDetailDialogOpen(true)
+  }
+
+  const handleCreateDetailConfirm = async () => {
+    const name = newDetailName.trim() || `Деталь #${detailCounter.current++}`
+    
+    // Send ADD_NEW_DETAIL_REQUEST
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        protocol: 'pwrt',
+        source: 'prospektweb.calc',
+        target: 'bitrix',
+        type: 'ADD_NEW_DETAIL_REQUEST',
+        payload: {
+          offerIds: selectedVariantIds,
+          name: name,
+        },
+        timestamp: Date.now(),
+      }, '*')
+    }
+    
+    setIsCreateDetailDialogOpen(false)
+    toast.info('Запрос на создание детали отправлен...')
+  }
+
+  const handleSelectDetail = () => {
+    // Send GET_DETAIL_REQUEST to open detail selection dialog
+    if (window.parent && window.parent !== window && bitrixMeta) {
+      window.parent.postMessage({
+        protocol: 'pwrt',
+        source: 'prospektweb.calc',
+        target: 'bitrix',
+        type: 'GET_DETAIL_REQUEST',
+        payload: {
+          iblockId: bitrixMeta?.iblocks.calcDetails,
+        },
+        timestamp: Date.now(),
+      }, '*')
+    }
+    toast.info('Открытие окна выбора детали...')
+  }
+
+  const handleSelectDetailConfirm = () => {
+    if (!selectedDetailForDialog) return
+    
+    if (selectDetailMode === 'copy') {
+      // Send COPY_DETAIL_REQUEST
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          protocol: 'pwrt',
+          source: 'prospektweb.calc',
+          target: 'bitrix',
+          type: 'COPY_DETAIL_REQUEST',
+          payload: {
+            detailId: selectedDetailForDialog.id,
+            offerIds: selectedVariantIds,
+          },
+          timestamp: Date.now(),
+        }, '*')
+      }
+      toast.info('Копирование детали...')
+    } else {
+      // Send USE_DETAIL_REQUEST
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          protocol: 'pwrt',
+          source: 'prospektweb.calc',
+          target: 'bitrix',
+          type: 'USE_DETAIL_REQUEST',
+          payload: {
+            detailId: selectedDetailForDialog.id,
+            offerIds: selectedVariantIds,
+          },
+          timestamp: Date.now(),
+        }, '*')
+      }
+      toast.info('Использование оригинальной детали...')
+    }
+    
+    setIsSelectDetailDialogOpen(false)
+  }
+
+  const handleDeleteStageConfirm = () => {
+    if (!stageToDelete) return
+    
+    // Find detail and remove calculator at index
+    setDetails(prev => 
+      (prev || []).map(d => 
+        d.id === stageToDelete.detailId
+          ? {
+              ...d,
+              calculators: d.calculators.filter((_, i) => i !== stageToDelete.calcIndex)
+            }
+          : d
+      )
+    )
+    
+    // Send DELETE_STAGE_REQUEST if has bitrixId
+    const detail = (details || []).find(d => d.id === stageToDelete.detailId)
+    const calc = detail?.calculators[stageToDelete.calcIndex]
+    
+    if (calc?.configId) {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          protocol: 'pwrt',
+          source: 'prospektweb.calc',
+          target: 'bitrix',
+          type: 'DELETE_STAGE_REQUEST',
+          payload: {
+            configId: calc.configId,
+          },
+          timestamp: Date.now(),
+        }, '*')
+      }
+    }
+    
+    setIsDeleteStageDialogOpen(false)
+    setStageToDelete(null)
+    toast.success('Этап удалён')
+  }
+
+  const handleDeleteDetailConfirm = () => {
+    if (!detailToDelete) return
+    
+    const detail = (details || []).find(d => d.id === detailToDelete)
+    
+    // Send DELETE_DETAIL_REQUEST if has bitrixId
+    if (detail?.bitrixId) {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          protocol: 'pwrt',
+          source: 'prospektweb.calc',
+          target: 'bitrix',
+          type: 'DELETE_DETAIL_REQUEST',
+          payload: {
+            detailId: detail.bitrixId,
+          },
+          timestamp: Date.now(),
+        }, '*')
+      }
+    }
+    
+    // Remove from UI
+    setDetails(prev => (prev || []).filter(d => d.id !== detailToDelete))
+    
+    setIsDeleteDetailDialogOpen(false)
+    setDetailToDelete(null)
+    toast.success('Деталь удалена')
+  }
+
+  const handleDeleteGroupKeepDetail = (detailId: number | string) => {
+    // Logic for keeping one detail and removing group
+    if (!groupToDelete) return
+    
+    // Send DELETE_GROUP_REQUEST with detailIdToKeep
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        protocol: 'pwrt',
+        source: 'prospektweb.calc',
+        target: 'bitrix',
+        type: 'DELETE_GROUP_REQUEST',
+        payload: {
+          groupId: groupToDelete.id,
+          detailIdToKeep: detailId,
+        },
+        timestamp: Date.now(),
+      }, '*')
+    }
+    
+    setIsDeleteGroupDialogOpen(false)
+    setGroupToDelete(null)
+    toast.info('Удаление группы...')
+  }
+
+  const handleDeleteGroupAll = () => {
+    // Logic for deleting all details in group
+    if (!groupToDelete) return
+    
+    // Send DELETE_GROUP_REQUEST without detailIdToKeep
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        protocol: 'pwrt',
+        source: 'prospektweb.calc',
+        target: 'bitrix',
+        type: 'DELETE_GROUP_REQUEST',
+        payload: {
+          groupId: groupToDelete.id,
+          deleteAll: true,
+        },
+        timestamp: Date.now(),
+      }, '*')
+    }
+    
+    setIsDeleteGroupDialogOpen(false)
+    setGroupToDelete(null)
+    toast.info('Удаление группы и всех деталей...')
+  }
+
 
   const handleDeleteDetail = (detailId: string) => {
     setDetails(prev => (prev || []).filter(d => d.id !== detailId))
@@ -1233,6 +1553,28 @@ function App() {
           onDrop={handleMainAreaDrop}
           pwcode="mainarea"
         >
+          {/* Кнопки управления деталями - всегда видны */}
+          <div className="flex gap-2 mb-4" data-pwcode="detail-actions">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCreateDetail}
+              data-pwcode="btn-create-detail"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Создать деталь
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSelectDetail}
+              data-pwcode="btn-select-detail"
+            >
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Выбрать деталь
+            </Button>
+          </div>
+          
           <div className="space-y-0">
             {allItems.length === 0 && draggedHeaderDetail && activeHeaderTab === 'details' && (
               <div
@@ -1457,6 +1799,7 @@ function App() {
             onToggle={() => setIsPricePanelExpanded(!isPricePanelExpanded)}
             settings={salePricesSettings || { selectedTypes: [], types: {} }}
             onSettingsChange={(newSettings) => setSalePricesSettings(newSettings)}
+            priceTypes={bitrixMeta?.priceTypes}
           />
         )}
 
@@ -1542,6 +1885,198 @@ function App() {
           </div>
         </footer>
       </div>
+      
+      {/* Dialog: Create Detail */}
+      <Dialog open={isCreateDetailDialogOpen} onOpenChange={setIsCreateDetailDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Создание новой детали</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="detail-name">Название</Label>
+            <Input
+              id="detail-name"
+              value={newDetailName}
+              onChange={(e) => setNewDetailName(e.target.value)}
+              placeholder={`Деталь #${detailCounter.current}`}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDetailDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleCreateDetailConfirm}>
+              Создать
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Select Detail (Copy or Use) */}
+      <Dialog open={isSelectDetailDialogOpen} onOpenChange={setIsSelectDetailDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Деталь "{selectedDetailForDialog?.name}" выбрана</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <RadioGroup value={selectDetailMode} onValueChange={(v) => setSelectDetailMode(v as 'copy' | 'use')}>
+              <div className="flex items-start space-x-2">
+                <RadioGroupItem value="copy" id="copy" />
+                <div>
+                  <Label htmlFor="copy">Скопировать деталь</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Создаётся копия со всеми настройками
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-2">
+                <RadioGroupItem value="use" id="use" />
+                <div>
+                  <Label htmlFor="use">Использовать оригинал</Label>
+                  <p className="text-sm text-muted-foreground text-warning">
+                    ⚠️ Изменения повлияют на все сборки, где используется эта деталь
+                  </p>
+                </div>
+              </div>
+            </RadioGroup>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSelectDetailDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleSelectDetailConfirm}>
+              Подтвердить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AlertDialog: Delete Stage */}
+      <AlertDialog open={isDeleteStageDialogOpen} onOpenChange={setIsDeleteStageDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Подтвердите удаление этапа</AlertDialogTitle>
+            <AlertDialogDescription>
+              Этап будет удалён. Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteStageConfirm}>
+              Подтверждаю
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* AlertDialog: Delete Detail */}
+      <AlertDialog open={isDeleteDetailDialogOpen} onOpenChange={setIsDeleteDetailDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Подтвердите удаление детали</AlertDialogTitle>
+            <AlertDialogDescription>
+              ⚠️ Деталь может использоваться в других сборках. 
+              Все связанные этапы будут удалены.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteDetailConfirm} className="bg-destructive">
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog: Delete Group (Choose Detail) */}
+      <Dialog open={isDeleteGroupDialogOpen} onOpenChange={setIsDeleteGroupDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Удаление группы скрепления</DialogTitle>
+            <DialogDescription>
+              Выберите какую деталь оставить
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            {groupToDelete?.detailIds?.map((detailId: number | string) => {
+              const detail = details.find(d => d.id === detailId || d.bitrixId === detailId)
+              return (
+                <Button
+                  key={detailId}
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => handleDeleteGroupKeepDetail(detailId)}
+                >
+                  Оставить [{detail?.name || `ID: ${detailId}`}]
+                </Button>
+              )
+            })}
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={handleDeleteGroupAll}
+            >
+              Удалить всё
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteGroupDialogOpen(false)}>
+              Отмена
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Create Group */}
+      <Dialog open={isCreateGroupDialogOpen} onOpenChange={setIsCreateGroupDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Создание группы скрепления</DialogTitle>
+            <DialogDescription>
+              Введите название группы для объединения деталей
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="group-name">Название группы</Label>
+            <Input
+              id="group-name"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              placeholder="Группа скрепления #1"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateGroupDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={() => {
+              const name = newGroupName.trim() || 'Группа скрепления #1'
+              
+              // Send ADD_NEW_GROUP_REQUEST
+              if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                  protocol: 'pwrt',
+                  source: 'prospektweb.calc',
+                  target: 'bitrix',
+                  type: 'ADD_NEW_GROUP_REQUEST',
+                  payload: {
+                    name: name,
+                    detailIds: groupDetailsToMerge,
+                  },
+                  timestamp: Date.now(),
+                }, '*')
+              }
+              
+              setIsCreateGroupDialogOpen(false)
+              toast.info('Запрос на создание группы отправлен...')
+            }}>
+              Создать
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

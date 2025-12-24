@@ -17,6 +17,21 @@ interface SidebarMenuProps {
 export function SidebarMenu({ isOpen, onClose, bitrixMeta }: SidebarMenuProps) {
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false)
 
+  const formatBitrixUrl = (path: string): string => {
+    const baseUrl = bitrixMeta?.context?.url || ''
+    
+    // Remove trailing slash if exists
+    const cleanBase = baseUrl.replace(/\/$/, '')
+    
+    // Check if protocol already exists
+    if (cleanBase.startsWith('http://') || cleanBase.startsWith('https://')) {
+      return `${cleanBase}${path}`
+    }
+    
+    // Add https:// with colon
+    return `https://${cleanBase}${path}`
+  }
+
   const handleAbout = () => {
     setIsAboutDialogOpen(true)
     onClose()
@@ -89,9 +104,8 @@ export function SidebarMenu({ isOpen, onClose, bitrixMeta }: SidebarMenuProps) {
                   variant="ghost"
                   className="w-full justify-start"
                   onClick={() => {
-                    const baseUrl = bitrixMeta.context.url
                     const lang = bitrixMeta.context.lang
-                    window.open(`https://${baseUrl}/bitrix/admin/settings.php?lang=${lang}&mid=prospektweb.calc&mid_menu=1`, '_blank')
+                    window.open(formatBitrixUrl(`/bitrix/admin/settings.php?lang=${lang}&mid=prospektweb.calc&mid_menu=1`), '_blank')
                   }}
                   data-pwcode="btn-module-settings"
                 >
@@ -102,9 +116,8 @@ export function SidebarMenu({ isOpen, onClose, bitrixMeta }: SidebarMenuProps) {
                   variant="ghost"
                   className="w-full justify-start"
                   onClick={() => {
-                    const baseUrl = bitrixMeta.context.url
                     const lang = bitrixMeta.context.lang
-                    window.open(`https://${baseUrl}/bitrix/admin/cat_measure_list.php?lang=${lang}`, '_blank')
+                    window.open(formatBitrixUrl(`/bitrix/admin/cat_measure_list.php?lang=${lang}`), '_blank')
                   }}
                   data-pwcode="btn-measure-units"
                 >
@@ -115,9 +128,8 @@ export function SidebarMenu({ isOpen, onClose, bitrixMeta }: SidebarMenuProps) {
                   variant="ghost"
                   className="w-full justify-start"
                   onClick={() => {
-                    const baseUrl = bitrixMeta.context.url
                     const lang = bitrixMeta.context.lang
-                    window.open(`https://${baseUrl}/bitrix/admin/cat_group_admin.php?lang=${lang}`, '_blank')
+                    window.open(formatBitrixUrl(`/bitrix/admin/cat_group_admin.php?lang=${lang}`), '_blank')
                   }}
                   data-pwcode="btn-price-types"
                 >

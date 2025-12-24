@@ -28,6 +28,7 @@ interface PricePanelProps {
   onToggle: () => void
   settings: SalePricesSettings
   onSettingsChange: (settings: SalePricesSettings) => void
+  priceTypes?: Array<{ id: number; name: string; base: boolean; sort: number }>
 }
 
 const PRICE_TYPE_OPTIONS: Array<{ value: PriceTypeCode; label: string }> = [
@@ -60,7 +61,17 @@ const createDefaultPriceTypeSettings = (): PriceTypeSettings => ({
   ],
 })
 
-export function PricePanel({ messages, isExpanded, onToggle, settings, onSettingsChange }: PricePanelProps) {
+export function PricePanel({ messages, isExpanded, onToggle, settings, onSettingsChange, priceTypes }: PricePanelProps) {
+  // Transform priceTypes from props to options, fallback to hardcoded if not provided
+  const priceTypeOptions = priceTypes && priceTypes.length > 0
+    ? priceTypes.map(pt => ({
+        value: pt.name as PriceTypeCode,
+        label: pt.name,
+        id: pt.id,
+        isBase: pt.base,
+      }))
+    : PRICE_TYPE_OPTIONS
+
   const handleTypeSelection = (priceType: PriceTypeCode, checked: boolean) => {
     const newSelectedTypes = checked
       ? [...settings.selectedTypes, priceType]
@@ -184,7 +195,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
               <div className="space-y-2">
                 <Label>Типы цен</Label>
                 <div className="flex items-center gap-4" data-pwcode="price-types-select">
-                  {PRICE_TYPE_OPTIONS.map(option => (
+                  {priceTypeOptions.map(option => (
                     <div key={option.value} className="flex items-center gap-2">
                       <Checkbox
                         id={`price-type-${option.value}`}
@@ -204,7 +215,7 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
                 const typeSettings = settings.types[priceType]
                 if (!typeSettings) return null
 
-                const priceTypeLabel = PRICE_TYPE_OPTIONS.find(o => o.value === priceType)?.label || priceType
+                const priceTypeLabel = priceTypeOptions.find(o => o.value === priceType)?.label || priceType
 
                 return (
                   <div key={priceType} className="border border-border rounded-lg p-3 space-y-3 bg-muted/20" data-pwcode="price-type-block">
