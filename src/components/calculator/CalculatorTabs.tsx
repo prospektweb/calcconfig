@@ -596,7 +596,32 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       if (defaultMatValue && !calc.materialId) {
         const defaultMatId = parseInt(defaultMatValue, 10)
         if (!isNaN(defaultMatId) && calc.materialId !== defaultMatId) {
+          console.log('[CalculatorTabs] Setting default material:', {
+            materialId: defaultMatId,
+            storeHasVariant: !!materialVariants[defaultMatId?.toString()],
+            allStoreKeys: Object.keys(materialVariants),
+          })
+          
           handleUpdateCalculator(index, { materialId: defaultMatId })
+          
+          // Send request to get material variant data
+          if (bitrixMeta) {
+            const context = getBitrixContext()
+            const iblockId = bitrixMeta.iblocks.calcMaterialsVariants
+            
+            if (context && iblockId) {
+              const iblockType = bitrixMeta.iblocksTypes[iblockId]
+              
+              if (iblockType) {
+                postMessageBridge.sendCalcMaterialVariantRequest(
+                  defaultMatId,
+                  iblockId,
+                  iblockType,
+                  context.lang
+                )
+              }
+            }
+          }
         }
       }
     })
