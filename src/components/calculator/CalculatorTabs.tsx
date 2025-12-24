@@ -714,6 +714,26 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                       </div>
                       Этап #{index + 1}
                     </TabsTrigger>
+
+                    {calc.configId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const info = getEntityIblockInfo('calculator')
+                          if (info) {
+                            openBitrixAdmin(calc.configId, info. iblockId, info.iblockType, info.lang)
+                          }
+                        }}
+                        data-pwcode="btn-open-config-bitrix"
+                        title="Открыть конфигурацию в Bitrix"
+                      >
+                        <ArrowSquareOut className="w-3. 5 h-3.5" />
+                      </Button>
+                    )}
+                    
                     {safeCalculators.length > 1 && (
                       <Button
                         variant="ghost"
