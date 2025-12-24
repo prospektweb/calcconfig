@@ -32,8 +32,8 @@ export type MessageType =
   | 'SYNC_VARIANTS_RESPONSE'
   | 'ADD_NEW_DETAIL_REQUEST'
   | 'ADD_NEW_DETAIL_RESPONSE'
-  | 'GET_DETAIL_REQUEST'
-  | 'GET_DETAIL_RESPONSE'
+  | 'SELECT_DETAILS_REQUEST'
+  | 'SELECT_DETAILS_RESPONSE'
   | 'COPY_DETAIL_REQUEST'
   | 'COPY_DETAIL_RESPONSE'
   | 'USE_DETAIL_REQUEST'
@@ -646,8 +646,8 @@ class PostMessageBridge {
     return this.sendMessage('ADD_NEW_DETAIL_REQUEST', payload)
   }
 
-  sendGetDetailRequest(payload: { iblockId: number, iblockType: string }) {
-    return this.sendMessage('GET_DETAIL_REQUEST', payload)
+  sendSelectDetailsRequest(payload: { iblockId: number, iblockType: string }) {
+    return this.sendMessage('SELECT_DETAILS_REQUEST', payload)
   }
 
   sendCopyDetailRequest(payload: { detailId: number, offerIds: number[], iblockId: number, iblockType: string }) {
