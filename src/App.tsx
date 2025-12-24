@@ -32,6 +32,7 @@ import {
   SalePricesSettings,
   createEmptyDetail,
   createEmptyBinding,
+  createEmptyCalculator,
   HeaderTabsState,
   HeaderTabType
 } from '@/lib/types'
@@ -659,7 +660,18 @@ function App() {
       
       if (!message.payload?.detail) return
       
-      const newDetail = message.payload.detail
+      const bitrixDetail = message.payload.detail
+      
+      // Transform Bitrix data to Detail format
+      const newDetail: Detail = {
+        id: `detail_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: bitrixDetail.name || 'Новая деталь',
+        width: bitrixDetail.width ?? 210,
+        length: bitrixDetail.length ?? 297,
+        isExpanded: true,
+        calculators: bitrixDetail.calculators || [createEmptyCalculator()],
+        bitrixId: typeof bitrixDetail.id === 'number' ? bitrixDetail.id : parseInt(bitrixDetail.id, 10) || null,
+      }
       
       setDetails(prev => {
         const updated = [...(prev || []), newDetail]
@@ -693,7 +705,19 @@ function App() {
       
       if (!message.payload?.detail) return
       
-      const copiedDetail = message.payload.detail
+      const bitrixDetail = message.payload.detail
+      
+      // Transform Bitrix data to Detail format
+      const copiedDetail: Detail = {
+        id: `detail_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: bitrixDetail.name || 'Копия детали',
+        width: bitrixDetail.width ?? 210,
+        length: bitrixDetail.length ?? 297,
+        isExpanded: true,
+        calculators: bitrixDetail.calculators || [createEmptyCalculator()],
+        bitrixId: typeof bitrixDetail.id === 'number' ? bitrixDetail.id : parseInt(bitrixDetail.id, 10) || null,
+      }
+      
       setDetails(prev => [...(prev || []), copiedDetail])
       toast.success(`Деталь "${copiedDetail.name}" скопирована`)
     })
@@ -703,7 +727,19 @@ function App() {
       
       if (!message.payload?.detail) return
       
-      const detail = message.payload.detail
+      const bitrixDetail = message.payload.detail
+      
+      // Transform Bitrix data to Detail format
+      const detail: Detail = {
+        id: `detail_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: bitrixDetail.name || 'Деталь',
+        width: bitrixDetail.width ?? 210,
+        length: bitrixDetail.length ?? 297,
+        isExpanded: true,
+        calculators: bitrixDetail.calculators || [createEmptyCalculator()],
+        bitrixId: typeof bitrixDetail.id === 'number' ? bitrixDetail.id : parseInt(bitrixDetail.id, 10) || null,
+      }
+      
       setDetails(prev => [...(prev || []), detail])
       toast.success(`Деталь "${detail.name}" добавлена`)
     })
@@ -821,18 +857,13 @@ function App() {
     const name = newDetailName.trim() || `Деталь #${detailCounter.current++}`
     
     // Send ADD_NEW_DETAIL_REQUEST
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({
-        protocol: 'pwrt',
-        source: 'prospektweb.calc',
-        target: 'bitrix',
-        type: 'ADD_NEW_DETAIL_REQUEST',
-        payload: {
-          offerIds: selectedVariantIds,
-          name: name,
-        },
-        timestamp: Date.now(),
-      }, '*')
+    if (bitrixMeta && selectedVariantIds.length > 0) {
+      postMessageBridge.sendAddNewDetailRequest({
+        offerIds: selectedVariantIds,
+        name: name,
+        iblockId: bitrixMeta.iblocks.calcDetails,
+        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+      })
     }
     
     setIsCreateDetailDialogOpen(false)
@@ -841,55 +872,35 @@ function App() {
 
   const handleSelectDetail = () => {
     // Send GET_DETAIL_REQUEST to open detail selection dialog
-    if (window.parent && window.parent !== window && bitrixMeta) {
-      window.parent.postMessage({
-        protocol: 'pwrt',
-        source: 'prospektweb.calc',
-        target: 'bitrix',
-        type: 'GET_DETAIL_REQUEST',
-        payload: {
-          iblockId: bitrixMeta?.iblocks.calcDetails,
-        },
-        timestamp: Date.now(),
-      }, '*')
+    if (bitrixMeta) {
+      postMessageBridge.sendGetDetailRequest({
+        iblockId: bitrixMeta.iblocks.calcDetails,
+        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+      })
     }
     toast.info('Открытие окна выбора детали...')
   }
 
   const handleSelectDetailConfirm = () => {
-    if (!selectedDetailForDialog) return
+    if (!selectedDetailForDialog || !bitrixMeta) return
     
     if (selectDetailMode === 'copy') {
       // Send COPY_DETAIL_REQUEST
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage({
-          protocol: 'pwrt',
-          source: 'prospektweb.calc',
-          target: 'bitrix',
-          type: 'COPY_DETAIL_REQUEST',
-          payload: {
-            detailId: selectedDetailForDialog.id,
-            offerIds: selectedVariantIds,
-          },
-          timestamp: Date.now(),
-        }, '*')
-      }
+      postMessageBridge.sendCopyDetailRequest({
+        detailId: selectedDetailForDialog.id,
+        offerIds: selectedVariantIds,
+        iblockId: bitrixMeta.iblocks.calcDetails,
+        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+      })
       toast.info('Копирование детали...')
     } else {
       // Send USE_DETAIL_REQUEST
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage({
-          protocol: 'pwrt',
-          source: 'prospektweb.calc',
-          target: 'bitrix',
-          type: 'USE_DETAIL_REQUEST',
-          payload: {
-            detailId: selectedDetailForDialog.id,
-            offerIds: selectedVariantIds,
-          },
-          timestamp: Date.now(),
-        }, '*')
-      }
+      postMessageBridge.sendUseDetailRequest({
+        detailId: selectedDetailForDialog.id,
+        offerIds: selectedVariantIds,
+        iblockId: bitrixMeta.iblocks.calcDetails,
+        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+      })
       toast.info('Использование оригинальной детали...')
     }
     
@@ -911,23 +922,16 @@ function App() {
       )
     )
     
-    // Send DELETE_STAGE_REQUEST if has bitrixId
+    // Send DELETE_STAGE_REQUEST if has configId
     const detail = (details || []).find(d => d.id === stageToDelete.detailId)
     const calc = detail?.calculators[stageToDelete.calcIndex]
     
-    if (calc?.configId) {
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage({
-          protocol: 'pwrt',
-          source: 'prospektweb.calc',
-          target: 'bitrix',
-          type: 'DELETE_STAGE_REQUEST',
-          payload: {
-            configId: calc.configId,
-          },
-          timestamp: Date.now(),
-        }, '*')
-      }
+    if (calc?.configId && bitrixMeta) {
+      postMessageBridge.sendDeleteStageRequest({
+        configId: calc.configId,
+        iblockId: bitrixMeta.iblocks.calcConfig || 0,
+        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcConfig || 0] || '',
+      })
     }
     
     setIsDeleteStageDialogOpen(false)
@@ -941,19 +945,12 @@ function App() {
     const detail = (details || []).find(d => d.id === detailToDelete)
     
     // Send DELETE_DETAIL_REQUEST if has bitrixId
-    if (detail?.bitrixId) {
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage({
-          protocol: 'pwrt',
-          source: 'prospektweb.calc',
-          target: 'bitrix',
-          type: 'DELETE_DETAIL_REQUEST',
-          payload: {
-            detailId: detail.bitrixId,
-          },
-          timestamp: Date.now(),
-        }, '*')
-      }
+    if (detail?.bitrixId && bitrixMeta) {
+      postMessageBridge.sendDeleteDetailRequest({
+        detailId: detail.bitrixId,
+        iblockId: bitrixMeta.iblocks.calcDetails,
+        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+      })
     }
     
     // Remove from UI
@@ -966,22 +963,15 @@ function App() {
 
   const handleDeleteGroupKeepDetail = (detailId: number | string) => {
     // Logic for keeping one detail and removing group
-    if (!groupToDelete) return
+    if (!groupToDelete || !bitrixMeta) return
     
     // Send DELETE_GROUP_REQUEST with detailIdToKeep
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({
-        protocol: 'pwrt',
-        source: 'prospektweb.calc',
-        target: 'bitrix',
-        type: 'DELETE_GROUP_REQUEST',
-        payload: {
-          groupId: groupToDelete.id,
-          detailIdToKeep: detailId,
-        },
-        timestamp: Date.now(),
-      }, '*')
-    }
+    postMessageBridge.sendDeleteGroupRequest({
+      groupId: groupToDelete.id,
+      detailIdToKeep: detailId,
+      iblockId: bitrixMeta.iblocks.calcDetails,
+      iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+    })
     
     setIsDeleteGroupDialogOpen(false)
     setGroupToDelete(null)
@@ -990,22 +980,15 @@ function App() {
 
   const handleDeleteGroupAll = () => {
     // Logic for deleting all details in group
-    if (!groupToDelete) return
+    if (!groupToDelete || !bitrixMeta) return
     
     // Send DELETE_GROUP_REQUEST without detailIdToKeep
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({
-        protocol: 'pwrt',
-        source: 'prospektweb.calc',
-        target: 'bitrix',
-        type: 'DELETE_GROUP_REQUEST',
-        payload: {
-          groupId: groupToDelete.id,
-          deleteAll: true,
-        },
-        timestamp: Date.now(),
-      }, '*')
-    }
+    postMessageBridge.sendDeleteGroupRequest({
+      groupId: groupToDelete.id,
+      deleteAll: true,
+      iblockId: bitrixMeta.iblocks.calcDetails,
+      iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+    })
     
     setIsDeleteGroupDialogOpen(false)
     setGroupToDelete(null)
@@ -2055,18 +2038,13 @@ function App() {
               const name = newGroupName.trim() || 'Группа скрепления #1'
               
               // Send ADD_NEW_GROUP_REQUEST
-              if (window.parent && window.parent !== window) {
-                window.parent.postMessage({
-                  protocol: 'pwrt',
-                  source: 'prospektweb.calc',
-                  target: 'bitrix',
-                  type: 'ADD_NEW_GROUP_REQUEST',
-                  payload: {
-                    name: name,
-                    detailIds: groupDetailsToMerge,
-                  },
-                  timestamp: Date.now(),
-                }, '*')
+              if (bitrixMeta) {
+                postMessageBridge.sendAddNewGroupRequest({
+                  name: name,
+                  detailIds: groupDetailsToMerge,
+                  iblockId: bitrixMeta.iblocks.calcDetails,
+                  iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+                })
               }
               
               setIsCreateGroupDialogOpen(false)

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Detail, CalculatorInstance } from '@/lib/types'
 import { CaretDown, CaretUp, X, Pencil, Plus, DotsSixVertical, ArrowSquareOut } from '@phosphor-icons/react'
 import { CalculatorTabs } from './CalculatorTabs'
-import { InitPayload } from '@/lib/postmessage-bridge'
+import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
 
@@ -58,20 +58,13 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
   
   const handleNameBlur = () => {
     // Send event to Bitrix when name changes
-    if (detail.bitrixId && detail.name) {
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage({
-          protocol: 'pwrt',
-          source: 'prospektweb.calc',
-          target: 'bitrix',
-          type: 'CHANGE_NAME_DETAIL_REQUEST',
-          payload: {
-            detailId: detail.bitrixId,
-            newName: detail.name,
-          },
-          timestamp: Date.now(),
-        }, '*')
-      }
+    if (detail.bitrixId && detail.name && bitrixMeta) {
+      postMessageBridge.sendChangeNameDetailRequest({
+        detailId: detail.bitrixId,
+        newName: detail.name,
+        iblockId: bitrixMeta.iblocks.calcDetails,
+        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+      })
     }
   }
   
