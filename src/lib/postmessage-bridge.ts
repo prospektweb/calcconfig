@@ -89,6 +89,12 @@ export interface InitPayload {
     name: string
     data: ConfigData
   }
+  priceTypes?: Array<{
+    id: number
+    name: string
+    base: boolean
+    sort: number
+  }>
 }
 
 export interface ConfigData {

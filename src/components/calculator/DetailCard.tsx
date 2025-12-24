@@ -56,6 +56,25 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
     onUpdate({ name: e.target.value })
   }
   
+  const handleNameBlur = () => {
+    // Send event to Bitrix when name changes
+    if (detail.bitrixId && detail.name) {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          protocol: 'pwrt',
+          source: 'prospektweb.calc',
+          target: 'bitrix',
+          type: 'CHANGE_NAME_DETAIL_REQUEST',
+          payload: {
+            detailId: detail.bitrixId,
+            newName: detail.name,
+          },
+          timestamp: Date.now(),
+        }, '*')
+      }
+    }
+  }
+  
   const handleDragHandleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
     const card = e.currentTarget.closest('[data-detail-card]') as HTMLElement
@@ -95,6 +114,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
           <Input
             value={detail.name}
             onChange={handleNameChange}
+            onBlur={handleNameBlur}
             className="h-6 text-sm font-medium bg-transparent border-none px-3 focus-visible:ring-1 focus-visible:ring-ring flex-1 min-w-[120px]"
             placeholder="Название детали"
             data-pwcode="input-detail-name"

@@ -596,7 +596,32 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       if (defaultMatValue && !calc.materialId) {
         const defaultMatId = parseInt(defaultMatValue, 10)
         if (!isNaN(defaultMatId) && calc.materialId !== defaultMatId) {
+          console.log('[CalculatorTabs] Setting default material:', {
+            materialId: defaultMatId,
+            storeHasVariant: !!materialVariants[defaultMatId?.toString()],
+            allStoreKeys: Object.keys(materialVariants),
+          })
+          
           handleUpdateCalculator(index, { materialId: defaultMatId })
+          
+          // Send request to get material variant data
+          if (bitrixMeta) {
+            const context = getBitrixContext()
+            const iblockId = bitrixMeta.iblocks.calcMaterialsVariants
+            
+            if (context && iblockId) {
+              const iblockType = bitrixMeta.iblocksTypes[iblockId]
+              
+              if (iblockType) {
+                postMessageBridge.sendCalcMaterialVariantRequest(
+                  defaultMatId,
+                  iblockId,
+                  iblockType,
+                  context.lang
+                )
+              }
+            }
+          }
         }
       }
     })
@@ -713,7 +738,40 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                         <DotsSixVertical className="w-3.5 h-3.5" />
                       </div>
                       Этап #{index + 1}
-                    </TabsTrigger>                   
+                    </TabsTrigger>
+                    {/* Button to open config in Bitrix */}
+                    {calc.configId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-6 top-1/2 -translate-y-1/2 h-5 w-5 p-0 rounded-full hover:bg-accent hover:text-accent-foreground z-10"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!bitrixMeta) return
+                          
+                          const context = getBitrixContext()
+                          if (!context) return
+                          
+                          const iblockId = bitrixMeta.iblocks.calcConfig
+                          const typeId = bitrixMeta.iblocksTypes[iblockId]
+                          
+                          try {
+                            openBitrixAdmin({
+                              iblockId,
+                              type: typeId,
+                              lang: context.lang,
+                              id: calc.configId,
+                            })
+                          } catch (error) {
+                            const message = error instanceof Error ? error.message : 'Не удалось открыть конфиг'
+                            toast.error(message)
+                          }
+                        }}
+                        data-pwcode="btn-open-config-bitrix"
+                      >
+                        <ArrowSquareOut className="w-3 h-3" />
+                      </Button>
+                    )}
                     {safeCalculators.length > 1 && (
                       <Button
                         variant="ghost"
