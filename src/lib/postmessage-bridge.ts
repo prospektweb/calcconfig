@@ -30,6 +30,26 @@ export type MessageType =
   | 'CALC_MATERIAL_VARIANT_RESPONSE'
   | 'SYNC_VARIANTS_REQUEST'
   | 'SYNC_VARIANTS_RESPONSE'
+  | 'ADD_NEW_DETAIL_REQUEST'
+  | 'ADD_NEW_DETAIL_RESPONSE'
+  | 'GET_DETAIL_REQUEST'
+  | 'GET_DETAIL_RESPONSE'
+  | 'COPY_DETAIL_REQUEST'
+  | 'COPY_DETAIL_RESPONSE'
+  | 'USE_DETAIL_REQUEST'
+  | 'USE_DETAIL_RESPONSE'
+  | 'DELETE_DETAIL_REQUEST'
+  | 'DELETE_DETAIL_RESPONSE'
+  | 'DELETE_STAGE_REQUEST'
+  | 'DELETE_STAGE_RESPONSE'
+  | 'CHANGE_NAME_DETAIL_REQUEST'
+  | 'CHANGE_NAME_DETAIL_RESPONSE'
+  | 'ADD_NEW_GROUP_REQUEST'
+  | 'ADD_NEW_GROUP_RESPONSE'
+  | 'DELETE_GROUP_REQUEST'
+  | 'DELETE_GROUP_RESPONSE'
+  | 'ADD_NEW_STAGE_REQUEST'
+  | 'ADD_NEW_STAGE_RESPONSE'
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -619,6 +639,45 @@ class PostMessageBridge {
     const requestId = `sync_variants_${Date.now()}`
     this.sendMessage('SYNC_VARIANTS_REQUEST', payload, requestId)
     return requestId
+  }
+
+  // Detail operations
+  sendAddNewDetailRequest(payload: { offerIds: number[], name: string, iblockId: number, iblockType: string }) {
+    return this.sendMessage('ADD_NEW_DETAIL_REQUEST', payload)
+  }
+
+  sendGetDetailRequest(payload: { iblockId: number, iblockType: string }) {
+    return this.sendMessage('GET_DETAIL_REQUEST', payload)
+  }
+
+  sendCopyDetailRequest(payload: { detailId: number, offerIds: number[], iblockId: number, iblockType: string }) {
+    return this.sendMessage('COPY_DETAIL_REQUEST', payload)
+  }
+
+  sendUseDetailRequest(payload: { detailId: number, offerIds: number[], iblockId: number, iblockType: string }) {
+    return this.sendMessage('USE_DETAIL_REQUEST', payload)
+  }
+
+  sendDeleteDetailRequest(payload: { detailId: number, iblockId: number, iblockType: string }) {
+    return this.sendMessage('DELETE_DETAIL_REQUEST', payload)
+  }
+
+  sendChangeNameDetailRequest(payload: { detailId: number, newName: string, iblockId: number, iblockType: string }) {
+    return this.sendMessage('CHANGE_NAME_DETAIL_REQUEST', payload)
+  }
+
+  // Stage operations
+  sendDeleteStageRequest(payload: { configId: number, iblockId: number, iblockType: string }) {
+    return this.sendMessage('DELETE_STAGE_REQUEST', payload)
+  }
+
+  // Group operations
+  sendAddNewGroupRequest(payload: { name: string, detailIds: (number | string)[], iblockId: number, iblockType: string }) {
+    return this.sendMessage('ADD_NEW_GROUP_REQUEST', payload)
+  }
+
+  sendDeleteGroupRequest(payload: { groupId: string, detailIdToKeep?: number | string, deleteAll?: boolean, iblockId: number, iblockType: string }) {
+    return this.sendMessage('DELETE_GROUP_REQUEST', payload)
   }
 
   on(type: MessageType | '*', callback: (message: PwrtMessage) => void): () => void {

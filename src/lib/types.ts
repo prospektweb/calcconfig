@@ -61,6 +61,7 @@ export interface CalculatorInstance {
   materialId: number | null
   materialQuantity: number
   extraOptions: Record<string, any>
+  configId?: number
 }
 
 export interface Detail {
@@ -82,6 +83,8 @@ export interface Binding {
   bindingIds: string[]
   hasFinishing: boolean
   finishingCalculators: CalculatorInstance[]
+  bindingCalculators?: CalculatorInstance[]
+  bitrixId?: number | null
 }
 
 export interface InfoMessage {
