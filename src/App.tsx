@@ -689,15 +689,30 @@ function App() {
       toast.success(`Деталь "${newDetail.name}" создана`)
     })
 
-    const unsubscribeGetDetail = postMessageBridge.on('GET_DETAIL_RESPONSE', (message) => {
-      console.info('[FROM_BITRIX] GET_DETAIL_RESPONSE', message)
+    const unsubscribeSelectDetails = postMessageBridge.on('SELECT_DETAILS_RESPONSE', (message) => {
+      console.info('[FROM_BITRIX] SELECT_DETAILS_RESPONSE', message)
       
-      if (!message.payload?.detail) return
+      // SELECT_DETAILS_RESPONSE возвращает items (массив элементов CALC_DETAILS)
+      const items = message.payload?.items || []
       
-      // Show dialog "Copy or Use"
-      setSelectedDetailForDialog(message.payload.detail)
-      setSelectDetailMode('copy')
-      setIsSelectDetailDialogOpen(true)
+      if (items.length === 0) {
+        toast.info('Детали не выбраны')
+        return
+      }
+      
+      // Если выбран один элемент - показываем диалог "Копировать или Использовать"
+      if (items.length === 1) {
+        setSelectedDetailForDialog(items[0])
+        setSelectDetailMode('copy')
+        setIsSelectDetailDialogOpen(true)
+      } else {
+        // Если выбрано несколько - можно обработать по-другому
+        // Пока просто берем первый
+        setSelectedDetailForDialog(items[0])
+        setSelectDetailMode('copy')
+        setIsSelectDetailDialogOpen(true)
+        toast.info(`Выбрано ${items.length} деталей, используется первая`)
+      }
     })
 
     const unsubscribeCopyDetail = postMessageBridge.on('COPY_DETAIL_RESPONSE', (message) => {
@@ -749,7 +764,53 @@ function App() {
       
       if (!message.payload?.group) return
       
-      toast.success('Группа создана')
+      const groupData = message.payload.group
+      // groupData содержит:
+      // {
+      //     id: 1045,
+      //     name: "Группа скрепления #1",
+      //     type: "BINDING",
+      //     detailIds: [1041, 1043]
+      // }
+      
+      // Создаем объект Binding для UI
+      const newBinding: Binding = {
+        id: `binding_${groupData.id}_${Date.now()}`,
+        name: groupData.name || 'Группа скрепления',
+        isExpanded: true,
+        calculators: [createEmptyCalculator()],
+        detailIds: [], // Будет заполнено ниже
+        bindingIds: [],
+        hasFinishing: false,
+        finishingCalculators: [],
+        bitrixId: groupData.id,
+      }
+      
+      // Находим детали по bitrixId из groupData.detailIds
+      setDetails(prev => {
+        const detailsToMove: string[] = []
+        const remainingDetails: Detail[] = []
+        
+        for (const detail of (prev || [])) {
+          // Проверяем, входит ли деталь в группу по bitrixId
+          const detailBitrixId = detail.bitrixId || parseInt(detail.id.split('_')[1], 10)
+          if (groupData.detailIds?.includes(detailBitrixId)) {
+            detailsToMove.push(detail.id)
+          } else {
+            remainingDetails.push(detail)
+          }
+        }
+        
+        // Обновляем binding с найденными деталями
+        newBinding.detailIds = detailsToMove
+        
+        return remainingDetails
+      })
+      
+      // Добавляем новую группу в bindings
+      setBindings(prev => [...(prev || []), newBinding])
+      
+      toast.success(`Группа "${groupData.name}" создана с ${groupData.detailIds?.length || 0} деталями`)
     })
 
     const unsubscribeAddNewStage = postMessageBridge.on('ADD_NEW_STAGE_RESPONSE', (message) => {
@@ -784,7 +845,7 @@ function App() {
       unsubscribeMaterialVariant()
       unsubscribeSyncVariants()
       unsubscribeAddNewDetail()
-      unsubscribeGetDetail()
+      unsubscribeSelectDetails()
       unsubscribeCopyDetail()
       unsubscribeUseDetail()
       unsubscribeAddNewGroup()
@@ -871,9 +932,9 @@ function App() {
   }
 
   const handleSelectDetail = () => {
-    // Send GET_DETAIL_REQUEST to open detail selection dialog
+    // Send SELECT_DETAILS_REQUEST to open detail selection dialog
     if (bitrixMeta) {
-      postMessageBridge.sendGetDetailRequest({
+      postMessageBridge.sendSelectDetailsRequest({
         iblockId: bitrixMeta.iblocks.calcDetails,
         iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
       })
