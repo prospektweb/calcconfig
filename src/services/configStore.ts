@@ -1,5 +1,3 @@
-import { createEmptyHeaderTabs } from '@/lib/header-tabs'
-
 export interface ConfigStore {
   get<T = any>(key: string): Promise<T | undefined>
   set<T = any>(key: string, value: T): Promise<void>
@@ -20,7 +18,6 @@ class BitrixConfigStore implements ConfigStore {
 
   private initializeDefaults() {
     this.defaults = {
-      'calc_header_tabs': createEmptyHeaderTabs(),
       'calc_details': [],
       'calc_bindings': [],
       'calc_costing_settings': {

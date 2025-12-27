@@ -32,7 +32,8 @@ import {
   SalePricesSettings,
   createEmptyDetail,
   createEmptyBinding,
-  createEmptyCalculator
+  createEmptyCalculator,
+  getIblockByCode
 } from '@/lib/types'
 import { HeaderSection } from '@/components/calculator/HeaderSection'
 import { VariantsFooter } from '@/components/calculator/VariantsFooter'
@@ -161,6 +162,17 @@ function App() {
     return result
   }, [])
 
+  // Helper function to get iblock info by code
+  const getIblockInfo = useCallback((iblockCode: string) => {
+    if (!bitrixMeta || !bitrixMeta.iblocks) return null
+    const iblock = getIblockByCode(bitrixMeta.iblocks, iblockCode)
+    if (!iblock) return null
+    return {
+      iblockId: iblock.id,
+      iblockType: iblock.type,
+    }
+  }, [bitrixMeta])
+
   useEffect(() => {
     return () => {
       pendingRequestsRef.current.clear()
@@ -194,38 +206,39 @@ function App() {
         const referencesStore = useReferencesStore.getState()
         
         if (initPayload.iblocksTree?.calcSettings) {
-          const iblockId = initPayload.iblocks.calcSettings
-          const iblockType = iblockId ? initPayload.iblocksTypes[iblockId] : undefined
+          const iblock = getIblockByCode(initPayload.iblocks, 'CALC_SETTINGS')
           referencesStore.setCalculatorsHierarchy(
-            transformBitrixTreeSelectElement(initPayload.iblocksTree.calcSettings, iblockType)
+            transformBitrixTreeSelectElement(initPayload.iblocksTree.calcSettings, iblock?.type)
           )
         }
         
         if (initPayload.iblocksTree?.calcEquipment) {
-          const iblockId = initPayload.iblocks.calcEquipment
-          const iblockType = iblockId ? initPayload.iblocksTypes[iblockId] : undefined
+          const iblock = getIblockByCode(initPayload.iblocks, 'CALC_EQUIPMENT')
           referencesStore.setEquipmentHierarchy(
-            transformBitrixTreeSelectElement(initPayload.iblocksTree.calcEquipment, iblockType)
+            transformBitrixTreeSelectElement(initPayload.iblocksTree.calcEquipment, iblock?.type)
           )
         }
         
         if (initPayload.iblocksTree?.calcOperations) {
-          const iblockId = initPayload.iblocks.calcOperations
-          const iblockType = iblockId ? initPayload.iblocksTypes[iblockId] : undefined
+          const iblock = getIblockByCode(initPayload.iblocks, 'CALC_OPERATIONS')
           referencesStore.setOperationsHierarchy(
-            transformBitrixTreeSelectChild(initPayload.iblocksTree.calcOperations, iblockType)
+            transformBitrixTreeSelectChild(initPayload.iblocksTree.calcOperations, iblock?.type)
           )
         }
         
         if (initPayload.iblocksTree?.calcMaterials) {
-          const iblockId = initPayload.iblocks.calcMaterials
-          const iblockType = iblockId ? initPayload.iblocksTypes[iblockId] : undefined
+          const iblock = getIblockByCode(initPayload.iblocks, 'CALC_MATERIALS')
           referencesStore.setMaterialsHierarchy(
-            transformBitrixTreeSelectChild(initPayload.iblocksTree.calcMaterials, iblockType)
+            transformBitrixTreeSelectChild(initPayload.iblocksTree.calcMaterials, iblock?.type)
           )
         }
         
         referencesStore.setLoaded(true)
+        
+        if (message.payload.preset && message.payload.elementsStore) {
+          // TODO: Transform preset to app state
+          console.log('[INIT] Preset and elementsStore received, transformation not yet implemented')
+        }
         
         if (message.payload.config?.data) {
           const configData = message.payload.config.data
@@ -671,8 +684,6 @@ function App() {
         calculators: [createEmptyCalculator()],
         detailIds: [], // Будет заполнено ниже
         bindingIds: [],
-        hasFinishing: false,
-        finishingCalculators: [],
         bitrixId: groupData.id,
       }
       
@@ -807,8 +818,7 @@ function App() {
       postMessageBridge.sendAddNewDetailRequest({
         offerIds: selectedVariantIds,
         name: name,
-        iblockId: bitrixMeta.iblocks.calcDetails,
-        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+        ...getIblockInfo('CALC_DETAILS')!,
       })
     }
     
@@ -820,8 +830,7 @@ function App() {
     // Send SELECT_DETAILS_REQUEST to open detail selection dialog
     if (bitrixMeta) {
       postMessageBridge.sendSelectDetailsRequest({
-        iblockId: bitrixMeta.iblocks.calcDetails,
-        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+        ...getIblockInfo('CALC_DETAILS')!,
       })
     }
     toast.info('Открытие окна выбора детали...')
@@ -835,8 +844,7 @@ function App() {
       postMessageBridge.sendCopyDetailRequest({
         detailId: selectedDetailForDialog.id,
         offerIds: selectedVariantIds,
-        iblockId: bitrixMeta.iblocks.calcDetails,
-        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+        ...getIblockInfo('CALC_DETAILS')!,
       })
       toast.info('Копирование детали...')
     } else {
@@ -844,8 +852,7 @@ function App() {
       postMessageBridge.sendUseDetailRequest({
         detailId: selectedDetailForDialog.id,
         offerIds: selectedVariantIds,
-        iblockId: bitrixMeta.iblocks.calcDetails,
-        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+        ...getIblockInfo('CALC_DETAILS')!,
       })
       toast.info('Использование оригинальной детали...')
     }
@@ -875,8 +882,7 @@ function App() {
     if (calc?.configId && bitrixMeta) {
       postMessageBridge.sendDeleteStageRequest({
         configId: calc.configId,
-        iblockId: bitrixMeta.iblocks.calcConfig || 0,
-        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcConfig || 0] || '',
+        ...(getIblockInfo('CALC_CONFIG') || { iblockId: 0, iblockType: '' }),
       })
     }
     
@@ -894,8 +900,7 @@ function App() {
     if (detail?.bitrixId && bitrixMeta) {
       postMessageBridge.sendDeleteDetailRequest({
         detailId: detail.bitrixId,
-        iblockId: bitrixMeta.iblocks.calcDetails,
-        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+        ...getIblockInfo('CALC_DETAILS')!,
       })
     }
     
@@ -915,8 +920,7 @@ function App() {
     postMessageBridge.sendDeleteGroupRequest({
       groupId: groupToDelete.id,
       detailIdToKeep: detailId,
-      iblockId: bitrixMeta.iblocks.calcDetails,
-      iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+      ...getIblockInfo('CALC_DETAILS')!,
     })
     
     setIsDeleteGroupDialogOpen(false)
@@ -932,8 +936,7 @@ function App() {
     postMessageBridge.sendDeleteGroupRequest({
       groupId: groupToDelete.id,
       deleteAll: true,
-      iblockId: bitrixMeta.iblocks.calcDetails,
-      iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+      ...getIblockInfo('CALC_DETAILS')!,
     })
     
     setIsDeleteGroupDialogOpen(false)
@@ -1172,17 +1175,6 @@ function App() {
             otherOptions: calc.extraOptions || undefined,
             configId: calc.configId || undefined,
           })) || undefined,
-          finishingCalculators: binding.finishingCalculators?.map(calc => ({
-            id: calc.id,
-            calculatorCode: calc.calculatorCode || undefined,
-            operationVariantId: calc.operationId || undefined,
-            materialVariantId: calc.materialId || undefined,
-            equipmentId: calc.equipmentId || undefined,
-            operationQuantity: calc.operationQuantity || undefined,
-            materialQuantity: calc.materialQuantity || undefined,
-            otherOptions: calc.extraOptions || undefined,
-            configId: calc.configId || undefined,
-          })) || undefined,
           childIds: [...(binding.detailIds || []), ...(binding.bindingIds || [])],
         }
       }
@@ -1196,8 +1188,7 @@ function App() {
       items,
       offerIds,
       context: {
-        mode: bitrixMeta?.mode || 'NEW_CONFIG',
-        configId: bitrixMeta?.config?.id,
+        configId: message.payload.preset?.id,
         timestamp: Date.now(),
       },
     }
@@ -1886,8 +1877,7 @@ function App() {
                 postMessageBridge.sendAddNewGroupRequest({
                   name: name,
                   detailIds: groupDetailsToMerge,
-                  iblockId: bitrixMeta.iblocks.calcDetails,
-                  iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+                  ...getIblockInfo('CALC_DETAILS')!,
                 })
               }
               
