@@ -1,34 +1,77 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Info, FolderOpen, Gear, Ruler, CurrencyCircleDollar } from '@phosphor-icons/react'
+import { Info, FolderOpen, Gear, Ruler, CurrencyCircleDollar, CaretRight } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { AboutDialog } from './AboutDialog'
 import { InitPayload } from '@/lib/postmessage-bridge'
 import { openIblockEditPage } from '@/lib/bitrix-utils'
 
+interface Iblock {
+  id: number
+  code: string
+  type: string
+  name: string
+  parent:  number | null
+}
+
 interface SidebarMenuProps {
   isOpen: boolean
   onClose: () => void
-  bitrixMeta?: InitPayload | null
+  bitrixMeta?:  InitPayload | null
+}
+
+// Форматирование типа в читаемый заголовок
+const formatTypeLabel = (type: string): string => {
+  return type
+    .split('_')
+    .map(word => word. charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
 
 export function SidebarMenu({ isOpen, onClose, bitrixMeta }: SidebarMenuProps) {
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false)
 
+  // Группируем инфоблоки по типу и строим иерархию
+  const groupedIblocks = useMemo(() => {
+    const iblocks = bitrixMeta?. iblocks as Iblock[] | undefined
+    if (!iblocks || ! Array.isArray(iblocks)) return []
+
+    // Группируем по типу
+    const groups = new Map<string, { parent:  Iblock; children: Iblock[] }[]>()
+
+    // Сначала находим все родительские элементы (parent === null)
+    const parentIblocks = iblocks.filter(ib => ib. parent === null)
+    
+    parentIblocks.forEach(parent => {
+      const type = parent.type
+      if (!groups.has(type)) {
+        groups.set(type, [])
+      }
+      
+      // Находим детей этого родителя
+      const children = iblocks.filter(ib => ib.parent === parent. id)
+      
+      groups.get(type)! .push({ parent, children })
+    })
+
+    // Преобразуем в массив для рендеринга
+    return Array.from(groups.entries()).map(([type, items]) => ({
+      type,
+      label: formatTypeLabel(type),
+      items,
+    }))
+  }, [bitrixMeta?.iblocks])
+
   const formatBitrixUrl = (path: string): string => {
     const baseUrl = bitrixMeta?.context?.url || ''
-    
-    // Remove trailing slash if exists
     const cleanBase = baseUrl.replace(/\/$/, '')
     
-    // Check if protocol already exists
     if (cleanBase.startsWith('http://') || cleanBase.startsWith('https://')) {
       return `${cleanBase}${path}`
     }
     
-    // Add https:// with colon
     return `https://${cleanBase}${path}`
   }
 
@@ -37,65 +80,65 @@ export function SidebarMenu({ isOpen, onClose, bitrixMeta }: SidebarMenuProps) {
     onClose()
   }
 
-  const handleOpenIblock = (iblockId: number | undefined, name: string) => {
-    if (!iblockId) {
-      toast.error(`ID инфоблока "${name}" не найден`)
-      return
-    }
-
+  const handleOpenIblock = (iblock:  Iblock) => {
     try {
-      openIblockEditPage(iblockId, 'calculator', 'ru')
+      openIblockEditPage(iblock.id, 'calculator', 'ru')
     } catch (error) {
-      toast.error('Не удалось открыть страницу настроек')
+      toast.error(`Не удалось открыть "${iblock.name}"`)
       console.error('[SidebarMenu] Failed to open iblock', error)
     }
   }
 
-  const iblockLinks = bitrixMeta?.iblocks ? [
-    { key: 'calcSettings', label: 'Калькуляторы', id: bitrixMeta.iblocks.calcSettings },
-    { key: 'calcConfig', label: 'Конфигурации', id: bitrixMeta.iblocks.calcConfig },
-    { key: 'calcDetailsVariants', label: 'Варианты деталей', id: bitrixMeta.iblocks.calcDetailsVariants },
-    { key: 'calcMaterialsVariants', label: 'Варианты материалов', id: bitrixMeta.iblocks.calcMaterialsVariants },
-    { key: 'calcOperationsVariants', label: 'Варианты операций', id: bitrixMeta.iblocks.calcOperationsVariants },
-    { key: 'calcDetails', label: 'Детали', id: bitrixMeta.iblocks.calcDetails },
-    { key: 'calcMaterials', label: 'Материалы', id: bitrixMeta.iblocks.calcMaterials },
-    { key: 'calcEquipment', label: 'Оборудование', id: bitrixMeta.iblocks.calcEquipment },
-    { key: 'calcOperations', label: 'Операции', id: bitrixMeta.iblocks.calcOperations },
-    { key: 'products', label: 'Товары', id: bitrixMeta.iblocks.products },
-    { key: 'offers', label: 'Торговые предложения', id: bitrixMeta.iblocks.offers },
-  ] : []
-
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent side="left" className="w-[300px] flex flex-col" data-pwcode="sidebar-menu">
+        <SheetContent side="left" className="w-[300px] flex flex-col overflow-y-auto" data-pwcode="sidebar-menu">
           <SheetHeader>
             <SheetTitle>Меню</SheetTitle>
           </SheetHeader>
           
           <div className="flex-1 mt-6 space-y-2">
-            {iblockLinks.length > 0 && (
-              <>
+            {groupedIblocks. map((group, groupIndex) => (
+              <div key={group.type}>
                 <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
-                  Настройки инфоблоков
+                  {group.label}
                 </div>
-                {iblockLinks.map(link => (
-                  <Button
-                    key={link.key}
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => handleOpenIblock(link.id, link.label)}
-                    data-pwcode={`btn-iblock-${link.key}`}
-                  >
-                    <FolderOpen className="w-4 h-4 mr-2" />
-                    {link.label}
-                  </Button>
+                {group.items.map(({ parent, children }) => (
+                  <div key={parent.id}>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleOpenIblock(parent)}
+                      data-pwcode={`btn-iblock-${parent. code. toLowerCase()}`}
+                    >
+                      <FolderOpen className="w-4 h-4 mr-2" />
+                      {parent.name}
+                    </Button>
+                    {children.length > 0 && (
+                      <div className="ml-4">
+                        {children.map(child => (
+                          <Button
+                            key={child.id}
+                            variant="ghost"
+                            className="w-full justify-start text-sm"
+                            onClick={() => handleOpenIblock(child)}
+                            data-pwcode={`btn-iblock-${child.code.toLowerCase()}`}
+                          >
+                            <CaretRight className="w-3 h-3 mr-2 text-muted-foreground" />
+                            {child. name}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
-                <Separator />
-              </>
-            )}
+                {groupIndex < groupedIblocks.length - 1 && <Separator className="my-2" />}
+              </div>
+            ))}
             
-            {bitrixMeta?.context && (
+            {groupedIblocks.length > 0 && <Separator />}
+            
+            {bitrixMeta?. context && (
               <>
                 <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
                   Системные настройки
@@ -104,8 +147,8 @@ export function SidebarMenu({ isOpen, onClose, bitrixMeta }: SidebarMenuProps) {
                   variant="ghost"
                   className="w-full justify-start"
                   onClick={() => {
-                    const lang = bitrixMeta.context.lang
-                    window.open(formatBitrixUrl(`/bitrix/admin/settings.php?lang=${lang}&mid=prospektweb.calc&mid_menu=1`), '_blank')
+                    const lang = bitrixMeta.context. lang
+                    window. open(formatBitrixUrl(`/bitrix/admin/settings.php?lang=${lang}&mid=prospektweb. calc&mid_menu=1`), '_blank')
                   }}
                   data-pwcode="btn-module-settings"
                 >
@@ -116,7 +159,7 @@ export function SidebarMenu({ isOpen, onClose, bitrixMeta }: SidebarMenuProps) {
                   variant="ghost"
                   className="w-full justify-start"
                   onClick={() => {
-                    const lang = bitrixMeta.context.lang
+                    const lang = bitrixMeta.context. lang
                     window.open(formatBitrixUrl(`/bitrix/admin/cat_measure_list.php?lang=${lang}`), '_blank')
                   }}
                   data-pwcode="btn-measure-units"
@@ -129,7 +172,7 @@ export function SidebarMenu({ isOpen, onClose, bitrixMeta }: SidebarMenuProps) {
                   className="w-full justify-start"
                   onClick={() => {
                     const lang = bitrixMeta.context.lang
-                    window.open(formatBitrixUrl(`/bitrix/admin/cat_group_admin.php?lang=${lang}`), '_blank')
+                    window. open(formatBitrixUrl(`/bitrix/admin/cat_group_admin. php?lang=${lang}`), '_blank')
                   }}
                   data-pwcode="btn-price-types"
                 >
