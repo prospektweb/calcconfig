@@ -2,14 +2,13 @@ import { useState, useRef, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Plus, ArrowSquareOut, X, CaretDown, CaretUp, Copy } from '@phosphor-icons/react'
+import { ArrowSquareOut, CaretDown, CaretUp, Copy } from '@phosphor-icons/react'
 import { InfoMessage } from '@/lib/types'
 import { toast } from 'sonner'
 import { JsonView, darkStyles, defaultStyles } from 'react-json-view-lite'
 import 'react-json-view-lite/dist/index.css'
 import { InitPayload } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
-import { postMessageBridge } from '@/lib/postmessage-bridge'
 
 interface VariantsFooterProps {
   selectedOffers: InitPayload['selectedOffers']
@@ -17,9 +16,6 @@ interface VariantsFooterProps {
   setTestVariantId: (id: number | null) => void
   addInfoMessage: (type: InfoMessage['type'], message: string) => void
   bitrixMeta: InitPayload | null
-  onRemoveOffer: (offerId: number) => void
-  onAddOfferRequest?: (requestId: string) => void
-  isBitrixLoading?: boolean
 }
 
 export function VariantsFooter({
@@ -28,9 +24,6 @@ export function VariantsFooter({
   setTestVariantId,
   addInfoMessage,
   bitrixMeta,
-  onRemoveOffer,
-  onAddOfferRequest,
-  isBitrixLoading,
 }: VariantsFooterProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [hoveredOfferId, setHoveredOfferId] = useState<number | null>(null)
@@ -47,44 +40,6 @@ export function VariantsFooter({
     }
   }
 
-  const getOfferRequestContext = () => {
-    if (!bitrixMeta) {
-      toast.error('Метаданные Bitrix не загружены')
-      return null
-    }
-
-    const context = getBitrixContext()
-    if (!context) {
-      toast.error('Контекст Bitrix не инициализирован')
-      return null
-    }
-
-    const iblockId = bitrixMeta.iblocks.offers
-    const iblockType = bitrixMeta.iblocksTypes[iblockId]
-
-    return {
-      iblockId,
-      iblockType,
-      lang: context.lang,
-    }
-  }
-
-  const handleAddVariant = () => {
-    const requestContext = getOfferRequestContext()
-
-    if (!requestContext) return
-
-    const requestId = postMessageBridge.sendAddOfferRequest(
-      requestContext.iblockId,
-      requestContext.iblockType,
-      requestContext.lang
-    )
-    if (requestId && onAddOfferRequest) {
-      onAddOfferRequest(requestId)
-    }
-    addInfoMessage('info', 'Отправлен запрос на добавление торговых предложений')
-  }
-
   const handleOpenVariant = (offer: InitPayload['selectedOffers'][0], e: React.MouseEvent) => {
     e.stopPropagation()
     
@@ -99,10 +54,17 @@ export function VariantsFooter({
       return
     }
 
+    // Find offers iblock
+    const offersIblock = bitrixMeta.iblocks.find(ib => ib.code === 'OFFERS')
+    if (!offersIblock) {
+      toast.error('Не найден инфоблок торговых предложений')
+      return
+    }
+
     try {
       openBitrixAdmin({
-        iblockId: bitrixMeta.iblocks.offers,
-        type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.offers],
+        iblockId: offersIblock.id,
+        type: offersIblock.type,
         lang: context.lang,
         id: offer.id,
       })
@@ -128,10 +90,17 @@ export function VariantsFooter({
       return
     }
 
+    // Find products iblock
+    const productsIblock = bitrixMeta.iblocks.find(ib => ib.code === 'PRODUCTS')
+    if (!productsIblock) {
+      toast.error('Не найден инфоблок товаров')
+      return
+    }
+
     try {
       openBitrixAdmin({
-        iblockId: bitrixMeta.iblocks.products,
-        type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.products],
+        iblockId: productsIblock.id,
+        type: productsIblock.type,
         lang: context.lang,
         id: offer.productId,
       })
@@ -141,23 +110,6 @@ export function VariantsFooter({
       toast.error(message)
       addInfoMessage('error', message)
     }
-  }
-
-  const handleRemoveVariant = (offer: InitPayload['selectedOffers'][0], e: React.MouseEvent) => {
-    e.stopPropagation()
-    setTooltipOpen(null)
-    const requestContext = getOfferRequestContext()
-
-    if (!requestContext) return
-
-    onRemoveOffer(offer.id)
-    postMessageBridge.sendRemoveOfferRequest(
-      offer.id,
-      requestContext.iblockId,
-      requestContext.iblockType,
-      requestContext.lang
-    )
-    addInfoMessage('warning', `Удалён оффер ID: ${offer.id}`)
   }
 
   const handleCopyJSON = (offer: InitPayload['selectedOffers'][0]) => {
@@ -237,15 +189,6 @@ export function VariantsFooter({
                           >
                             <ArrowSquareOut className="w-3 h-3" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={(e) => handleRemoveVariant(offer, e)}
-                            data-pwcode="btn-remove-offer"
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
                         </div>
                       </Badge>
                     </div>
@@ -299,17 +242,6 @@ export function VariantsFooter({
             })}
           </TooltipProvider>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleAddVariant}
-          className="h-7 px-3"
-          disabled={isBitrixLoading}
-          data-pwcode="btn-add-offer"
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          Выбрать
-        </Button>
         {selectedOffers.length > 5 && (
           <Button
             variant="ghost"
