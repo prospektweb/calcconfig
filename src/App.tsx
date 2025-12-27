@@ -32,9 +32,7 @@ import {
   SalePricesSettings,
   createEmptyDetail,
   createEmptyBinding,
-  createEmptyCalculator,
-  HeaderTabsState,
-  HeaderTabType
+  createEmptyCalculator
 } from '@/lib/types'
 import { HeaderSection } from '@/components/calculator/HeaderSection'
 import { VariantsFooter } from '@/components/calculator/VariantsFooter'
@@ -49,7 +47,6 @@ import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
 import { postMessageBridge, InitPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload, SyncVariantsRequestPayload, SyncVariantsResponsePayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext } from '@/lib/bitrix-utils'
-import { createEmptyHeaderTabs, normalizeHeaderTabs } from '@/lib/header-tabs'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { useOperationSettingsStore } from '@/stores/operation-settings-store'
@@ -93,43 +90,6 @@ function App() {
   const [newGroupName, setNewGroupName] = useState('')
   const detailCounter = useRef(1)
   
-  // Initialize headerTabs directly from localStorage
-  const [headerTabs, setHeaderTabsState] = useState<HeaderTabsState>(() => {
-    if (typeof localStorage !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('calc_header_tabs')
-        if (stored) {
-          return normalizeHeaderTabs(JSON.parse(stored))
-        }
-      } catch (error) {
-        console.error('[HeaderTabs] Failed to load from localStorage', error)
-      }
-    }
-    return createEmptyHeaderTabs()
-  })
-  
-  const updateHeaderTabs = useCallback((value: HeaderTabsState | ((current: HeaderTabsState) => HeaderTabsState)) => {
-    setHeaderTabsState((current) => {
-      const normalizedCurrent = normalizeHeaderTabs(current)
-      const nextValue = typeof value === 'function'
-        ? (value as (current: HeaderTabsState) => HeaderTabsState)(normalizedCurrent)
-        : value
-      const normalizedNext = normalizeHeaderTabs(nextValue)
-
-      // Save to localStorage
-      if (typeof localStorage !== 'undefined') {
-        try {
-          localStorage.setItem('calc_header_tabs', JSON.stringify(normalizedNext))
-          console.info('[HeaderTabs] saved to localStorage')
-        } catch (error) {
-          console.error('[HeaderTabs] Failed to save to localStorage', error)
-        }
-      }
-
-      return normalizedNext
-    })
-  }, [])
-
   const [details, setDetails] = useConfigKV<Detail[]>('calc_details', [])
   const [bindings, setBindings] = useConfigKV<Binding[]>('calc_bindings', [])
   
@@ -142,53 +102,9 @@ function App() {
   useEffect(() => {
     localStorage.setItem('calc_info_panel_expanded', isInfoPanelExpanded.toString())
   }, [isInfoPanelExpanded])
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return
-
-    let lastSnapshot = ''
-
-    const applyFromStorage = () => {
-      const rawValue = localStorage.getItem('calc_header_tabs')
-      const snapshot = rawValue ?? ''
-
-      if (snapshot === lastSnapshot) return
-      lastSnapshot = snapshot
-
-      if (!rawValue) return
-
-      try {
-        const parsed = JSON.parse(rawValue)
-        const normalized = normalizeHeaderTabs(parsed)
-        setHeaderTabsState(normalized)
-        console.info('[HeaderTabs] updated from localStorage')
-      } catch (error) {
-        console.error('[HeaderTabs] Failed to parse from localStorage', error)
-      }
-    }
-
-    // Skip immediate call since data is already loaded in useState initializer to avoid duplicate processing
-
-    const interval = setInterval(applyFromStorage, 1000)
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === 'calc_header_tabs') {
-        applyFromStorage()
-      }
-    }
-
-    window.addEventListener('storage', handleStorage)
-
-    return () => {
-      clearInterval(interval)
-      window.removeEventListener('storage', handleStorage)
-    }
-  }, [])
   
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
-  const [draggedHeaderDetail, setDraggedHeaderDetail] = useState<{id: number, name: string} | null>(null)
-  const [activeHeaderTab, setActiveHeaderTab] = useState<HeaderTabType>('details')
   const [isGabVesActive, setIsGabVesActive] = useState(false)
   const [isGabVesPanelExpanded, setIsGabVesPanelExpanded] = useState(false)
   const [gabVesMessages, setGabVesMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
@@ -200,8 +116,6 @@ function App() {
   const [isPriceActive, setIsPriceActive] = useState(false)
   const [isPricePanelExpanded, setIsPricePanelExpanded] = useState(false)
   const [priceMessages, setPriceMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
-  
-  const [headerDropZoneHover, setHeaderDropZoneHover] = useState<number | null>(null)
 
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
@@ -327,15 +241,9 @@ function App() {
           if (configData.salePricesSettings) {
             setSalePricesSettings(configData.salePricesSettings)
           }
-          // headerTabs из конфигурации, если есть
-          if (configData.headerTabs) {
-            updateHeaderTabs(normalizeHeaderTabs(configData.headerTabs))
-          }
-          // Иначе оставляем текущие headerTabs из localStorage
         }
         
         postMessageBridge.sendInitDone(
-          message.payload.mode || 'NEW_CONFIG',
           message.payload.selectedOffers?.length || 0
         )
         
@@ -390,31 +298,13 @@ function App() {
         return
       }
 
-      if (pending.tab) {
-        updateHeaderTabs((prev) => {
-          const safePrev = prev || createEmptyHeaderTabs()
-
-          const nextElements = items.map((item: any) => ({
-            id: `header-${pending.tab}-${item.id}`,
-            type: pending.tab!,
-            itemId: item.id,
-            name: item.name || `Элемент ${item.id}`,
-            ...(typeof item.deleted !== 'undefined' ? { deleted: item.deleted } : {}),
-          }))
-
-          return {
-            ...safePrev,
-            [pending.tab]: mergeUniqueById(safePrev[pending.tab] || [], nextElements),
-          }
-        })
-      } else {
-        const uniqueOffers = items as InitPayload['selectedOffers']
-        setSelectedOffers((prev) => {
-          const merged = mergeUniqueById(prev || [], uniqueOffers)
-          setSelectedVariantIds(merged.map(o => o.id))
-          return merged
-        })
-      }
+      // For offers (not header tabs anymore)
+      const uniqueOffers = items as InitPayload['selectedOffers']
+      setSelectedOffers((prev) => {
+        const merged = mergeUniqueById(prev || [], uniqueOffers)
+        setSelectedVariantIds(merged.map(o => o.id))
+        return merged
+      })
 
       setIsBitrixLoading(pendingRequestsRef.current.size > 0)
     })
@@ -422,7 +312,7 @@ function App() {
     return () => {
       unsubscribeSelectDone()
     }
-  }, [dedupeById, mergeUniqueById, updateHeaderTabs])
+  }, [dedupeById, mergeUniqueById])
 
   useEffect(() => {
     const unsubscribeCalcSettings = postMessageBridge.on('CALC_SETTINGS_RESPONSE', (message) => {
@@ -893,11 +783,6 @@ function App() {
     setPriceMessages((prev) => [...prev, newMessage])
   }
 
-  const handleSelectRequestPending = (requestId: string, tab: HeaderTabType) => {
-    pendingRequestsRef.current.set(requestId, { tab })
-    setIsBitrixLoading(true)
-  }
-
   const handleAddOfferRequestPending = (requestId: string) => {
     pendingRequestsRef.current.set(requestId, {})
     setIsBitrixLoading(true)
@@ -1155,36 +1040,6 @@ function App() {
   const handleMainAreaDrop = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
-    try {
-      const jsonData = e.dataTransfer.getData('application/json')
-      if (jsonData) {
-        const data = JSON.parse(jsonData)
-        
-        if (data.type === 'header-detail' && activeHeaderTab === 'details') {
-          // Create detail with data from drag event
-          const newDetail = createEmptyDetail(data.detailName, data.detailId)
-          // Real data can be retrieved later via REFRESH
-          
-          setDetails(prev => [...(prev || []), newDetail])
-          addInfoMessage('success', `Добавлена деталь: ${data.detailName}`)
-        }
-      }
-    } catch (error) {
-      console.error('Drop error:', error)
-    }
-    
-    setDraggedHeaderDetail(null)
-    setHeaderDropZoneHover(null)
-  }
-  
-  const handleHeaderDetailDragStart = (detailId: number, detailName: string) => {
-    setDraggedHeaderDetail({ id: detailId, name: detailName })
-  }
-  
-  const handleHeaderDetailDragEnd = () => {
-    setDraggedHeaderDetail(null)
-    setHeaderDropZoneHover(null)
   }
   
   const getAllItemsInOrder = (): Array<{type: 'detail' | 'binding', id: string, item: Detail | Binding}> => {
@@ -1361,7 +1216,6 @@ function App() {
       const collectedData = {
         details: details || [],
         bindings: bindings || [],
-        headerTabs: headerTabs || createEmptyHeaderTabs(),
         costingSettings: costingSettings || { basedOn: 'COMPONENT_BASE', roundingStep: 1, markupValue: 0, markupUnit: 'RUB' },
         salePricesSettings: salePricesSettings || { selectedTypes: [], types: {} },
       }
@@ -1576,18 +1430,8 @@ function App() {
       <div className="w-full flex flex-col min-h-screen">
         <header className="border-b border-border bg-card" pwcode="header">
           <HeaderSection
-            headerTabs={headerTabs || createEmptyHeaderTabs()}
-            setHeaderTabs={updateHeaderTabs}
-            addInfoMessage={addInfoMessage}
             onOpenMenu={() => setIsMenuOpen(true)}
-            onRefreshData={handleRefreshData}
-            onDetailDragStart={handleHeaderDetailDragStart}
-            onDetailDragEnd={handleHeaderDetailDragEnd}
-            onActiveTabChange={setActiveHeaderTab}
             bitrixMeta={bitrixMeta}
-            isRefreshing={isRefreshing}
-            onSelectRequest={handleSelectRequestPending}
-            isBitrixLoading={isBitrixLoading}
           />
         </header>
 
@@ -1620,29 +1464,6 @@ function App() {
           </div>
           
           <div className="space-y-0">
-            {allItems.length === 0 && draggedHeaderDetail && activeHeaderTab === 'details' && (
-              <div
-                className={cn(
-                  "border-2 border-dashed rounded-lg flex items-center justify-center transition-all",
-                  headerDropZoneHover === 0 
-                    ? "border-accent bg-accent/10" 
-                    : "border-border bg-muted/30"
-                )}
-                style={{ height: '43px' }}
-                onDragEnter={() => setHeaderDropZoneHover(0)}
-                onDragLeave={() => setHeaderDropZoneHover(null)}
-              >
-                <p className={cn(
-                  "text-center",
-                  headerDropZoneHover === 0 ? "text-accent-foreground font-medium" : "text-muted-foreground"
-                )}>
-                  {headerDropZoneHover === 0
-                    ? "Отпустите для добавления детали" 
-                    : "Перетащите деталь из шапки сюда"}
-                </p>
-              </div>
-            )}
-            
             {dragState.isDragging && allItems.length > 0 && (
               <div 
                 ref={(el) => { if (el) dropZoneRefs.current.set(0, el) }}
@@ -1657,25 +1478,6 @@ function App() {
                   dragState.dropTargetIndex === 0 ? "text-accent-foreground font-medium" : "text-muted-foreground"
                 )}>
                   Перетащите деталь сюда
-                </p>
-              </div>
-            )}
-            
-            {draggedHeaderDetail && activeHeaderTab === 'details' && allItems.length > 0 && (
-              <div 
-                className={cn(
-                  "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
-                  headerDropZoneHover === -1 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
-                )}
-                style={{ height: '43px' }}
-                onDragEnter={() => setHeaderDropZoneHover(-1)}
-                onDragLeave={() => setHeaderDropZoneHover(null)}
-              >
-                <p className={cn(
-                  "text-center text-sm",
-                  headerDropZoneHover === -1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
-                )}>
-                  {headerDropZoneHover === -1 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда"}
                 </p>
               </div>
             )}
@@ -1746,26 +1548,7 @@ function App() {
                   </div>
                 )}
                 
-                {draggedHeaderDetail && activeHeaderTab === 'details' && (
-                  <div 
-                    className={cn(
-                      "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",
-                      headerDropZoneHover === index + 1 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
-                    )}
-                    style={{ height: '43px' }}
-                    onDragEnter={() => setHeaderDropZoneHover(index + 1)}
-                    onDragLeave={() => setHeaderDropZoneHover(null)}
-                  >
-                    <p className={cn(
-                      "text-center text-sm",
-                      headerDropZoneHover === index + 1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
-                    )}>
-                      {headerDropZoneHover === index + 1 ? "Отпустите для добавления детали" : "Перетащите деталь из шапки сюда"}
-                    </p>
-                  </div>
-                )}
-                
-                {index < allItems.length - 1 && !dragState.isDragging && !draggedHeaderDetail && (
+                {index < allItems.length - 1 && !dragState.isDragging && (
                   <div className="flex justify-center -my-3 z-10 relative" style={{ marginTop: '-12px', marginBottom: '-12px' }}>
                     <Button
                       variant="ghost"
