@@ -70,7 +70,7 @@ function App() {
   
   const [selectedOffers, setSelectedOffers] = useState<InitPayload['selectedOffers']>([])
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const pendingRequestsRef = useRef<Map<string, { tab?: HeaderTabType }>>(new Map())
+  const pendingRequestsRef = useRef<Map<string, {}>>(new Map())
   const [isBitrixLoading, setIsBitrixLoading] = useState(false)
   const [canCalculate, setCanCalculate] = useState(false)
   
@@ -794,11 +794,6 @@ function App() {
     setPriceMessages((prev) => [...prev, newMessage])
   }
 
-  const handleAddOfferRequestPending = (requestId: string) => {
-    pendingRequestsRef.current.set(requestId, {})
-    setIsBitrixLoading(true)
-  }
-
   const handleAddDetail = () => {
     const newDetail = createEmptyDetail()
     setDetails(prev => [...(prev || []), newDetail])
@@ -1188,7 +1183,7 @@ function App() {
       items,
       offerIds,
       context: {
-        configId: message.payload.preset?.id,
+        configId: bitrixMeta?.preset?.id,
         timestamp: Date.now(),
       },
     }
@@ -1575,15 +1570,6 @@ function App() {
           setTestVariantId={setTestVariantId}
           addInfoMessage={addInfoMessage}
           bitrixMeta={bitrixMeta}
-          onRemoveOffer={(offerId) => {
-            setSelectedOffers(prev => prev.filter(o => o.id !== offerId))
-            setSelectedVariantIds(prev => prev.filter(id => id !== offerId))
-            if (testVariantId === offerId) {
-              setTestVariantId(null)
-            }
-          }}
-          onAddOfferRequest={handleAddOfferRequestPending}
-          isBitrixLoading={isBitrixLoading}
         />
 
         <InfoPanel
