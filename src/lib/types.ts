@@ -35,22 +35,34 @@ export interface DetailVariant {
   length: number
 }
 
-export type HeaderTabType = 'materialsVariants' | 'operationsVariants' | 'equipment' | 'details'
-
-export interface HeaderElement {
-  id: string
-  type: HeaderTabType
-  itemId: number
+// New Iblock interface for the new data model
+export interface Iblock {
+  id: number
+  code: string
+  type: string
   name: string
-  deleted?: number | string | boolean | null
+  parent: number | null
 }
 
-export interface HeaderTabsState {
-  materialsVariants: HeaderElement[]
-  operationsVariants: HeaderElement[]
-  equipment: HeaderElement[]
-  details: HeaderElement[]
+// New Preset interface for the new data model
+export interface Preset {
+  id: number
+  name: string
+  properties: {
+    CALC_STAGES: number[]
+    CALC_SETTINGS: number[]
+    CALC_MATERIALS: number[]
+    CALC_MATERIALS_VARIANTS: number[]
+    CALC_OPERATIONS: number[]
+    CALC_OPERATIONS_VARIANTS: number[]
+    CALC_EQUIPMENT: number[]
+    CALC_DETAILS: number[]
+    CALC_DETAILS_VARIANTS: number[]
+  }
 }
+
+// ElementsStore type for the new data model
+export type ElementsStore = Record<string, any[]>
 
 export interface CalculatorInstance {
   id: string
@@ -81,8 +93,6 @@ export interface Binding {
   calculators: CalculatorInstance[]
   detailIds: string[]
   bindingIds: string[]
-  hasFinishing: boolean
-  finishingCalculators: CalculatorInstance[]
   bindingCalculators?: CalculatorInstance[]
   bitrixId?: number | null
 }
@@ -131,7 +141,6 @@ export interface AppState {
   selectedVariantIds: number[]
   testVariantId: number | null
   isEditingTestId: boolean
-  headerTabs: HeaderTabsState
   details: Detail[]
   bindings: Binding[]
   infoMessages: InfoMessage[]
@@ -172,6 +181,9 @@ export const createEmptyBinding = (name: string = 'Новая группа ск�
   calculators: [createEmptyCalculator()],
   detailIds: [],
   bindingIds: [],
-  hasFinishing: false,
-  finishingCalculators: [],
 })
+
+// Helper function to get iblock by code from new iblocks array structure
+export const getIblockByCode = (iblocks: Iblock[], code: string): Iblock | undefined => {
+  return iblocks.find(iblock => iblock.code === code)
+}

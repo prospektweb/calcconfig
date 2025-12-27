@@ -1,4 +1,4 @@
-import { AppState, Detail, Binding, HeaderElement, CostingSettings, SalePricesSettings, HeaderTabsState } from './types'
+import { AppState, Detail, Binding, CostingSettings, SalePricesSettings, Iblock, Preset, ElementsStore } from './types'
 import { BitrixTreeItem, BitrixProperty } from './bitrix-transformers'
 
 export type MessageType =
@@ -64,7 +64,6 @@ export interface PwrtMessage {
 }
 
 export interface InitPayload {
-  mode: 'NEW_CONFIG' | 'EXISTING_CONFIG'
   context: {
     siteId: string
     userId: string
@@ -72,20 +71,7 @@ export interface InitPayload {
     timestamp: number
     url: string
   }
-  iblocks: {
-    products: number
-    offers: number
-    calcDetails: number
-    calcDetailsVariants: number
-    calcMaterials: number
-    calcMaterialsVariants: number
-    calcOperations: number
-    calcOperationsVariants: number
-    calcEquipment: number
-    calcSettings?: number
-    calcConfig?: number
-  }
-  iblocksTypes: Record<string, string>
+  iblocks: Iblock[]
   iblocksTree?: {
     calcSettings?: BitrixTreeItem[]
     calcEquipment?: BitrixTreeItem[]
@@ -104,11 +90,8 @@ export interface InitPayload {
     }>
     properties?: Record<string, any>
   }>
-  config?: {
-    id: number
-    name: string
-    data: ConfigData
-  }
+  preset?: Preset
+  elementsStore?: ElementsStore
   priceTypes?: Array<{
     id: number
     name: string
@@ -122,7 +105,6 @@ export interface ConfigData {
   bindings: Binding[]
   costingSettings?: CostingSettings
   salePricesSettings?: SalePricesSettings
-  headerTabs?: HeaderTabsState
 }
 
 export interface CalcPreviewPayload {
@@ -162,7 +144,6 @@ export interface SaveRequestPayload {
     properties?: Record<string, any>
     comments?: string
   }>
-  mode: 'NEW_CONFIG' | 'EXISTING_CONFIG'
   configId?: number
 }
 
@@ -358,23 +339,11 @@ export interface SyncVariantsRequestPayload {
       otherOptions?: Record<string, any>
       configId?: number
     }>
-    finishingCalculators?: Array<{
-      id: string
-      calculatorCode?: number
-      operationVariantId?: number
-      materialVariantId?: number
-      equipmentId?: number
-      operationQuantity?: number
-      materialQuantity?: number
-      otherOptions?: Record<string, any>
-      configId?: number
-    }>
     childIds?: string[]
   }>
   offerIds: number[]
   deletedConfigIds?: number[]
   context: {
-    mode: 'NEW_CONFIG' | 'EXISTING_CONFIG'
     configId?: number
     timestamp: number
   }
@@ -512,9 +481,8 @@ class PostMessageBridge {
     })
   }
 
-  sendInitDone(mode: 'NEW_CONFIG' | 'EXISTING_CONFIG', offersCount: number) {
+  sendInitDone(offersCount: number) {
     this.sendMessage('INIT_DONE', {
-      mode,
       offersCount,
     })
   }
