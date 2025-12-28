@@ -48,7 +48,7 @@ const filterHierarchyByValues = (
   allowedValues: string[]
 ): MultiLevelItem[] => {
   return items
-    .map(item => {
+   .map(item => {
       // Если это конечный элемент (есть value и нет детей) — проверяем, входит ли в список
       if (item.value && (! item.children || item.children.length === 0)) {
         return allowedValues.includes(item.value) ? item : null
@@ -59,13 +59,13 @@ const filterHierarchyByValues = (
         const filteredChildren = filterHierarchyByValues(item.children, allowedValues)
         // Оставляем раздел только если в нём есть отфильтрованные дети
         if (filteredChildren.length > 0) {
-          return { ...item, children: filteredChildren }
+          return {...item, children: filteredChildren }
         }
       }
       
       return null
     })
-    .filter((item): item is MultiLevelItem => item !== null)
+   .filter((item): item is MultiLevelItem => item !== null)
 }
 
 // Рекурсивный поиск первого элемента с value в иерархии
@@ -401,7 +401,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
 
   const handleUpdateCalculator = (index: number, updates: Partial<CalculatorInstance>) => {
     const newCalculators = safeCalculators.map((calc, i) => 
-      i === index ? { ...calc, ...updates } : calc
+      i === index ? {...calc,...updates } : calc
     )
     onChange(newCalculators)
   }
@@ -1114,12 +1114,12 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                             <div className="flex items-center gap-1">
                               <Input
                                 type="number"
-                                value={typeof calc.extraOptions? .[field.code] === 'number' 
+                                value={typeof calc.extraOptions?.[field.code] === 'number' 
                                   ?  calc.extraOptions[field.code]
                                   :  typeof field.default === 'number' ?  field.default : 0}
                                 onChange={(e) => handleUpdateCalculator(index, {
                                   extraOptions: {
-                                    ...calc.extraOptions,
+                                   ...calc.extraOptions,
                                     [field.code]: parseFloat(e.target.value) || 0
                                   }
                                 })}
@@ -1139,7 +1139,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                               checked={Boolean(calc.extraOptions?.[field.code] ??  field.default)}
                               onCheckedChange={(checked) => handleUpdateCalculator(index, {
                                 extraOptions: {
-                                  ...calc.extraOptions,
+                                 ...calc.extraOptions,
                                   [field.code]: checked
                                 }
                               })}
@@ -1152,7 +1152,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                               value={String(calc.extraOptions?.[field.code] ?? field.default ??  '')}
                               onChange={(e) => handleUpdateCalculator(index, {
                                 extraOptions: {
-                                  ...calc.extraOptions,
+                                 ...calc.extraOptions,
                                   [field.code]: e.target.value
                                 }
                               })}
@@ -1165,7 +1165,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                               value={String(calc.extraOptions?.[field.code] ?? field.default ?? '')}
                               onValueChange={(value) => handleUpdateCalculator(index, {
                                 extraOptions: {
-                                  ...calc.extraOptions,
+                                 ...calc.extraOptions,
                                   [field.code]: value
                                 }
                               })}
