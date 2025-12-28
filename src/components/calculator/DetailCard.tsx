@@ -26,7 +26,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
   }
   
   const handleOpenInBitrix = () => {
-    const detailIdNumber = detail.bitrixId ?? parseInt(detail.id. split('_')[1] || '0')
+    const detailIdNumber = detail.bitrixId ?? parseInt(detail.id.split('_')[1] || '0')
 
     if (bitrixMeta && detailIdNumber) {
       const context = getBitrixContext()
@@ -64,23 +64,23 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
   const handleNameBlur = () => {
     // Send event to Bitrix when name changes
     if (detail.bitrixId && detail.name && bitrixMeta) {
-      const detailsIblock = getIblockByCode(bitrixMeta. iblocks, 'CALC_DETAILS')
+      const detailsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_DETAILS')
       if (! detailsIblock) {
         return
       }
 
-      postMessageBridge. sendChangeNameDetailRequest({
-        detailId: detail. bitrixId,
+      postMessageBridge.sendChangeNameDetailRequest({
+        detailId: detail.bitrixId,
         newName: detail.name,
         iblockId: detailsIblock.id,
-        iblockType: detailsIblock. type,
+        iblockType: detailsIblock.type,
       })
     }
   }
   
   const handleDragHandleMouseDown = (e:  React.MouseEvent) => {
     e.preventDefault()
-    const card = e.currentTarget. closest('[data-detail-card]') as HTMLElement
+    const card = e.currentTarget.closest('[data-detail-card]') as HTMLElement
     if (card && onDragStart) {
       onDragStart(card, e)
     }
@@ -89,7 +89,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
   return (
     <Card 
       data-detail-card
-      data-detail-id={detail. id}
+      data-detail-id={detail.id}
       className={`overflow-hidden transition-all ${isInBinding ? 'ml-4' : ''} ${isDragging ?  'invisible' : ''}`}
       data-pwcode="detail-card"
     >
@@ -124,7 +124,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
           />
           <div className="flex-shrink-0 flex items-center gap-1">
             <span className="text-xs font-mono text-muted-foreground" data-pwcode="detail-id">
-              ID:{detail. bitrixId ?? detail.id.split('_')[1]?.slice(0, 5) ?? 'N/A'}
+              ID:{detail.bitrixId ?? detail.id.split('_')[1]?.slice(0, 5) ?? 'N/A'}
             </span>
             <Button
               variant="ghost"
