@@ -129,7 +129,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 flex-shrink-0 hover: bg-accent hover: text-accent-foreground"
+              className="h-6 w-6 p-0 flex-shrink-0 hover:bg-accent hover:text-accent-foreground"
               onClick={handleOpenInBitrix}
               data-pwcode="btn-open-detail-bitrix"
             >

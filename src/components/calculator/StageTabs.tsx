@@ -735,7 +735,10 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="absolute right-6 top-1/2 -translate-y-1/2 h-5 w-5 p-0 rounded-full hover:bg-accent hover:text-accent-foreground z-10"
+                        className={cn(
+                          "absolute top-1/2 -translate-y-1/2 h-5 w-5 p-0 rounded-full hover:bg-accent hover:text-accent-foreground text-primary-foreground/60 hover:text-primary-foreground z-10",
+                          safeCalculators.length === 1 ? "right-1" : "right-6"
+                        )}
                         onClick={(e) => {
                           e.stopPropagation()
                           openEntity('stage', calc.stageId!)
