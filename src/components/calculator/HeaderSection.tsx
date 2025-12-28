@@ -85,7 +85,7 @@ export function HeaderSection({
               size="sm"
               onClick={() => handleOpenCatalog(catalog)}
               className="h-9 px-3 text-sm hover:bg-accent hover:text-accent-foreground"
-              data-pwcode={`btn-catalog-${catalog.codetoLowerCase()}`}
+              data-pwcode={`btn-catalog-${catalog.code.toLowerCase()}`}
             >
               {catalog.name}
             </Button>
