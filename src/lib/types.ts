@@ -134,39 +134,38 @@ export interface CalcStageElement extends ElementsStoreItem {
   }
 }
 
-export interface CalculatorInstance {
+export interface StageInstance {
   id: string
-  calculatorCode:  string | null
-  operationId: number | null
-  operationQuantity: number
-  equipmentId: number | null
-  materialId: number | null
-  materialQuantity: number
-  extraOptions: Record<string, any>
-  configId?:  number
-  stageId?: number // ID of the stage element in CALC_STAGES iblock
+  stageId: number | null // ID из CALC_STAGES
+  settingsId: number | null // ID из CALC_SETTINGS
+  operationVariantId: number | null // из OPERATION_VARIANT
+  operationQuantity: number // из OPERATION_QUANTITY
+  equipmentId: number | null // из EQUIPMENT
+  materialVariantId: number | null // из MATERIAL_VARIANT
+  materialQuantity: number // из MATERIAL_QUANTITY
+  customFields: Record<string, string> // из CUSTOM_FIELDS_VALUE (VALUE[i] → DESCRIPTION[i])
+  configId?: number
 }
 
 export interface Detail {
-  id:  string
-  name:  string
-  width:  number
-  length:  number
+  id: string
+  name: string
+  width: number | null
+  length: number | null
   isExpanded: boolean
-  calculators: CalculatorInstance[]
-  bitrixId?:  number | null
+  stages: StageInstance[]
+  bitrixId: number | null
 }
 
 export interface Binding {
   id: string
   name: string
-  isExpanded:  boolean
-  calculators: CalculatorInstance[] // Stages of the binding itself (activated by "Считать скрепление" checkbox)
-  detailIds: string[]
-  bindingIds:  string[]
-  bindingCalculators?:  CalculatorInstance[] // Legacy, may be removed
-  bitrixId?: number | null
-  calculateBinding?: boolean // Checkbox "Считать скрепление"
+  isExpanded: boolean
+  hasStages: boolean // true если есть CALC_STAGES
+  stages: StageInstance[] // этапы скрепления
+  detailIds: string[] // ID дочерних деталей (формат detail_${bitrixId})
+  bindingIds: string[] // ID вложенных скреплений (формат binding_${bitrixId})
+  bitrixId: number | null
 }
 
 export interface InfoMessage {
@@ -225,24 +224,25 @@ export interface AppState {
   salePricesSettings?:  SalePricesSettings
 }
 
-export const createEmptyCalculator = (): CalculatorInstance => ({
-  id: `calc_${Date. now()}_${Math.random().toString(36).substr(2, 9)}`,
-  calculatorCode: null,
-  operationId: null,
+export const createEmptyStage = (): StageInstance => ({
+  id: `stage_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  stageId: null,
+  settingsId: null,
+  operationVariantId: null,
   operationQuantity: 1,
   equipmentId: null,
-  materialId: null,
+  materialVariantId: null,
   materialQuantity: 1,
-  extraOptions:  {},
+  customFields: {},
 })
 
 export const createEmptyDetail = (name: string = 'Новая деталь', bitrixId: number | null = null): Detail => ({
-  id: `detail_${Date. now()}_${Math.random().toString(36).substr(2, 9)}`,
+  id: `detail_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
   name,
   width: 210,
-  length:  297,
+  length: 297,
   isExpanded: true,
-  calculators: [createEmptyCalculator()],
+  stages: [createEmptyStage()],
   bitrixId,
 })
 
@@ -250,10 +250,11 @@ export const createEmptyBinding = (name: string = 'Новая группа ск�
   id: `binding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
   name,
   isExpanded: true,
-  calculators:  [],
+  hasStages: false,
+  stages: [],
   detailIds: [],
   bindingIds: [],
-  calculateBinding: false,
+  bitrixId: null,
 })
 
 // Интерфейс для инфоблока
