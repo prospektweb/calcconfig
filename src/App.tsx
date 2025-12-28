@@ -175,6 +175,24 @@ function App() {
     }
   }, [bitrixMeta])
 
+  // Helper function to initialize calculator settings from elementsStore
+  const initializeCalculatorSettings = useCallback((elementsStore: any, source: string) => {
+    if (elementsStore.CALC_SETTINGS) {
+      const settingsStore = useCalculatorSettingsStore.getState()
+      console.log(`[${source}] Loading calculator settings from elementsStore`, {
+        count: elementsStore.CALC_SETTINGS.length
+      })
+      elementsStore.CALC_SETTINGS.forEach((settingsItem: any) => {
+        settingsStore.setSettings(settingsItem.id.toString(), {
+          id: settingsItem.id,
+          name: settingsItem.name,
+          properties: settingsItem.properties || {},
+        })
+      })
+      console.log(`[${source}] Calculator settings loaded successfully`)
+    }
+  }, [])
+
   useEffect(() => {
     return () => {
       pendingRequestsRef.current.clear()
@@ -259,20 +277,7 @@ function App() {
           }
           
           // Initialize calculatorSettings store from elementsStore.CALC_SETTINGS
-          if (message.payload.elementsStore.CALC_SETTINGS) {
-            const settingsStore = useCalculatorSettingsStore.getState()
-            console.log('[INIT] Loading calculator settings from elementsStore', {
-              count: message.payload.elementsStore.CALC_SETTINGS.length
-            })
-            message.payload.elementsStore.CALC_SETTINGS.forEach((settingsItem) => {
-              settingsStore.setSettings(settingsItem.id.toString(), {
-                id: settingsItem.id,
-                name: settingsItem.name,
-                properties: settingsItem.properties || {},
-              })
-            })
-            console.log('[INIT] Calculator settings loaded successfully')
-          }
+          initializeCalculatorSettings(message.payload.elementsStore, 'INIT')
         }
         
         postMessageBridge.sendInitDone(
@@ -314,20 +319,7 @@ function App() {
             }
             
             // Initialize calculatorSettings store from elementsStore.CALC_SETTINGS
-            if (refreshPayload.elementsStore.CALC_SETTINGS) {
-              const settingsStore = useCalculatorSettingsStore.getState()
-              console.log('[REFRESH] Loading calculator settings from elementsStore', {
-                count: refreshPayload.elementsStore.CALC_SETTINGS.length
-              })
-              refreshPayload.elementsStore.CALC_SETTINGS.forEach((settingsItem) => {
-                settingsStore.setSettings(settingsItem.id.toString(), {
-                  id: settingsItem.id,
-                  name: settingsItem.name,
-                  properties: settingsItem.properties || {},
-                })
-              })
-              console.log('[REFRESH] Calculator settings loaded successfully')
-            }
+            initializeCalculatorSettings(refreshPayload.elementsStore, 'REFRESH')
           }
           
           console.info('[REFRESH] applied offers=', (refreshPayload.selectedOffers || []).length)
