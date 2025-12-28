@@ -604,9 +604,8 @@ function App() {
         
         if (bitrixMeta && selectedDetail?. id) {
           postMessageBridge.sendUseDetailRequest({
-            detailId: selectedDetail.id,
-            offerIds: selectedVariantIds,
-            ...getIblockInfo('CALC_DETAILS')!,
+            detailId:  selectedDetail.id,
+            presetId: bitrixMeta?.preset?.id ??  0,
           })
           toast.info(`Использование детали "${selectedDetail.name}"... `)
         }
@@ -844,7 +843,6 @@ function App() {
       )
     )
     
-    // Send DELETE_STAGE_REQUEST if has configId
     const detail = (details || []).find(d => d.id === stageToDelete.detailId)
     const calc = detail?.calculators[stageToDelete.calcIndex]
     
