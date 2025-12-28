@@ -1100,16 +1100,16 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                 </div>
               )}
               
-              {/* Прочие опции из OTHER_OPTIONS */}
-              {(() => {
-                const otherFields = parseOtherOptions(settings)
-                if (otherFields.length === 0) return null
+              {/* Дополнительные поля из CUSTOM_FIELDS */}
+            {(() => {
+              const customFields = settings?.customFields || []
+              if (customFields.length === 0) return null
                 
                 return (
                   <div className="space-y-3 pt-3 border-t">
                     <Label className="text-sm font-medium">Дополнительные параметры</Label>
                     <div className="grid grid-cols-2 gap-3">
-                      {otherFields.map((field) => (
+                      {customFields.map((field) => (
                         <div key={field.code} className="space-y-1">
                           <Label className="text-xs">{field.name}</Label>
                           
