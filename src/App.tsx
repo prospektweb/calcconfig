@@ -30,6 +30,8 @@ import {
   InfoMessage,
   CostingSettings,
   SalePricesSettings,
+  ElementsStore,
+  ElementsStoreItem,
   createEmptyDetail,
   createEmptyBinding,
   createEmptyStage,
@@ -176,13 +178,17 @@ function App() {
   }, [bitrixMeta])
 
   // Helper function to initialize calculator settings from elementsStore
-  const initializeCalculatorSettings = useCallback((elementsStore: any, source: string) => {
+  const initializeCalculatorSettings = useCallback((elementsStore: ElementsStore, source: string) => {
     if (elementsStore.CALC_SETTINGS) {
       const settingsStore = useCalculatorSettingsStore.getState()
       console.log(`[${source}] Loading calculator settings from elementsStore`, {
         count: elementsStore.CALC_SETTINGS.length
       })
-      elementsStore.CALC_SETTINGS.forEach((settingsItem: any) => {
+      elementsStore.CALC_SETTINGS.forEach((settingsItem: ElementsStoreItem) => {
+        if (!settingsItem.id) {
+          console.warn(`[${source}] Skipping settings item with missing id`)
+          return
+        }
         settingsStore.setSettings(settingsItem.id.toString(), {
           id: settingsItem.id,
           name: settingsItem.name,
