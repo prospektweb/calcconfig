@@ -1,10 +1,25 @@
 import { create } from 'zustand'
 import { BitrixProperty } from '@/lib/bitrix-transformers'
 
+export interface CustomField {
+  code: string
+  name: string
+  type: 'number' | 'checkbox' | 'text' | 'select'
+  required?:  boolean
+  default?:  number | boolean | string
+  unit?: string
+  min?: number
+  max?: number
+  step?: number
+  maxLength?: number
+  options?: Array<{ value: string; label: string }>
+}
+
 export interface CalcSettingsItem {
   id: number
   name: string
   properties: Record<string, BitrixProperty>
+  customFields?:  CustomField[]
 }
 
 interface CalcSettingsState {
