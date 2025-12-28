@@ -399,7 +399,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
     }
   }
 
-  const handleUpdateCalculator = (index: number, updates: Partial<CalculatorInstance>) => {
+  const handleUpdateCalculator = (index: number, updates: Partial<StageInstance>) => {
     const newCalculators = safeCalculators.map((calc, i) => 
       i === index ? {...calc,...updates } : calc
     )
@@ -483,9 +483,9 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
       console.log('[CalculatorTabs][DEBUG] Processing calculator', {
         index,
         id: calc.id,
-        calculatorCode: calc.settingsId,
-        operationId: calc.operationVariantId,
-        materialId: calc.materialId,
+        settingsId: calc.settingsId,
+        operationVariantId: calc.operationVariantId,
+        materialVariantId: calc.materialVariantId,
         equipmentId: calc.equipmentId,
       })
 
@@ -568,7 +568,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
       if (defaultOpValue && !calc.operationVariantId) {
         const defaultOpId = parseInt(defaultOpValue, 10)
         if (! isNaN(defaultOpId) && calc.operationVariantId !== defaultOpId) {
-          handleUpdateCalculator(index, { operationId:  defaultOpId })
+          handleUpdateCalculator(index, { operationVariantId:  defaultOpId })
           
           // Send request to get operation data (to receive itemParent with filters)
           if (bitrixMeta) {
@@ -590,16 +590,16 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
       // Auto-select DEFAULT_MATERIAL_VARIANT  
       const defaultMaterialVariant = getProperty(settings, 'DEFAULT_MATERIAL_VARIANT')
       const defaultMatValue = getPropertyStringValue(defaultMaterialVariant)
-      if (defaultMatValue && !calc.materialId) {
+      if (defaultMatValue && !calc.materialVariantId) {
         const defaultMatId = parseInt(defaultMatValue, 10)
-        if (!isNaN(defaultMatId) && calc.materialId !== defaultMatId) {
+        if (!isNaN(defaultMatId) && calc.materialVariantId !== defaultMatId) {
           console.log('[CalculatorTabs] Setting default material:', {
-            materialId: defaultMatId,
+            materialVariantId: defaultMatId,
             storeHasVariant: !!materialVariants[defaultMatId?.toString()],
             allStoreKeys: Object.keys(materialVariants),
           })
           
-          handleUpdateCalculator(index, { materialId: defaultMatId })
+          handleUpdateCalculator(index, { materialVariantId: defaultMatId })
           
           // Send request to get material variant data
           if (bitrixMeta) {
@@ -659,14 +659,14 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
       }
       
       // Auto-select material if not selected
-      if (!calc.materialId) {
+      if (!calc.materialVariantId) {
         const hierarchyToSearch = supportedMaterialsVariantsList.length > 0
           ? filterHierarchyByValues(materialsHierarchy, supportedMaterialsVariantsList)
           : materialsHierarchy
         
         const firstMaterialValue = findFirstSelectableValue(hierarchyToSearch)
         if (firstMaterialValue) {
-          handleUpdateCalculator(index, { materialId: parseInt(firstMaterialValue) })
+          handleUpdateCalculator(index, { materialVariantId: parseInt(firstMaterialValue) })
           
           // Send request for material variant data
           if (bitrixMeta) {
@@ -862,10 +862,10 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                           })
 
                           handleUpdateCalculator(index, {
-                            calculatorCode: value,
-                            operationId: null,
+                            settingsId: parseInt(value, 10),
+                            operationVariantId: null,
                             equipmentId: null,
-                            materialId: null,
+                            materialVariantId: null,
                           })
                           
                           // Отправить запрос настроек калькулятора в Битрикс
@@ -935,9 +935,9 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                             const newOperationId = parseInt(value)
                             
                             handleUpdateCalculator(index, {
-                              operationId: newOperationId,
+                              operationVariantId: newOperationId,
                               equipmentId: null,  // Сбрасываем при смене операции
-                              materialId: null,   // Сбрасываем при смене операции
+                              materialVariantId: null,   // Сбрасываем при смене операции
                             })
                             
                             // Отправить запрос данных операции
@@ -1049,10 +1049,10 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                     <div className="flex-1">
                       <MultiLevelSelect
                         items={filteredMaterialsHierarchy}
-                        value={calc.materialId?.toString() || null}
+                        value={calc.materialVariantId?.toString() || null}
                         onValueChange={(value) => {
                           handleUpdateCalculator(index, {
-                            materialId: parseInt(value)
+                            materialVariantId: parseInt(value)
                           })
                           
                           // Отправить запрос данных варианта материала
@@ -1074,7 +1074,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                         bitrixMeta={bitrixMeta}
                       />
                     </div>
-                    {renderSelectedId(toNumber(calc.materialId), 'material', 'btn-open-material-bitrix')}
+                    {renderSelectedId(toNumber(calc.materialVariantId), 'material', 'btn-open-material-bitrix')}
                     
                     {/* Поле количества материала */}
                     {isPropertyEnabled(getProperty(settings, 'USE_MATERIAL_QUANTITY')) && (
@@ -1089,7 +1089,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                           className="w-20 max-w-[80px]"
                         />
                         <span className="text-sm text-muted-foreground w-[40px] text-right">
-                          {getMaterialUnit(calc.materialId) || 'шт.'}
+                          {getMaterialUnit(calc.materialVariantId) || 'шт.'}
                         </span>
                       </div>
                     )}
