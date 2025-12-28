@@ -1,106 +1,120 @@
+import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { 
-  List,
-  Notebook,
-  Package,
-  Wrench,
-  Printer,
-  ListChecks,
-  Gear
-} from '@phosphor-icons/react'
+import { List, Plus, FolderOpen } from '@phosphor-icons/react'
 import { InitPayload } from '@/lib/postmessage-bridge'
 import { openIblockEditPage } from '@/lib/bitrix-utils'
-import { getIblockByCode } from '@/lib/types'
 import { toast } from 'sonner'
+
+interface Iblock {
+  id: number
+  code: string
+  type: string
+  name: string
+  parent: number | null
+}
 
 interface HeaderSectionProps {
   onOpenMenu: () => void
   bitrixMeta?: InitPayload | null
+  onCreateDetail?: () => void
+  onSelectDetail?: () => void
 }
 
-export function HeaderSection({ onOpenMenu, bitrixMeta }: HeaderSectionProps) {
-  const handleOpenCatalog = (iblockCode: string) => {
-    if (!bitrixMeta || !bitrixMeta.iblocks) {
-      toast.error('Метаданные Bitrix не загружены')
-      return
-    }
+// Коды инфоблоков для отображения в меню
+const CATALOG_CODES = [
+  'CALC_DETAILS',
+  'CALC_MATERIALS',
+  'CALC_OPERATIONS',
+  'CALC_EQUIPMENT',
+  'CALC_STAGES',
+]
 
-    const iblock = getIblockByCode(bitrixMeta.iblocks, iblockCode)
-    if (!iblock) {
-      toast.error(`Инфоблок ${iblockCode} не найден`)
-      return
-    }
+export function HeaderSection({
+  onOpenMenu,
+  bitrixMeta,
+  onCreateDetail,
+  onSelectDetail,
+}: HeaderSectionProps) {
 
+  // Получаем инфоблоки для кнопок каталогов
+  const catalogButtons = useMemo(() => {
+    const iblocks = bitrixMeta?iblocks as Iblock[] | undefined
+    if (!iblocks || ! Array.isArray(iblocks)) return []
+
+    return CATALOG_CODES
+      .map(code => iblocks.find(ib => ibcode === code))
+      .filter((ib): ib is Iblock => ib !== undefined)
+  }, [bitrixMeta?iblocks])
+
+  // Открытие каталога инфоблока в новой вкладке
+  const handleOpenCatalog = (iblock: Iblock) => {
     try {
-      openIblockEditPage(iblock.id, 'calculator', 'ru')
+      const lang = bitrixMeta?.context?.lang || 'ru'
+      openIblockEditPage(iblock.id, iblock.type, lang)
     } catch (error) {
-      toast.error(`Не удалось открыть "${iblock.name}"`)
-      console.error('[HeaderSection] Failed to open iblock', error)
+      toasterror(`Не удалось открыть "${iblock.name}"`)
+      console.error('[HeaderSection] Failed to open catalog', error)
     }
   }
-
-  // Get iblock names for button labels
-  const getIblockName = (code: string): string => {
-    if (!bitrixMeta || !bitrixMeta.iblocks) return code
-    const iblock = getIblockByCode(bitrixMeta.iblocks, code)
-    return iblock?.name || code
-  }
-
-  const getIcon = (code: string) => {
-    switch (code) {
-      case 'CALC_DETAILS':
-        return <Notebook className="w-4 h-4" />
-      case 'CALC_MATERIALS':
-        return <Package className="w-4 h-4" />
-      case 'CALC_OPERATIONS':
-        return <Wrench className="w-4 h-4" />
-      case 'CALC_EQUIPMENT':
-        return <Printer className="w-4 h-4" />
-      case 'CALC_STAGES':
-        return <ListChecks className="w-4 h-4" />
-      case 'CALC_SETTINGS':
-        return <Gear className="w-4 h-4" />
-      default:
-        return null
-    }
-  }
-
-  const catalogButtons = [
-    'CALC_DETAILS',
-    'CALC_MATERIALS',
-    'CALC_OPERATIONS',
-    'CALC_EQUIPMENT',
-    'CALC_STAGES',
-    'CALC_SETTINGS'
-  ]
 
   return (
-    <div className="border-b border-border bg-muted/30" data-pwcode="headersection">
-      <div className="flex items-center gap-1 px-2 py-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onOpenMenu}
-          className="h-9 w-9 p-0 hover:bg-accent hover:text-accent-foreground flex-shrink-0"
-          aria-label="Меню"
-          data-pwcode="btn-menu"
-        >
-          <List className="w-5 h-5" />
-        </Button>
-        
-        {catalogButtons.map(code => (
+    <div className="border-b border-border bg-card" data-pwcode="headersection">
+      <div className="flex items-center justify-between px-2 py-2">
+        {/* Левая часть:  меню + кнопки каталогов */}
+        <div className="flex items-center gap-1">
+          {/* Кнопка меню */}
           <Button
-            key={code}
             variant="ghost"
             size="sm"
-            onClick={() => handleOpenCatalog(code)}
-            className="h-9 px-3 hover:bg-accent hover:text-accent-foreground flex items-center gap-2"
-            data-pwcode={`btn-catalog-${code.toLowerCase()}`}
+            onClick={onOpenMenu}
+            className="h-9 w-9 p-0 hover:bg-accent hover:text-accent-foreground"
+            aria-label="Меню"
+            data-pwcode="btn-menu"
           >
-            {getIcon(code)}
-            <span className="text-sm">{getIblockName(code)}</span>
+            <List className="w-5 h-5" />
           </Button>
-        ))}
+
+          {/* Разделитель */}
+          <div className="w-px h-6 bg-border mx-1" />
+
+          {/* Кнопки каталогов */}
+          {catalogButtons.map((catalog) => (
+            <Button
+              key={catalog.code}
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenCatalog(catalog)}
+              className="h-9 px-3 text-sm hover:bg-accent hover:text-accent-foreground"
+              data-pwcode={`btn-catalog-${catalog.codetoLowerCase()}`}
+            >
+              {catalog.name}
+            </Button>
+          ))}
+        </div>
+
+        {/* Правая часть: кнопки создания/выбора детали */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCreateDetail}
+            className="h-9"
+            data-pwcode="btn-create-detail"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Создать деталь
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onSelectDetail}
+            className="h-9"
+            data-pwcode="btn-select-detail"
+          >
+            <FolderOpen className="w-4 h-4 mr-2" />
+            Выбрать деталь
+          </Button>
+        </div>
       </div>
     </div>
   )
