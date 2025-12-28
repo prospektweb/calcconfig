@@ -1,23 +1,22 @@
-import { useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Detail, CalculatorInstance } from '@/lib/types'
-import { CaretDown, CaretUp, X, Pencil, Plus, DotsSixVertical, ArrowSquareOut } from '@phosphor-icons/react'
+import { Detail } from '@/lib/types'
+import { CaretDown, CaretUp, X, DotsSixVertical, ArrowSquareOut } from '@phosphor-icons/react'
 import { CalculatorTabs } from './CalculatorTabs'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
-import { openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
+import { openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
 
 interface DetailCardProps {
   detail: Detail
   onUpdate: (updates: Partial<Detail>) => void
   onDelete: () => void
-  isInBinding?: boolean
+  isInBinding?:  boolean
   orderNumber: number
-  onDragStart?: (element: HTMLElement, e: React.MouseEvent) => void
+  onDragStart?:  (element: HTMLElement, e: React.MouseEvent) => void
   isDragging?: boolean
-  bitrixMeta?: InitPayload | null
+  bitrixMeta?:  InitPayload | null
   onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
 }
 
@@ -27,24 +26,30 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
   }
   
   const handleOpenInBitrix = () => {
-    const detailIdNumber = detail.bitrixId ?? parseInt(detail.id.split('_')[1] || '0')
+    const detailIdNumber = detail.bitrixId ?? parseInt(detail.id. split('_')[1] || '0')
 
     if (bitrixMeta && detailIdNumber) {
       const context = getBitrixContext()
-      if (!context) {
+      if (! context) {
         toast.error('Контекст Bitrix не инициализирован')
+        return
+      }
+
+      const detailsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_DETAILS')
+      if (! detailsIblock) {
+        toast.error('Инфоблок CALC_DETAILS не найден')
         return
       }
 
       try {
         openBitrixAdmin({
-          iblockId: bitrixMeta.iblocks.calcDetails,
-          type: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+          iblockId: detailsIblock.id,
+          type: detailsIblock.type,
           lang: context.lang,
           id: detailIdNumber,
         })
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Не удалось открыть деталь'
+        const message = error instanceof Error ?  error.message : 'Не удалось открыть деталь'
         toast.error(message)
       }
     } else {
@@ -52,25 +57,30 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
     }
   }
   
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNameChange = (e:  React.ChangeEvent<HTMLInputElement>) => {
     onUpdate({ name: e.target.value })
   }
   
   const handleNameBlur = () => {
     // Send event to Bitrix when name changes
     if (detail.bitrixId && detail.name && bitrixMeta) {
-      postMessageBridge.sendChangeNameDetailRequest({
-        detailId: detail.bitrixId,
+      const detailsIblock = getIblockByCode(bitrixMeta. iblocks, 'CALC_DETAILS')
+      if (! detailsIblock) {
+        return
+      }
+
+      postMessageBridge. sendChangeNameDetailRequest({
+        detailId: detail. bitrixId,
         newName: detail.name,
-        iblockId: bitrixMeta.iblocks.calcDetails,
-        iblockType: bitrixMeta.iblocksTypes[bitrixMeta.iblocks.calcDetails],
+        iblockId: detailsIblock.id,
+        iblockType: detailsIblock. type,
       })
     }
   }
   
-  const handleDragHandleMouseDown = (e: React.MouseEvent) => {
+  const handleDragHandleMouseDown = (e:  React.MouseEvent) => {
     e.preventDefault()
-    const card = e.currentTarget.closest('[data-detail-card]') as HTMLElement
+    const card = e.currentTarget. closest('[data-detail-card]') as HTMLElement
     if (card && onDragStart) {
       onDragStart(card, e)
     }
@@ -79,13 +89,13 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
   return (
     <Card 
       data-detail-card
-      data-detail-id={detail.id}
-      className={`overflow-hidden transition-all ${isInBinding ? 'ml-4' : ''} ${isDragging ? 'invisible' : ''}`}
+      data-detail-id={detail. id}
+      className={`overflow-hidden transition-all ${isInBinding ? 'ml-4' : ''} ${isDragging ?  'invisible' : ''}`}
       data-pwcode="detail-card"
     >
       <div className="bg-primary/5 border-b border-border px-3 py-2 flex items-center justify-between" data-pwcode="detail-header">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          {!isInBinding && (
+          {! isInBinding && (
             <div 
               className="flex-shrink-0 w-5 h-5 flex items-center justify-center cursor-grab active:cursor-grabbing"
               onMouseDown={handleDragHandleMouseDown}
@@ -108,18 +118,18 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
             value={detail.name}
             onChange={handleNameChange}
             onBlur={handleNameBlur}
-            className="h-6 text-sm font-medium bg-transparent border-none px-3 focus-visible:ring-1 focus-visible:ring-ring flex-1 min-w-[120px]"
+            className="h-6 text-sm font-medium bg-transparent border-none px-3 focus-visible:ring-1 focus-visible: ring-ring flex-1 min-w-[120px]"
             placeholder="Название детали"
             data-pwcode="input-detail-name"
           />
           <div className="flex-shrink-0 flex items-center gap-1">
             <span className="text-xs font-mono text-muted-foreground" data-pwcode="detail-id">
-              ID:{detail.bitrixId ?? detail.id.split('_')[1]?.slice(0, 5) ?? 'N/A'}
+              ID:{detail. bitrixId ?? detail.id.split('_')[1]?.slice(0, 5) ?? 'N/A'}
             </span>
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 flex-shrink-0 hover:bg-accent hover:text-accent-foreground"
+              className="h-6 w-6 p-0 flex-shrink-0 hover: bg-accent hover: text-accent-foreground"
               onClick={handleOpenInBitrix}
               data-pwcode="btn-open-detail-bitrix"
             >
