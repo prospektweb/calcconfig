@@ -799,7 +799,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
 
         {safeCalculators.map((calc, index) => {
           // Get settings from store if calculatorCode is set
-          const settings = calc.settingsId ?  calculatorSettings[calc.settingsId] : undefined
+          const settings = calc.settingsId ?  calculatorSettings[calc.settingsId.toString()] : undefined
           
           // Get operation settings from store
           const operationSettingsItem = calc.operationVariantId 
@@ -856,7 +856,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                     <div className="flex-1">
                       <MultiLevelSelect
                         items={calculatorsHierarchy}
-                        value={calc.settingsId || null}
+                        value={calc.settingsId?.toString() || null}
                         onValueChange={(value) => {
                           console.log('[CalculatorTabs][DEBUG] Calculator selected', {
                             newValue: value,
