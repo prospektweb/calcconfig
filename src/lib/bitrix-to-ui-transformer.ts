@@ -15,6 +15,12 @@ import {
 export function transformStage(stageElement: CalcStageElement): StageInstance {
   const props = stageElement.properties
   
+  console.log('[transformStage] Transforming stage:', {
+    id: stageElement.id,
+    name: stageElement.name,
+    properties: props
+  })
+  
   // Transform CUSTOM_FIELDS_VALUE to customFields object
   const customFields: Record<string, string> = {}
   if (props.CUSTOM_FIELDS_VALUE?.VALUE && props.CUSTOM_FIELDS_VALUE?.DESCRIPTION) {
@@ -39,7 +45,7 @@ export function transformStage(stageElement: CalcStageElement): StageInstance {
     return isNaN(parsed) ? null : parsed
   }
   
-  return {
+  const result = {
     id: `stage_${stageElement.id}`,
     stageId: stageElement.id,
     settingsId: parseNumber(props.CALC_SETTINGS?.VALUE ?? null),
@@ -50,6 +56,10 @@ export function transformStage(stageElement: CalcStageElement): StageInstance {
     materialQuantity: parseNumber(props.MATERIAL_QUANTITY?.VALUE ?? null) ?? 1,
     customFields,
   }
+  
+  console.log('[transformStage] Result:', result)
+  
+  return result
 }
 
 /**
@@ -59,30 +69,60 @@ export function transformDetail(
   detailElement: CalcDetailElement,
   elementsStore: ElementsStore
 ): Detail {
+  console.log('[transformDetail] Transforming detail:', {
+    id: detailElement.id,
+    name: detailElement.name,
+    stagesProperty: detailElement.properties.CALC_STAGES
+  })
+  
   // Get stages for this detail
   const stageIds = detailElement.properties.CALC_STAGES?.VALUE || []
   const stageIdArray = Array.isArray(stageIds) ? stageIds : [stageIds]
+  
+  console.log('[transformDetail] Stage IDs to process:', {
+    stageIds,
+    stageIdArray,
+    hasStagesInStore: !!elementsStore.CALC_STAGES,
+    stagesInStore: elementsStore.CALC_STAGES?.length
+  })
   
   const stages: StageInstance[] = []
   if (elementsStore.CALC_STAGES) {
     stageIdArray.forEach(stageId => {
       const stageIdNum = typeof stageId === 'string' ? parseInt(stageId, 10) : stageId
+      console.log('[transformDetail] Looking for stage:', {
+        stageId,
+        stageIdNum,
+        availableStageIds: elementsStore.CALC_STAGES.map(s => s.id)
+      })
       const stageElement = elementsStore.CALC_STAGES.find(s => s.id === stageIdNum)
       if (stageElement) {
+        console.log('[transformDetail] Found stage element:', stageElement)
         stages.push(transformStage(stageElement as CalcStageElement))
+      } else {
+        console.warn('[transformDetail] Stage not found in store:', stageIdNum)
       }
     })
   }
   
-  return {
+  const result = {
     id: `detail_${detailElement.id}`,
     name: detailElement.name || 'Деталь',
     width: detailElement.fields?.width ?? null,
     length: detailElement.fields?.length ?? null,
     isExpanded: true,
-    stages: stages.length > 0 ? stages : [],
+    stages,
     bitrixId: detailElement.id,
   }
+  
+  console.log('[transformDetail] Result:', {
+    id: result.id,
+    name: result.name,
+    stagesCount: result.stages.length,
+    stages: result.stages
+  })
+  
+  return result
 }
 
 /**
@@ -151,6 +191,15 @@ export function transformPresetToUI(
   preset: Preset,
   elementsStore: ElementsStore
 ): { details: Detail[]; bindings: Binding[] } {
+  console.log('[transformPresetToUI] Starting transformation:', {
+    presetId: preset.id,
+    presetName: preset.name,
+    topLevelDetailIds: preset.properties.CALC_DETAILS,
+    elementsStoreKeys: Object.keys(elementsStore),
+    calcDetailsCount: elementsStore.CALC_DETAILS?.length,
+    calcStagesCount: elementsStore.CALC_STAGES?.length
+  })
+  
   const details: Detail[] = []
   const bindings: Binding[] = []
   
@@ -164,11 +213,20 @@ export function transformPresetToUI(
   // Process each top-level detail/binding
   topLevelIds.forEach(detailId => {
     const detailIdNum = typeof detailId === 'string' ? parseInt(detailId, 10) : detailId
+    console.log('[transformPresetToUI] Processing top-level ID:', { detailId, detailIdNum })
     const element = elementsStore.CALC_DETAILS.find(d => d.id === detailIdNum) as CalcDetailElement
     
-    if (!element) return
+    if (!element) {
+      console.warn('[transformPresetToUI] Element not found for ID:', detailIdNum)
+      return
+    }
     
     const elementType = element.properties.TYPE?.VALUE_XML_ID
+    console.log('[transformPresetToUI] Found element:', { 
+      id: element.id, 
+      name: element.name, 
+      type: elementType 
+    })
     
     if (elementType === 'DETAIL') {
       details.push(transformDetail(element, elementsStore))
@@ -196,12 +254,32 @@ export function transformPresetToUI(
     }
   })
   
-  return { 
-    details: details.length > 0 ? details : Array.from(allDetails.values()).filter(d => 
-      !Array.from(allBindings.values()).some(b => 
-        b.detailIds.includes(d.id)
+  console.log('[transformPresetToUI] Processing complete:', {
+    topLevelDetailsCount: details.length,
+    topLevelBindingsCount: bindings.length,
+    allDetailsCount: allDetails.size,
+    allBindingsCount: allBindings.size
+  })
+  
+  // If no top-level details were found in preset, return all details that are not part of any binding
+  // BUG FIX: Removed incorrect .slice(0, details.length || 1) which was limiting to 1 detail
+  const finalDetails = details.length > 0 
+    ? details 
+    : Array.from(allDetails.values()).filter(d => 
+        !Array.from(allBindings.values()).some(b => 
+          b.detailIds.includes(d.id)
+        )
       )
-    ).slice(0, details.length || 1),
+  
+  console.log('[transformPresetToUI] Final result:', {
+    detailsCount: finalDetails.length,
+    bindingsCount: bindings.length,
+    details: finalDetails,
+    bindings
+  })
+  
+  return { 
+    details: finalDetails,
     bindings: bindings.length > 0 ? bindings : []
   }
 }
