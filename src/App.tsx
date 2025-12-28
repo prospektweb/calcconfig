@@ -32,9 +32,10 @@ import {
   SalePricesSettings,
   createEmptyDetail,
   createEmptyBinding,
-  createEmptyCalculator,
+  createEmptyStage,
   getIblockByCode
 } from '@/lib/types'
+import { transformPresetToUI } from '@/lib/bitrix-to-ui-transformer'
 import { HeaderSection } from '@/components/calculator/HeaderSection'
 import { VariantsFooter } from '@/components/calculator/VariantsFooter'
 import { DetailCard } from '@/components/calculator/DetailCard'
@@ -236,24 +237,25 @@ function App() {
         
         referencesStore.setLoaded(true)
         
+        // Transform preset and elementsStore to UI format
         if (message.payload.preset && message.payload.elementsStore) {
-          // TODO: Transform preset to app state
-          console.log('[INIT] Preset and elementsStore received, transformation not yet implemented')
-        }
-        
-        if (message.payload.config?.data) {
-          const configData = message.payload.config.data
-          if (configData.details) {
-            setDetails(configData.details)
-          }
-          if (configData.bindings) {
-            setBindings(configData.bindings)
-          }
-          if (configData.costingSettings) {
-            setCostingSettings(configData.costingSettings)
-          }
-          if (configData.salePricesSettings) {
-            setSalePricesSettings(configData.salePricesSettings)
+          console.log('[INIT] Transforming preset and elementsStore to UI format')
+          try {
+            const { details: transformedDetails, bindings: transformedBindings } = transformPresetToUI(
+              message.payload.preset,
+              message.payload.elementsStore
+            )
+            
+            if (transformedDetails.length > 0 || transformedBindings.length > 0) {
+              setDetails(transformedDetails)
+              setBindings(transformedBindings)
+              console.log('[INIT] Transformed data:', { 
+                details: transformedDetails.length, 
+                bindings: transformedBindings.length 
+              })
+            }
+          } catch (error) {
+            console.error('[INIT] Transformation error:', error)
           }
         }
         
@@ -273,6 +275,28 @@ function App() {
           
           setSelectedOffers(refreshPayload.selectedOffers || [])
           setSelectedVariantIds(refreshPayload.selectedOffers?.map(o => o.id) || [])
+          
+          // Transform preset and elementsStore to UI format
+          if (refreshPayload.preset && refreshPayload.elementsStore) {
+            console.log('[REFRESH] Transforming preset and elementsStore to UI format')
+            try {
+              const { details: transformedDetails, bindings: transformedBindings } = transformPresetToUI(
+                refreshPayload.preset,
+                refreshPayload.elementsStore
+              )
+              
+              if (transformedDetails.length > 0 || transformedBindings.length > 0) {
+                setDetails(transformedDetails)
+                setBindings(transformedBindings)
+                console.log('[REFRESH] Transformed data:', { 
+                  details: transformedDetails.length, 
+                  bindings: transformedBindings.length 
+                })
+              }
+            } catch (error) {
+              console.error('[REFRESH] Transformation error:', error)
+            }
+          }
           
           console.info('[REFRESH] applied offers=', (refreshPayload.selectedOffers || []).length)
           
@@ -509,9 +533,9 @@ function App() {
                   ? { 
                       ...d, 
                       bitrixId: syncItem.bitrixId,
-                      calculators: d.calculators.map(calc => {
-                        const syncCalc = syncItem.calculators.find(sc => sc.id === calc.id)
-                        return syncCalc ? { ...calc, configId: syncCalc.configId } : calc
+                      stages: d.stages.map(stage => {
+                        const syncStage = syncItem.calculators.find(sc => sc.id === stage.id)
+                        return syncStage ? { ...stage, configId: syncStage.configId } : stage
                       })
                     }
                   : d
@@ -524,9 +548,9 @@ function App() {
                   ? { 
                       ...b, 
                       bitrixId: syncItem.bitrixId,
-                      calculators: b.calculators.map(calc => {
-                        const syncCalc = syncItem.calculators.find(sc => sc.id === calc.id)
-                        return syncCalc ? { ...calc, configId: syncCalc.configId } : calc
+                      stages: b.stages.map(stage => {
+                        const syncStage = syncItem.calculators.find(sc => sc.id === stage.id)
+                        return syncStage ? { ...stage, configId: syncStage.configId } : stage
                       })
                     }
                   : b
@@ -573,7 +597,7 @@ function App() {
         width: bitrixDetail.width ?? 210,
         length: bitrixDetail.length ?? 297,
         isExpanded: true,
-        calculators: bitrixDetail.calculators || [createEmptyCalculator()],
+        stages: bitrixDetail.stages || [createEmptyStage()],
         bitrixId: typeof bitrixDetail.id === 'number' ? bitrixDetail.id : parseInt(bitrixDetail.id, 10) || null,
       }
       
@@ -643,7 +667,7 @@ function App() {
         width: bitrixDetail.width ?? 210,
         length: bitrixDetail.length ?? 297,
         isExpanded: true,
-        calculators: bitrixDetail.calculators || [createEmptyCalculator()],
+        stages: bitrixDetail.stages || [createEmptyStage()],
         bitrixId: typeof bitrixDetail.id === 'number' ? bitrixDetail.id : parseInt(bitrixDetail.id, 10) || null,
       }
       
@@ -665,7 +689,7 @@ function App() {
         width: bitrixDetail.width ?? 210,
         length: bitrixDetail.length ?? 297,
         isExpanded: true,
-        calculators: bitrixDetail.calculators || [createEmptyCalculator()],
+        stages: bitrixDetail.stages || [createEmptyStage()],
         bitrixId: typeof bitrixDetail.id === 'number' ? bitrixDetail.id : parseInt(bitrixDetail.id, 10) || null,
       }
       
@@ -692,7 +716,8 @@ function App() {
         id: `binding_${groupData.id}_${Date.now()}`,
         name: groupData.name || 'Группа скрепления',
         isExpanded: true,
-        calculators: [createEmptyCalculator()],
+        hasStages: false,
+        stages: [],
         detailIds: [], // Будет заполнено ниже
         bindingIds: [],
         bitrixId: groupData.id,
@@ -851,18 +876,18 @@ function App() {
         d.id === stageToDelete.detailId
           ? {
               ...d,
-              calculators: d.calculators.filter((_, i) => i !== stageToDelete.calcIndex)
+              stages: d.stages.filter((_, i) => i !== stageToDelete.calcIndex)
             }
           : d
       )
     )
     
     const detail = (details || []).find(d => d.id === stageToDelete.detailId)
-    const calc = detail?.calculators[stageToDelete.calcIndex]
+    const stage = detail?.stages[stageToDelete.calcIndex]
     
-    if (calc?.configId && bitrixMeta) {
+    if (stage?.configId && bitrixMeta) {
       postMessageBridge.sendDeleteStageRequest({
-        configId: calc.configId,
+        configId: stage.configId,
         ...(getIblockInfo('CALC_CONFIG') || { iblockId: 0, iblockType: '' }),
       })
     }
@@ -1115,16 +1140,16 @@ function App() {
           type: 'detail',
           name: detail.name,
           bitrixId: detail.bitrixId,
-          calculators: detail.calculators.map(calc => ({
-            id: calc.id,
-            calculatorCode: calc.calculatorCode || undefined,
-            operationVariantId: calc.operationId || undefined,
-            materialVariantId: calc.materialId || undefined,
-            equipmentId: calc.equipmentId || undefined,
-            operationQuantity: calc.operationQuantity || undefined,
-            materialQuantity: calc.materialQuantity || undefined,
-            otherOptions: calc.extraOptions || undefined,
-            configId: calc.configId || undefined,
+          calculators: detail.stages.map(stage => ({
+            id: stage.id,
+            calculatorCode: stage.settingsId || undefined,
+            operationVariantId: stage.operationVariantId || undefined,
+            materialVariantId: stage.materialVariantId || undefined,
+            equipmentId: stage.equipmentId || undefined,
+            operationQuantity: stage.operationQuantity || undefined,
+            materialQuantity: stage.materialQuantity || undefined,
+            otherOptions: stage.customFields || undefined,
+            configId: stage.configId || undefined,
           })),
         }
       } else {
@@ -1134,28 +1159,17 @@ function App() {
           type: 'binding',
           name: binding.name,
           bitrixId: binding.bitrixId,
-          calculators: binding.calculators.map(calc => ({
-            id: calc.id,
-            calculatorCode: calc.calculatorCode || undefined,
-            operationVariantId: calc.operationId || undefined,
-            materialVariantId: calc.materialId || undefined,
-            equipmentId: calc.equipmentId || undefined,
-            operationQuantity: calc.operationQuantity || undefined,
-            materialQuantity: calc.materialQuantity || undefined,
-            otherOptions: calc.extraOptions || undefined,
+          calculators: binding.stages.map(stage => ({
+            id: stage.id,
+            calculatorCode: stage.settingsId || undefined,
+            operationVariantId: stage.operationVariantId || undefined,
+            materialVariantId: stage.materialVariantId || undefined,
+            equipmentId: stage.equipmentId || undefined,
+            operationQuantity: stage.operationQuantity || undefined,
+            materialQuantity: stage.materialQuantity || undefined,
+            otherOptions: stage.customFields || undefined,
             configId: calc.configId || undefined,
           })),
-          bindingCalculators: binding.bindingCalculators?.map(calc => ({
-            id: calc.id,
-            calculatorCode: calc.calculatorCode || undefined,
-            operationVariantId: calc.operationId || undefined,
-            materialVariantId: calc.materialId || undefined,
-            equipmentId: calc.equipmentId || undefined,
-            operationQuantity: calc.operationQuantity || undefined,
-            materialQuantity: calc.materialQuantity || undefined,
-            otherOptions: calc.extraOptions || undefined,
-            configId: calc.configId || undefined,
-          })) || undefined,
           childIds: [...(binding.detailIds || []), ...(binding.bindingIds || [])],
         }
       }
@@ -1213,13 +1227,13 @@ function App() {
 
       // 5. Get PATH_TO_SCRIPT from calculator settings
       const firstDetail = details && details.length > 0 ? details[0] : null
-      const firstCalculator = firstDetail?.calculators && firstDetail.calculators.length > 0 ? firstDetail.calculators[0] : null
-      const calculatorCode = firstCalculator?.calculatorCode
+      const firstCalculator = firstDetail?.stages && firstDetail.stages.length > 0 ? firstDetail.stages[0] : null
+      const settingsId = firstCalculator?.settingsId
 
       let pathToScript: string | undefined
 
-      if (calculatorCode != null) {
-        const settings = useCalculatorSettingsStore.getState().getSettings(calculatorCode.toString())
+      if (settingsId != null) {
+        const settings = useCalculatorSettingsStore.getState().getSettings(settingsId.toString())
         pathToScript = settings?.properties?.PATH_TO_SCRIPT?.VALUE
       }
 
@@ -1259,7 +1273,7 @@ function App() {
         toast.success('Тестовый расчет выполнен успешно')
       } else {
         // 8. Handle case when PATH_TO_SCRIPT is not found
-        console.warn('[TEST_CALCULATION] PATH_TO_SCRIPT not found. Calculator code:', calculatorCode)
+        console.warn('[TEST_CALCULATION] PATH_TO_SCRIPT not found. Settings ID:', settingsId)
         toast.warning('PATH_TO_SCRIPT не найден в настройках калькулятора')
         
         // Simulate progress animation

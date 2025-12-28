@@ -41,21 +41,6 @@ class BitrixConfigStore implements ConfigStore {
     if (isDebug) {
       console.info('[BitrixConfigStore] INIT data applied')
     }
-    
-    if (data.config?.data) {
-      if (data.config.data.details) {
-        this.storage.set('calc_details', data.config.data.details)
-      }
-      if (data.config.data.bindings) {
-        this.storage.set('calc_bindings', data.config.data.bindings)
-      }
-      if (data.config.data.costingSettings) {
-        this.storage.set('calc_costing_settings', data.config.data.costingSettings)
-      }
-      if (data.config.data.salePricesSettings) {
-        this.storage.set('calc_sale_prices_settings', data.config.data.salePricesSettings)
-      }
-    }
   }
   
   reset() {

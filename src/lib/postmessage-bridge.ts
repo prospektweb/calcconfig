@@ -1,4 +1,4 @@
-import { AppState, Detail, Binding, CostingSettings, SalePricesSettings, Iblock, Preset, ElementsStore } from './types'
+import { Iblock, Preset, ElementsStore } from './types'
 import { BitrixTreeItem, BitrixProperty } from './bitrix-transformers'
 
 export type MessageType =
@@ -100,13 +100,6 @@ export interface InitPayload {
   }>
 }
 
-export interface ConfigData {
-  details: Detail[]
-  bindings: Binding[]
-  costingSettings?: CostingSettings
-  salePricesSettings?: SalePricesSettings
-}
-
 export interface CalcPreviewPayload {
   type: 'test' | 'full'
   results: Array<{
@@ -135,7 +128,7 @@ export interface CalcPreviewPayload {
 export interface SaveRequestPayload {
   configuration: {
     name: string
-    data: ConfigData
+    data: any // Will be removed in future iterations
   }
   offerUpdates: Array<{
     offerId: number
