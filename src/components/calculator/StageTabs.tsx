@@ -1102,8 +1102,8 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
               
               {/* Дополнительные поля из CUSTOM_FIELDS */}
               {(() => {
-                const customFieldsConfig = settings?. customFields || []
-                if (customFieldsConfig. length === 0) return null
+                const customFieldsConfig = settings?.customFields || []
+                if (customFieldsConfig.length === 0) return null
                   
                 return (
                   <div className="space-y-3 pt-3 border-t">
@@ -1125,8 +1125,8 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                                   : (field.default ??  '')}
                                 onChange={(e) => handleUpdateCalculator(index, {
                                   customFields: {
-                                    ...calc. customFields,
-                                    [field.code]: e.target. value
+                                    ...calc.customFields,
+                                    [field.code]: e.target.value
                                   }
                                 })}
                                 min={field.min}
@@ -1140,13 +1140,13 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                             </div>
                           )}
                           
-                          {field. type === 'checkbox' && (
+                          {field.type === 'checkbox' && (
                             <Checkbox
                               checked={
-                                calc.customFields?.[field. code] === 'Y' || 
-                                calc.customFields?.[field. code] === true ||
+                                calc.customFields?.[field.code] === 'Y' || 
+                                calc.customFields?.[field.code] === true ||
                                 calc.customFields?.[field.code] === '1' ||
-                                (calc.customFields? .[field.code] === undefined && field. default === true)
+                                (calc.customFields?.[field.code] === undefined && field.default === true)
                               }
                               onCheckedChange={(checked) => handleUpdateCalculator(index, {
                                 customFields: {
@@ -1157,7 +1157,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                             />
                           )}
                           
-                          {field. type === 'text' && (
+                          {field.type === 'text' && (
                             <Input
                               type="text"
                               value={String(calc.customFields?.[field.code] ??  field.default ?? '')}
@@ -1186,7 +1186,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                               </SelectTrigger>
                               <SelectContent>
                                 {field.options.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt. value}>
+                                  <SelectItem key={opt.value} value={opt.value}>
                                     {opt.label}
                                   </SelectItem>
                                 ))}
