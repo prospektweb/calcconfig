@@ -12,7 +12,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, X, DotsSixVertical, Package, Wrench, Hammer, ArrowSquareOut } from '@phosphor-icons/react'
-import { CalculatorInstance, createEmptyCalculator } from '@/lib/types'
+import { StageInstance, createEmptyStage } from '@/lib/types'
 import { MultiLevelSelect, MultiLevelItem } from './MultiLevelSelect'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore, CalcSettingsItem } from '@/stores/calculator-settings-store'
@@ -27,11 +27,11 @@ import { getBitrixContext, openBitrixAdmin, getIblockByCode } from '@/lib/bitrix
 import { toast } from 'sonner'
 import { BitrixProperty } from '@/lib/bitrix-transformers'
 
-interface CalculatorTabsProps {
-  calculators: CalculatorInstance[]
-  onChange: (calculators: CalculatorInstance[]) => void
-  bitrixMeta?:  InitPayload | null
-  onValidationMessage?:  (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
+interface StageTabsProps {
+  calculators: StageInstance[]
+  onChange: (calculators: StageInstance[]) => void
+  bitrixMeta?: InitPayload | null
+  onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
 }
 
 const TAB_COLORS = [
@@ -245,7 +245,7 @@ const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionF
   }
 }
 
-export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onValidationMessage }: CalculatorTabsProps) {
+export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidationMessage }: StageTabsProps) {
   const [activeTab, setActiveTab] = useState(0)
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
@@ -386,7 +386,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   const safeCalculators = calculators || []
 
   const handleAddCalculator = () => {
-    const newCalc = createEmptyCalculator()
+    const newCalc = createEmptyStage()
     onChange([...safeCalculators, newCalc])
     setActiveTab(safeCalculators.length)
   }
@@ -483,20 +483,20 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       console.log('[CalculatorTabs][DEBUG] Processing calculator', {
         index,
         id: calc.id,
-        calculatorCode: calc.calculatorCode,
-        operationId: calc.operationId,
+        calculatorCode: calc.settingsId,
+        operationId: calc.operationVariantId,
         materialId: calc.materialId,
         equipmentId: calc.equipmentId,
       })
 
-      if (! calc.calculatorCode) {
+      if (! calc.settingsId) {
         console.log('[CalculatorTabs][DEBUG] No calculatorCode, skipping')
         return
       }
       
-      const settings = calculatorSettings[calc.calculatorCode]
+      const settings = calculatorSettings[calc.settingsId]
       console.log('[CalculatorTabs][DEBUG] Found settings for code', {
-        code:  calc.calculatorCode,
+        code:  calc.settingsId,
         hasSettings: !!settings,
         settingsId: settings?.id,
         settingsName: settings?.name,
@@ -522,7 +522,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       
       // Validation:  CAN_BE_FIRST
       const canBeFirst = getProperty(settings, 'CAN_BE_FIRST')
-      const violationKeyBase = `${calc.id ??  calc.calculatorCode ??  'calculator'}-${index}`
+      const violationKeyBase = `${calc.id ??  calc.settingsId ??  'calculator'}-${index}`
 
       const reportValidationOnce = (key: string, message: string) => {
         nextViolations.add(key)
@@ -550,8 +550,8 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         } else {
           // Проверяем, что предыдущий калькулятор соответствует требованию
           const prevCalc = safeCalculators[index - 1]
-          if (! prevCalc.calculatorCode || prevCalc.calculatorCode !== requiresBeforeValue) {
-            const prevSettings = prevCalc.calculatorCode ? calculatorSettings[prevCalc.calculatorCode] : null
+          if (! prevCalc.settingsId || prevCalc.settingsId !== requiresBeforeValue) {
+            const prevSettings = prevCalc.settingsId ? calculatorSettings[prevCalc.settingsId] : null
             const prevName = prevSettings?.name || 'неизвестный калькулятор'
             reportValidationOnce(
               `${violationKeyBase}-requires-before-${requiresBeforeValue}`,
@@ -565,9 +565,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       // Auto-select DEFAULT_OPERATION_VARIANT
       const defaultOperationVariant = getProperty(settings, 'DEFAULT_OPERATION_VARIANT')
       const defaultOpValue = getPropertyStringValue(defaultOperationVariant)
-      if (defaultOpValue && !calc.operationId) {
+      if (defaultOpValue && !calc.operationVariantId) {
         const defaultOpId = parseInt(defaultOpValue, 10)
-        if (! isNaN(defaultOpId) && calc.operationId !== defaultOpId) {
+        if (! isNaN(defaultOpId) && calc.operationVariantId !== defaultOpId) {
           handleUpdateCalculator(index, { operationId:  defaultOpId })
           
           // Send request to get operation data (to receive itemParent with filters)
@@ -626,9 +626,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   useEffect(() => {
     safeCalculators.forEach((calc, index) => {
       // Skip if no operation selected
-      if (!calc.operationId) return
+      if (!calc.operationVariantId) return
       
-      const operationSettingsItem = operationSettings[calc.operationId.toString()]
+      const operationSettingsItem = operationSettings[calc.operationVariantId.toString()]
       // Skip if operation settings not yet loaded
       if (! operationSettingsItem) return
       
@@ -796,11 +796,11 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
 
         {safeCalculators.map((calc, index) => {
           // Get settings from store if calculatorCode is set
-          const settings = calc.calculatorCode ?  calculatorSettings[calc.calculatorCode] : undefined
+          const settings = calc.settingsId ?  calculatorSettings[calc.settingsId] : undefined
           
           // Get operation settings from store
-          const operationSettingsItem = calc.operationId 
-            ? operationSettings[calc.operationId.toString()]
+          const operationSettingsItem = calc.operationVariantId 
+            ? operationSettings[calc.operationVariantId.toString()]
             : undefined
           
           // SUPPORTED_EQUIPMENT_LIST находится в родительской операции (itemParent)
@@ -853,11 +853,11 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                     <div className="flex-1">
                       <MultiLevelSelect
                         items={calculatorsHierarchy}
-                        value={calc.calculatorCode || null}
+                        value={calc.settingsId || null}
                         onValueChange={(value) => {
                           console.log('[CalculatorTabs][DEBUG] Calculator selected', {
                             newValue: value,
-                            previousCode: calc.calculatorCode,
+                            previousCode: calc.settingsId,
                             index:  index,
                           })
 
@@ -909,7 +909,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                         bitrixMeta={bitrixMeta}
                       />
                   </div>
-                  {renderSelectedId(toNumber(calc.calculatorCode), 'calculator', 'btn-open-calculator-bitrix')}
+                  {renderSelectedId(toNumber(calc.settingsId), 'calculator', 'btn-open-calculator-bitrix')}
                 </div>
               </div>
 
@@ -930,7 +930,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                       <div className="flex-1">
                         <MultiLevelSelect
                           items={operationsHierarchy}
-                          value={calc.operationId?.toString() || null}
+                          value={calc.operationVariantId?.toString() || null}
                           onValueChange={(value) => {
                             const newOperationId = parseInt(value)
                             
@@ -960,7 +960,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           bitrixMeta={bitrixMeta}
                         />
                       </div>
-                      {renderSelectedId(toNumber(calc.operationId), 'operation', 'btn-open-operation-bitrix')}
+                      {renderSelectedId(toNumber(calc.operationVariantId), 'operation', 'btn-open-operation-bitrix')}
                       
                       {/* Поле количества операции */}
                       {isPropertyEnabled(getProperty(settings, 'USE_OPERATION_QUANTITY')) && (
@@ -975,7 +975,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                             className="w-20 max-w-[80px]"
                           />
                           <span className="text-sm text-muted-foreground w-[40px] text-right">
-                            {getOperationUnit(calc.operationId) || 'ед.'}
+                            {getOperationUnit(calc.operationVariantId) || 'ед.'}
                           </span>
                         </div>
                       )}
@@ -983,7 +983,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                 </div>
               )}
 
-              {settings && calc.operationId && (
+              {settings && calc.operationVariantId && (
                 <div className="space-y-2">
                   <Label>Оборудование</Label>
                     <div className="flex gap-2 items-center">
@@ -995,7 +995,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                             equipmentId: parseInt(value) 
                           })}
                           placeholder="Выберите оборудование..."
-                          disabled={!calc.operationId}
+                          disabled={!calc.operationVariantId}
                           bitrixMeta={bitrixMeta}
                         />
                       </div>

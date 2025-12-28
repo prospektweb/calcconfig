@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Binding, Detail } from '@/lib/types'
 import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut, DotsSixVertical } from '@phosphor-icons/react'
 import { DetailCard } from './DetailCard'
-import { CalculatorTabs } from './CalculatorTabs'
+import { StageTabs } from './StageTabs'
 import { InitPayload } from '@/lib/postmessage-bridge'
 
 interface BindingCardProps {
@@ -47,10 +47,10 @@ interface BindingCardProps {
     onUpdate({ isExpanded: !binding.isExpanded })
   }
 
-  const handleToggleFinishing = (checked: boolean) => {
+  const handleToggleStages = (checked: boolean) => {
     onUpdate({ 
-      hasFinishing: checked,
-      finishingCalculators: checked ? (binding.finishingCalculators || []) : []
+      hasStages: checked,
+      stages: checked ? (binding.stages || []) : []
     })
   }
   
@@ -143,18 +143,8 @@ interface BindingCardProps {
 
       {binding.isExpanded && !isDragging && (
         <div className="px-3 py-3 space-y-3" data-pwcode="binding-content">
-          <div>
-            <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Этапы скрепления</h4>
-            <CalculatorTabs
-              calculators={binding.calculators || []}
-              onChange={(calculators) => onUpdate({ calculators })}
-              bitrixMeta={bitrixMeta}
-              onValidationMessage={onValidationMessage}
-            />
-          </div>
-
           {details && details.length > 0 && (
-            <div className="space-y-1 py-3" data-pwcode="binding-details">
+            <div className="space-y-1" data-pwcode="binding-details">
               <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Детали в скреплении</h4>
               {details.map((detail, index) => (
                 <DetailCard
@@ -205,27 +195,26 @@ interface BindingCardProps {
             </div>
           )}
 
-          <div className="flex items-center gap-2 border-t border-border pt-3" data-pwcode="binding-finishing-checkbox">
+          <div className="flex items-center gap-2 border-t border-border pt-3" data-pwcode="binding-stages-checkbox">
             <Checkbox
-              id={`finishing-${binding.id}`}
-              checked={binding.hasFinishing}
-              onCheckedChange={handleToggleFinishing}
-              data-pwcode="checkbox-finishing"
+              id={`stages-${binding.id}`}
+              checked={binding.hasStages}
+              onCheckedChange={handleToggleStages}
+              data-pwcode="checkbox-stages"
             />
             <label 
-              htmlFor={`finishing-${binding.id}`}
+              htmlFor={`stages-${binding.id}`}
               className="text-sm font-medium cursor-pointer"
             >
-              Финишная обработка
+              Этапы скрепления
             </label>
           </div>
 
-          {binding.hasFinishing && (
-            <div data-pwcode="binding-finishing-stages">
-              <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Этапы финишной обработки</h4>
-              <CalculatorTabs
-                calculators={binding.finishingCalculators || []}
-                onChange={(finishingCalculators) => onUpdate({ finishingCalculators })}
+          {binding.hasStages && (
+            <div data-pwcode="binding-stages">
+              <StageTabs
+                calculators={binding.stages || []}
+                onChange={(calculators) => onUpdate({ stages: calculators })}
                 bitrixMeta={bitrixMeta}
                 onValidationMessage={onValidationMessage}
               />

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Detail } from '@/lib/types'
 import { CaretDown, CaretUp, X, DotsSixVertical, ArrowSquareOut } from '@phosphor-icons/react'
-import { CalculatorTabs } from './CalculatorTabs'
+import { StageTabs } from './StageTabs'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
@@ -162,9 +162,9 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
 
       {detail.isExpanded && !isDragging && (
         <div className="p-3" data-pwcode="detail-content">
-          <CalculatorTabs
-            calculators={detail.calculators}
-            onChange={(calculators) => onUpdate({ calculators })}
+          <StageTabs
+            calculators={detail.stages}
+            onChange={(calculators) => onUpdate({ stages: calculators })}
             bitrixMeta={bitrixMeta}
             onValidationMessage={onValidationMessage}
           />
