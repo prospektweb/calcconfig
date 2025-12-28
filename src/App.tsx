@@ -1427,28 +1427,7 @@ function App() {
           onDrop={handleMainAreaDrop}
           pwcode="mainarea"
         >
-          {/* Кнопки управления деталями - всегда видны */}
-          <div className="flex gap-2 mb-4" data-pwcode="detail-actions">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCreateDetail}
-              data-pwcode="btn-create-detail"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Создать деталь
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSelectDetail}
-              data-pwcode="btn-select-detail"
-            >
-              <FolderOpen className="w-4 h-4 mr-2" />
-              Выбрать деталь
-            </Button>
-          </div>
-          
+         
           <div className="space-y-0">
             {dragState.isDragging && allItems.length > 0 && (
               <div 
