@@ -1101,29 +1101,32 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
               )}
               
               {/* Дополнительные поля из CUSTOM_FIELDS */}
-            {(() => {
-              const customFields = settings?.customFields || []
-              if (customFields.length === 0) return null
-                
+              {(() => {
+                const customFieldsConfig = settings?. customFields || []
+                if (customFieldsConfig. length === 0) return null
+                  
                 return (
                   <div className="space-y-3 pt-3 border-t">
                     <Label className="text-sm font-medium">Дополнительные параметры</Label>
                     <div className="grid grid-cols-2 gap-3">
-                      {customFields.map((field) => (
+                      {customFieldsConfig.map((field) => (
                         <div key={field.code} className="space-y-1">
-                          <Label className="text-xs">{field.name}</Label>
+                          <Label className="text-xs">
+                            {field.name}
+                            {field.required && <span className="text-destructive ml-1">*</span>}
+                          </Label>
                           
                           {field.type === 'number' && (
                             <div className="flex items-center gap-1">
                               <Input
                                 type="number"
-                                value={typeof calc.extraOptions?.[field.code] === 'number' 
-                                  ?  calc.extraOptions[field.code]
-                                  :  typeof field.default === 'number' ?  field.default : 0}
+                                value={calc.customFields?.[field.code] !== undefined 
+                                  ? calc.customFields[field.code] 
+                                  : (field.default ??  '')}
                                 onChange={(e) => handleUpdateCalculator(index, {
-                                  extraOptions: {
-                                   ...calc.extraOptions,
-                                    [field.code]: parseFloat(e.target.value) || 0
+                                  customFields: {
+                                    ...calc. customFields,
+                                    [field.code]: e.target. value
                                   }
                                 })}
                                 min={field.min}
@@ -1137,26 +1140,31 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                             </div>
                           )}
                           
-                          {field.type === 'checkbox' && (
+                          {field. type === 'checkbox' && (
                             <Checkbox
-                              checked={Boolean(calc.extraOptions?.[field.code] ??  field.default)}
+                              checked={
+                                calc.customFields?.[field. code] === 'Y' || 
+                                calc.customFields?.[field. code] === true ||
+                                calc.customFields?.[field.code] === '1' ||
+                                (calc.customFields? .[field.code] === undefined && field. default === true)
+                              }
                               onCheckedChange={(checked) => handleUpdateCalculator(index, {
-                                extraOptions: {
-                                 ...calc.extraOptions,
-                                  [field.code]: checked
+                                customFields: {
+                                  ...calc.customFields,
+                                  [field.code]: checked ?  'Y' :  'N'
                                 }
                               })}
                             />
                           )}
                           
-                          {field.type === 'text' && (
+                          {field. type === 'text' && (
                             <Input
                               type="text"
-                              value={String(calc.extraOptions?.[field.code] ?? field.default ??  '')}
+                              value={String(calc.customFields?.[field.code] ??  field.default ?? '')}
                               onChange={(e) => handleUpdateCalculator(index, {
-                                extraOptions: {
-                                 ...calc.extraOptions,
-                                  [field.code]: e.target.value
+                                customFields: {
+                                  ...calc.customFields,
+                                  [field.code]:  e.target.value
                                 }
                               })}
                               maxLength={field.maxLength}
@@ -1165,20 +1173,20 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                           
                           {field.type === 'select' && field.options && (
                             <Select
-                              value={String(calc.extraOptions?.[field.code] ?? field.default ?? '')}
+                              value={String(calc.customFields?.[field.code] ?? field.default ?? '')}
                               onValueChange={(value) => handleUpdateCalculator(index, {
-                                extraOptions: {
-                                 ...calc.extraOptions,
+                                customFields: {
+                                  ...calc.customFields,
                                   [field.code]: value
                                 }
                               })}
                             >
                               <SelectTrigger className="w-full">
-                                <SelectValue />
+                                <SelectValue placeholder="Выберите..." />
                               </SelectTrigger>
                               <SelectContent>
                                 {field.options.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt.value}>
+                                  <SelectItem key={opt.value} value={opt. value}>
                                     {opt.label}
                                   </SelectItem>
                                 ))}
