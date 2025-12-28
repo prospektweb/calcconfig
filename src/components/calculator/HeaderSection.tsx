@@ -42,7 +42,7 @@ export function HeaderSection({
     if (!iblocks || ! Array.isArray(iblocks)) return []
 
     return CATALOG_CODES
-      .map(code => iblocks.find(ib => ibcode === code))
+      .map(code => iblocks.find(ib => ib.code === code))
       .filter((ib): ib is Iblock => ib !== undefined)
   }, [bitrixMeta?.iblocks])
 
