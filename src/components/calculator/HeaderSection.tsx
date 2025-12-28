@@ -38,13 +38,13 @@ export function HeaderSection({
 
   // Получаем инфоблоки для кнопок каталогов
   const catalogButtons = useMemo(() => {
-    const iblocks = bitrixMeta?iblocks as Iblock[] | undefined
+    const iblocks = bitrixMeta?.iblocks as Iblock[] | undefined
     if (!iblocks || ! Array.isArray(iblocks)) return []
 
     return CATALOG_CODES
       .map(code => iblocks.find(ib => ibcode === code))
       .filter((ib): ib is Iblock => ib !== undefined)
-  }, [bitrixMeta?iblocks])
+  }, [bitrixMeta?.iblocks])
 
   // Открытие каталога инфоблока в новой вкладке
   const handleOpenCatalog = (iblock: Iblock) => {
