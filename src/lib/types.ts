@@ -255,3 +255,18 @@ export const createEmptyBinding = (name: string = 'Новая группа ск�
   bindingIds: [],
   calculateBinding: false,
 })
+
+// Интерфейс для инфоблока
+export interface Iblock {
+  id: number
+  code: string
+  type: string
+  name: string
+  parent: number | null
+}
+
+// Хелпер для поиска инфоблока по коду
+export const getIblockByCode = (iblocks: Iblock[] | undefined, code: string): Iblock | undefined => {
+  if (!iblocks || ! Array.isArray(iblocks)) return undefined
+  return iblocks.find(ib => ib.code === code)
+}
