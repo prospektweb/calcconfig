@@ -1418,6 +1418,8 @@ function App() {
           <HeaderSection
             onOpenMenu={() => setIsMenuOpen(true)}
             bitrixMeta={bitrixMeta}
+            onCreateDetail={handleCreateDetail}
+            onSelectDetail={handleSelectDetail}
           />
         </header>
 
