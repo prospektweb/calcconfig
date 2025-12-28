@@ -77,9 +77,6 @@ function App() {
   // Dialog states for detail management
   const [isCreateDetailDialogOpen, setIsCreateDetailDialogOpen] = useState(false)
   const [newDetailName, setNewDetailName] = useState('')
-  const [isSelectDetailDialogOpen, setIsSelectDetailDialogOpen] = useState(false)
-  const [selectedDetailForDialog, setSelectedDetailForDialog] = useState<any>(null)
-  const [selectDetailMode, setSelectDetailMode] = useState<'copy' | 'use'>('copy')
   const [isDeleteStageDialogOpen, setIsDeleteStageDialogOpen] = useState(false)
   const [stageToDelete, setStageToDelete] = useState<{detailId: string, calcIndex: number} | null>(null)
   const [isDeleteDetailDialogOpen, setIsDeleteDetailDialogOpen] = useState(false)
@@ -830,30 +827,6 @@ function App() {
       })
     }
     toast.info('Открытие окна выбора детали...')
-  }
-
-  const handleSelectDetailConfirm = () => {
-    if (!selectedDetailForDialog || !bitrixMeta) return
-    
-    if (selectDetailMode === 'copy') {
-      // Send COPY_DETAIL_REQUEST
-      postMessageBridge.sendCopyDetailRequest({
-        detailId: selectedDetailForDialog.id,
-        offerIds: selectedVariantIds,
-        ...getIblockInfo('CALC_DETAILS')!,
-      })
-      toast.info('Копирование детали...')
-    } else {
-      // Send USE_DETAIL_REQUEST
-      postMessageBridge.sendUseDetailRequest({
-        detailId: selectedDetailForDialog.id,
-        offerIds: selectedVariantIds,
-        ...getIblockInfo('CALC_DETAILS')!,
-      })
-      toast.info('Использование оригинальной детали...')
-    }
-    
-    setIsSelectDetailDialogOpen(false)
   }
 
   const handleDeleteStageConfirm = () => {
@@ -1694,45 +1667,6 @@ function App() {
             </Button>
             <Button onClick={handleCreateDetailConfirm}>
               Создать
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog: Select Detail (Copy or Use) */}
-      <Dialog open={isSelectDetailDialogOpen} onOpenChange={setIsSelectDetailDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Деталь "{selectedDetailForDialog?.name}" выбрана</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            <RadioGroup value={selectDetailMode} onValueChange={(v) => setSelectDetailMode(v as 'copy' | 'use')}>
-              <div className="flex items-start space-x-2">
-                <RadioGroupItem value="copy" id="copy" />
-                <div>
-                  <Label htmlFor="copy">Скопировать деталь</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Создаётся копия со всеми настройками
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-2">
-                <RadioGroupItem value="use" id="use" />
-                <div>
-                  <Label htmlFor="use">Использовать оригинал</Label>
-                  <p className="text-sm text-muted-foreground text-warning">
-                    ⚠️ Изменения повлияют на все сборки, где используется эта деталь
-                  </p>
-                </div>
-              </div>
-            </RadioGroup>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsSelectDetailDialogOpen(false)}>
-              Отмена
-            </Button>
-            <Button onClick={handleSelectDetailConfirm}>
-              Подтвердить
             </Button>
           </DialogFooter>
         </DialogContent>
