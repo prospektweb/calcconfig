@@ -622,7 +622,7 @@ class PostMessageBridge {
     return this.sendMessage('COPY_DETAIL_REQUEST', payload)
   }
 
-  sendUseDetailRequest(payload: { detailId: number, offerIds: number[], iblockId: number, iblockType: string }) {
+  sendUseDetailRequest(payload: { detailId: number, presetId: number }) {
     return this.sendMessage('USE_DETAIL_REQUEST', payload)
   }
 
