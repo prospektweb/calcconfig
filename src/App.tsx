@@ -178,6 +178,16 @@ function App() {
   }, [bitrixMeta])
 
   // Helper function to initialize calculator settings from elementsStore
+  /**
+   * Initializes the calculator settings store from elementsStore.CALC_SETTINGS.
+   * This is used during INIT and REFRESH to load preset calculator settings into the store.
+   * 
+   * @param elementsStore - The elements store containing CALC_SETTINGS array
+   * @param source - A label for logging purposes (e.g., 'INIT', 'REFRESH')
+   * 
+   * The function iterates through CALC_SETTINGS items and stores them using the
+   * settings item ID as the key (converted to string).
+   */
   const initializeCalculatorSettings = useCallback((elementsStore: ElementsStore, source: string) => {
     if (elementsStore.CALC_SETTINGS) {
       const settingsStore = useCalculatorSettingsStore.getState()
