@@ -257,6 +257,22 @@ function App() {
           } catch (error) {
             console.error('[INIT] Transformation error:', error)
           }
+          
+          // Initialize calculatorSettings store from elementsStore.CALC_SETTINGS
+          if (message.payload.elementsStore.CALC_SETTINGS) {
+            const settingsStore = useCalculatorSettingsStore.getState()
+            console.log('[INIT] Loading calculator settings from elementsStore', {
+              count: message.payload.elementsStore.CALC_SETTINGS.length
+            })
+            message.payload.elementsStore.CALC_SETTINGS.forEach((settingsItem) => {
+              settingsStore.setSettings(settingsItem.id.toString(), {
+                id: settingsItem.id,
+                name: settingsItem.name,
+                properties: settingsItem.properties || {},
+              })
+            })
+            console.log('[INIT] Calculator settings loaded successfully')
+          }
         }
         
         postMessageBridge.sendInitDone(
@@ -295,6 +311,22 @@ function App() {
               }
             } catch (error) {
               console.error('[REFRESH] Transformation error:', error)
+            }
+            
+            // Initialize calculatorSettings store from elementsStore.CALC_SETTINGS
+            if (refreshPayload.elementsStore.CALC_SETTINGS) {
+              const settingsStore = useCalculatorSettingsStore.getState()
+              console.log('[REFRESH] Loading calculator settings from elementsStore', {
+                count: refreshPayload.elementsStore.CALC_SETTINGS.length
+              })
+              refreshPayload.elementsStore.CALC_SETTINGS.forEach((settingsItem) => {
+                settingsStore.setSettings(settingsItem.id.toString(), {
+                  id: settingsItem.id,
+                  name: settingsItem.name,
+                  properties: settingsItem.properties || {},
+                })
+              })
+              console.log('[REFRESH] Calculator settings loaded successfully')
             }
           }
           
