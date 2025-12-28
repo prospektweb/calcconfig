@@ -592,31 +592,32 @@ function App() {
       toast.success(`Деталь "${newDetail.name}" создана`)
     })
 
-    const unsubscribeSelectDetails = postMessageBridge.on('SELECT_DETAILS_RESPONSE', (message) => {
-      console.info('[FROM_BITRIX] SELECT_DETAILS_RESPONSE', message)
-      
-      // SELECT_DETAILS_RESPONSE возвращает items (массив элементов CALC_DETAILS)
-      const items = message.payload?.items || []
-      
-      if (items.length === 0) {
-        toast.info('Детали не выбраны')
-        return
-      }
-      
-      // Если выбран один элемент - показываем диалог "Копировать или Использовать"
-      if (items.length === 1) {
-        setSelectedDetailForDialog(items[0])
-        setSelectDetailMode('copy')
-        setIsSelectDetailDialogOpen(true)
-      } else {
-        // Если выбрано несколько - можно обработать по-другому
-        // Пока просто берем первый
-        setSelectedDetailForDialog(items[0])
-        setSelectDetailMode('copy')
-        setIsSelectDetailDialogOpen(true)
-        toast.info(`Выбрано ${items.length} деталей, используется первая`)
-      }
-    })
+      const unsubscribeSelectDetails = postMessageBridge.on('SELECT_DETAILS_RESPONSE', (message) => {
+        console. info('[FROM_BITRIX] SELECT_DETAILS_RESPONSE', message)
+        
+        const items = message.payload?.items || []
+        
+        if (items. length === 0) {
+          toast. info('Детали не выбраны')
+          return
+        }
+        
+        // Сразу отправляем USE_DETAIL_REQUEST без диалога
+        const selectedDetail = items[0]
+        
+        if (bitrixMeta && selectedDetail?. id) {
+          postMessageBridge.sendUseDetailRequest({
+            detailId: selectedDetail.id,
+            offerIds: selectedVariantIds,
+            ...getIblockInfo('CALC_DETAILS')!,
+          })
+          toast.info(`Использование детали "${selectedDetail.name}"... `)
+        }
+        
+        if (items.length > 1) {
+          toast.info(`Выбрано ${items.length} деталей, используется первая`)
+        }
+      })
 
     const unsubscribeCopyDetail = postMessageBridge.on('COPY_DETAIL_RESPONSE', (message) => {
       console.info('[FROM_BITRIX] COPY_DETAIL_RESPONSE', message)
