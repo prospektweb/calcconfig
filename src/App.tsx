@@ -199,10 +199,11 @@ function App() {
           console.warn(`[${source}] Skipping settings item with missing id`)
           return
         }
-        settingsStore.setSettings(settingsItem.id.toString(), {
+        settingsStore.setSettings(settingsItem.id. toString(), {
           id: settingsItem.id,
           name: settingsItem.name,
           properties: settingsItem.properties || {},
+          customFields: settingsItem.customFields,  // <-- добавить
         })
       })
       console.log(`[${source}] Calculator settings loaded successfully`)
@@ -445,6 +446,7 @@ function App() {
         id: payload.item.id,
         name: payload.item.name,
         properties: payload.item.properties,
+        customFields:  payload.item.customFields,  // <-- добавить
       })
 
       // Verify save
