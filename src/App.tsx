@@ -67,6 +67,7 @@ function App() {
   const [selectedVariantIds, setSelectedVariantIds] = useState<number[]>([])
   const [testVariantId, setTestVariantId] = useState<number | null>(null)
   const [bitrixMeta, setBitrixMeta] = useState<InitPayload | null>(null)
+  const bitrixMetaRef = useRef<InitPayload | null>(null)
   
   const [selectedOffers, setSelectedOffers] = useState<InitPayload['selectedOffers']>([])
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -100,6 +101,9 @@ function App() {
   useEffect(() => {
     localStorage.setItem('calc_info_panel_expanded', isInfoPanelExpanded.toString())
   }, [isInfoPanelExpanded])
+  useEffect(() => {
+    bitrixMetaRef.current = bitrixMeta
+  }, [bitrixMeta])
   
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
@@ -589,31 +593,41 @@ function App() {
       toast.success(`Деталь "${newDetail.name}" создана`)
     })
 
-      const unsubscribeSelectDetails = postMessageBridge.on('SELECT_DETAILS_RESPONSE', (message) => {
-        console. info('[FROM_BITRIX] SELECT_DETAILS_RESPONSE', message)
-        
-        const items = message.payload?.items || []
-        
-        if (items. length === 0) {
-          toast. info('Детали не выбраны')
-          return
-        }
-        
-        // Сразу отправляем USE_DETAIL_REQUEST без диалога
-        const selectedDetail = items[0]
-        
-        if (bitrixMeta && selectedDetail?. id) {
-          postMessageBridge.sendUseDetailRequest({
-            detailId:  selectedDetail.id,
-            presetId: bitrixMeta?.preset?.id ??  0,
-          })
-          toast.info(`Использование детали "${selectedDetail.name}"... `)
-        }
-        
-        if (items.length > 1) {
-          toast.info(`Выбрано ${items.length} деталей, используется первая`)
-        }
+  const unsubscribeSelectDetails = postMessageBridge.on('SELECT_DETAILS_RESPONSE', (message) => {
+    console.info('[FROM_BITRIX] SELECT_DETAILS_RESPONSE', message)
+    
+    const items = message. payload?.items || []
+    
+    if (items.length === 0) {
+      toast.info('Детали не выбраны')
+      return
+    }
+    
+    const selectedDetail = items[0]
+    const currentBitrixMeta = bitrixMetaRef.current
+    
+    if (currentBitrixMeta && selectedDetail?. id) {
+      postMessageBridge. sendUseDetailRequest({
+        detailId:  selectedDetail.id,
+        presetId: currentBitrixMeta. preset?.id ??  0,
       })
+      console.info('[USE_DETAIL_REQUEST] sent', {
+        detailId: selectedDetail.id,
+        presetId:  currentBitrixMeta.preset?.id ??  0,
+      })
+      toast.info(`Использование детали "${selectedDetail.name}"... `)
+    } else {
+      console. warn('[SELECT_DETAILS_RESPONSE] Cannot send USE_DETAIL_REQUEST', {
+        hasBitrixMeta:  !!currentBitrixMeta,
+        detailId:  selectedDetail?.id,
+      })
+      toast.error('Ошибка: контекст Bitrix не инициализирован')
+    }
+    
+    if (items.length > 1) {
+      toast.info(`Выбрано ${items.length} деталей, используется первая`)
+    }
+  })
 
     const unsubscribeCopyDetail = postMessageBridge.on('COPY_DETAIL_RESPONSE', (message) => {
       console.info('[FROM_BITRIX] COPY_DETAIL_RESPONSE', message)
