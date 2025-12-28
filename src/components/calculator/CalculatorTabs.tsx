@@ -5,9 +5,7 @@ import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -25,15 +23,15 @@ import { useMaterialVariantStore } from '@/stores/material-variant-store'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { cn } from '@/lib/utils'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
-import { getBitrixContext, openBitrixAdmin } from '@/lib/bitrix-utils'
+import { getBitrixContext, openBitrixAdmin, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
 import { BitrixProperty } from '@/lib/bitrix-transformers'
 
 interface CalculatorTabsProps {
   calculators: CalculatorInstance[]
   onChange: (calculators: CalculatorInstance[]) => void
-  bitrixMeta?: InitPayload | null
-  onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
+  bitrixMeta?:  InitPayload | null
+  onValidationMessage?:  (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
 }
 
 const TAB_COLORS = [
@@ -52,7 +50,7 @@ const filterHierarchyByValues = (
   return items
     .map(item => {
       // Если это конечный элемент (есть value и нет детей) — проверяем, входит ли в список
-      if (item.value && (!item.children || item.children.length === 0)) {
+      if (item.value && (! item.children || item. children.length === 0)) {
         return allowedValues.includes(item.value) ? item : null
       }
       
@@ -60,7 +58,7 @@ const filterHierarchyByValues = (
       if (item.children && item.children.length > 0) {
         const filteredChildren = filterHierarchyByValues(item.children, allowedValues)
         // Оставляем раздел только если в нём есть отфильтрованные дети
-        if (filteredChildren.length > 0) {
+        if (filteredChildren. length > 0) {
           return { ...item, children: filteredChildren }
         }
       }
@@ -74,11 +72,11 @@ const filterHierarchyByValues = (
 const findFirstSelectableValue = (items: MultiLevelItem[]): string | null => {
   for (const item of items) {
     // Если это конечный элемент с value
-    if (item.value && (!item.children || item.children.length === 0)) {
+    if (item. value && (! item.children || item.children.length === 0)) {
       return item.value
     }
     // Если есть дети — ищем рекурсивно
-    if (item.children && item.children.length > 0) {
+    if (item.children && item. children.length > 0) {
       const found = findFirstSelectableValue(item.children)
       if (found) return found
     }
@@ -111,23 +109,23 @@ const isPropertyEnabled = (prop: BitrixProperty | undefined): boolean => {
 }
 
 // Получение строкового значения свойства
-const getPropertyStringValue = (prop: BitrixProperty | undefined): string | null => {
+const getPropertyStringValue = (prop:  BitrixProperty | undefined): string | null => {
   if (!prop) return null
-  const value = prop.VALUE_XML_ID ?? prop.VALUE
+  const value = prop.VALUE_XML_ID ??  prop.VALUE
   return typeof value === 'string' ? value : null
 }
 
 // Получение массива значений свойства
-const getPropertyArrayValue = (prop: BitrixProperty | undefined): string[] => {
+const getPropertyArrayValue = (prop:  BitrixProperty | undefined): string[] => {
   if (!prop) return []
-  const value = prop.VALUE
-  if (Array.isArray(value)) return value
+  const value = prop. VALUE
+  if (Array. isArray(value)) return value
   if (typeof value === 'string' && value) return [value]
   return []
 }
 
 /**
- * Проверка что значение является валидной строкой для фильтрации.
+ * Проверка что значение является валидной строкой для фильтрации. 
  * 
  * @param v - Значение для проверки
  * @returns true если это непустая строка и не "false" (которое Bitrix возвращает вместо пустого списка)
@@ -142,8 +140,8 @@ const isValidStringValue = (v: unknown): v is string => {
 
 /**
  * Безопасное получение массива значений из свойства Bitrix.
- * Обрабатывает случаи когда значение: null, undefined, false, "false", "", пустой массив.
- * Возвращает пустой массив если значение невалидно — это означает "показать все".
+ * Обрабатывает случаи когда значение:  null, undefined, false, "false", "", пустой массив. 
+ * Возвращает пустой массив если значение невалидно — это означает "показать все". 
  */
 const getSupportedList = (value: unknown): string[] => {
   // Число — преобразуем в строку
@@ -178,17 +176,17 @@ interface ExtraOption {
 
 // Новые интерфейсы для расширенной поддержки OTHER_OPTIONS
 interface OtherOptionField {
-  code: string
+  code:  string
   name: string
   type: 'number' | 'checkbox' | 'text' | 'select'
   unit?: string
-  default?: number | boolean | string
-  min?: number
-  max?: number
+  default?:  number | boolean | string
+  min?:  number
+  max?:  number
   step?: number
   maxLength?: number
   required?: boolean
-  options?: Array<{ value: string; label: string }>
+  options?: Array<{ value: string; label:  string }>
 }
 
 interface OtherOptionsConfig {
@@ -222,11 +220,11 @@ const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionF
   
   let jsonString = ''
   
-  // Проверяем ~VALUE.TEXT (приоритет)
+  // Проверяем ~VALUE. TEXT (приоритет)
   const tildeValue = (otherOptions as any)['~VALUE']
   if (tildeValue && typeof tildeValue === 'object' && 'TEXT' in tildeValue) {
-    jsonString = tildeValue.TEXT
-  } else if (typeof otherOptions.VALUE === 'object' && otherOptions.VALUE !== null && 'TEXT' in otherOptions.VALUE) {
+    jsonString = tildeValue. TEXT
+  } else if (typeof otherOptions. VALUE === 'object' && otherOptions.VALUE !== null && 'TEXT' in otherOptions.VALUE) {
     jsonString = (otherOptions.VALUE as { TEXT: string }).TEXT
   } else if (typeof otherOptions.VALUE === 'string') {
     jsonString = otherOptions.VALUE
@@ -235,8 +233,8 @@ const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionF
   if (!jsonString) return []
   
   try {
-    const parsed = JSON.parse(jsonString)
-    if (typeof parsed !== 'object' || parsed === null || !Array.isArray(parsed.fields)) {
+    const parsed = JSON. parse(jsonString)
+    if (typeof parsed !== 'object' || parsed === null || ! Array.isArray(parsed. fields)) {
       console.warn('[CalculatorTabs] OTHER_OPTIONS has invalid structure:', parsed)
       return []
     }
@@ -257,25 +255,28 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   const [equipmentDropZoneHover, setEquipmentDropZoneHover] = useState<number | null>(null)
   const reportedValidationKeysRef = useRef<Set<string>>(new Set())
 
-  const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material') => {
+  const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material' | 'stage' | 'config') => {
     if (!bitrixMeta) return null
 
-    const iblockIdMap: Record<typeof entity, number | undefined> = {
-      calculator: bitrixMeta.iblocks.calcSettings,
-      operation: bitrixMeta.iblocks.calcOperationsVariants,
-      material: bitrixMeta.iblocks.calcMaterialsVariants,
+    const iblockCodeMap: Record<typeof entity, string> = {
+      calculator:  'CALC_SETTINGS',
+      operation: 'CALC_OPERATIONS_VARIANTS',
+      material: 'CALC_MATERIALS_VARIANTS',
+      stage: 'CALC_STAGES',
+      config: 'CALC_PRESETS',
     }
 
-    const iblockId = iblockIdMap[entity]
-    if (!iblockId) return null
+    const iblockCode = iblockCodeMap[entity]
+    const iblock = getIblockByCode(bitrixMeta. iblocks, iblockCode)
+    
+    if (! iblock) return null
 
-    const iblockType = bitrixMeta.iblocksTypes[iblockId]
     const context = getBitrixContext()
     const lang = context?.lang || bitrixMeta.context?.lang
 
-    if (!iblockType || !lang) return null
+    if (!lang) return null
 
-    return { iblockId, iblockType, lang }
+    return { iblockId: iblock.id, iblockType: iblock.type, lang }
   }
 
   const toNumber = (value: string | number | null | undefined): number | null => {
@@ -287,7 +288,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
     return Number.isNaN(parsed) ? null : parsed
   }
 
-  const openEntity = (entity: 'calculator' | 'operation' | 'material', id: number | null) => {
+  const openEntity = (entity: 'calculator' | 'operation' | 'material' | 'stage' | 'config', id: number | null) => {
     if (!id) return
 
     const iblockInfo = getEntityIblockInfo(entity)
@@ -296,13 +297,13 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       try {
         openBitrixAdmin({
           iblockId: iblockInfo.iblockId,
-          type: iblockInfo.iblockType,
+          type:  iblockInfo. iblockType,
           lang: iblockInfo.lang,
           id,
         })
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Не удалось открыть элемент Bitrix'
-        toast.error(message)
+        const message = error instanceof Error ?  error.message : 'Не удалось открыть элемент Bitrix'
+        toast. error(message)
       }
     } else {
       window.open(`#${entity}-${id}`, '_blank')
@@ -311,12 +312,12 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
 
   const renderSelectedId = (id: number | null, entity: 'calculator' | 'operation' | 'material', pwcode: string) => (
     <div className="flex items-center gap-1 text-xs text-muted-foreground">
-      <span className="font-mono">ID:{id ?? 'N/A'}</span>
+      <span className="font-mono">ID:{id ??  'N/A'}</span>
       <Button
         variant="ghost"
         size="icon"
         className="h-9 w-9"
-        disabled={!id}
+        disabled={! id}
         onClick={() => openEntity(entity, id)}
         data-pwcode={pwcode}
       >
@@ -327,7 +328,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   
   // Get hierarchical data from references store
   const calculatorsHierarchy = useReferencesStore(s => s.calculatorsHierarchy)
-  const equipmentHierarchy = useReferencesStore(s => s.equipmentHierarchy)
+  const equipmentHierarchy = useReferencesStore(s => s. equipmentHierarchy)
   const operationsHierarchy = useReferencesStore(s => s.operationsHierarchy)
   const materialsHierarchy = useReferencesStore(s => s.materialsHierarchy)
   
@@ -340,17 +341,17 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   const operationVariants = useOperationVariantStore(s => s.variants)
   const materialVariants = useMaterialVariantStore(s => s.variants)
   
-  // Helper function to get operation unit from measure.symbol
+  // Helper function to get operation unit from measure. symbol
   const getOperationUnit = (operationId: number | null): string => {
     if (!operationId) return 'ед.'
-    const variant = operationVariants[operationId.toString()]
+    const variant = operationVariants[operationId. toString()]
     // Сначала проверяем measure.symbol
-    if (variant?.measure?.symbol) {
-      return variant.measure.symbol
+    if (variant?. measure?.symbol) {
+      return variant. measure.symbol
     }
     // Fallback на свойство MEASURE_UNIT
-    if (variant?.properties?.MEASURE_UNIT?.VALUE) {
-      const value = variant.properties.MEASURE_UNIT.VALUE
+    if (variant?.properties?.MEASURE_UNIT?. VALUE) {
+      const value = variant.properties. MEASURE_UNIT.VALUE
       return typeof value === 'string' ? value : 'ед.'
     }
     return 'ед.'
@@ -358,7 +359,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   
   // Helper function to get material unit from measure.symbol
   const getMaterialUnit = (materialId: number | null): string => {
-    if (!materialId) return 'шт.'
+    if (! materialId) return 'шт.'
     
     // Пробуем оба варианта ключа
     const variant = materialVariants[materialId.toString()] || materialVariants[materialId]
@@ -366,16 +367,16 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
     console.log('[getMaterialUnit] Debug:', {
       materialId,
       variantFound: !!variant,
-      measureSymbol: variant?.measure?.symbol,
-      measureUnit: variant?.properties?.MEASURE_UNIT?.VALUE,
+      measureSymbol: variant?. measure?.symbol,
+      measureUnit: variant?. properties?.MEASURE_UNIT?.VALUE,
     })
     
     // Сначала проверяем measure.symbol
-    if (variant?.measure?.symbol) {
-      return variant.measure.symbol
+    if (variant?. measure?.symbol) {
+      return variant. measure.symbol
     }
     // Fallback на свойство MEASURE_UNIT
-    if (variant?.properties?.MEASURE_UNIT?.VALUE) {
+    if (variant?.properties?. MEASURE_UNIT?.VALUE) {
       const value = variant.properties.MEASURE_UNIT.VALUE
       return typeof value === 'string' ? value : 'шт.'
     }
@@ -390,7 +391,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
     setActiveTab(safeCalculators.length)
   }
 
-  const handleRemoveCalculator = (index: number) => {
+  const handleRemoveCalculator = (index:  number) => {
     const newCalculators = safeCalculators.filter((_, i) => i !== index)
     onChange(newCalculators)
     if (activeTab >= newCalculators.length) {
@@ -411,8 +412,8 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
     const reorderedCalculators = [...safeCalculators]
     const [movedItem] = reorderedCalculators.splice(fromIndex, 1)
     
-    const adjustedToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex
-    reorderedCalculators.splice(adjustedToIndex, 0, movedItem)
+    const adjustedToIndex = fromIndex < toIndex ?  toIndex - 1 : toIndex
+    reorderedCalculators. splice(adjustedToIndex, 0, movedItem)
     
     onChange(reorderedCalculators)
     setActiveTab(adjustedToIndex)
@@ -421,19 +422,19 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   const handleStageDragStart = (element: HTMLElement, e: React.MouseEvent, index: number) => {
     e.preventDefault()
     e.stopPropagation()
-    const calcId = safeCalculators[index]?.id
-    if (!calcId) return
-    startDrag(calcId, 'stage', element, e.clientX, e.clientY)
+    const calcId = safeCalculators[index]?. id
+    if (! calcId) return
+    startDrag(calcId, 'stage', element, e. clientX, e.clientY)
   }
 
   useEffect(() => {
-    if (!dragState.isDragging || dragState.draggedItemType !== 'stage') return
+    if (! dragState. isDragging || dragState.draggedItemType !== 'stage') return
 
     const handleMouseMove = (e: MouseEvent) => {
-      let nearestDropZone: number | null = null
+      let nearestDropZone:  number | null = null
       let minDistance = Infinity
 
-      tabRefs.current.forEach((element, index) => {
+      tabRefs.current. forEach((element, index) => {
         const rect = element.getBoundingClientRect()
         const centerX = rect.left + rect.width / 2
         const distance = Math.abs(e.clientX - centerX)
@@ -451,7 +452,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       const draggedIndex = safeCalculators.findIndex(calc => calc.id === dragState.draggedItemId)
       
       if (dragState.dropTargetIndex !== null && draggedIndex !== -1) {
-        reorderStages(draggedIndex, dragState.dropTargetIndex)
+        reorderStages(draggedIndex, dragState. dropTargetIndex)
         endDrag(true)
       } else {
         cancelDrag()
@@ -470,12 +471,12 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
   // Handle validation and auto-selection when settings are loaded
   useEffect(() => {
     console.log('[CalculatorTabs][DEBUG] Settings validation effect triggered', {
-      calculatorsCount: safeCalculators.length,
+      calculatorsCount:  safeCalculators. length,
       calculatorSettingsKeys: Object.keys(calculatorSettings),
       calculatorSettings: calculatorSettings,
     })
 
-    const previousViolations = reportedValidationKeysRef.current
+    const previousViolations = reportedValidationKeysRef. current
     const nextViolations = new Set<string>()
 
     safeCalculators.forEach((calc, index) => {
@@ -485,25 +486,25 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         calculatorCode: calc.calculatorCode,
         operationId: calc.operationId,
         materialId: calc.materialId,
-        equipmentId: calc.equipmentId,
+        equipmentId: calc. equipmentId,
       })
 
-      if (!calc.calculatorCode) {
+      if (! calc.calculatorCode) {
         console.log('[CalculatorTabs][DEBUG] No calculatorCode, skipping')
         return
       }
       
       const settings = calculatorSettings[calc.calculatorCode]
       console.log('[CalculatorTabs][DEBUG] Found settings for code', {
-        code: calc.calculatorCode,
+        code:  calc.calculatorCode,
         hasSettings: !!settings,
         settingsId: settings?.id,
         settingsName: settings?.name,
-        hasProperties: !!settings?.properties,
-        propertiesKeys: settings?.properties ? Object.keys(settings.properties) : [],
+        hasProperties: !!settings?. properties,
+        propertiesKeys: settings?.properties ?  Object.keys(settings.properties) : [],
       })
 
-      if (!settings?.properties) {
+      if (!settings?. properties) {
         console.log('[CalculatorTabs][DEBUG] No properties in settings')
         return
       }
@@ -513,25 +514,25 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       const useMaterialVariant = getProperty(settings, 'USE_MATERIAL_VARIANT')
       
       console.log('[CalculatorTabs][DEBUG] Property check results', {
-        useOperationVariant: useOperationVariant,
+        useOperationVariant:  useOperationVariant,
         useOperationVariantEnabled: isPropertyEnabled(useOperationVariant),
         useMaterialVariant: useMaterialVariant,
         useMaterialVariantEnabled: isPropertyEnabled(useMaterialVariant),
       })
       
-      // Validation: CAN_BE_FIRST
+      // Validation:  CAN_BE_FIRST
       const canBeFirst = getProperty(settings, 'CAN_BE_FIRST')
-      const violationKeyBase = `${calc.id ?? calc.calculatorCode ?? 'calculator'}-${index}`
+      const violationKeyBase = `${calc.id ??  calc.calculatorCode ??  'calculator'}-${index}`
 
       const reportValidationOnce = (key: string, message: string) => {
         nextViolations.add(key)
-        if (onValidationMessage && !previousViolations.has(key)) {
+        if (onValidationMessage && ! previousViolations.has(key)) {
           onValidationMessage('error', message)
         }
       }
 
-      if (index === 0 && !isPropertyEnabled(canBeFirst)) {
-        reportValidationOnce(`${violationKeyBase}-cannot-be-first`, `Калькулятор ${settings.name} не может быть размещен на первом этапе`)
+      if (index === 0 && ! isPropertyEnabled(canBeFirst)) {
+        reportValidationOnce(`${violationKeyBase}-cannot-be-first`, `Калькулятор ${settings. name} не может быть размещен на первом этапе`)
         return
       }
       
@@ -549,7 +550,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         } else {
           // Проверяем, что предыдущий калькулятор соответствует требованию
           const prevCalc = safeCalculators[index - 1]
-          if (!prevCalc.calculatorCode || prevCalc.calculatorCode !== requiresBeforeValue) {
+          if (! prevCalc. calculatorCode || prevCalc.calculatorCode !== requiresBeforeValue) {
             const prevSettings = prevCalc.calculatorCode ? calculatorSettings[prevCalc.calculatorCode] : null
             const prevName = prevSettings?.name || 'неизвестный калькулятор'
             reportValidationOnce(
@@ -566,25 +567,21 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       const defaultOpValue = getPropertyStringValue(defaultOperationVariant)
       if (defaultOpValue && !calc.operationId) {
         const defaultOpId = parseInt(defaultOpValue, 10)
-        if (!isNaN(defaultOpId) && calc.operationId !== defaultOpId) {
-          handleUpdateCalculator(index, { operationId: defaultOpId })
+        if (! isNaN(defaultOpId) && calc.operationId !== defaultOpId) {
+          handleUpdateCalculator(index, { operationId:  defaultOpId })
           
           // Send request to get operation data (to receive itemParent with filters)
           if (bitrixMeta) {
             const context = getBitrixContext()
-            const iblockId = bitrixMeta.iblocks.calcOperations
+            const operationsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_OPERATIONS')
             
-            if (context && iblockId) {
-              const iblockType = bitrixMeta.iblocksTypes[iblockId]
-              
-              if (iblockType) {
-                postMessageBridge.sendCalcOperationVariantRequest(
-                  defaultOpId,
-                  iblockId,
-                  iblockType,
-                  context.lang
-                )
-              }
+            if (context && operationsIblock) {
+              postMessageBridge. sendCalcOperationVariantRequest(
+                defaultOpId,
+                operationsIblock.id,
+                operationsIblock.type,
+                context.lang
+              )
             }
           }
         }
@@ -598,7 +595,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         if (!isNaN(defaultMatId) && calc.materialId !== defaultMatId) {
           console.log('[CalculatorTabs] Setting default material:', {
             materialId: defaultMatId,
-            storeHasVariant: !!materialVariants[defaultMatId?.toString()],
+            storeHasVariant: !!materialVariants[defaultMatId?. toString()],
             allStoreKeys: Object.keys(materialVariants),
           })
           
@@ -607,19 +604,15 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           // Send request to get material variant data
           if (bitrixMeta) {
             const context = getBitrixContext()
-            const iblockId = bitrixMeta.iblocks.calcMaterialsVariants
+            const materialsVariantsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_MATERIALS_VARIANTS')
             
-            if (context && iblockId) {
-              const iblockType = bitrixMeta.iblocksTypes[iblockId]
-              
-              if (iblockType) {
-                postMessageBridge.sendCalcMaterialVariantRequest(
-                  defaultMatId,
-                  iblockId,
-                  iblockType,
-                  context.lang
-                )
-              }
+            if (context && materialsVariantsIblock) {
+              postMessageBridge. sendCalcMaterialVariantRequest(
+                defaultMatId,
+                materialsVariantsIblock. id,
+                materialsVariantsIblock.type,
+                context.lang
+              )
             }
           }
         }
@@ -635,9 +628,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       // Skip if no operation selected
       if (!calc.operationId) return
       
-      const operationSettingsItem = operationSettings[calc.operationId.toString()]
+      const operationSettingsItem = operationSettings[calc.operationId. toString()]
       // Skip if operation settings not yet loaded
-      if (!operationSettingsItem) return
+      if (! operationSettingsItem) return
       
       const parentOperation = operationSettingsItem.itemParent
       // Skip if itemParent not yet loaded
@@ -645,7 +638,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       
       // Get supported equipment list from parent operation
       const supportedEquipmentList = getSupportedList(
-        parentOperation.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE
+        parentOperation.properties?.SUPPORTED_EQUIPMENT_LIST?. VALUE
       )
       
       // Get supported materials list from parent operation
@@ -655,7 +648,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       
       // Auto-select equipment if not selected
       if (!calc.equipmentId) {
-        const hierarchyToSearch = supportedEquipmentList.length > 0
+        const hierarchyToSearch = supportedEquipmentList. length > 0
           ? filterHierarchyByValues(equipmentHierarchy, supportedEquipmentList)
           : equipmentHierarchy
         
@@ -666,7 +659,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
       }
       
       // Auto-select material if not selected
-      if (!calc.materialId) {
+      if (!calc. materialId) {
         const hierarchyToSearch = supportedMaterialsVariantsList.length > 0
           ? filterHierarchyByValues(materialsHierarchy, supportedMaterialsVariantsList)
           : materialsHierarchy
@@ -678,17 +671,15 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           // Send request for material variant data
           if (bitrixMeta) {
             const context = getBitrixContext()
-            const iblockId = bitrixMeta.iblocks.calcMaterialsVariants
-            if (context && iblockId) {
-              const iblockType = bitrixMeta.iblocksTypes[iblockId]
-              if (iblockType) {
-                postMessageBridge.sendCalcMaterialVariantRequest(
-                  parseInt(firstMaterialValue),
-                  iblockId,
-                  iblockType,
-                  context.lang
-                )
-              }
+            const materialsVariantsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_MATERIALS_VARIANTS')
+            
+            if (context && materialsVariantsIblock) {
+              postMessageBridge. sendCalcMaterialVariantRequest(
+                parseInt(firstMaterialValue),
+                materialsVariantsIblock.id,
+                materialsVariantsIblock. type,
+                context.lang
+              )
             }
           }
         }
@@ -702,7 +693,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
 
   return (
     <div className="space-y-4" data-pwcode="calculator-tabs">
-      <Tabs value={activeTab.toString()} onValueChange={(v) => setActiveTab(parseInt(v))}>
+      <Tabs value={activeTab. toString()} onValueChange={(v) => setActiveTab(parseInt(v))}>
         <div className="flex items-center gap-2">
           <TabsList className="flex-1 justify-start overflow-x-auto bg-muted/30" data-pwcode="stages-list">
             {safeCalculators.map((calc, index) => {
@@ -713,7 +704,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                 <div key={calc.id} className="relative flex items-center">
                   <div
                     data-tab-item
-                    ref={(el) => { if (el) tabRefs.current.set(index, el) }}
+                    ref={(el) => { if (el) tabRefs.current. set(index, el) }}
                     className={cn(
                       "relative transition-all",
                       isDraggingThis && "opacity-30",
@@ -728,46 +719,28 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                       <div 
                         className="w-4 h-4 flex items-center justify-center flex-shrink-0 cursor-grab active:cursor-grabbing"
                         onMouseDown={(e) => {
-                          const tabElement = e.currentTarget.closest('[data-tab-item]') as HTMLElement
+                          const tabElement = e.currentTarget. closest('[data-tab-item]') as HTMLElement
                           if (tabElement) {
                             handleStageDragStart(tabElement, e, index)
                           }
                         }}
                         data-pwcode="stage-drag-handle"
                       >
-                        <DotsSixVertical className="w-3.5 h-3.5" />
+                        <DotsSixVertical className="w-3. 5 h-3.5" />
                       </div>
                       Этап #{index + 1}
                     </TabsTrigger>
-                    {/* Button to open config in Bitrix */}
-                    {calc.configId && (
+                    {/* Button to open stage in Bitrix */}
+                    {calc.stageId && (
                       <Button
                         variant="ghost"
                         size="sm"
                         className="absolute right-6 top-1/2 -translate-y-1/2 h-5 w-5 p-0 rounded-full hover:bg-accent hover:text-accent-foreground z-10"
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (!bitrixMeta) return
-                          
-                          const context = getBitrixContext()
-                          if (!context) return
-                          
-                          const iblockId = bitrixMeta.iblocks.calcConfig
-                          const typeId = bitrixMeta.iblocksTypes[iblockId]
-                          
-                          try {
-                            openBitrixAdmin({
-                              iblockId,
-                              type: typeId,
-                              lang: context.lang,
-                              id: calc.configId,
-                            })
-                          } catch (error) {
-                            const message = error instanceof Error ? error.message : 'Не удалось открыть конфиг'
-                            toast.error(message)
-                          }
+                          openEntity('stage', calc.stageId!)
                         }}
-                        data-pwcode="btn-open-config-bitrix"
+                        data-pwcode="btn-open-stage-bitrix"
                       >
                         <ArrowSquareOut className="w-3 h-3" />
                       </Button>
@@ -783,7 +756,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                         }}
                         data-pwcode="btn-remove-stage"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        <X className="w-3. 5 h-3.5" />
                       </Button>
                     )}
                   </div>
@@ -805,17 +778,17 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
         {dragState.isDragging && dragState.draggedItemType === 'stage' && dragState.draggedItemId && (
           <div
             style={{
-              position: 'fixed',
+              position:  'fixed',
               left: dragState.dragPosition.x,
-              top: dragState.dragPosition.y,
-              width: dragState.initialPosition?.width || 120,
+              top: dragState. dragPosition.y,
+              width: dragState.initialPosition?. width || 120,
               zIndex: 9999,
               pointerEvents: 'none',
               opacity: 0.9,
             }}
           >
             <div className="px-3 py-2 bg-muted-foreground/80 text-primary-foreground rounded flex items-center gap-1">
-              <DotsSixVertical className="w-3.5 h-3.5" />
+              <DotsSixVertical className="w-3. 5 h-3.5" />
               Этап #{safeCalculators.findIndex(calc => calc.id === dragState.draggedItemId) + 1}
             </div>
           </div>
@@ -823,7 +796,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
 
         {safeCalculators.map((calc, index) => {
           // Get settings from store if calculatorCode is set
-          const settings = calc.calculatorCode ? calculatorSettings[calc.calculatorCode] : undefined
+          const settings = calc.calculatorCode ?  calculatorSettings[calc.calculatorCode] : undefined
           
           // Get operation settings from store
           const operationSettingsItem = calc.operationId 
@@ -833,26 +806,26 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           // SUPPORTED_EQUIPMENT_LIST находится в родительской операции (itemParent)
           const parentOperation = operationSettingsItem?.itemParent
           const supportedEquipmentList = getSupportedList(
-            parentOperation?.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE
+            parentOperation?.properties?. SUPPORTED_EQUIPMENT_LIST?.VALUE
           )
           
           // Filter equipment based on SUPPORTED_EQUIPMENT_LIST from operation settings
-          const filteredEquipmentHierarchy = supportedEquipmentList.length > 0
+          const filteredEquipmentHierarchy = supportedEquipmentList. length > 0
             ? filterHierarchyByValues(equipmentHierarchy, supportedEquipmentList)
             : equipmentHierarchy
           
           console.log('[CalculatorTabs][DEBUG] Filtering equipment', {
-            rawValue: parentOperation?.properties?.SUPPORTED_EQUIPMENT_LIST?.VALUE,
+            rawValue: parentOperation?.properties?. SUPPORTED_EQUIPMENT_LIST?.VALUE,
             parsedList: supportedEquipmentList,
             willFilter: supportedEquipmentList.length > 0,
-            originalCount: equipmentHierarchy.length,
+            originalCount: equipmentHierarchy. length,
             filteredCount: filteredEquipmentHierarchy.length,
             filteredHierarchy: filteredEquipmentHierarchy,
           })
           
           // Filter materials based on SUPPORTED_MATERIALS_VARIANTS_LIST from operation settings
           const supportedMaterialsVariantsList = getSupportedList(
-            parentOperation?.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE
+            parentOperation?.properties?. SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE
           )
           const filteredMaterialsHierarchy = supportedMaterialsVariantsList.length > 0
             ? filterHierarchyByValues(materialsHierarchy, supportedMaterialsVariantsList)
@@ -860,7 +833,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           
           console.log('[CalculatorTabs][DEBUG] Filtering materials', {
             rawValue: parentOperation?.properties?.SUPPORTED_MATERIALS_VARIANTS_LIST?.VALUE,
-            parsedList: supportedMaterialsVariantsList,
+            parsedList:  supportedMaterialsVariantsList,
             willFilter: supportedMaterialsVariantsList.length > 0,
             originalCount: materialsHierarchy.length,
             filteredCount: filteredMaterialsHierarchy.length,
@@ -870,7 +843,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
           return (
             <TabsContent 
               key={calc.id} 
-              value={index.toString()} 
+              value={index. toString()} 
               className="space-y-4 mt-4 border rounded-lg p-2 bg-card"
               data-pwcode="stage-content"
             >
@@ -885,7 +858,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           console.log('[CalculatorTabs][DEBUG] Calculator selected', {
                             newValue: value,
                             previousCode: calc.calculatorCode,
-                            index: index,
+                            index:  index,
                           })
 
                           handleUpdateCalculator(index, {
@@ -898,41 +871,35 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           // Отправить запрос настроек калькулятора в Битрикс
                           if (value && bitrixMeta) {
                             const context = getBitrixContext()
-                            const iblockId = bitrixMeta.iblocks.calcSettings
+                            const settingsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_SETTINGS')
                             
                             console.log('[CalculatorTabs][DEBUG] Preparing CALC_SETTINGS_REQUEST', {
                               value: value,
-                              hasBitrixMeta: !!bitrixMeta,
+                              hasBitrixMeta:  !!bitrixMeta,
                               hasContext: !!context,
-                              iblockId: iblockId,
+                              iblockId: settingsIblock?.id,
                               contextLang: context?.lang,
                             })
                             
-                            if (context && iblockId) {
-                              const iblockType = bitrixMeta.iblocksTypes[iblockId]
-                              
+                            if (context && settingsIblock) {
                               console.log('[CalculatorTabs][DEBUG] Sending CALC_SETTINGS_REQUEST', {
                                 id: parseInt(value, 10),
-                                iblockId: iblockId,
-                                iblockType: iblockType,
+                                iblockId: settingsIblock.id,
+                                iblockType: settingsIblock.type,
                                 lang: context.lang,
                               })
                               
-                              if (iblockType) {
-                                postMessageBridge.sendCalcSettingsRequest(
-                                  parseInt(value, 10),
-                                  iblockId,
-                                  iblockType,
-                                  context.lang
-                                )
-                                console.log('[CalculatorTabs][DEBUG] CALC_SETTINGS_REQUEST sent')
-                              } else {
-                                console.warn('[CalculatorTabs][DEBUG] No iblockType found for iblockId:', iblockId)
-                              }
+                              postMessageBridge. sendCalcSettingsRequest(
+                                parseInt(value, 10),
+                                settingsIblock. id,
+                                settingsIblock. type,
+                                context.lang
+                              )
+                              console.log('[CalculatorTabs][DEBUG] CALC_SETTINGS_REQUEST sent')
                             } else {
-                              console.warn('[CalculatorTabs][DEBUG] Missing context or iblockId', {
-                                context: context,
-                                iblockId: iblockId,
+                              console.warn('[CalculatorTabs][DEBUG] Missing context or settingsIblock', {
+                                context:  context,
+                                settingsIblock:  settingsIblock,
                               })
                             }
                           }
@@ -949,9 +916,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
               {(() => {
                   console.log('[CalculatorTabs][DEBUG] Render check for Operation field', {
                     hasSettings: !!settings,
-                    settingsId: settings?.id,
-                    useOperationVariantProp: settings ? getProperty(settings, 'USE_OPERATION_VARIANT') : null,
-                    isEnabled: settings ? isPropertyEnabled(getProperty(settings, 'USE_OPERATION_VARIANT')) : false,
+                    settingsId: settings?. id,
+                    useOperationVariantProp: settings ?  getProperty(settings, 'USE_OPERATION_VARIANT') : null,
+                    isEnabled: settings ?  isPropertyEnabled(getProperty(settings, 'USE_OPERATION_VARIANT')) : false,
                   })
                   return null
                 })()}
@@ -963,7 +930,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                       <div className="flex-1">
                         <MultiLevelSelect
                           items={operationsHierarchy}
-                          value={calc.operationId?.toString() || null}
+                          value={calc.operationId?. toString() || null}
                           onValueChange={(value) => {
                             const newOperationId = parseInt(value)
                             
@@ -976,19 +943,15 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                             // Отправить запрос данных операции
                             if (value && bitrixMeta) {
                               const context = getBitrixContext()
-                              const iblockId = bitrixMeta.iblocks.calcOperations
+                              const operationsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_OPERATIONS')
                               
-                              if (context && iblockId) {
-                                const iblockType = bitrixMeta.iblocksTypes[iblockId]
-                                
-                                if (iblockType) {
-                                  postMessageBridge.sendCalcOperationVariantRequest(
-                                    newOperationId,
-                                    iblockId,
-                                    iblockType,
-                                    context.lang
-                                  )
-                                }
+                              if (context && operationsIblock) {
+                                postMessageBridge. sendCalcOperationVariantRequest(
+                                  newOperationId,
+                                  operationsIblock.id,
+                                  operationsIblock.type,
+                                  context. lang
+                                )
                               }
                             }
                           }}
@@ -1005,7 +968,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           <Input
                             type="number"
                             min="1"
-                            value={calc.operationQuantity}
+                            value={calc. operationQuantity}
                             onChange={(e) => handleUpdateCalculator(index, {
                               operationQuantity: parseInt(e.target.value) || 1
                             })}
@@ -1016,53 +979,6 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           </span>
                         </div>
                       )}
-                      <div
-                        className={cn(
-                          "w-[60px] h-10 border-2 border-dashed rounded flex items-center justify-center flex-shrink-0 transition-all",
-                          operationDropZoneHover === index
-                            ? "border-accent bg-accent/10"
-                            : "border-border bg-muted/30"
-                        )}
-                        onDragOver={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setOperationDropZoneHover(index)
-                        }}
-                        onDragLeave={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setOperationDropZoneHover(null)
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setOperationDropZoneHover(null)
-
-                          try {
-                            const jsonData = e.dataTransfer.getData('application/json')
-                            if (jsonData) {
-                              const data = JSON.parse(jsonData)
-
-                              if (data.type === 'header-operation') {
-                                handleUpdateCalculator(index, {
-                                  operationId: data.operationId,
-                                  equipmentId: null,
-                                })
-                              }
-                            }
-                          } catch (error) {
-                            console.error('Operation drop error:', error)
-                          }
-                        }}
-                        title="Перетащите операцию из шапки сюда"
-                      >
-                        <Wrench className={cn(
-                          "w-5 h-5",
-                          operationDropZoneHover === index
-                            ? "text-accent-foreground"
-                            : "text-muted-foreground"
-                        )} />
-                    </div>
                   </div>
                 </div>
               )}
@@ -1074,7 +990,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                       <div className="flex-1">
                         <MultiLevelSelect
                           items={filteredEquipmentHierarchy}
-                          value={calc.equipmentId?.toString() || null}
+                          value={calc. equipmentId?.toString() || null}
                           onValueChange={(value) => handleUpdateCalculator(index, { 
                             equipmentId: parseInt(value) 
                           })}
@@ -1095,22 +1011,21 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                             data-pwcode="btn-open-equipment-bitrix"
                             onClick={() => {
                               // Открыть элемент оборудования в Bitrix
-                              if (bitrixMeta?.iblocks?.calcEquipment) {
-                                const iblockId = bitrixMeta.iblocks.calcEquipment
-                                const iblockType = bitrixMeta.iblocksTypes[iblockId]
+                              const equipmentIblock = bitrixMeta ?  getIblockByCode(bitrixMeta.iblocks, 'CALC_EQUIPMENT') : null
+                              if (equipmentIblock) {
                                 const context = getBitrixContext()
-                                const lang = context?.lang || bitrixMeta.context?.lang
+                                const lang = context?. lang || bitrixMeta?.context?.lang
                                 
-                                if (iblockType && lang) {
+                                if (lang) {
                                   try {
                                     openBitrixAdmin({
-                                      iblockId,
-                                      type: iblockType,
+                                      iblockId: equipmentIblock.id,
+                                      type: equipmentIblock.type,
                                       lang,
-                                      id: calc.equipmentId!,
+                                      id: calc.equipmentId! ,
                                     })
                                   } catch (error) {
-                                    const message = error instanceof Error ? error.message : 'Не удалось открыть элемент Bitrix'
+                                    const message = error instanceof Error ?  error.message : 'Не удалось открыть элемент Bitrix'
                                     toast.error(message)
                                   }
                                 } else {
@@ -1123,54 +1038,6 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           </Button>
                         </>
                       )}
-                      
-                      {/* Drop zone */}
-                      <div
-                        className={cn(
-                          "w-[60px] h-10 border-2 border-dashed rounded flex items-center justify-center flex-shrink-0 transition-all",
-                          equipmentDropZoneHover === index
-                            ? "border-accent bg-accent/10"
-                            : "border-border bg-muted/30"
-                        )}
-                        onDragOver={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setEquipmentDropZoneHover(index)
-                        }}
-                        onDragLeave={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setEquipmentDropZoneHover(null)
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setEquipmentDropZoneHover(null)
-                          
-                          try {
-                            const jsonData = e.dataTransfer.getData('application/json')
-                            if (jsonData) {
-                              const data = JSON.parse(jsonData)
-                              
-                              if (data.type === 'header-equipment') {
-                                handleUpdateCalculator(index, { 
-                                  equipmentId: data.equipmentId 
-                                })
-                              }
-                            }
-                          } catch (error) {
-                            console.error('Equipment drop error:', error)
-                          }
-                        }}
-                        title="Перетащите оборудование из шапки сюда"
-                      >
-                        <Hammer className={cn(
-                          "w-5 h-5",
-                          equipmentDropZoneHover === index 
-                            ? "text-accent-foreground" 
-                            : "text-muted-foreground"
-                        )} />
-                      </div>
                     </div>
                   </div>
                 )}
@@ -1191,19 +1058,15 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           // Отправить запрос данных варианта материала
                           if (value && bitrixMeta) {
                             const context = getBitrixContext()
-                            const iblockId = bitrixMeta.iblocks.calcMaterialsVariants
+                            const materialsVariantsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_MATERIALS_VARIANTS')
                             
-                            if (context && iblockId) {
-                              const iblockType = bitrixMeta.iblocksTypes[iblockId]
-                              
-                              if (iblockType) {
-                                postMessageBridge.sendCalcMaterialVariantRequest(
-                                  parseInt(value, 10),
-                                  iblockId,
-                                  iblockType,
-                                  context.lang
-                                )
-                              }
+                            if (context && materialsVariantsIblock) {
+                              postMessageBridge.sendCalcMaterialVariantRequest(
+                                parseInt(value, 10),
+                                materialsVariantsIblock.id,
+                                materialsVariantsIblock.type,
+                                context.lang
+                              )
                             }
                           }
                         }}
@@ -1226,56 +1089,10 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           className="w-20 max-w-[80px]"
                         />
                         <span className="text-sm text-muted-foreground w-[40px] text-right">
-                          {getMaterialUnit(calc.materialId) || 'шт.'}
+                          {getMaterialUnit(calc. materialId) || 'шт.'}
                         </span>
                       </div>
                     )}
-                    <div
-                      className={cn(
-                        "w-[60px] h-10 border-2 border-dashed rounded flex items-center justify-center flex-shrink-0 transition-all",
-                        materialDropZoneHover === index
-                          ? "border-accent bg-accent/10"
-                          : "border-border bg-muted/30"
-                      )}
-                      onDragOver={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setMaterialDropZoneHover(index)
-                      }}
-                      onDragLeave={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setMaterialDropZoneHover(null)
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setMaterialDropZoneHover(null)
-
-                        try {
-                          const jsonData = e.dataTransfer.getData('application/json')
-                          if (jsonData) {
-                            const data = JSON.parse(jsonData)
-
-                            if (data.type === 'header-material') {
-                              handleUpdateCalculator(index, {
-                                materialId: data.materialId
-                              })
-                            }
-                          }
-                        } catch (error) {
-                          console.error('Material drop error:', error)
-                        }
-                      }}
-                      title="Перетащите материал из шапки сюда"
-                    >
-                      <Package className={cn(
-                        "w-5 h-5",
-                        materialDropZoneHover === index
-                          ? "text-accent-foreground"
-                          : "text-muted-foreground"
-                      )} />
-                    </div>
                   </div>
                 </div>
               )}
@@ -1283,7 +1100,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
               {/* Прочие опции из OTHER_OPTIONS */}
               {(() => {
                 const otherFields = parseOtherOptions(settings)
-                if (otherFields.length === 0) return null
+                if (otherFields. length === 0) return null
                 
                 return (
                   <div className="space-y-3 pt-3 border-t">
@@ -1297,13 +1114,13 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                             <div className="flex items-center gap-1">
                               <Input
                                 type="number"
-                                value={typeof calc.extraOptions?.[field.code] === 'number' 
-                                  ? calc.extraOptions[field.code]
-                                  : typeof field.default === 'number' ? field.default : 0}
+                                value={typeof calc. extraOptions? .[field.code] === 'number' 
+                                  ?  calc.extraOptions[field.code]
+                                  :  typeof field.default === 'number' ?  field.default : 0}
                                 onChange={(e) => handleUpdateCalculator(index, {
                                   extraOptions: {
-                                    ...calc.extraOptions,
-                                    [field.code]: parseFloat(e.target.value) || 0
+                                    ...calc. extraOptions,
+                                    [field. code]: parseFloat(e.target.value) || 0
                                   }
                                 })}
                                 min={field.min}
@@ -1317,9 +1134,9 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                             </div>
                           )}
                           
-                          {field.type === 'checkbox' && (
+                          {field. type === 'checkbox' && (
                             <Checkbox
-                              checked={Boolean(calc.extraOptions?.[field.code] ?? field.default)}
+                              checked={Boolean(calc.extraOptions?.[field.code] ??  field.default)}
                               onCheckedChange={(checked) => handleUpdateCalculator(index, {
                                 extraOptions: {
                                   ...calc.extraOptions,
@@ -1329,13 +1146,13 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                             />
                           )}
                           
-                          {field.type === 'text' && (
+                          {field. type === 'text' && (
                             <Input
                               type="text"
-                              value={String(calc.extraOptions?.[field.code] ?? field.default ?? '')}
+                              value={String(calc.extraOptions?.[field.code] ?? field.default ??  '')}
                               onChange={(e) => handleUpdateCalculator(index, {
                                 extraOptions: {
-                                  ...calc.extraOptions,
+                                  ... calc.extraOptions,
                                   [field.code]: e.target.value
                                 }
                               })}
@@ -1345,10 +1162,10 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                           
                           {field.type === 'select' && field.options && (
                             <Select
-                              value={String(calc.extraOptions?.[field.code] ?? field.default ?? '')}
+                              value={String(calc. extraOptions?.[field.code] ?? field.default ?? '')}
                               onValueChange={(value) => handleUpdateCalculator(index, {
                                 extraOptions: {
-                                  ...calc.extraOptions,
+                                  ... calc.extraOptions,
                                   [field.code]: value
                                 }
                               })}
@@ -1358,7 +1175,7 @@ export function CalculatorTabs({ calculators, onChange, bitrixMeta = null, onVal
                               </SelectTrigger>
                               <SelectContent>
                                 {field.options.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt.value}>
+                                  <SelectItem key={opt.value} value={opt. value}>
                                     {opt.label}
                                   </SelectItem>
                                 ))}
