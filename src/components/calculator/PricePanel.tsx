@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -69,6 +69,7 @@ const createDefaultPriceTypeSettings = (): PriceTypeSettings => ({
 
 export function PricePanel({ settings, onSettingsChange, priceTypes, presetPrices, presetMeasure }: PricePanelProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const isInitializedRef = useRef(false)
   
   // Determine correctionBase from presetMeasure
   const defaultCorrectionBase: CorrectionBase = presetMeasure?.code === MEASURE_CODE_PIECES ? 'COST' : 'RUN'
@@ -107,7 +108,8 @@ export function PricePanel({ settings, onSettingsChange, priceTypes, presetPrice
   
   // Initialize base price type and auto-select types from presetPrices on mount
   useEffect(() => {
-    if (!basePriceType || !priceTypes) return
+    // Only initialize once when we have the required data
+    if (!basePriceType || !priceTypes || isInitializedRef.current) return
     
     const newTypes = { ...settings.types }
     const newSelectedTypes = [...settings.selectedTypes]
@@ -153,13 +155,18 @@ export function PricePanel({ settings, onSettingsChange, priceTypes, presetPrice
         types: Object.keys(newTypes)
       })
       
+      isInitializedRef.current = true
+      
       onSettingsChange({
         ...settings,
         selectedTypes: newSelectedTypes,
         types: newTypes,
       })
+    } else if (basePriceType && priceTypes) {
+      // Mark as initialized even if no changes needed
+      isInitializedRef.current = true
     }
-  }, [basePriceType, priceTypes, presetPrices]) // Only run when these change
+  }, [basePriceType, priceTypes, presetPrices, settings, onSettingsChange, defaultCorrectionBase, priceTypeOptions])
   
   const handleTypeSelection = (priceType: PriceTypeCode, checked: boolean) => {
     console.log('[PRICE_PANEL] Price type selection changed', { priceType, checked })
