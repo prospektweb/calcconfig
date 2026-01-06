@@ -39,6 +39,10 @@ export type MessageType =
   // Сортировка
   | 'REORDER_REQUEST'         // НОВЫЙ
   
+  // Диапазоны цен
+  | 'ADD_PRICE_RANGE_REQUEST'
+  | 'DELETE_PRICE_RANGE_REQUEST'
+  
   // Обновление данных
   | 'REFRESH_REQUEST'
 

@@ -52,7 +52,7 @@ export function HeaderSection({
       const lang = bitrixMeta?.context?.lang || 'ru'
       openIblockEditPage(iblock.id, iblock.type, lang)
     } catch (error) {
-      toasterror(`Не удалось открыть "${iblock.name}"`)
+      toast.error(`Не удалось открыть "${iblock.name}"`)
       console.error('[HeaderSection] Failed to open catalog', error)
     }
   }

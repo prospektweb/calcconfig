@@ -19,7 +19,8 @@ import {
   X,
   Link,
   Plus,
-  FolderOpen
+  FolderOpen,
+  FileText
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -47,7 +48,7 @@ import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
 import { postMessageBridge, InitPayload, CalcInfoPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload, SyncVariantsRequestPayload, SyncVariantsResponsePayload } from '@/lib/postmessage-bridge'
-import { setBitrixContext } from '@/lib/bitrix-utils'
+import { setBitrixContext, openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { useOperationSettingsStore } from '@/stores/operation-settings-store'
@@ -844,6 +845,7 @@ function App() {
 
   const handleAddDetail = () => {
     const newDetail = createEmptyDetail()
+    console.log('[ADD_DETAIL] Adding new detail', { detail: newDetail })
     setDetails(prev => [...(prev || []), newDetail])
     addInfoMessage('info', `Добавлена деталь: ${newDetail.name}`)
   }
@@ -855,6 +857,8 @@ function App() {
 
   const handleCreateDetailConfirm = async () => {
     const name = newDetailName.trim() || `Деталь #${detailCounter.current++}`
+    
+    console.log('[CREATE_DETAIL_REQUEST] Sending create detail request', { name, offerIds: selectedVariantIds })
     
     // Send ADD_DETAIL_REQUEST
     if (bitrixMeta && selectedVariantIds.length > 0) {
@@ -882,6 +886,15 @@ function App() {
   const handleDeleteStageConfirm = () => {
     if (!stageToDelete) return
     
+    const detail = (details || []).find(d => d.id === stageToDelete.detailId)
+    const stage = detail?.stages[stageToDelete.calcIndex]
+    
+    console.log('[DELETE_STAGE] Deleting stage', { 
+      detailId: stageToDelete.detailId, 
+      calcIndex: stageToDelete.calcIndex,
+      configId: stage?.configId 
+    })
+    
     // Find detail and remove calculator at index
     setDetails(prev => 
       (prev || []).map(d => 
@@ -893,9 +906,6 @@ function App() {
           : d
       )
     )
-    
-    const detail = (details || []).find(d => d.id === stageToDelete.detailId)
-    const stage = detail?.stages[stageToDelete.calcIndex]
     
     if (stage?.configId && bitrixMeta) {
       postMessageBridge.sendDeleteStageRequest({
@@ -914,6 +924,11 @@ function App() {
     
     const detail = (details || []).find(d => d.id === detailToDelete)
     
+    console.log('[DELETE_DETAIL] Deleting detail', { 
+      detailId: detailToDelete, 
+      bitrixId: detail?.bitrixId 
+    })
+    
     // Send DELETE_DETAIL_REQUEST if has bitrixId
     if (detail?.bitrixId && bitrixMeta) {
       postMessageBridge.sendDeleteDetailRequest({
@@ -931,6 +946,11 @@ function App() {
   }
 
   const handleDeleteGroupKeepDetail = (detailId: number | string) => {
+    console.log('[DELETE_GROUP] Deleting group, keeping detail', { 
+      groupId: groupToDelete?.id, 
+      detailIdToKeep: detailId 
+    })
+    
     // Logic for keeping one detail and removing group
     if (!groupToDelete || !bitrixMeta) return
     
@@ -947,6 +967,10 @@ function App() {
   }
 
   const handleDeleteGroupAll = () => {
+    console.log('[DELETE_GROUP] Deleting group and all details', { 
+      groupId: groupToDelete?.id 
+    })
+    
     // Logic for deleting all details in group
     if (!groupToDelete || !bitrixMeta) return
     
@@ -1136,82 +1160,65 @@ function App() {
       newBinding.bindingIds.push(item2.id)
     }
     
+    console.log('[ADD_BINDING] Creating binding', { 
+      bindingId: newBinding.id, 
+      detailIds: newBinding.detailIds, 
+      bindingIds: newBinding.bindingIds 
+    })
+    
     setBindings(prev => [...(prev || []), newBinding])
     addInfoMessage('success', `Создано скрепление`)
   }
 
-  const handleSyncVariants = () => {
-    // Collect data from getAllItemsInOrder
-    const allItems = getAllItemsInOrder()
-    
-    const items: SyncVariantsRequestPayload['items'] = allItems.map((item) => {
-      if (item.type === 'detail') {
-        const detail = item.item as Detail
-        return {
-          id: detail.id,
-          type: 'detail',
-          name: detail.name,
-          bitrixId: detail.bitrixId,
-          calculators: detail.stages.map(stage => ({
-            id: stage.id,
-            calculatorCode: stage.settingsId || undefined,
-            operationVariantId: stage.operationVariantId || undefined,
-            materialVariantId: stage.materialVariantId || undefined,
-            equipmentId: stage.equipmentId || undefined,
-            operationQuantity: stage.operationQuantity || undefined,
-            materialQuantity: stage.materialQuantity || undefined,
-            otherOptions: stage.customFields || undefined,
-            configId: stage.configId || undefined,
-          })),
-        }
-      } else {
-        const binding = item.item as Binding
-        return {
-          id: binding.id,
-          type: 'binding',
-          name: binding.name,
-          bitrixId: binding.bitrixId,
-          calculators: binding.stages.map(stage => ({
-            id: stage.id,
-            calculatorCode: stage.settingsId || undefined,
-            operationVariantId: stage.operationVariantId || undefined,
-            materialVariantId: stage.materialVariantId || undefined,
-            equipmentId: stage.equipmentId || undefined,
-            operationQuantity: stage.operationQuantity || undefined,
-            materialQuantity: stage.materialQuantity || undefined,
-            otherOptions: stage.customFields || undefined,
-            configId: calc.configId || undefined,
-          })),
-          childIds: [...(binding.detailIds || []), ...(binding.bindingIds || [])],
-        }
-      }
+  const handleCalculation = async () => {
+    console.log('[CALC_RUN] Starting calculation', { 
+      detailsCount: details?.length || 0,
+      bindingsCount: bindings?.length || 0,
+      selectedOffers: selectedOffers.length
     })
     
-    // Collect offerIds
-    const offerIds = selectedOffers.map(o => o.id)
-    
-    // Prepare payload
-    const payload: SyncVariantsRequestPayload = {
-      items,
-      offerIds,
-      context: {
-        configId: bitrixMeta?.preset?.id,
-        timestamp: Date.now(),
-      },
-    }
-    
-    // Send postMessage
-    postMessageBridge.sendSyncVariantsRequest(payload)
-    toast.info('Запрос на обновление связей отправлен...')
-  }
-
-  const handleCalculation = async () => {
     setIsCalculating(true)
     setCalculationProgress(0)
     
     // Send CALC_RUN message
     postMessageBridge.sendCalcRun()
     toast.info('Расчёт запущен...')
+  }
+  
+  const handleOpenPreset = () => {
+    console.log('[OPEN_PRESET] Opening preset', { preset: bitrixMeta?.preset })
+    
+    if (!bitrixMeta?.preset) {
+      toast.error('Пресет не загружен')
+      return
+    }
+
+    const context = getBitrixContext()
+    if (!context) {
+      toast.error('Контекст Bitrix не инициализирован')
+      return
+    }
+
+    // Find preset iblock
+    const presetIblock = bitrixMeta.iblocks.find(ib => ib.code === 'CALC_CONFIG')
+    if (!presetIblock) {
+      toast.error('Не найден инфоблок пресетов')
+      return
+    }
+
+    try {
+      openBitrixAdmin({
+        iblockId: presetIblock.id,
+        type: presetIblock.type,
+        lang: context.lang,
+        id: bitrixMeta.preset.id,
+      })
+      addInfoMessage('info', `Открыт пресет ID: ${bitrixMeta.preset.id}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось открыть пресет'
+      toast.error(message)
+      addInfoMessage('error', message)
+    }
   }
   
   const handleClose = () => {
@@ -1438,48 +1445,50 @@ function App() {
           presetMeasure={bitrixMeta?.preset?.measure}
         />
 
-        <VariantsFooter
-          selectedOffers={selectedOffers}
-          addInfoMessage={addInfoMessage}
-          bitrixMeta={bitrixMeta}
-        />
-
         <InfoPanel
           messages={infoMessages}
           isExpanded={isInfoPanelExpanded}
           onToggle={() => setIsInfoPanelExpanded(!isInfoPanelExpanded)}
         />
 
+        <VariantsFooter
+          selectedOffers={selectedOffers}
+          addInfoMessage={addInfoMessage}
+          bitrixMeta={bitrixMeta}
+        />
+
         <footer className="border-t border-border bg-card p-3" data-pwcode="footer">
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-between gap-2">
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={handleSyncVariants}
-              data-pwcode="btn-save"
-              title="Будут созданы/подготовлены варианты деталей и связаны с выбранными торговыми предложениями"
+              onClick={handleOpenPreset}
+              data-pwcode="btn-preset"
+              title="Открыть пресет в Bitrix"
             >
-              <Link className="w-4 h-4 mr-2" />
-              Обновить связи
+              <FileText className="w-4 h-4 mr-2" />
+              Пресет
             </Button>
-            <Button 
-              size="sm" 
-              onClick={handleCalculation} 
-              disabled={isCalculating}
-              data-pwcode="btn-calc"
-            >
-              <Calculator className="w-4 h-4 mr-2" />
-              Рассчитать
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleClose}
-              data-pwcode="btn-close"
-            >
-              <X className="w-4 h-4 mr-2" />
-              Закрыть
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                size="sm" 
+                onClick={handleCalculation} 
+                disabled={isCalculating}
+                data-pwcode="btn-calc"
+              >
+                <Calculator className="w-4 h-4 mr-2" />
+                Рассчитать
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleClose}
+                data-pwcode="btn-close"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Закрыть
+              </Button>
+            </div>
           </div>
         </footer>
       </div>
