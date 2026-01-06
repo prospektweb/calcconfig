@@ -15,7 +15,6 @@ export type MessageType =
   // Расчёт и сохранение
   | 'CALC_RUN'        // iframe → bitrix: запуск расчёта
   | 'CALC_INFO'       // bitrix → iframe: информация о расчёте
-  | 'SAVE_REQUEST'
   
   // Загрузка данных элемента
   | 'LOAD_ELEMENT_REQUEST'  // Объединяет CALC_SETTINGS_REQUEST, CALC_OPERATION_REQUEST и т.д.
@@ -28,7 +27,7 @@ export type MessageType =
   
   // Этапы
   | 'ADD_STAGE_REQUEST'       // переименован из ADD_NEW_STAGE_REQUEST
-  | 'UPDATE_STAGE_REQUEST'    // НОВЫЙ
+  | 'UPDATE_STAGE_REQUEST' 
   | 'DELETE_STAGE_REQUEST'
   
   // Группы/Скрепления
@@ -42,9 +41,6 @@ export type MessageType =
   // Диапазоны цен
   | 'ADD_PRICE_RANGE_REQUEST'
   | 'DELETE_PRICE_RANGE_REQUEST'
-  
-  // Обновление данных
-  | 'REFRESH_REQUEST'
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -105,33 +101,6 @@ export interface CalcInfoPayload {
   }>
 }
 
-export interface SaveRequestPayload {
-  configuration: {
-    name: string
-    data: any // Will be removed in future iterations
-  }
-  offerUpdates: Array<{
-    offerId: number
-    fields?: Record<string, any>
-    prices?: Record<string, number>
-    properties?: Record<string, any>
-    comments?: string
-  }>
-  configId?: number
-}
-
-export interface SaveResultPayload {
-  status: 'ok' | 'error' | 'partial'
-  configId?: number
-  successOffers?: number[]
-  errors?: Array<{
-    offerId: number
-    message: string
-    code?: string
-  }>
-  message?: string
-}
-
 /**
  * Payload for LOAD_ELEMENT_REQUEST - unified request for loading calculator elements
  */
@@ -170,7 +139,7 @@ export interface AddStageRequestPayload {
  * Payload for UPDATE_STAGE_REQUEST
  */
 export interface UpdateStageRequestPayload {
-  stageId?: number              // ID конфигурации в Битрикс
+  stageId?: number              // ID стадии в Битрикс
   detailId: number              // К какой детали относится
   updates: {
     calculatorId?: number
@@ -378,74 +347,6 @@ export interface CalcMaterialVariantResponsePayload {
       name?: string
     }
   }
-}
-
-/**
- * Payload for sync variants request
- */
-export interface SyncVariantsRequestPayload {
-  items: Array<{
-    id: string
-    type: 'detail' | 'binding'
-    name: string
-    bitrixId?: number
-    calculators: Array<{
-      id: string
-      calculatorCode?: number
-      operationVariantId?: number
-      materialVariantId?: number
-      equipmentId?: number
-      operationQuantity?: number
-      materialQuantity?: number
-      otherOptions?: Record<string, any>
-      configId?: number
-    }>
-    // Только для скреплений
-    bindingCalculators?: Array<{
-      id: string
-      calculatorCode?: number
-      operationVariantId?: number
-      materialVariantId?: number
-      equipmentId?: number
-      operationQuantity?: number
-      materialQuantity?: number
-      otherOptions?: Record<string, any>
-      configId?: number
-    }>
-    childIds?: string[]
-  }>
-  offerIds: number[]
-  deletedConfigIds?: number[]
-  context: {
-    configId?: number
-    timestamp: number
-  }
-}
-
-/**
- * Payload for sync variants response
- */
-export interface SyncVariantsResponsePayload {
-  status: 'ok' | 'error' | 'partial'
-  items: Array<{
-    id: string
-    bitrixId: number
-    type: 'detail' | 'binding'
-    calculators: Array<{
-      id: string
-      configId: number
-    }>
-  }>
-  canCalculate: boolean
-  stats: {
-    detailsCreated: number
-    detailsUpdated: number
-    configsCreated: number
-  }
-  errors?: Array<{
-    itemId?: string
-    message: string
-  }>
 }
 
 class PostMessageBridge {
