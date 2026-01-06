@@ -19,9 +19,21 @@ export type MessageType =
   // Загрузка данных элемента
   | 'LOAD_ELEMENT_REQUEST'  // Объединяет CALC_SETTINGS_REQUEST, CALC_OPERATION_REQUEST и т.д.
   
+  // Legacy responses (still in use)
+  | 'SELECT_DONE'
+  | 'CALC_SETTINGS_RESPONSE'
+  | 'CALC_OPERATION_RESPONSE'
+  | 'CALC_MATERIAL_RESPONSE'
+  | 'CALC_OPERATION_VARIANT_RESPONSE'
+  | 'CALC_MATERIAL_VARIANT_RESPONSE'
+  | 'REFRESH_REQUEST'
+  | 'REFRESH_RESULT'
+  | 'ADD_NEW_GROUP_RESPONSE'
+  | 'SELECT_DETAILS_REQUEST'
+  | 'SELECT_DETAILS_RESPONSE'
+  
   // Детали
   | 'ADD_DETAIL_REQUEST'      // переименован из ADD_NEW_DETAIL_REQUEST
-  | 'SELECT_DETAILS_REQUEST'
   | 'UPDATE_DETAIL_REQUEST'   // объединяет CHANGE_NAME_DETAIL_REQUEST
   | 'DELETE_DETAIL_REQUEST'
   
@@ -463,12 +475,6 @@ class PostMessageBridge {
 
   sendCalcRun(payload?: any) {
     this.sendMessage('CALC_RUN', payload)
-  }
-
-  sendSaveRequest(payload: SaveRequestPayload): string {
-    const requestId = `save_${Date.now()}`
-    this.sendMessage('SAVE_REQUEST', payload, requestId)
-    return requestId
   }
 
   sendError(code: string, message: string, details?: any, context?: any) {
