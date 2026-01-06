@@ -28,7 +28,6 @@ import {
   Detail, 
   Binding,
   InfoMessage,
-  CostingSettings,
   SalePricesSettings,
   ElementsStore,
   ElementsStoreItem,
@@ -43,13 +42,11 @@ import { VariantsFooter } from '@/components/calculator/VariantsFooter'
 import { DetailCard } from '@/components/calculator/DetailCard'
 import { BindingCard } from '@/components/calculator/BindingCard'
 import { InfoPanel } from '@/components/calculator/InfoPanel'
-import { GabVesPanel } from '@/components/calculator/GabVesPanel'
-import { CostPanel } from '@/components/calculator/CostPanel'
 import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
-import { postMessageBridge, InitPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload, SyncVariantsRequestPayload, SyncVariantsResponsePayload } from '@/lib/postmessage-bridge'
+import { postMessageBridge, InitPayload, CalcInfoPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload, SyncVariantsRequestPayload, SyncVariantsResponsePayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext } from '@/lib/bitrix-utils'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
@@ -68,7 +65,6 @@ type DragItem = {
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [selectedVariantIds, setSelectedVariantIds] = useState<number[]>([])
-  const [testVariantId, setTestVariantId] = useState<number | null>(null)
   const [bitrixMeta, setBitrixMeta] = useState<InitPayload | null>(null)
   const bitrixMetaRef = useRef<InitPayload | null>(null)
   
@@ -110,27 +106,9 @@ function App() {
   
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
-  const [isGabVesActive, setIsGabVesActive] = useState(false)
-  const [isGabVesPanelExpanded, setIsGabVesPanelExpanded] = useState(false)
-  const [gabVesMessages, setGabVesMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
-  
-  const [isCostActive, setIsCostActive] = useState(false)
-  const [isCostPanelExpanded, setIsCostPanelExpanded] = useState(false)
-  const [costMessages, setCostMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
-  
-  const [isPriceActive, setIsPriceActive] = useState(false)
-  const [isPricePanelExpanded, setIsPricePanelExpanded] = useState(false)
-  const [priceMessages, setPriceMessages] = useState<Array<{id: string, timestamp: number, message: string}>>([])
 
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
-
-  const [costingSettings, setCostingSettings] = useConfigKV<CostingSettings>('calc_costing_settings', {
-    basedOn: 'COMPONENT_BASE',
-    roundingStep: 1,
-    markupValue: 0,
-    markupUnit: 'RUB',
-  })
 
   const [salePricesSettings, setSalePricesSettings] = useConfigKV<SalePricesSettings>('calc_sale_prices_settings', {
     selectedTypes: [],
@@ -816,6 +794,24 @@ function App() {
       }
     })
 
+    const unsubscribeCalcInfo = postMessageBridge.on('CALC_INFO', (message) => {
+      console.info('[FROM_BITRIX] CALC_INFO', message)
+      
+      const payload = message.payload as CalcInfoPayload
+      const { status, message: infoMessage, progress, updatedOffers } = payload
+      
+      if (status === 'progress') {
+        setCalculationProgress(progress || 0)
+      } else if (status === 'complete') {
+        setIsCalculating(false)
+        toast.success(infoMessage || 'Расчёт завершён')
+        // TODO: обработать updatedOffers
+      } else if (status === 'error') {
+        setIsCalculating(false)
+        toast.error(infoMessage || 'Ошибка расчёта')
+      }
+    })
+
     return () => {
       unsubscribeCalcSettings()
       unsubscribeOperation()
@@ -832,6 +828,7 @@ function App() {
       unsubscribeDeleteStage()
       unsubscribeDeleteDetail()
       unsubscribeChangeNameDetail()
+      unsubscribeCalcInfo()
     }
   }, [])
   
@@ -843,33 +840,6 @@ function App() {
       timestamp: Date.now(),
     }
     setInfoMessages((prev) => [...prev, newMessage])
-  }
-  
-  const addGabVesMessage = (message: string) => {
-    const newMessage = {
-      id: `gabves_${Date.now()}`,
-      timestamp: Date.now(),
-      message,
-    }
-    setGabVesMessages((prev) => [...prev, newMessage])
-  }
-  
-  const addCostMessage = (message: string) => {
-    const newMessage = {
-      id: `cost_${Date.now()}`,
-      timestamp: Date.now(),
-      message,
-    }
-    setCostMessages((prev) => [...prev, newMessage])
-  }
-
-  const addPriceMessage = (message: string) => {
-    const newMessage = {
-      id: `price_${Date.now()}`,
-      timestamp: Date.now(),
-      message,
-    }
-    setPriceMessages((prev) => [...prev, newMessage])
   }
 
   const handleAddDetail = () => {
@@ -1235,140 +1205,13 @@ function App() {
     toast.info('Запрос на обновление связей отправлен...')
   }
 
-  const handleTestCalculation = async () => {
+  const handleCalculation = async () => {
     setIsCalculating(true)
     setCalculationProgress(0)
     
-    try {
-      // 1. Collect data from main page
-      const collectedData = {
-        details: details || [],
-        bindings: bindings || [],
-        costingSettings: costingSettings || { basedOn: 'COMPONENT_BASE', roundingStep: 1, markupValue: 0, markupUnit: 'RUB' },
-        salePricesSettings: salePricesSettings || { selectedTypes: [], types: {} },
-      }
-
-      // 2. Collect test variant data
-      const selectedOffer = testVariantId ? selectedOffers.find(o => o.id === testVariantId) : undefined
-      const testVariant = {
-        id: testVariantId,
-        offer: selectedOffer,
-      }
-
-      // 3. Determine what to calculate based on active panels
-      const calculateCost = isCostActive
-      const calculatePrices = isPriceActive
-
-      // 4. Log collected data to console
-      console.log('[TEST_CALCULATION] Collected data:', {
-        ...collectedData,
-        testVariant,
-        calculateCost,
-        calculatePrices,
-      })
-
-      // 5. Get PATH_TO_SCRIPT from calculator settings
-      const firstDetail = details && details.length > 0 ? details[0] : null
-      const firstCalculator = firstDetail?.stages && firstDetail.stages.length > 0 ? firstDetail.stages[0] : null
-      const settingsId = firstCalculator?.settingsId
-
-      let pathToScript: string | undefined
-
-      if (settingsId != null) {
-        const settings = useCalculatorSettingsStore.getState().getSettings(settingsId.toString())
-        pathToScript = settings?.properties?.PATH_TO_SCRIPT?.VALUE
-      }
-
-      console.log('[TEST_CALCULATION] PATH_TO_SCRIPT:', pathToScript)
-
-      // 6. Send data to server if PATH_TO_SCRIPT exists
-      if (pathToScript) {
-        setCalculationProgress(25)
-        
-        const requestBody = {
-          ...collectedData,
-          testVariant,
-          calculateCost,
-          calculatePrices,
-        }
-
-        const response = await fetch(pathToScript, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        })
-
-        setCalculationProgress(75)
-
-        if (!response.ok) {
-          throw new Error(`Server responded with status ${response.status}`)
-        }
-
-        const responseData = await response.json()
-
-        // 7. Log server response to console
-        console.log('[TEST_CALCULATION] Server response:', responseData)
-
-        setCalculationProgress(100)
-        toast.success('Тестовый расчет выполнен успешно')
-      } else {
-        // 8. Handle case when PATH_TO_SCRIPT is not found
-        console.warn('[TEST_CALCULATION] PATH_TO_SCRIPT not found. Settings ID:', settingsId)
-        toast.warning('PATH_TO_SCRIPT не найден в настройках калькулятора')
-        
-        // Simulate progress animation
-        for (let i = 0; i <= 100; i += 10) {
-          await new Promise(resolve => setTimeout(resolve, 200))
-          setCalculationProgress(i)
-        }
-      }
-    } catch (error) {
-      console.error('[TEST_CALCULATION] Error:', error)
-      toast.error('Ошибка при выполнении тестового расчета')
-    } finally {
-      setIsCalculating(false)
-    }
-  }
-
-  const handleFullCalculation = async () => {
-    setIsCalculating(true)
-    setCalculationProgress(0)
-    
-    for (let i = 0; i <= 100; i += 5) {
-      await new Promise(resolve => setTimeout(resolve, 100))
-      setCalculationProgress(i)
-    }
-    
-    setIsCalculating(false)
-  }
-  
-  const handleToggleGabVes = () => {
-    setIsGabVesActive(!isGabVesActive)
-    if (!isGabVesActive) {
-      setIsGabVesPanelExpanded(true)
-    } else {
-      setIsGabVesPanelExpanded(false)
-    }
-  }
-  
-  const handleToggleCost = () => {
-    setIsCostActive(!isCostActive)
-    if (!isCostActive) {
-      setIsCostPanelExpanded(true)
-    } else {
-      setIsCostPanelExpanded(false)
-    }
-  }
-  
-  const handleTogglePrice = () => {
-    setIsPriceActive(!isPriceActive)
-    if (!isPriceActive) {
-      setIsPricePanelExpanded(true)
-    } else {
-      setIsPricePanelExpanded(false)
-    }
+    // Send CALC_RUN message
+    postMessageBridge.sendCalcRun()
+    toast.info('Расчёт запущен...')
   }
   
   const handleClose = () => {
@@ -1456,7 +1299,7 @@ function App() {
       {dragState.isDragging && getDraggedElement()}
       
       <div className="w-full flex flex-col min-h-screen">
-        <header className="border-b border-border bg-card" pwcode="header">
+        <header className="border-b border-border bg-card" data-pwcode="header">
           <HeaderSection
             onOpenMenu={() => setIsMenuOpen(true)}
             bitrixMeta={bitrixMeta}
@@ -1469,7 +1312,7 @@ function App() {
           className="flex-1 p-4 overflow-auto"
           onDragOver={handleMainAreaDragOver}
           onDrop={handleMainAreaDrop}
-          pwcode="mainarea"
+          data-pwcode="mainarea"
         >
          
           <div className="space-y-0">
@@ -1564,7 +1407,7 @@ function App() {
                       size="sm"
                       className="rounded-full h-8 w-8 p-0 bg-background hover:bg-accent hover:text-accent-foreground relative z-10 border border-border shadow-sm"
                       onClick={() => handleCreateBinding(index)}
-                      pwcode="btn-create-binding"
+                      data-pwcode="btn-create-binding"
                     >
                       <LinkIcon className="w-4 h-4" />
                     </Button>
@@ -1587,10 +1430,16 @@ function App() {
           </div>
         )}
 
+        <PricePanel
+          settings={salePricesSettings || { selectedTypes: [], types: {} }}
+          onSettingsChange={(newSettings) => setSalePricesSettings(newSettings)}
+          priceTypes={bitrixMeta?.priceTypes}
+          presetPrices={bitrixMeta?.preset?.prices}
+          presetMeasure={bitrixMeta?.preset?.measure}
+        />
+
         <VariantsFooter
           selectedOffers={selectedOffers}
-          testVariantId={testVariantId}
-          setTestVariantId={setTestVariantId}
           addInfoMessage={addInfoMessage}
           bitrixMeta={bitrixMeta}
         />
@@ -1600,115 +1449,37 @@ function App() {
           isExpanded={isInfoPanelExpanded}
           onToggle={() => setIsInfoPanelExpanded(!isInfoPanelExpanded)}
         />
-        
-        {isGabVesActive && (
-          <GabVesPanel
-            messages={gabVesMessages}
-            isExpanded={isGabVesPanelExpanded}
-            onToggle={() => setIsGabVesPanelExpanded(!isGabVesPanelExpanded)}
-          />
-        )}
-        
-        {isCostActive && (
-          <CostPanel
-            messages={costMessages}
-            isExpanded={isCostPanelExpanded}
-            onToggle={() => setIsCostPanelExpanded(!isCostPanelExpanded)}
-            settings={costingSettings || { basedOn: 'COMPONENT_PURCHASE', roundingStep: 1, markupValue: 0, markupUnit: 'RUB' }}
-            onSettingsChange={(newSettings) => setCostingSettings(newSettings)}
-          />
-        )}
-        
-        {isPriceActive && (
-          <PricePanel
-            messages={priceMessages}
-            isExpanded={isPricePanelExpanded}
-            onToggle={() => setIsPricePanelExpanded(!isPricePanelExpanded)}
-            settings={salePricesSettings || { selectedTypes: [], types: {} }}
-            onSettingsChange={(newSettings) => setSalePricesSettings(newSettings)}
-            priceTypes={bitrixMeta?.priceTypes}
-          />
-        )}
 
-        <footer className="border-t border-border bg-card p-3" pwcode="footer">
-          <div className="flex items-center justify-between">
-            <div className="flex gap-2">
-              <Button 
-                variant={isGabVesActive ? "default" : "outline"} 
-                size="sm" 
-                onClick={handleToggleGabVes}
-                className={isGabVesActive ? "bg-accent text-accent-foreground" : ""}
-                pwcode="btn-gabves"
-              >
-                <Cube className="w-4 h-4 mr-2" />
-                Габариты/Вес
-              </Button>
-              <Button 
-                variant={isCostActive ? "default" : "outline"} 
-                size="sm" 
-                onClick={handleToggleCost}
-                className={isCostActive ? "bg-accent text-accent-foreground" : ""}
-                pwcode="btn-cost"
-              >
-                <CurrencyDollar className="w-4 h-4 mr-2" />
-                Себестоимость
-              </Button>
-              <Button 
-                variant={isPriceActive ? "default" : "outline"} 
-                size="sm" 
-                onClick={handleTogglePrice}
-                className={isPriceActive ? "bg-accent text-accent-foreground" : ""}
-                pwcode="btn-price"
-              >
-                <Tag className="w-4 h-4 mr-2" />
-                Отпускные цены
-              </Button>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleSyncVariants}
-                pwcode="btn-save"
-                title="Будут созданы/подготовлены варианты деталей и связаны с выбранными торговыми предложениями"
-              >
-                <Link className="w-4 h-4 mr-2" />
-                Обновить связи
-              </Button>
-              {canCalculate && (
-                <>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleTestCalculation} 
-                    disabled={isCalculating}
-                    pwcode="btn-test-calc"
-                  >
-                    <Calculator className="w-4 h-4 mr-2" />
-                    Тест
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    onClick={handleFullCalculation} 
-                    disabled={isCalculating}
-                    pwcode="btn-full-calc"
-                  >
-                    <Calculator className="w-4 h-4 mr-2" />
-                    Рассчитать
-                  </Button>
-                </>
-              )}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleClose}
-                pwcode="btn-close"
-              >
-                <X className="w-4 h-4 mr-2" />
-                Закрыть
-              </Button>
-            </div>
+        <footer className="border-t border-border bg-card p-3" data-pwcode="footer">
+          <div className="flex items-center justify-end gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleSyncVariants}
+              data-pwcode="btn-save"
+              title="Будут созданы/подготовлены варианты деталей и связаны с выбранными торговыми предложениями"
+            >
+              <Link className="w-4 h-4 mr-2" />
+              Обновить связи
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={handleCalculation} 
+              disabled={isCalculating}
+              data-pwcode="btn-calc"
+            >
+              <Calculator className="w-4 h-4 mr-2" />
+              Рассчитать
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleClose}
+              data-pwcode="btn-close"
+            >
+              <X className="w-4 h-4 mr-2" />
+              Закрыть
+            </Button>
           </div>
         </footer>
       </div>

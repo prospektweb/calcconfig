@@ -13,7 +13,8 @@ export type MessageType =
   | 'RESPONSE'        // ЕДИНЫЙ ответ на любой *_REQUEST
   
   // Расчёт и сохранение
-  | 'CALC_PREVIEW'
+  | 'CALC_RUN'        // iframe → bitrix: запуск расчёта
+  | 'CALC_INFO'       // bitrix → iframe: информация о расчёте
   | 'SAVE_REQUEST'
   
   // Загрузка данных элемента
@@ -90,29 +91,14 @@ export interface InitPayload {
   }>
 }
 
-export interface CalcPreviewPayload {
-  type: 'test' | 'full'
-  results: Array<{
+export interface CalcInfoPayload {
+  status: 'progress' | 'complete' | 'error'
+  message?: string
+  progress?: number
+  updatedOffers?: Array<{
     offerId: number
-    dimensions?: {
-      width: number
-      length: number
-      height: number
-      weight: number
-    }
-    cost?: {
-      materials: number
-      operations: number
-      equipment: number
-      total: number
-    }
-    prices?: Record<string, number>
-    errors?: string[]
+    // ... данные для отображения
   }>
-  summary: {
-    totalCost: number
-    calculatedAt: number
-  }
 }
 
 export interface SaveRequestPayload {
@@ -570,8 +556,8 @@ class PostMessageBridge {
     })
   }
 
-  sendCalcPreview(payload: CalcPreviewPayload) {
-    this.sendMessage('CALC_PREVIEW', payload)
+  sendCalcRun(payload?: any) {
+    this.sendMessage('CALC_RUN', payload)
   }
 
   sendSaveRequest(payload: SaveRequestPayload): string {

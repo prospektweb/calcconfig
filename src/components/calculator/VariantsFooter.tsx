@@ -12,16 +12,12 @@ import { openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
 
 interface VariantsFooterProps {
   selectedOffers: InitPayload['selectedOffers']
-  testVariantId: number | null
-  setTestVariantId: (id: number | null) => void
   addInfoMessage: (type: InfoMessage['type'], message: string) => void
   bitrixMeta: InitPayload | null
 }
 
 export function VariantsFooter({
   selectedOffers,
-  testVariantId,
-  setTestVariantId,
   addInfoMessage,
   bitrixMeta,
 }: VariantsFooterProps) {
@@ -29,16 +25,6 @@ export function VariantsFooter({
   const [hoveredOfferId, setHoveredOfferId] = useState<number | null>(null)
   const [tooltipOpen, setTooltipOpen] = useState<number | null>(null)
   const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  const handleVariantClick = (id: number) => {
-    if (testVariantId === id) {
-      setTestVariantId(null)
-      addInfoMessage('info', `Снята метка теста с варианта ID: ${id}`)
-    } else {
-      setTestVariantId(id)
-      addInfoMessage('success', `Установлена метка теста на вариант ID: ${id}`)
-    }
-  }
 
   const handleOpenVariant = (offer: InitPayload['selectedOffers'][0], e: React.MouseEvent) => {
     e.stopPropagation()
@@ -157,8 +143,6 @@ export function VariantsFooter({
         <div className={`flex gap-2 flex-wrap flex-1 ${!isExpanded && selectedOffers.length > 5 ? 'max-h-8 overflow-hidden' : ''}`}>
           <TooltipProvider>
             {selectedOffers.map(offer => {
-              const isTest = testVariantId === offer.id
-              
               return (
                 <Tooltip key={offer.id} open={tooltipOpen === offer.id}>
                   <TooltipTrigger asChild>
@@ -168,17 +152,12 @@ export function VariantsFooter({
                       onMouseLeave={() => handleMouseLeaveBadge(offer.id)}
                     >
                       <Badge
-                        variant={isTest ? "default" : "secondary"}
-                        className={`
-                          px-2 py-1 flex items-center gap-1.5 cursor-pointer transition-colors text-xs
-                          ${isTest ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-accent-foreground'}
-                        `}
-                        onClick={() => handleVariantClick(offer.id)}
+                        variant="secondary"
+                        className="px-2 py-1 flex items-center gap-1.5 cursor-pointer transition-colors text-xs hover:bg-accent hover:text-accent-foreground"
                         title={offer.name}
                         data-pwcode="offer-badge"
                       >
                         <span className="font-mono">{offer.id}</span>
-                        {isTest && <span className="text-[10px]">TEST</span>}
                         <div className="hidden group-hover:flex items-center gap-0.5 ml-1">
                           <Button
                             variant="ghost"

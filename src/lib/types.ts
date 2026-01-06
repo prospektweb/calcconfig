@@ -175,8 +175,6 @@ export interface InfoMessage {
   timestamp: number
 }
 
-export type CostingBasedOn = 'COMPONENT_PURCHASE' | 'COMPONENT_PURCHASE_PLUS_MARKUP' | 'COMPONENT_BASE'
-export type RoundingStep = 0 | 0.1 | 1 | 10 | 100
 export type CorrectionBase = 'RUN' | 'COST'
 export type MarkupUnit = '%' | 'RUB'
 export type PriceTypeCode = 'BASE_PRICE' | 'TRADE_PRICE'
@@ -184,44 +182,31 @@ export type PriceTypeCode = 'BASE_PRICE' | 'TRADE_PRICE'
 export interface PriceRange {
   from: number
   markupValue: number
-  markupUnit:  MarkupUnit
-  prettyPriceLimitRub: number
+  markupUnit: MarkupUnit
 }
 
 export interface PriceTypeSettings {
   correctionBase: CorrectionBase
-  prettyPriceEnabled: boolean
-  prettyPriceCommonLimitEnabled: boolean
-  prettyPriceCommonLimitRub: number
   ranges: PriceRange[]
-}
-
-export interface CostingSettings {
-  basedOn: CostingBasedOn
-  roundingStep: RoundingStep
-  markupValue?: number
-  markupUnit?: MarkupUnit
 }
 
 export interface SalePricesSettings {
   selectedTypes: PriceTypeCode[]
-  types:  Partial<Record<PriceTypeCode, PriceTypeSettings>>
+  types: Partial<Record<PriceTypeCode, PriceTypeSettings>>
 }
 
 export interface AppState {
   selectedVariantIds: number[]
-  testVariantId:  number | null
   isEditingTestId: boolean
   details: Detail[]
   bindings: Binding[]
   infoMessages: InfoMessage[]
-  isInfoPanelExpanded:  boolean
+  isInfoPanelExpanded: boolean
   isCalculating: boolean
   calculationProgress: number
   calculationCurrentDetail: string | null
   isFullscreen: boolean
-  costingSettings?: CostingSettings
-  salePricesSettings?:  SalePricesSettings
+  salePricesSettings?: SalePricesSettings
 }
 
 export const createEmptyStage = (): StageInstance => ({
