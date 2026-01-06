@@ -47,7 +47,7 @@ import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
-import { postMessageBridge, InitPayload, CalcInfoPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload, SyncVariantsRequestPayload, SyncVariantsResponsePayload } from '@/lib/postmessage-bridge'
+import { postMessageBridge, InitPayload, CalcInfoPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext, openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
@@ -537,187 +537,6 @@ function App() {
       console.info('[CALC_MATERIAL_VARIANT] saved material variant', item.id, item.name)
     })
 
-    const unsubscribeSyncVariants = postMessageBridge.on('SYNC_VARIANTS_RESPONSE', (message) => {
-      console.info('[FROM_BITRIX] SYNC_VARIANTS_RESPONSE', message)
-      
-      if (!message.payload) return
-      
-      const payload = message.payload as SyncVariantsResponsePayload
-      
-      // Update bitrixId for details and bindings
-      if (payload.items) {
-        payload.items.forEach((syncItem) => {
-          if (syncItem.type === 'detail') {
-            setDetails(prev => 
-              (prev || []).map(d => 
-                d.id === syncItem.id 
-                  ? { 
-                      ...d, 
-                      bitrixId: syncItem.bitrixId,
-                      stages: d.stages.map(stage => {
-                        const syncStage = syncItem.calculators.find(sc => sc.id === stage.id)
-                        return syncStage ? { ...stage, configId: syncStage.configId } : stage
-                      })
-                    }
-                  : d
-              )
-            )
-          } else if (syncItem.type === 'binding') {
-            setBindings(prev => 
-              (prev || []).map(b => 
-                b.id === syncItem.id 
-                  ? { 
-                      ...b, 
-                      bitrixId: syncItem.bitrixId,
-                      stages: b.stages.map(stage => {
-                        const syncStage = syncItem.calculators.find(sc => sc.id === stage.id)
-                        return syncStage ? { ...stage, configId: syncStage.configId } : stage
-                      })
-                    }
-                  : b
-              )
-            )
-          }
-        })
-      }
-      
-      // Update canCalculate state
-      setCanCalculate(payload.canCalculate)
-      
-      // Show toast with result
-      if (payload.status === 'ok') {
-        toast.success(`Успешно обновлено: деталей создано ${payload.stats.detailsCreated}, обновлено ${payload.stats.detailsUpdated}, конфигураций создано ${payload.stats.configsCreated}`)
-      } else if (payload.status === 'partial') {
-        toast.warning(`Частично обновлено с ошибками. Деталей создано ${payload.stats.detailsCreated}, обновлено ${payload.stats.detailsUpdated}`)
-        if (payload.errors) {
-          payload.errors.forEach(err => {
-            addInfoMessage('error', `Ошибка: ${err.message}`)
-          })
-        }
-      } else {
-        toast.error('Ошибка при обновлении связей')
-        if (payload.errors) {
-          payload.errors.forEach(err => {
-            addInfoMessage('error', `Ошибка: ${err.message}`)
-          })
-        }
-      }
-    })
-
-    const unsubscribeAddNewDetail = postMessageBridge.on('ADD_NEW_DETAIL_RESPONSE', (message) => {
-      console.info('[FROM_BITRIX] ADD_NEW_DETAIL_RESPONSE', message)
-      
-      if (!message.payload?.detail) return
-      
-      const bitrixDetail = message.payload.detail
-      
-      // Transform Bitrix data to Detail format
-      const newDetail: Detail = {
-        id: `detail_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: bitrixDetail.name || 'Новая деталь',
-        width: bitrixDetail.width ?? 210,
-        length: bitrixDetail.length ?? 297,
-        isExpanded: true,
-        stages: bitrixDetail.stages || [createEmptyStage()],
-        bitrixId: typeof bitrixDetail.id === 'number' ? bitrixDetail.id : parseInt(bitrixDetail.id, 10) || null,
-      }
-      
-      setDetails(prev => {
-        const updated = [...(prev || []), newDetail]
-        
-        // If now 2 details and no group - create group
-        if (updated.length === 2 && bindings.length === 0) {
-          setGroupDetailsToMerge(updated.map(d => d.bitrixId || d.id))
-          setNewGroupName('')
-          setIsCreateGroupDialogOpen(true)
-        }
-        
-        return updated
-      })
-      
-      toast.success(`Деталь "${newDetail.name}" создана`)
-    })
-
-  const unsubscribeSelectDetails = postMessageBridge.on('SELECT_DETAILS_RESPONSE', (message) => {
-    console.info('[FROM_BITRIX] SELECT_DETAILS_RESPONSE', message)
-    
-    const items = message. payload?.items || []
-    
-    if (items.length === 0) {
-      toast.info('Детали не выбраны')
-      return
-    }
-    
-    const selectedDetail = items[0]
-    const currentBitrixMeta = bitrixMetaRef.current
-    
-    if (currentBitrixMeta && selectedDetail?. id) {
-      postMessageBridge. sendUseDetailRequest({
-        detailId:  selectedDetail.id,
-        presetId: currentBitrixMeta. preset?.id ??  0,
-      })
-      console.info('[USE_DETAIL_REQUEST] sent', {
-        detailId: selectedDetail.id,
-        presetId:  currentBitrixMeta.preset?.id ??  0,
-      })
-      toast.info(`Использование детали "${selectedDetail.name}"... `)
-    } else {
-      console. warn('[SELECT_DETAILS_RESPONSE] Cannot send USE_DETAIL_REQUEST', {
-        hasBitrixMeta:  !!currentBitrixMeta,
-        detailId:  selectedDetail?.id,
-      })
-      toast.error('Ошибка: контекст Bitrix не инициализирован')
-    }
-    
-    if (items.length > 1) {
-      toast.info(`Выбрано ${items.length} деталей, используется первая`)
-    }
-  })
-
-    const unsubscribeCopyDetail = postMessageBridge.on('COPY_DETAIL_RESPONSE', (message) => {
-      console.info('[FROM_BITRIX] COPY_DETAIL_RESPONSE', message)
-      
-      if (!message.payload?.detail) return
-      
-      const bitrixDetail = message.payload.detail
-      
-      // Transform Bitrix data to Detail format
-      const copiedDetail: Detail = {
-        id: `detail_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: bitrixDetail.name || 'Копия детали',
-        width: bitrixDetail.width ?? 210,
-        length: bitrixDetail.length ?? 297,
-        isExpanded: true,
-        stages: bitrixDetail.stages || [createEmptyStage()],
-        bitrixId: typeof bitrixDetail.id === 'number' ? bitrixDetail.id : parseInt(bitrixDetail.id, 10) || null,
-      }
-      
-      setDetails(prev => [...(prev || []), copiedDetail])
-      toast.success(`Деталь "${copiedDetail.name}" скопирована`)
-    })
-
-    const unsubscribeUseDetail = postMessageBridge.on('USE_DETAIL_RESPONSE', (message) => {
-      console.info('[FROM_BITRIX] USE_DETAIL_RESPONSE', message)
-      
-      if (!message.payload?.detail) return
-      
-      const bitrixDetail = message.payload.detail
-      
-      // Transform Bitrix data to Detail format
-      const detail: Detail = {
-        id: `detail_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: bitrixDetail.name || 'Деталь',
-        width: bitrixDetail.width ?? 210,
-        length: bitrixDetail.length ?? 297,
-        isExpanded: true,
-        stages: bitrixDetail.stages || [createEmptyStage()],
-        bitrixId: typeof bitrixDetail.id === 'number' ? bitrixDetail.id : parseInt(bitrixDetail.id, 10) || null,
-      }
-      
-      setDetails(prev => [...(prev || []), detail])
-      toast.success(`Деталь "${detail.name}" добавлена`)
-    })
-
     const unsubscribeAddNewGroup = postMessageBridge.on('ADD_NEW_GROUP_RESPONSE', (message) => {
       console.info('[FROM_BITRIX] ADD_NEW_GROUP_RESPONSE', message)
       
@@ -771,30 +590,6 @@ function App() {
       toast.success(`Группа "${groupData.name}" создана с ${groupData.detailIds?.length || 0} деталями`)
     })
 
-    const unsubscribeAddNewStage = postMessageBridge.on('ADD_NEW_STAGE_RESPONSE', (message) => {
-      console.info('[FROM_BITRIX] ADD_NEW_STAGE_RESPONSE', message)
-      
-      toast.success('Этап создан')
-    })
-
-    const unsubscribeDeleteStage = postMessageBridge.on('DELETE_STAGE_RESPONSE', (message) => {
-      console.info('[FROM_BITRIX] DELETE_STAGE_RESPONSE', message)
-      // Already handled in UI
-    })
-
-    const unsubscribeDeleteDetail = postMessageBridge.on('DELETE_DETAIL_RESPONSE', (message) => {
-      console.info('[FROM_BITRIX] DELETE_DETAIL_RESPONSE', message)
-      // Already handled in UI
-    })
-
-    const unsubscribeChangeNameDetail = postMessageBridge.on('CHANGE_NAME_DETAIL_RESPONSE', (message) => {
-      console.info('[FROM_BITRIX] CHANGE_NAME_DETAIL_RESPONSE', message)
-      
-      if (message.payload?.success) {
-        toast.success('Имя детали обновлено')
-      }
-    })
-
     const unsubscribeCalcInfo = postMessageBridge.on('CALC_INFO', (message) => {
       console.info('[FROM_BITRIX] CALC_INFO', message)
       
@@ -819,16 +614,7 @@ function App() {
       unsubscribeMaterial()
       unsubscribeOperationVariant()
       unsubscribeMaterialVariant()
-      unsubscribeSyncVariants()
-      unsubscribeAddNewDetail()
-      unsubscribeSelectDetails()
-      unsubscribeCopyDetail()
-      unsubscribeUseDetail()
       unsubscribeAddNewGroup()
-      unsubscribeAddNewStage()
-      unsubscribeDeleteStage()
-      unsubscribeDeleteDetail()
-      unsubscribeChangeNameDetail()
       unsubscribeCalcInfo()
     }
   }, [])
@@ -858,7 +644,7 @@ function App() {
   const handleCreateDetailConfirm = async () => {
     const name = newDetailName.trim() || `Деталь #${detailCounter.current++}`
     
-    console.log('[CREATE_DETAIL_REQUEST] Sending create detail request', { name, offerIds: selectedVariantIds })
+    console.log('[ADD_DETAIL_REQUEST] Sending create detail request', { name, offerIds: selectedVariantIds })
     
     // Send ADD_DETAIL_REQUEST
     if (bitrixMeta && selectedVariantIds.length > 0) {
@@ -892,7 +678,7 @@ function App() {
     console.log('[DELETE_STAGE] Deleting stage', { 
       detailId: stageToDelete.detailId, 
       calcIndex: stageToDelete.calcIndex,
-      configId: stage?.configId 
+      stageId: stage?.stageId 
     })
     
     // Find detail and remove calculator at index
@@ -907,14 +693,18 @@ function App() {
       )
     )
     
-    if (stage?.stageId && bitrixMeta) {
-      postMessageBridge.sendDeleteStageRequest({
-        stageId: stage.stageId,
-        detailId: detail.bitrixId,
-        previousStageId:  detail.stages[stageToDelete.calcIndex - 1]?.configId,
-        nextStageId: detail.stages[stageToDelete.calcIndex + 1]?.configId,
-        ... getIblockInfo('CALC_STAGES'),
-      })
+    if (stage?.stageId && bitrixMeta && detail?.bitrixId) {
+      const stagesIblock = getIblockInfo('CALC_STAGES')
+      if (stagesIblock) {
+        postMessageBridge.sendDeleteStageRequest({
+          stageId: stage.stageId,
+          detailId: detail.bitrixId,
+          previousStageId: detail.stages[stageToDelete.calcIndex - 1]?.stageId,
+          nextStageId: detail.stages[stageToDelete.calcIndex + 1]?.stageId,
+          iblockId: stagesIblock.iblockId,
+          iblockType: stagesIblock.iblockType,
+        })
+      }
     }
 
     
@@ -1205,7 +995,7 @@ function App() {
     }
 
     // Find preset iblock
-    const presetIblock = bitrixMeta.iblocks.find(ib => ib. code === 'CALC_PRESETS')
+    const presetIblock = bitrixMeta.iblocks.find(ib => ib.code === 'CALC_PRESETS')
     if (!presetIblock) {
       toast.error('Не найден инфоблок пресетов')
       return

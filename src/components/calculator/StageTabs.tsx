@@ -398,7 +398,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
       if (stagesIblock) {
         postMessageBridge.sendAddStageRequest({
           detailId: detailId,
-          previousStageId: previousStage?.configId,
+          previousStageId: previousStage?.stageId,
           iblockId: stagesIblock.id,
           iblockType: stagesIblock.type,
         })
@@ -446,7 +446,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
       const stagesIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_STAGES')
       if (stagesIblock) {
         const orderedIds = reorderedCalculators
-          .map(calc => calc.configId)
+          .map(calc => calc.stageId)
           .filter((id): id is number => id !== undefined && id !== null)
         
         if (orderedIds.length > 0) {

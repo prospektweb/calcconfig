@@ -155,7 +155,6 @@ export interface StageInstance {
   materialVariantId: number | null // из MATERIAL_VARIANT
   materialQuantity: number // из MATERIAL_QUANTITY
   customFields: Record<string, string> // из CUSTOM_FIELDS_VALUE (VALUE[i] → DESCRIPTION[i])
-  configId?: number
 }
 
 export interface Detail {

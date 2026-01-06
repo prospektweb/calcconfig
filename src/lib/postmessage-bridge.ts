@@ -465,12 +465,6 @@ class PostMessageBridge {
     this.sendMessage('CALC_RUN', payload)
   }
 
-  sendSaveRequest(payload: SaveRequestPayload): string {
-    const requestId = `save_${Date.now()}`
-    this.sendMessage('SAVE_REQUEST', payload, requestId)
-    return requestId
-  }
-
   sendError(code: string, message: string, details?: any, context?: any) {
     this.sendMessage('ERROR', {
       code,

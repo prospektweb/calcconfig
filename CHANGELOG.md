@@ -2,6 +2,22 @@
 
 ## Последние изменения (2026-01-06)
 
+### Очистка от рудиментов
+
+**Удалено устаревшее и неиспользуемое**:
+- Удалён файл `src/components/calculator/HeaderSection.old.tsx`
+- Удалён `SAVE_REQUEST` из MessageType и соответствующие методы (`sendSaveRequest`)
+- Удалены интерфейсы `SyncVariantsRequestPayload`, `SyncVariantsResponsePayload`, `SaveRequestPayload`, `SaveResultPayload`
+- Удалено поле `configId` из интерфейса `StageInstance` (используется `stageId`)
+- Удалены обработчики событий: `SYNC_VARIANTS_RESPONSE`, `ADD_NEW_DETAIL_RESPONSE`, `ADD_NEW_STAGE_RESPONSE`, `DELETE_STAGE_RESPONSE`, `DELETE_DETAIL_RESPONSE`, `CHANGE_NAME_DETAIL_RESPONSE`, `COPY_DETAIL_RESPONSE`, `USE_DETAIL_RESPONSE`
+
+**Исправлено**:
+- `handleOpenPreset`: теперь использует `CALC_PRESETS` вместо `CALC_CONFIG`
+- `handleDeleteStageConfirm`: исправлена логика удаления этапа с использованием правильных параметров (`stageId`, `detailId`, `previousStageId`, `nextStageId`)
+- `handleCreateDetailConfirm`: исправлено сообщение лога с `CREATE_DETAIL_REQUEST` на `ADD_DETAIL_REQUEST`
+- `StageTabs.tsx`: все ссылки на `configId` заменены на `stageId`
+- `use-postmessage.ts`: удалён параметр `mode` из `sendInitDone`
+
 ### Рефакторинг PostMessage протокола
 
 **Цель**: Упрощение и унификация протокола обмена сообщениями между калькулятором и Битрикс.
