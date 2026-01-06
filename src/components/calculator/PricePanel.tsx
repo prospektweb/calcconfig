@@ -1,347 +1,246 @@
 import { useState, useEffect, useRef } from 'react'
-import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Tag, Plus, Trash, CaretDown, CaretUp } from '@phosphor-icons/react'
-import { 
-  SalePricesSettings, 
-  PriceTypeCode, 
-  PriceTypeSettings, 
-  CorrectionBase, 
-  MarkupUnit,
-  PriceRange 
-} from '@/lib/types'
+import { postMessageBridge, UpdatePresetPricesRequestPayload } from '@/lib/postmessage-bridge'
 
-// Currency constants for price markup
+// Currency constants
 const CURRENCY_RUB = 'RUB'
-const CURRENCY_PERCENT = 'PRC'
+const CURRENCY_PRC = 'PRC'
 
-// Measure codes
-const MEASURE_CODE_PIECES = '796'  // pieces (show 'cost')
-const MEASURE_CODE_SERVICE = '999' // service (show 'run')
-
-interface PricePanelProps {
-  settings: SalePricesSettings
-  onSettingsChange: (settings: SalePricesSettings) => void
-  priceTypes?: Array<{ id: number; name: string; base: boolean; sort: number }>
-  presetPrices?: Array<{
-    typeId: number
-    price: number
-    currency: string  // "RUB" or "PRC" (percent)
-    quantityFrom: number | null
-    quantityTo: number | null
-  }>
-  presetMeasure?: {
-    code: string  // "796" = pieces (show 'cost'), "999" = service (show 'run')
-    name: string
-  }
+interface PriceRangeItem {
+  typeId: number
+  price: number
+  currency: 'RUB' | 'PRC'
+  quantityFrom: number | null
+  quantityTo: number | null
 }
 
-const PRICE_TYPE_OPTIONS: Array<{ value: PriceTypeCode; label: string; id?: number; isBase?: boolean }> = [
-  { value: 'BASE_PRICE', label: 'Розничная цена', id: 1, isBase: true },
-  { value: 'TRADE_PRICE', label: 'Оптовая цена', id: 2, isBase: false },
-]
+interface PricePanelProps {
+  priceTypes?: Array<{ id: number; name: string; base: boolean; sort: number }>
+  presetPrices?: PriceRangeItem[]
+  presetId?: number
+}
 
-const CORRECTION_BASE_OPTIONS: Array<{ value: CorrectionBase; label: string }> = [
-  { value: 'RUN', label: 'Тираж' },
-  { value: 'COST', label: 'Стоимость' },
-]
-
-const MARKUP_UNIT_OPTIONS: Array<{ value: MarkupUnit; label: string }> = [
-  { value: '%', label: '%' },
-  { value: 'RUB', label: 'RUB' },
-]
-
-const createDefaultPriceTypeSettings = (): PriceTypeSettings => ({
-  correctionBase: 'RUN',
-  ranges: [
-    {
-      from: 0,
-      markupValue: 0,
-      markupUnit: '%',
-    }
-  ],
-})
-
-export function PricePanel({ settings, onSettingsChange, priceTypes, presetPrices, presetMeasure }: PricePanelProps) {
+export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: PricePanelProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [prices, setPrices] = useState<PriceRangeItem[]>([])
+  const [activeTypeIds, setActiveTypeIds] = useState<number[]>([])
   const isInitializedRef = useRef(false)
-  
-  // Determine correctionBase from presetMeasure
-  const defaultCorrectionBase: CorrectionBase = presetMeasure?.code === MEASURE_CODE_PIECES ? 'COST' : 'RUN'
-  
-  // Transform priceTypes from props to options, fallback to hardcoded if not provided
-  const priceTypeOptions = priceTypes && priceTypes.length > 0
-    ? priceTypes.map(pt => ({
-        value: pt.name as PriceTypeCode,
-        label: pt.name,
-        id: pt.id,
-        isBase: pt.base,
-      }))
-    : PRICE_TYPE_OPTIONS
 
   // Find base price type
-  const basePriceType = priceTypeOptions.find(pt => pt.isBase)
+  const basePriceType = priceTypes.find(pt => pt.base)
   
-  // Helper function to initialize ranges from presetPrices for a given priceTypeId
-  const initializeRangesFromPreset = (priceTypeId: number): PriceRange[] => {
-    const pricesForType = (presetPrices || []).filter(p => p.typeId === priceTypeId)
+  // Sort price types by sort field
+  const sortedPriceTypes = [...priceTypes].sort((a, b) => a.sort - b.sort)
+
+  // Initialize from presetPrices
+  useEffect(() => {
+    if (isInitializedRef.current || !basePriceType) return
     
-    if (pricesForType.length === 0) {
-      return createDefaultPriceTypeSettings().ranges
+    if (presetPrices.length > 0) {
+      setPrices(presetPrices)
+      
+      // Auto-activate price types that have data
+      const activeIds = new Set(presetPrices.map(p => p.typeId))
+      setActiveTypeIds(Array.from(activeIds))
+    } else if (basePriceType) {
+      // Initialize with default range for base type
+      const defaultRange: PriceRangeItem = {
+        typeId: basePriceType.id,
+        price: 10,
+        currency: CURRENCY_PRC,
+        quantityFrom: 0,
+        quantityTo: null,
+      }
+      setPrices([defaultRange])
+      setActiveTypeIds([basePriceType.id])
     }
     
-    // Sort by quantityFrom
-    const sortedPrices = pricesForType.sort((a, b) => (a.quantityFrom || 0) - (b.quantityFrom || 0))
+    isInitializedRef.current = true
+  }, [basePriceType, presetPrices])
+
+  // Get unique ranges from base type
+  const getBaseRanges = (): Array<{ quantityFrom: number | null; quantityTo: number | null }> => {
+    if (!basePriceType) return []
+    
+    const baseTypePrices = prices.filter(p => p.typeId === basePriceType.id)
+    const sortedPrices = baseTypePrices.sort((a, b) => (a.quantityFrom || 0) - (b.quantityFrom || 0))
     
     return sortedPrices.map(p => ({
-      from: p.quantityFrom || 0,
-      to: p.quantityTo,
-      markupValue: p.price,
-      markupUnit: (p.currency === CURRENCY_PERCENT ? '%' : 'RUB') as MarkupUnit,
+      quantityFrom: p.quantityFrom,
+      quantityTo: p.quantityTo,
     }))
   }
-  
-  // Initialize base price type and auto-select types from presetPrices on mount
-  useEffect(() => {
-    // Only initialize once when we have the required data
-    if (!basePriceType || !priceTypes || isInitializedRef.current) return
-    
-    const newTypes = { ...settings.types }
-    const newSelectedTypes = [...settings.selectedTypes]
-    let hasChanges = false
-    
-    // Initialize base price type if not already selected
-    if (!newSelectedTypes.includes(basePriceType.value)) {
-      hasChanges = true
-      newSelectedTypes.push(basePriceType.value)
-      
-      if (!newTypes[basePriceType.value]) {
-        const baseRanges = initializeRangesFromPreset(basePriceType.id)
-        newTypes[basePriceType.value] = {
-          correctionBase: defaultCorrectionBase,
-          ranges: baseRanges,
-        }
-      }
-    }
-    
-    // Auto-select price types that have data in presetPrices
-    const activePriceTypeIds = new Set(presetPrices?.map(p => p.typeId) || [])
-    
-    priceTypeOptions.forEach(option => {
-      if (option.isBase) return // Skip base, already handled
-      
-      if (activePriceTypeIds.has(option.id) && !newSelectedTypes.includes(option.value)) {
-        hasChanges = true
-        newSelectedTypes.push(option.value)
-        
-        if (!newTypes[option.value]) {
-          const ranges = initializeRangesFromPreset(option.id)
-          newTypes[option.value] = {
-            correctionBase: defaultCorrectionBase,
-            ranges,
-          }
-        }
-      }
-    })
-    
-    if (hasChanges) {
-      console.log('[PRICE_PANEL] Auto-initializing price types from preset', { 
-        selectedTypes: newSelectedTypes,
-        types: Object.keys(newTypes)
-      })
-      
-      isInitializedRef.current = true
-      
-      onSettingsChange({
-        ...settings,
-        selectedTypes: newSelectedTypes,
-        types: newTypes,
-      })
-    } else if (basePriceType && priceTypes) {
-      // Mark as initialized even if no changes needed
-      isInitializedRef.current = true
-    }
-  }, [basePriceType, priceTypes, presetPrices, settings, onSettingsChange, defaultCorrectionBase, priceTypeOptions])
-  
-  const handleTypeSelection = (priceType: PriceTypeCode, checked: boolean) => {
-    console.log('[PRICE_PANEL] Price type selection changed', { priceType, checked })
-    
-    // Don't allow unchecking base price type
-    if (!checked && basePriceType?.value === priceType) {
-      return
-    }
-    
-    const newSelectedTypes = checked
-      ? [...settings.selectedTypes, priceType]
-      : settings.selectedTypes.filter(t => t !== priceType)
-    
-    const newTypes = { ...settings.types }
-    if (checked && !newTypes[priceType]) {
-      // Get markupUnit from presetPrices for this type
-      const priceTypeOption = priceTypeOptions.find(pt => pt.value === priceType)
-      const presetPrice = presetPrices?.find(p => p.typeId === priceTypeOption?.id)
-      const markupUnit: MarkupUnit = presetPrice?.currency === CURRENCY_PERCENT ? '%' : 'RUB'
-      
-      // Copy ranges from base type if available
-      const baseSettings = basePriceType ? newTypes[basePriceType.value] : null
-      const ranges = baseSettings?.ranges?.map(r => ({
-        ...r,
-        markupUnit,
-      })) || createDefaultPriceTypeSettings().ranges
-      
-      newTypes[priceType] = {
-        correctionBase: defaultCorrectionBase,
-        ranges,
-      }
-    }
-    
-    onSettingsChange({
-      ...settings,
-      selectedTypes: newSelectedTypes,
-      types: newTypes,
-    })
+
+  // Get price for a specific type and range
+  const getPriceForTypeAndRange = (typeId: number, quantityFrom: number | null): PriceRangeItem | undefined => {
+    return prices.find(p => p.typeId === typeId && p.quantityFrom === quantityFrom)
   }
 
-  // Sync ranges to all active types when base type ranges change
-  const syncRangesToAllTypes = (baseRanges: PriceRange[]) => {
-    if (!basePriceType) return
+  // Toggle price type active status
+  const handleTypeToggle = (typeId: number, checked: boolean) => {
+    if (!basePriceType || typeId === basePriceType.id) return // Can't toggle base type
     
-    const newTypes = { ...settings.types }
-    
-    for (const priceType of settings.selectedTypes) {
-      if (priceType !== basePriceType.value && newTypes[priceType]) {
-        const priceTypeOption = priceTypeOptions.find(pt => pt.value === priceType)
-        const presetPrice = presetPrices?.find(p => p.typeId === priceTypeOption?.id)
-        const defaultMarkupUnit: MarkupUnit = presetPrice?.currency === CURRENCY_PERCENT ? '%' : 'RUB'
-        
-        newTypes[priceType] = {
-          ...newTypes[priceType],
-          ranges: baseRanges.map(r => {
-            const existingRange = newTypes[priceType].ranges.find(
-              existingRange => existingRange.from === r.from
-            )
-            return {
-              from: r.from,
-              markupValue: existingRange?.markupValue ?? r.markupValue,
-              markupUnit: existingRange?.markupUnit ?? defaultMarkupUnit,
-            }
+    if (checked) {
+      // Add this type to all existing ranges
+      const baseRanges = getBaseRanges()
+      const newPrices = [...prices]
+      
+      baseRanges.forEach(range => {
+        // Check if already exists
+        const exists = newPrices.some(p => p.typeId === typeId && p.quantityFrom === range.quantityFrom)
+        if (!exists) {
+          newPrices.push({
+            typeId,
+            price: 10,
+            currency: CURRENCY_PRC,
+            quantityFrom: range.quantityFrom,
+            quantityTo: range.quantityTo,
           })
         }
-      }
+      })
+      
+      setPrices(newPrices)
+      setActiveTypeIds([...activeTypeIds, typeId])
+      sendUpdateRequest(newPrices)
+    } else {
+      // Remove all ranges for this type
+      const newPrices = prices.filter(p => p.typeId !== typeId)
+      setPrices(newPrices)
+      setActiveTypeIds(activeTypeIds.filter(id => id !== typeId))
+      sendUpdateRequest(newPrices)
     }
-    
-    onSettingsChange({ ...settings, types: newTypes })
   }
 
-  const updatePriceTypeSettings = (priceType: PriceTypeCode, updates: Partial<PriceTypeSettings>) => {
-    onSettingsChange({
-      ...settings,
-      types: {
-        ...settings.types,
-        [priceType]: {
-          ...settings.types[priceType],
-          ...updates,
-        }
-      }
-    })
-  }
-
-  const calculateTo = (ranges: PriceRange[], index: number): number | null => {
-    if (index >= ranges.length - 1) {
-      return null
-    }
-    return ranges[index + 1].from - 1
-  }
-
-  const addRange = (priceType: PriceTypeCode, currentIndex: number) => {
-    console.log('[ADD_PRICE_RANGE] Adding price range', { priceType, currentIndex })
+  // Add a new range
+  const handleAddRange = (currentIndex: number) => {
+    if (!basePriceType) return
     
-    const typeSettings = settings.types[priceType]
-    if (!typeSettings) return
-    
-    const ranges = typeSettings.ranges
-    const currentRange = ranges[currentIndex]
-    const to = calculateTo(ranges, currentIndex)
+    const baseRanges = getBaseRanges()
+    const currentRange = baseRanges[currentIndex]
     
     let newFrom: number
     
-    if (to === null) {
-      // Last range - add range after current
-      if (currentRange.from === 0) {
-        newFrom = 10
-      } else {
-        newFrom = currentRange.from * 2
-      }
+    if (currentIndex === baseRanges.length - 1) {
+      // Last range - add after
+      newFrom = (currentRange.quantityFrom || 0) === 0 ? 10 : (currentRange.quantityFrom || 0) * 2
     } else {
-      // Middle range - find midpoint between current and next
-      newFrom = Math.ceil((currentRange.from + to + 1) / 2)
+      // Middle range - split
+      const nextRange = baseRanges[currentIndex + 1]
+      const currentFrom = currentRange.quantityFrom || 0
+      const nextFrom = nextRange.quantityFrom || 0
       
-      if (newFrom <= currentRange.from || newFrom >= ranges[currentIndex + 1].from) {
-        console.warn('[ADD_PRICE_RANGE] Cannot add range, no space between current and next')
+      if (nextFrom - currentFrom <= 1) {
+        return // No space to split
+      }
+      
+      newFrom = Math.ceil((currentFrom + nextFrom) / 2)
+    }
+    
+    // Update quantityTo for existing ranges
+    const newPrices = [...prices]
+    
+    // Add new range for all active types
+    activeTypeIds.forEach(typeId => {
+      newPrices.push({
+        typeId,
+        price: 10,
+        currency: CURRENCY_PRC,
+        quantityFrom: newFrom,
+        quantityTo: null,
+      })
+    })
+    
+    setPrices(newPrices)
+    sendUpdateRequest(newPrices)
+  }
+
+  // Remove a range
+  const handleRemoveRange = (rangeIndex: number) => {
+    if (rangeIndex === 0) return // Can't remove first range
+    
+    const baseRanges = getBaseRanges()
+    const rangeToRemove = baseRanges[rangeIndex]
+    
+    // Remove this range for all types
+    const newPrices = prices.filter(p => p.quantityFrom !== rangeToRemove.quantityFrom)
+    
+    setPrices(newPrices)
+    sendUpdateRequest(newPrices)
+  }
+
+  // Update price value
+  const handlePriceChange = (typeId: number, quantityFrom: number | null, newPrice: number) => {
+    const newPrices = prices.map(p => 
+      p.typeId === typeId && p.quantityFrom === quantityFrom
+        ? { ...p, price: newPrice }
+        : p
+    )
+    setPrices(newPrices)
+  }
+
+  // Update currency
+  const handleCurrencyChange = (typeId: number, quantityFrom: number | null, newCurrency: 'RUB' | 'PRC') => {
+    const newPrices = prices.map(p => 
+      p.typeId === typeId && p.quantityFrom === quantityFrom
+        ? { ...p, currency: newCurrency }
+        : p
+    )
+    setPrices(newPrices)
+    sendUpdateRequest(newPrices)
+  }
+
+  // Update range boundary (only for base type)
+  const handleRangeFromChange = (rangeIndex: number, newFrom: number) => {
+    if (!basePriceType || rangeIndex === 0) return // Can't change first range
+    
+    const baseRanges = getBaseRanges()
+    const oldFrom = baseRanges[rangeIndex].quantityFrom
+    
+    // Validate: must be greater than previous range
+    if (rangeIndex > 0) {
+      const prevFrom = baseRanges[rangeIndex - 1].quantityFrom || 0
+      if (newFrom <= prevFrom) {
         return
       }
     }
     
-    const newRange: PriceRange = {
-      from: newFrom,
-      markupValue: 0,
-      markupUnit: currentRange.markupUnit || '%',
-    }
-    
-    const newRanges = [
-      ...ranges.slice(0, currentIndex + 1),
-      newRange,
-      ...ranges.slice(currentIndex + 1),
-    ]
-    
-    updatePriceTypeSettings(priceType, { ranges: newRanges })
-    
-    console.log('[ADD_PRICE_RANGE] Range added', { priceType, newRange, totalRanges: newRanges.length })
-    
-    // If this is base type, sync to all other types
-    if (basePriceType?.value === priceType) {
-      syncRangesToAllTypes(newRanges)
-    }
-  }
-
-  const removeRange = (priceType: PriceTypeCode, index: number) => {
-    console.log('[DELETE_PRICE_RANGE] Removing price range', { priceType, index })
-    
-    if (index === 0) return
-    
-    const typeSettings = settings.types[priceType]
-    if (!typeSettings) return
-    
-    const newRanges = typeSettings.ranges.filter((_, i) => i !== index)
-    updatePriceTypeSettings(priceType, { ranges: newRanges })
-    
-    console.log('[DELETE_PRICE_RANGE] Range removed', { priceType, totalRanges: newRanges.length })
-    
-    // If this is base type, sync to all other types
-    if (basePriceType?.value === priceType) {
-      syncRangesToAllTypes(newRanges)
-    }
-  }
-
-  const updateRange = (priceType: PriceTypeCode, index: number, updates: Partial<PriceRange>) => {
-    const typeSettings = settings.types[priceType]
-    if (!typeSettings) return
-    
-    const newRanges = typeSettings.ranges.map((range, i) => 
-      i === index ? { ...range, ...updates } : range
+    // Update all types for this range
+    const newPrices = prices.map(p => 
+      p.quantityFrom === oldFrom
+        ? { ...p, quantityFrom: newFrom }
+        : p
     )
-    updatePriceTypeSettings(priceType, { ranges: newRanges })
     
-    // If this is base type and 'from' was updated, sync to all other types
-    if (basePriceType?.value === priceType && 'from' in updates) {
-      syncRangesToAllTypes(newRanges)
-    }
+    setPrices(newPrices)
   }
+
+  // Send update request to Bitrix
+  const sendUpdateRequest = (updatedPrices: PriceRangeItem[]) => {
+    if (!presetId) return
+    
+    const payload: UpdatePresetPricesRequestPayload = {
+      presetId,
+      prices: updatedPrices,
+    }
+    
+    postMessageBridge.sendUpdatePresetPricesRequest(payload)
+  }
+
+  // Calculate quantityTo for each range
+  const calculateQuantityTo = (rangeIndex: number): number | null => {
+    const baseRanges = getBaseRanges()
+    if (rangeIndex >= baseRanges.length - 1) {
+      return null // Last range is infinity
+    }
+    const nextFrom = baseRanges[rangeIndex + 1].quantityFrom || 0
+    return nextFrom - 1
+  }
+
+  const baseRanges = getBaseRanges()
 
   return (
     <div id="panel-sale-prices" className="border-t border-border bg-card" data-pwcode="pricepanel">
@@ -364,24 +263,25 @@ export function PricePanel({ settings, onSettingsChange, priceTypes, presetPrice
       {isExpanded && (
         <div className="border-t border-border overflow-y-auto scrollbar-gutter-stable" style={{ maxHeight: '500px' }} data-pwcode="price-content">
           <div className="px-4 py-3 space-y-4">
+            {/* Price type checkboxes */}
             <div className="space-y-2">
               <Label>Типы цен</Label>
-              <div className="flex items-center gap-4" data-pwcode="price-types-select">
-                {priceTypeOptions.map(option => {
-                  const isBase = option.isBase
-                  const isChecked = settings.selectedTypes.includes(option.value)
+              <div className="flex items-center gap-4 flex-wrap" data-pwcode="price-types-select">
+                {sortedPriceTypes.map(priceType => {
+                  const isBase = priceType.base
+                  const isActive = activeTypeIds.includes(priceType.id)
                   
                   return (
-                    <div key={option.value} className="flex items-center gap-2">
+                    <div key={priceType.id} className="flex items-center gap-2">
                       <Checkbox
-                        id={`price-type-${option.value}`}
-                        checked={isChecked}
-                        onCheckedChange={(checked) => handleTypeSelection(option.value, checked as boolean)}
+                        id={`price-type-${priceType.id}`}
+                        checked={isActive}
+                        onCheckedChange={(checked) => handleTypeToggle(priceType.id, checked as boolean)}
                         disabled={isBase}
                         data-pwcode="checkbox-pricetype"
                       />
-                      <Label htmlFor={`price-type-${option.value}`} className="cursor-pointer">
-                        {option.label} {isBase && '(базовый)'}
+                      <Label htmlFor={`price-type-${priceType.id}`} className="cursor-pointer">
+                        {priceType.name} {isBase && '(базовый)'}
                       </Label>
                     </div>
                   )
@@ -389,160 +289,131 @@ export function PricePanel({ settings, onSettingsChange, priceTypes, presetPrice
               </div>
             </div>
 
-            {settings.selectedTypes.length > 0 && (
+            {/* Price ranges table */}
+            {activeTypeIds.length > 0 && baseRanges.length > 0 && (
               <div className="space-y-2">
-                <Label htmlFor="global-correction-base" className="whitespace-nowrap">Коррекция на основе</Label>
-                <Select 
-                  value={basePriceType && settings.types[basePriceType.value]?.correctionBase || defaultCorrectionBase} 
-                  onValueChange={(value: CorrectionBase) => {
-                    // Update correctionBase for all selected types
-                    const newTypes = { ...settings.types }
-                    settings.selectedTypes.forEach(priceType => {
-                      if (newTypes[priceType]) {
-                        newTypes[priceType] = {
-                          ...newTypes[priceType],
-                          correctionBase: value,
-                        }
-                      }
-                    })
-                    onSettingsChange({ ...settings, types: newTypes })
-                  }}
-                >
-                  <SelectTrigger id="global-correction-base" className="w-32" data-pwcode="select-correction">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CORRECTION_BASE_OPTIONS.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {settings.selectedTypes.map(priceType => {
-              const typeSettings = settings.types[priceType]
-              if (!typeSettings) return null
-
-              const priceTypeLabel = priceTypeOptions.find(o => o.value === priceType)?.label || priceType
-              const isBaseType = basePriceType?.value === priceType
-
-              return (
-                <div key={priceType} className="border border-border rounded-lg p-3 space-y-3 bg-muted/20" data-pwcode="price-type-block">
-                  <h3 className="font-medium text-sm">{priceTypeLabel}</h3>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Диапазоны наценки</Label>
-                    <div className="space-y-2">
-                      {typeSettings.ranges.map((range, index) => {
-                        const to = calculateTo(typeSettings.ranges, index)
-                        const isFirst = index === 0
-                        const priceTypeOption = priceTypeOptions.find(pt => pt.value === priceType)
-                        const presetPrice = presetPrices?.find(p => p.typeId === priceTypeOption?.id)
-
+                <Label>Диапазоны наценки</Label>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2 text-xs font-medium text-muted-foreground">От</th>
+                        <th className="text-left p-2 text-xs font-medium text-muted-foreground">До</th>
+                        {sortedPriceTypes
+                          .filter(pt => activeTypeIds.includes(pt.id))
+                          .map(pt => (
+                            <th key={pt.id} className="text-left p-2 text-xs font-medium text-muted-foreground">
+                              {pt.name}
+                            </th>
+                          ))}
+                        {basePriceType && <th className="text-center p-2 text-xs font-medium text-muted-foreground">+/-</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {baseRanges.map((range, rangeIndex) => {
+                        const isFirst = rangeIndex === 0
+                        const isLast = rangeIndex === baseRanges.length - 1
+                        const quantityTo = calculateQuantityTo(rangeIndex)
+                        
                         return (
-                          <div key={index} className="flex items-center gap-2 flex-wrap text-sm" data-pwcode="price-range">
-                            <span className="text-muted-foreground">от</span>
-                            <Input
-                              type="number"
-                              value={range.from}
-                              onChange={(e) => {
-                                const newValue = parseFloat(e.target.value) || 0
-                                updateRange(priceType, index, { from: newValue })
-                              }}
-                              onBlur={(e) => {
-                                const newValue = parseFloat(e.target.value) || 0
-                                if (index > 0 && newValue >= 1) {
-                                  const prevFrom = typeSettings.ranges[index - 1]?.from || 0
-                                  if (newValue <= prevFrom) {
-                                    updateRange(priceType, index, { from: prevFrom + 1 })
-                                  }
-                                }
-                              }}
-                              disabled={isFirst || !isBaseType}
-                              className="w-24"
-                              min={1}
-                              data-pwcode="input-range-from"
-                            />
-
-                            <span className="text-muted-foreground">до</span>
-                            <Input
-                              type="text"
-                              value={to === null ? '∞' : to.toString()}
-                              disabled
-                              className="w-24"
-                              data-pwcode="input-range-to"
-                            />
-
-                            <span className="text-muted-foreground">применить наценку</span>
-                            <Input
-                              type="number"
-                              value={range.markupValue}
-                              onChange={(e) => 
-                                updateRange(priceType, index, { 
-                                  markupValue: parseFloat(e.target.value) || 0 
-                                })
-                              }
-                              className="w-24"
-                              min={0}
-                              step={0.1}
-                              data-pwcode="input-markup-value"
-                            />
-
-                            <Select 
-                              value={range.markupUnit} 
-                              onValueChange={(value: MarkupUnit) => 
-                                updateRange(priceType, index, { markupUnit: value })
-                              }
-                              disabled={presetPrice?.currency === CURRENCY_PERCENT}
-                            >
-                              <SelectTrigger className="w-20" data-pwcode="select-markup-unit">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {MARKUP_UNIT_OPTIONS.map(option => (
-                                  <SelectItem key={option.value} value={option.value}>
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-
-                            {isBaseType && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => addRange(priceType, index)}
-                                className="h-8 w-8 p-0"
-                                title="Добавить диапазон"
-                                data-pwcode="btn-add-range"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </Button>
+                          <tr key={rangeIndex} className="border-b">
+                            {/* From */}
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                value={range.quantityFrom || 0}
+                                onChange={(e) => handleRangeFromChange(rangeIndex, parseInt(e.target.value) || 0)}
+                                disabled={isFirst}
+                                className="w-20 h-8 text-xs"
+                                min={0}
+                                data-pwcode="input-range-from"
+                              />
+                            </td>
+                            
+                            {/* To */}
+                            <td className="p-2">
+                              <Input
+                                type="text"
+                                value={quantityTo === null ? '∞' : quantityTo}
+                                disabled
+                                className="w-20 h-8 text-xs"
+                                data-pwcode="input-range-to"
+                              />
+                            </td>
+                            
+                            {/* Price cells for each active type */}
+                            {sortedPriceTypes
+                              .filter(pt => activeTypeIds.includes(pt.id))
+                              .map(priceType => {
+                                const priceItem = getPriceForTypeAndRange(priceType.id, range.quantityFrom)
+                                const isBaseType = priceType.base
+                                
+                                return (
+                                  <td key={priceType.id} className="p-2">
+                                    <div className="flex items-center gap-1">
+                                      <Input
+                                        type="number"
+                                        value={priceItem?.price || 0}
+                                        onChange={(e) => handlePriceChange(priceType.id, range.quantityFrom, parseFloat(e.target.value) || 0)}
+                                        onBlur={() => sendUpdateRequest(prices)}
+                                        className="w-20 h-8 text-xs"
+                                        min={0}
+                                        step={0.1}
+                                        data-pwcode="input-markup-value"
+                                      />
+                                      <button
+                                        onClick={() => {
+                                          const newCurrency = priceItem?.currency === CURRENCY_PRC ? CURRENCY_RUB : CURRENCY_PRC
+                                          handleCurrencyChange(priceType.id, range.quantityFrom, newCurrency)
+                                        }}
+                                        className="px-2 h-8 text-xs border rounded hover:bg-accent"
+                                        data-pwcode="btn-toggle-currency"
+                                      >
+                                        {priceItem?.currency === CURRENCY_PRC ? '%' : 'RUB'}
+                                      </button>
+                                    </div>
+                                  </td>
+                                )
+                              })}
+                            
+                            {/* Add/Remove buttons (only for base type) */}
+                            {basePriceType && (
+                              <td className="p-2">
+                                <div className="flex items-center gap-1 justify-center">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleAddRange(rangeIndex)}
+                                    className="h-7 w-7 p-0"
+                                    title="Добавить диапазон"
+                                    data-pwcode="btn-add-range"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </Button>
+                                  
+                                  {!isFirst && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRemoveRange(rangeIndex)}
+                                      className="h-7 w-7 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                                      title="Удалить диапазон"
+                                      data-pwcode="btn-remove-range"
+                                    >
+                                      <Trash className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
                             )}
-
-                            {!isFirst && isBaseType && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeRange(priceType, index)}
-                                className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                                title="Удалить диапазон"
-                                data-pwcode="btn-remove-range"
-                              >
-                                <Trash className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
+                          </tr>
                         )
                       })}
-                    </div>
-                  </div>
+                    </tbody>
+                  </table>
                 </div>
-              )
-            })}
+              </div>
+            )}
           </div>
         </div>
       )}

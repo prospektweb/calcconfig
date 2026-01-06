@@ -53,6 +53,7 @@ export type MessageType =
   // Диапазоны цен
   | 'ADD_PRICE_RANGE_REQUEST'
   | 'DELETE_PRICE_RANGE_REQUEST'
+  | 'UPDATE_PRESET_PRICES_REQUEST'  // НОВЫЙ
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -186,6 +187,20 @@ export interface ReorderRequestPayload {
   orderedIds: number[]          // Новый порядок ID
   iblockId: number
   iblockType: string
+}
+
+/**
+ * Payload for UPDATE_PRESET_PRICES_REQUEST
+ */
+export interface UpdatePresetPricesRequestPayload {
+  presetId: number
+  prices: Array<{
+    typeId: number
+    price: number
+    currency: 'RUB' | 'PRC'
+    quantityFrom: number | null
+    quantityTo: number | null
+  }>
 }
 
 /**
@@ -567,6 +582,11 @@ class PostMessageBridge {
   // Reorder operation
   sendReorderRequest(payload: ReorderRequestPayload) {
     return this.sendMessage('REORDER_REQUEST', payload)
+  }
+
+  // Preset prices operation
+  sendUpdatePresetPricesRequest(payload: UpdatePresetPricesRequestPayload) {
+    return this.sendMessage('UPDATE_PRESET_PRICES_REQUEST', payload)
   }
 
   on(type: MessageType | '*', callback: (message: PwrtMessage) => void): () => void {
