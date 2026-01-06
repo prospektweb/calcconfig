@@ -147,8 +147,8 @@ export function SidebarMenu({ isOpen, onClose, bitrixMeta }: SidebarMenuProps) {
                   variant="ghost"
                   className="w-full justify-start"
                   onClick={() => {
-                    const lang = bitrixMeta.context. lang
-                    window. open(formatBitrixUrl(`/bitrix/admin/settings.php?lang=${lang}&mid=prospektweb. calc&mid_menu=1`), '_blank')
+                    const lang = bitrixMeta.context.lang
+                    window.open(formatBitrixUrl(`/bitrix/admin/settings.php?lang=${lang}&mid=prospektweb.calc&mid_menu=1`), '_blank')
                   }}
                   data-pwcode="btn-module-settings"
                 >
@@ -172,7 +172,7 @@ export function SidebarMenu({ isOpen, onClose, bitrixMeta }: SidebarMenuProps) {
                   className="w-full justify-start"
                   onClick={() => {
                     const lang = bitrixMeta.context.lang
-                    window. open(formatBitrixUrl(`/bitrix/admin/cat_group_admin. php?lang=${lang}`), '_blank')
+                    window.open(formatBitrixUrl(`/bitrix/admin/cat_group_admin.php?lang=${lang}`), '_blank')
                   }}
                   data-pwcode="btn-price-types"
                 >
