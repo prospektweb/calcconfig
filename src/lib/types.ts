@@ -49,7 +49,7 @@ export interface Preset {
   id: number
   name: string
   properties: {
-    CALC_STAGES?:  number[]
+    CALC_STAGES?: number[]
     CALC_SETTINGS?: number[]
     CALC_MATERIALS?: number[]
     CALC_MATERIALS_VARIANTS?: number[]
@@ -58,6 +58,17 @@ export interface Preset {
     CALC_EQUIPMENT?: number[]
     CALC_DETAILS?: number[]
     CALC_DETAILS_VARIANTS?: number[]
+  }
+  prices?: Array<{
+    typeId: number
+    price: number
+    currency: string  // "RUB" или "PRC" (процент)
+    quantityFrom: number | null
+    quantityTo: number | null
+  }>
+  measure?: {
+    code: string  // "796" = штуки, "999" = услуга
+    name: string
   }
 }
 
