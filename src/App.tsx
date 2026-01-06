@@ -618,6 +618,81 @@ function App() {
       unsubscribeCalcInfo()
     }
   }, [])
+
+  // Handle RESPONSE messages for stage operations
+  useEffect(() => {
+    const unsubscribeResponse = postMessageBridge.on('RESPONSE', (message) => {
+      console.log('[RESPONSE] Received:', message)
+      
+      const payload = message.payload as any
+      if (!payload) return
+
+      // Handle ADD_STAGE_REQUEST response
+      if (payload.requestType === 'ADD_STAGE_REQUEST' && payload.status === 'success') {
+        console.log('[RESPONSE] ADD_STAGE_REQUEST success, updating UI from elementsStore')
+        
+        // Transform preset and elementsStore to UI format
+        if (payload.state?.preset && payload.state?.elementsStore) {
+          try {
+            const { details: transformedDetails, bindings: transformedBindings } = transformPresetToUI(
+              payload.state.preset,
+              payload.state.elementsStore
+            )
+            
+            setDetails(transformedDetails)
+            setBindings(transformedBindings)
+            console.log('[RESPONSE] ADD_STAGE_REQUEST: UI updated', { 
+              details: transformedDetails.length, 
+              bindings: transformedBindings.length 
+            })
+            
+            toast.success('Этап добавлен')
+          } catch (error) {
+            console.error('[RESPONSE] ADD_STAGE_REQUEST transformation error:', error)
+            toast.error('Ошибка обновления UI после добавления этапа')
+          }
+        }
+      }
+
+      // Handle DELETE_STAGE_REQUEST response
+      if (payload.requestType === 'DELETE_STAGE_REQUEST' && payload.status === 'success') {
+        console.log('[RESPONSE] DELETE_STAGE_REQUEST success, updating UI from elementsStore')
+        
+        // Transform preset and elementsStore to UI format
+        if (payload.state?.preset && payload.state?.elementsStore) {
+          try {
+            const { details: transformedDetails, bindings: transformedBindings } = transformPresetToUI(
+              payload.state.preset,
+              payload.state.elementsStore
+            )
+            
+            setDetails(transformedDetails)
+            setBindings(transformedBindings)
+            console.log('[RESPONSE] DELETE_STAGE_REQUEST: UI updated', { 
+              details: transformedDetails.length, 
+              bindings: transformedBindings.length 
+            })
+            
+            toast.success('Этап удалён')
+          } catch (error) {
+            console.error('[RESPONSE] DELETE_STAGE_REQUEST transformation error:', error)
+            toast.error('Ошибка обновления UI после удаления этапа')
+          }
+        }
+      }
+
+      // Handle error responses
+      if (payload.status === 'error') {
+        const errorMessage = payload.message || 'Произошла ошибка'
+        toast.error(errorMessage)
+        console.error('[RESPONSE] Error:', payload)
+      }
+    })
+
+    return () => {
+      unsubscribeResponse()
+    }
+  }, [])
   
   const addInfoMessage = (type: InfoMessage['type'], message: string) => {
     const newMessage: InfoMessage = {
