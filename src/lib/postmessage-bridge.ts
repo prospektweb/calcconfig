@@ -2,54 +2,44 @@ import { Iblock, Preset, ElementsStore } from './types'
 import { BitrixTreeItem, BitrixProperty } from './bitrix-transformers'
 
 export type MessageType =
+  // Жизненный цикл
   | 'READY'
   | 'INIT'
   | 'INIT_DONE'
-  | 'CALC_PREVIEW'
-  | 'SAVE_REQUEST'
-  | 'SAVE_RESULT'
+  
+  // Общие
   | 'ERROR'
   | 'CLOSE_REQUEST'
-  | 'ADD_OFFER_REQUEST'
-  | 'REMOVE_OFFER_REQUEST'
-  | 'SELECT_REQUEST'
-  | 'SELECT_DONE'
-  | 'CONFIG_ITEM_REMOVE'
-  | 'HEADER_ITEM_REMOVE'
-  | 'REFRESH_REQUEST'
-  | 'REFRESH_RESULT'
-  | 'CALC_SETTINGS_REQUEST'
-  | 'CALC_SETTINGS_RESPONSE'
-  | 'CALC_OPERATION_REQUEST'
-  | 'CALC_OPERATION_RESPONSE'
-  | 'CALC_MATERIAL_REQUEST'
-  | 'CALC_MATERIAL_RESPONSE'
-  | 'CALC_OPERATION_VARIANT_REQUEST'
-  | 'CALC_OPERATION_VARIANT_RESPONSE'
-  | 'CALC_MATERIAL_VARIANT_REQUEST'
-  | 'CALC_MATERIAL_VARIANT_RESPONSE'
-  | 'SYNC_VARIANTS_REQUEST'
-  | 'SYNC_VARIANTS_RESPONSE'
-  | 'ADD_NEW_DETAIL_REQUEST'
-  | 'ADD_NEW_DETAIL_RESPONSE'
+  | 'RESPONSE'        // ЕДИНЫЙ ответ на любой *_REQUEST
+  
+  // Расчёт и сохранение
+  | 'CALC_PREVIEW'
+  | 'SAVE_REQUEST'
+  
+  // Загрузка данных элемента
+  | 'LOAD_ELEMENT_REQUEST'  // Объединяет CALC_SETTINGS_REQUEST, CALC_OPERATION_REQUEST и т.д.
+  
+  // Детали
+  | 'ADD_DETAIL_REQUEST'      // переименован из ADD_NEW_DETAIL_REQUEST
   | 'SELECT_DETAILS_REQUEST'
-  | 'SELECT_DETAILS_RESPONSE'
-  | 'COPY_DETAIL_REQUEST'
-  | 'COPY_DETAIL_RESPONSE'
-  | 'USE_DETAIL_REQUEST'
-  | 'USE_DETAIL_RESPONSE'
+  | 'UPDATE_DETAIL_REQUEST'   // объединяет CHANGE_NAME_DETAIL_REQUEST
   | 'DELETE_DETAIL_REQUEST'
-  | 'DELETE_DETAIL_RESPONSE'
+  
+  // Этапы
+  | 'ADD_STAGE_REQUEST'       // переименован из ADD_NEW_STAGE_REQUEST
+  | 'UPDATE_STAGE_REQUEST'    // НОВЫЙ
   | 'DELETE_STAGE_REQUEST'
-  | 'DELETE_STAGE_RESPONSE'
-  | 'CHANGE_NAME_DETAIL_REQUEST'
-  | 'CHANGE_NAME_DETAIL_RESPONSE'
-  | 'ADD_NEW_GROUP_REQUEST'
-  | 'ADD_NEW_GROUP_RESPONSE'
+  
+  // Группы/Скрепления
+  | 'ADD_GROUP_REQUEST'       // переименован из ADD_NEW_GROUP_REQUEST
+  | 'UPDATE_GROUP_REQUEST'    // НОВЫЙ
   | 'DELETE_GROUP_REQUEST'
-  | 'DELETE_GROUP_RESPONSE'
-  | 'ADD_NEW_STAGE_REQUEST'
-  | 'ADD_NEW_STAGE_RESPONSE'
+  
+  // Сортировка
+  | 'REORDER_REQUEST'         // НОВЫЙ
+  
+  // Обновление данных
+  | 'REFRESH_REQUEST'
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -150,6 +140,106 @@ export interface SaveResultPayload {
     code?: string
   }>
   message?: string
+}
+
+/**
+ * Payload for LOAD_ELEMENT_REQUEST - unified request for loading calculator elements
+ */
+export interface LoadElementRequestPayload {
+  elementType: 'calculator' | 'operation' | 'material' | 'equipment'
+  elementId: number
+  iblockId: number
+  iblockType: string
+}
+
+/**
+ * Payload for UPDATE_DETAIL_REQUEST
+ */
+export interface UpdateDetailRequestPayload {
+  detailId: number
+  updates: {
+    name?: string
+    width?: number
+    length?: number
+  }
+  iblockId: number
+  iblockType: string
+}
+
+/**
+ * Payload for ADD_STAGE_REQUEST
+ */
+export interface AddStageRequestPayload {
+  detailId: number              // ID детали (Bitrix)
+  previousStageId?: number      // ID предыдущего этапа (для определения позиции)
+  iblockId: number
+  iblockType: string
+}
+
+/**
+ * Payload for UPDATE_STAGE_REQUEST
+ */
+export interface UpdateStageRequestPayload {
+  stageId?: number              // ID конфигурации в Битрикс
+  detailId: number              // К какой детали относится
+  updates: {
+    calculatorId?: number
+    operationId?: number
+    materialId?: number
+    equipmentId?: number
+    operationQuantity?: number
+    materialQuantity?: number
+  }
+  iblockId: number
+  iblockType: string
+}
+
+/**
+ * Payload for DELETE_STAGE_REQUEST (с расширенной информацией)
+ */
+export interface DeleteStageRequestPayload {
+  stageId: number               // ID удаляемого этапа
+  detailId: number              // ID детали
+  previousStageId?: number      // ID предыдущего этапа
+  nextStageId?: number          // ID следующего этапа
+  iblockId: number
+  iblockType: string
+}
+
+/**
+ * Payload for REORDER_REQUEST
+ */
+export interface ReorderRequestPayload {
+  entityType: 'details' | 'stages' | 'groups'
+  parentId?: number             // Для stages - ID детали
+  orderedIds: number[]          // Новый порядок ID
+  iblockId: number
+  iblockType: string
+}
+
+/**
+ * Payload for RESPONSE (единый ответ)
+ */
+export interface ResponsePayload {
+  requestType: Exclude<MessageType, 'READY' | 'INIT' | 'INIT_DONE' | 'ERROR' | 'RESPONSE'>
+  requestId: string
+  status: 'success' | 'error'
+  message?: string
+  state?: Partial<{
+    elementsStore: ElementsStore
+    iblocksTree: {
+      calcSettings?: any[]
+      calcEquipment?: any[]
+      calcOperations?: any[]
+      calcMaterials?: any[]
+    }
+    preset: any
+    loadedElement?: {
+      type: 'calculator' | 'operation' | 'material' | 'equipment'
+      id: number
+      properties: Record<string, BitrixProperty>
+    }
+  }>
 }
 
 /**
@@ -394,7 +484,7 @@ class PostMessageBridge {
 
         const isDebug = typeof localStorage !== 'undefined' && localStorage.getItem('pwrt_debug') === '1'
         
-        if (isDebug || ['INIT', 'REFRESH_RESULT'].includes(message.type)) {
+        if (isDebug || ['INIT', 'RESPONSE'].includes(message.type)) {
           console.log('[PostMessageBridge] Received:', message.type, message.payload)
         }
 
@@ -506,139 +596,80 @@ class PostMessageBridge {
     })
   }
 
-  sendAddOfferRequest(iblockId: number, iblockType: string, lang: string) {
-    return this.sendMessage('ADD_OFFER_REQUEST', {
+  sendLoadElementRequest(elementType: 'calculator' | 'operation' | 'material' | 'equipment', elementId: number, iblockId: number, iblockType: string) {
+    return this.sendMessage('LOAD_ELEMENT_REQUEST', {
+      elementType,
+      elementId,
       iblockId,
       iblockType,
-      lang,
     })
   }
 
-  sendRemoveOfferRequest(id: number, iblockId: number, iblockType: string, lang: string) {
-    this.sendMessage('REMOVE_OFFER_REQUEST', {
-      id,
-      iblockId,
-      iblockType,
-      lang,
-    })
-  }
-
+  // Legacy methods for backward compatibility - they now use sendLoadElementRequest
   sendCalcSettingsRequest(id: number, iblockId: number, iblockType: string, lang: string) {
-    return this.sendMessage('CALC_SETTINGS_REQUEST', {
-      id,
-      iblockId,
-      iblockType,
-      lang,
-    })
-  }
-
-  sendCalcOperationRequest(id: number, iblockId: number, iblockType: string, lang: string) {
-    return this.sendMessage('CALC_OPERATION_REQUEST', {
-      id,
-      iblockId,
-      iblockType,
-      lang,
-    })
-  }
-
-  sendCalcMaterialRequest(id: number, iblockId: number, iblockType: string, lang: string) {
-    return this.sendMessage('CALC_MATERIAL_REQUEST', {
-      id,
-      iblockId,
-      iblockType,
-      lang,
-    })
+    return this.sendLoadElementRequest('calculator', id, iblockId, iblockType)
   }
 
   sendCalcOperationVariantRequest(id: number, iblockId: number, iblockType: string, lang: string) {
-    return this.sendMessage('CALC_OPERATION_VARIANT_REQUEST', {
-      id,
-      iblockId,
-      iblockType,
-      lang,
-    })
+    return this.sendLoadElementRequest('operation', id, iblockId, iblockType)
   }
 
   sendCalcMaterialVariantRequest(id: number, iblockId: number, iblockType: string, lang: string) {
-    return this.sendMessage('CALC_MATERIAL_VARIANT_REQUEST', {
-      id,
-      iblockId,
-      iblockType,
-      lang,
-    })
+    return this.sendLoadElementRequest('material', id, iblockId, iblockType)
   }
 
-  sendSelectRequest(iblockId: number, iblockType: string, lang: string) {
-    return this.sendMessage('SELECT_REQUEST', {
-      iblockId,
-      iblockType,
-      lang,
-    })
-  }
-
-  sendConfigItemRemove(kind: 'detail' | 'material' | 'operation' | 'equipment', id: number) {
-    this.sendMessage('CONFIG_ITEM_REMOVE', {
-      kind,
-      id,
-    })
-  }
-  
-  sendHeaderItemRemove(kind: 'detail' | 'material' | 'operation' | 'equipment', id: number) {
-    this.sendMessage('HEADER_ITEM_REMOVE', {
-      kind,
-      id,
-    })
-  }
-  
   sendRefreshRequest(offerIds: number[]) {
     this.sendMessage('REFRESH_REQUEST', {
       offerIds,
     })
   }
 
-  sendSyncVariantsRequest(payload: SyncVariantsRequestPayload): string {
-    const requestId = `sync_variants_${Date.now()}`
-    this.sendMessage('SYNC_VARIANTS_REQUEST', payload, requestId)
-    return requestId
-  }
-
   // Detail operations
-  sendAddNewDetailRequest(payload: { offerIds: number[], name: string, iblockId: number, iblockType: string }) {
-    return this.sendMessage('ADD_NEW_DETAIL_REQUEST', payload)
+  sendAddDetailRequest(payload: { offerIds: number[], name: string, iblockId: number, iblockType: string }) {
+    return this.sendMessage('ADD_DETAIL_REQUEST', payload)
   }
 
   sendSelectDetailsRequest(payload: { iblockId: number, iblockType: string }) {
     return this.sendMessage('SELECT_DETAILS_REQUEST', payload)
   }
 
-  sendCopyDetailRequest(payload: { detailId: number, offerIds: number[], iblockId: number, iblockType: string }) {
-    return this.sendMessage('COPY_DETAIL_REQUEST', payload)
-  }
-
-  sendUseDetailRequest(payload: { detailId: number, presetId: number }) {
-    return this.sendMessage('USE_DETAIL_REQUEST', payload)
+  sendUpdateDetailRequest(payload: UpdateDetailRequestPayload) {
+    return this.sendMessage('UPDATE_DETAIL_REQUEST', payload)
   }
 
   sendDeleteDetailRequest(payload: { detailId: number, iblockId: number, iblockType: string }) {
     return this.sendMessage('DELETE_DETAIL_REQUEST', payload)
   }
 
-  sendChangeNameDetailRequest(payload: { detailId: number, newName: string, iblockId: number, iblockType: string }) {
-    return this.sendMessage('CHANGE_NAME_DETAIL_REQUEST', payload)
+  // Stage operations
+  sendAddStageRequest(payload: AddStageRequestPayload) {
+    return this.sendMessage('ADD_STAGE_REQUEST', payload)
   }
 
-  // Stage operations
-  sendDeleteStageRequest(payload: { configId: number, iblockId: number, iblockType: string }) {
+  sendUpdateStageRequest(payload: UpdateStageRequestPayload) {
+    return this.sendMessage('UPDATE_STAGE_REQUEST', payload)
+  }
+
+  sendDeleteStageRequest(payload: DeleteStageRequestPayload) {
     return this.sendMessage('DELETE_STAGE_REQUEST', payload)
   }
 
   // Group operations
-  sendAddNewGroupRequest(payload: { name: string, detailIds: (number | string)[], iblockId: number, iblockType: string }) {
-    return this.sendMessage('ADD_NEW_GROUP_REQUEST', payload)
+  sendAddGroupRequest(payload: { name: string, detailIds: (number | string)[], iblockId: number, iblockType: string }) {
+    return this.sendMessage('ADD_GROUP_REQUEST', payload)
+  }
+
+  sendUpdateGroupRequest(payload: { groupId: string, updates: { name?: string }, iblockId: number, iblockType: string }) {
+    return this.sendMessage('UPDATE_GROUP_REQUEST', payload)
   }
 
   sendDeleteGroupRequest(payload: { groupId: string, detailIdToKeep?: number | string, deleteAll?: boolean, iblockId: number, iblockType: string }) {
     return this.sendMessage('DELETE_GROUP_REQUEST', payload)
+  }
+
+  // Reorder operation
+  sendReorderRequest(payload: ReorderRequestPayload) {
+    return this.sendMessage('REORDER_REQUEST', payload)
   }
 
   on(type: MessageType | '*', callback: (message: PwrtMessage) => void): () => void {

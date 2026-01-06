@@ -32,6 +32,7 @@ interface StageTabsProps {
   onChange: (calculators: StageInstance[]) => void
   bitrixMeta?: InitPayload | null
   onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
+  detailId?: number  // ID детали (Bitrix) для отправки ADD_STAGE_REQUEST
 }
 
 const TAB_COLORS = [
@@ -245,7 +246,7 @@ const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionF
   }
 }
 
-export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidationMessage }: StageTabsProps) {
+export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidationMessage, detailId }: StageTabsProps) {
   const [activeTab, setActiveTab] = useState(0)
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
@@ -387,11 +388,33 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
 
   const handleAddCalculator = () => {
     const newCalc = createEmptyStage()
+    
+    // Найти предыдущий этап
+    const previousStage = safeCalculators[safeCalculators.length - 1]
+    
+    // Отправить событие в Битрикс
+    if (bitrixMeta && detailId) {
+      const stagesIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_STAGES')
+      if (stagesIblock) {
+        postMessageBridge.sendAddStageRequest({
+          detailId: detailId,
+          previousStageId: previousStage?.configId,
+          iblockId: stagesIblock.id,
+          iblockType: stagesIblock.type,
+        })
+      }
+    }
+    
     onChange([...safeCalculators, newCalc])
     setActiveTab(safeCalculators.length)
   }
 
   const handleRemoveCalculator = (index:  number) => {
+    // Показываем диалог подтверждения
+    if (!window.confirm('Вы уверены, что хотите удалить этот этап?')) {
+      return
+    }
+    
     const newCalculators = safeCalculators.filter((_, i) => i !== index)
     onChange(newCalculators)
     if (activeTab >= newCalculators.length) {
@@ -417,6 +440,26 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
     
     onChange(reorderedCalculators)
     setActiveTab(adjustedToIndex)
+    
+    // Отправить событие сортировки в Битрикс
+    if (bitrixMeta && detailId) {
+      const stagesIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_STAGES')
+      if (stagesIblock) {
+        const orderedIds = reorderedCalculators
+          .map(calc => calc.configId)
+          .filter((id): id is number => id !== undefined && id !== null)
+        
+        if (orderedIds.length > 0) {
+          postMessageBridge.sendReorderRequest({
+            entityType: 'stages',
+            parentId: detailId,
+            orderedIds: orderedIds,
+            iblockId: stagesIblock.id,
+            iblockType: stagesIblock.type,
+          })
+        }
+      }
+    }
   }
 
   const handleStageDragStart = (element: HTMLElement, e: React.MouseEvent, index: number) => {

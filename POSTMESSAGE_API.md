@@ -1,554 +1,640 @@
-# PostMessage API Documentation
+# PostMessage API Documentation (Refactored)
 
-Калькулятор себестоимости поддерживает двустороннюю коммуникацию с родительским окном через `postMessage` API.
+Калькулятор себестоимости поддерживает двустороннюю коммуникацию с Битрикс через `postMessage` API.
 
-## Архитектура
+## Протокол
 
-### Модули
+**Версия**: pwrt-v1  
+**Protocol Code**: pwrt-v1
 
-1. **postmessage-bridge.ts** - Основной модуль для отправки и получения сообщений
-2. **use-postmessage.ts** - React hook для интеграции в компоненты
-3. **App.tsx** - Интеграция в главный компонент приложения
+Все сообщения (кроме READY, INIT, INIT_DONE) должны содержать поле `protocol: "pwrt-v1"` и `requestId`.
 
-## Типы сообщений
+## Типы сообщений (19 типов)
 
-### Исходящие сообщения (из калькулятора)
+### Жизненный цикл
+
+#### READY
+Отправляется калькулятором при готовности к работе.
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "READY",
+  "payload": {
+    "version": "1.0.0",
+    "timestamp": 1234567890
+  }
+}
+```
 
 #### INIT
-Отправляется при инициализации калькулятора
+Отправляется Битрикс для инициализации калькулятора с данными.
+
+**Направление**: Битрикс → Калькулятор
+
 ```json
 {
+  "source": "bitrix",
+  "target": "prospektweb.calc",
   "type": "INIT",
-  "data": { "ready": true },
-  "timestamp": 1234567890
-}
-```
-
-#### STATE_UPDATE
-Отправляется при изменении состояния (с задержкой 500ms для группировки)
-```json
-{
-  "type": "STATE_UPDATE",
-  "data": {
-    "selectedVariantIds": [525, 526, 527],
-    "testVariantId": 525,
-    "headerTabs": {
-      "materials": [...],
-      "operations": [...],
-      "equipment": [...],
-      "details": [...]
+  "payload": {
+    "context": {
+      "siteId": "s1",
+      "userId": "1",
+      "lang": "ru",
+      "timestamp": 1234567890,
+      "url": "https://example.com"
     },
-    "details": [...],
-    "bindings": [...]
-  },
-  "timestamp": 1234567890
+    "iblocks": [...],
+    "iblocksTree": {...},
+    "selectedOffers": [...],
+    "preset": {...},
+    "elementsStore": {...}
+  }
 }
 ```
 
-#### VARIANT_SELECTED
-Отправляется при выборе/изменении вариантов продукции
+#### INIT_DONE
+Отправляется калькулятором после завершения инициализации.
+
+**Направление**: Калькулятор → Битрикс
+
 ```json
 {
-  "type": "VARIANT_SELECTED",
-  "data": {
-    "variantIds": [525, 526, 527],
-    "testVariantId": 525
-  },
-  "timestamp": 1234567890
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "INIT_DONE",
+  "payload": {
+    "offersCount": 3
+  }
 }
 ```
 
-#### DETAIL_ADDED
-Отправляется при добавлении новой детали
-```json
-{
-  "type": "DETAIL_ADDED",
-  "data": {
-    "detail": {
-      "id": "detail_1234567890_abc123",
-      "name": "Новая деталь",
-      "width": 210,
-      "length": 297,
-      "isExpanded": true,
-      "calculators": [...]
-    }
-  },
-  "timestamp": 1234567890
-}
-```
-
-#### DETAIL_UPDATED
-Отправляется при обновлении детали
-```json
-{
-  "type": "DETAIL_UPDATED",
-  "data": {
-    "detailId": "detail_1234567890_abc123",
-    "updates": {
-      "name": "Постер A3",
-      "width": 297,
-      "length": 420
-    }
-  },
-  "timestamp": 1234567890
-}
-```
-
-#### DETAIL_DELETED
-Отправляется при удалении детали
-```json
-{
-  "type": "DETAIL_DELETED",
-  "data": {
-    "detailId": "detail_1234567890_abc123"
-  },
-  "timestamp": 1234567890
-}
-```
-
-#### BINDING_CREATED
-Отправляется при создании группы скрепления
-```json
-{
-  "type": "BINDING_CREATED",
-  "data": {
-    "binding": {
-      "id": "binding_1234567890_xyz789",
-      "name": "Новая группа скрепления",
-      "isExpanded": true,
-      "calculators": [...],
-      "detailIds": ["detail_1", "detail_2"],
-      "bindingIds": [],
-      "hasFinishing": false,
-      "finishingCalculators": []
-    }
-  },
-  "timestamp": 1234567890
-}
-```
-
-#### BINDING_UPDATED
-Отправляется при обновлении группы скрепления
-```json
-{
-  "type": "BINDING_UPDATED",
-  "data": {
-    "bindingId": "binding_1234567890_xyz789",
-    "updates": {
-      "name": "Календарь",
-      "hasFinishing": true
-    }
-  },
-  "timestamp": 1234567890
-}
-```
-
-#### BINDING_DELETED
-Отправляется при удалении группы скрепления
-```json
-{
-  "type": "BINDING_DELETED",
-  "data": {
-    "bindingId": "binding_1234567890_xyz789"
-  },
-  "timestamp": 1234567890
-}
-```
-
-#### CALCULATION_START
-Отправляется при запуске расчёта
-```json
-{
-  "type": "CALCULATION_START",
-  "data": {
-    "type": "test" // или "full"
-  },
-  "timestamp": 1234567890
-}
-```
-
-#### CALCULATION_PROGRESS
-Отправляется в процессе расчёта
-```json
-{
-  "type": "CALCULATION_PROGRESS",
-  "data": {
-    "progress": 45,
-    "type": "test",
-    "currentDetail": "detail_1234567890_abc123"
-  },
-  "timestamp": 1234567890
-}
-```
-
-#### CALCULATION_COMPLETE
-Отправляется при завершении расчёта
-```json
-{
-  "type": "CALCULATION_COMPLETE",
-  "data": {
-    "type": "test",
-    "result": {
-      "cost": 1250.00,
-      "details": {...}
-    }
-  },
-  "timestamp": 1234567890
-}
-```
+### Общие сообщения
 
 #### ERROR
-Отправляется при возникновении ошибки
+Отправляется при возникновении ошибки.
+
+**Направление**: Калькулятор → Битрикс
+
 ```json
 {
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
   "type": "ERROR",
-  "data": {
-    "error": "Описание ошибки",
+  "payload": {
+    "code": "VALIDATION_ERROR",
+    "message": "Не выбран калькулятор",
+    "details": {...},
     "context": {...}
-  },
-  "timestamp": 1234567890
+  }
 }
 ```
 
-### Входящие сообщения (в калькулятор)
+#### CLOSE_REQUEST
+Запрос на закрытие калькулятора.
 
-#### STATE_REQUEST
-Запрос текущего состояния калькулятора
+**Направление**: Калькулятор → Битрикс
+
 ```json
 {
-  "type": "STATE_REQUEST",
-  "data": {},
-  "timestamp": 1234567890
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "CLOSE_REQUEST",
+  "payload": {
+    "saved": true,
+    "hasChanges": false
+  }
 }
 ```
 
-Ответ: автоматически отправляется `STATE_RESPONSE`
+#### RESPONSE
+**ЕДИНЫЙ тип ответа** на любой `*_REQUEST`. Заменяет все старые `*_RESPONSE` типы.
 
-#### STATE_RESPONSE
-Установка состояния калькулятора из родительского окна
+**Направление**: Битрикс → Калькулятор
+
 ```json
 {
-  "type": "STATE_RESPONSE",
-  "data": {
-    "selectedVariantIds": [525, 526],
-    "testVariantId": 525,
-    "headerTabs": {...},
-    "details": [...],
-    "bindings": [...]
-  },
-  "timestamp": 1234567890
+  "protocol": "pwrt-v1",
+  "source": "bitrix",
+  "target": "prospektweb.calc",
+  "type": "RESPONSE",
+  "requestId": "add_detail_request_1234567890_abc123",
+  "payload": {
+    "requestType": "ADD_DETAIL_REQUEST",
+    "requestId": "add_detail_request_1234567890_abc123",
+    "status": "success",
+    "message": "Деталь успешно создана",
+    "state": {
+      "elementsStore": {...},
+      "preset": {...}
+    }
+  }
 }
 ```
 
-## Примеры использования
+### Расчёт и сохранение
 
-### Родительское окно (1С-Битрикс)
+#### CALC_PREVIEW
+Отправляется для предпросмотра результатов расчёта.
 
-#### HTML структура
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Интеграция калькулятора</title>
-</head>
-<body>
-    <iframe 
-        id="calculator-frame" 
-        src="https://your-spark-app.dev" 
-        width="100%" 
-        height="800"
-        style="border: none;"
-    ></iframe>
-    
-    <script src="calculator-integration.js"></script>
-</body>
-</html>
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "CALC_PREVIEW",
+  "requestId": "calc_preview_1234567890_abc123",
+  "payload": {
+    "type": "test",
+    "results": [...],
+    "summary": {
+      "totalCost": 1500.50,
+      "calculatedAt": 1234567890
+    }
+  }
+}
 ```
 
-#### JavaScript интеграция
+#### SAVE_REQUEST
+Запрос на сохранение конфигурации.
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "SAVE_REQUEST",
+  "requestId": "save_1234567890",
+  "payload": {
+    "configuration": {
+      "name": "Конфигурация 1",
+      "data": {...}
+    },
+    "offerUpdates": [...],
+    "configId": 123
+  }
+}
+```
+
+**Ответ**: RESPONSE с requestType="SAVE_REQUEST"
+
+### Загрузка данных элемента
+
+#### LOAD_ELEMENT_REQUEST
+**НОВЫЙ**: Объединяет CALC_SETTINGS_REQUEST, CALC_OPERATION_REQUEST, CALC_MATERIAL_REQUEST и т.д.
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "LOAD_ELEMENT_REQUEST",
+  "requestId": "load_element_request_1234567890_abc123",
+  "payload": {
+    "elementType": "calculator",
+    "elementId": 42,
+    "iblockId": 10,
+    "iblockType": "calculator"
+  }
+}
+```
+
+**elementType**: `"calculator"` | `"operation"` | `"material"` | `"equipment"`
+
+**Ответ**: RESPONSE с requestType="LOAD_ELEMENT_REQUEST" и state.loadedElement
+
+### Детали
+
+#### ADD_DETAIL_REQUEST
+Создание новой детали. (Переименован из ADD_NEW_DETAIL_REQUEST)
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "ADD_DETAIL_REQUEST",
+  "requestId": "add_detail_request_1234567890_abc123",
+  "payload": {
+    "offerIds": [525, 526],
+    "name": "Новая деталь",
+    "iblockId": 15,
+    "iblockType": "calculator"
+  }
+}
+```
+
+**Ответ**: RESPONSE с requestType="ADD_DETAIL_REQUEST"
+
+#### SELECT_DETAILS_REQUEST
+Запрос на выбор существующих деталей из справочника.
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "SELECT_DETAILS_REQUEST",
+  "requestId": "select_details_request_1234567890_abc123",
+  "payload": {
+    "iblockId": 15,
+    "iblockType": "calculator"
+  }
+}
+```
+
+**Ответ**: RESPONSE с requestType="SELECT_DETAILS_REQUEST"
+
+#### UPDATE_DETAIL_REQUEST
+Обновление детали. **НОВЫЙ**: объединяет CHANGE_NAME_DETAIL_REQUEST и другие операции обновления.
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "UPDATE_DETAIL_REQUEST",
+  "requestId": "update_detail_request_1234567890_abc123",
+  "payload": {
+    "detailId": 100,
+    "updates": {
+      "name": "Новое название",
+      "width": 210,
+      "length": 297
+    },
+    "iblockId": 15,
+    "iblockType": "calculator"
+  }
+}
+```
+
+**Ответ**: RESPONSE с requestType="UPDATE_DETAIL_REQUEST"
+
+#### DELETE_DETAIL_REQUEST
+Удаление детали.
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "DELETE_DETAIL_REQUEST",
+  "requestId": "delete_detail_request_1234567890_abc123",
+  "payload": {
+    "detailId": 100,
+    "iblockId": 15,
+    "iblockType": "calculator"
+  }
+}
+```
+
+**Ответ**: RESPONSE с requestType="DELETE_DETAIL_REQUEST"
+
+### Этапы
+
+#### ADD_STAGE_REQUEST
+Создание нового этапа. (Переименован из ADD_NEW_STAGE_REQUEST)
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "ADD_STAGE_REQUEST",
+  "requestId": "add_stage_request_1234567890_abc123",
+  "payload": {
+    "detailId": 100,
+    "previousStageId": 50,
+    "iblockId": 20,
+    "iblockType": "calculator"
+  }
+}
+```
+
+**Ответ**: RESPONSE с requestType="ADD_STAGE_REQUEST"
+
+#### UPDATE_STAGE_REQUEST
+**НОВЫЙ**: Обновление этапа.
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "UPDATE_STAGE_REQUEST",
+  "requestId": "update_stage_request_1234567890_abc123",
+  "payload": {
+    "stageId": 50,
+    "detailId": 100,
+    "updates": {
+      "calculatorId": 42,
+      "operationId": 10,
+      "materialId": 15,
+      "equipmentId": 8,
+      "operationQuantity": 2,
+      "materialQuantity": 1.5
+    },
+    "iblockId": 20,
+    "iblockType": "calculator"
+  }
+}
+```
+
+**Ответ**: RESPONSE с requestType="UPDATE_STAGE_REQUEST"
+
+#### DELETE_STAGE_REQUEST
+Удаление этапа (с расширенной информацией).
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "DELETE_STAGE_REQUEST",
+  "requestId": "delete_stage_request_1234567890_abc123",
+  "payload": {
+    "stageId": 50,
+    "detailId": 100,
+    "previousStageId": 49,
+    "nextStageId": 51,
+    "iblockId": 20,
+    "iblockType": "calculator"
+  }
+}
+```
+
+**Ответ**: RESPONSE с requestType="DELETE_STAGE_REQUEST"
+
+### Группы/Скрепления
+
+#### ADD_GROUP_REQUEST
+Создание новой группы. (Переименован из ADD_NEW_GROUP_REQUEST)
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "ADD_GROUP_REQUEST",
+  "requestId": "add_group_request_1234567890_abc123",
+  "payload": {
+    "name": "Группа скрепления",
+    "detailIds": [100, 101, 102],
+    "iblockId": 15,
+    "iblockType": "calculator"
+  }
+}
+```
+
+**Ответ**: RESPONSE с requestType="ADD_GROUP_REQUEST"
+
+#### UPDATE_GROUP_REQUEST
+**НОВЫЙ**: Обновление группы.
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "UPDATE_GROUP_REQUEST",
+  "requestId": "update_group_request_1234567890_abc123",
+  "payload": {
+    "groupId": "group_123",
+    "updates": {
+      "name": "Новое название группы"
+    },
+    "iblockId": 15,
+    "iblockType": "calculator"
+  }
+}
+```
+
+**Ответ**: RESPONSE с requestType="UPDATE_GROUP_REQUEST"
+
+#### DELETE_GROUP_REQUEST
+Удаление группы.
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "DELETE_GROUP_REQUEST",
+  "requestId": "delete_group_request_1234567890_abc123",
+  "payload": {
+    "groupId": "group_123",
+    "detailIdToKeep": 100,
+    "deleteAll": false,
+    "iblockId": 15,
+    "iblockType": "calculator"
+  }
+}
+```
+
+**Ответ**: RESPONSE с requestType="DELETE_GROUP_REQUEST"
+
+### Сортировка
+
+#### REORDER_REQUEST
+**НОВЫЙ**: Изменение порядка элементов (деталей, этапов, групп).
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "REORDER_REQUEST",
+  "requestId": "reorder_request_1234567890_abc123",
+  "payload": {
+    "entityType": "stages",
+    "parentId": 100,
+    "orderedIds": [50, 51, 52, 53],
+    "iblockId": 20,
+    "iblockType": "calculator"
+  }
+}
+```
+
+**entityType**: `"details"` | `"stages"` | `"groups"`
+
+**Ответ**: RESPONSE с requestType="REORDER_REQUEST"
+
+### Обновление данных
+
+#### REFRESH_REQUEST
+Запрос на обновление данных из Битрикс.
+
+**Направление**: Калькулятор → Битрикс
+
+```json
+{
+  "protocol": "pwrt-v1",
+  "source": "prospektweb.calc",
+  "target": "bitrix",
+  "type": "REFRESH_REQUEST",
+  "requestId": "refresh_request_1234567890_abc123",
+  "payload": {
+    "offerIds": [525, 526, 527]
+  }
+}
+```
+
+**Ответ**: RESPONSE с requestType="REFRESH_REQUEST" и обновленным state
+
+## Удаленные типы
+
+Следующие типы были удалены в ходе рефакторинга:
+
+- `ADD_OFFER_REQUEST` - не используется
+- `REMOVE_OFFER_REQUEST` - не используется
+- `SELECT_REQUEST` - старая шапка с табами удалена
+- `SELECT_DONE` - заменён на RESPONSE
+- `CONFIG_ITEM_REMOVE` - не используется
+- `HEADER_ITEM_REMOVE` - не используется
+- `COPY_DETAIL_REQUEST` / `COPY_DETAIL_RESPONSE` - не используется
+- `USE_DETAIL_REQUEST` / `USE_DETAIL_RESPONSE` - объединён с SELECT_DETAILS_REQUEST
+- `SYNC_VARIANTS_REQUEST` / `SYNC_VARIANTS_RESPONSE` - дублирует REFRESH
+- `SAVE_RESULT` - заменён на RESPONSE
+- `REFRESH_RESULT` - заменён на RESPONSE
+
+**Все `*_RESPONSE` типы заменены на единый RESPONSE**:
+- `CALC_SETTINGS_RESPONSE`
+- `CALC_OPERATION_RESPONSE`
+- `CALC_MATERIAL_RESPONSE`
+- `CALC_OPERATION_VARIANT_RESPONSE`
+- `CALC_MATERIAL_VARIANT_RESPONSE`
+- `ADD_NEW_DETAIL_RESPONSE`
+- `SELECT_DETAILS_RESPONSE`
+- `DELETE_DETAIL_RESPONSE`
+- `DELETE_STAGE_RESPONSE`
+- `CHANGE_NAME_DETAIL_RESPONSE`
+- `ADD_NEW_GROUP_RESPONSE`
+- `DELETE_GROUP_RESPONSE`
+- `ADD_NEW_STAGE_RESPONSE`
+
+## Обратная совместимость
+
+Для обеспечения обратной совместимости:
+
+1. **Калькулятор** сохраняет старые методы отправки:
+   - `sendCalcSettingsRequest()` → использует `sendLoadElementRequest('calculator', ...)`
+   - `sendCalcOperationVariantRequest()` → использует `sendLoadElementRequest('operation', ...)`
+   - `sendCalcMaterialVariantRequest()` → использует `sendLoadElementRequest('material', ...)`
+
+2. **Битрикс** может продолжать отправлять старые типы ответов (`CALC_SETTINGS_RESPONSE`, etc.), калькулятор их обрабатывает.
+
+3. Рекомендуется переход на новый единый `RESPONSE` тип на стороне Битрикс.
+
+## Пример интеграции
+
+### Отправка запроса из калькулятора
+
+```typescript
+// Отправить запрос на загрузку калькулятора
+postMessageBridge.sendLoadElementRequest(
+  'calculator',
+  42,
+  10,
+  'calculator'
+)
+```
+
+### Обработка ответа в калькуляторе
+
+```typescript
+// Слушать единый RESPONSE
+postMessageBridge.on('RESPONSE', (message) => {
+  const { requestType, status, state, message: errorMessage } = message.payload
+  
+  if (status === 'error') {
+    toast.error(errorMessage)
+    return
+  }
+  
+  switch (requestType) {
+    case 'LOAD_ELEMENT_REQUEST':
+      if (state?.loadedElement) {
+        // Обработать загруженный элемент
+        console.log('Loaded:', state.loadedElement)
+      }
+      break
+      
+    case 'ADD_DETAIL_REQUEST':
+      if (state?.preset) {
+        // Обновить состояние
+        console.log('Detail added:', state.preset)
+      }
+      break
+      
+    // ... другие случаи
+  }
+})
+```
+
+### Отправка ответа из Битрикс
+
 ```javascript
-// calculator-integration.js
-
-class CalculatorIntegration {
-    constructor(iframeId) {
-        this.iframe = document.getElementById(iframeId);
-        this.state = null;
-        this.listeners = new Map();
-        
-        this.initializeListener();
+// Битрикс отправляет единый RESPONSE
+iframe.contentWindow.postMessage({
+  protocol: 'pwrt-v1',
+  source: 'bitrix',
+  target: 'prospektweb.calc',
+  type: 'RESPONSE',
+  requestId: message.requestId, // из исходного запроса
+  timestamp: Date.now(),
+  payload: {
+    requestType: 'ADD_DETAIL_REQUEST',
+    requestId: message.requestId,
+    status: 'success',
+    message: 'Деталь успешно создана',
+    state: {
+      preset: {...},
+      elementsStore: {...}
     }
-    
-    initializeListener() {
-        window.addEventListener('message', (event) => {
-            // Для безопасности проверяйте origin
-            // if (event.origin !== 'https://your-spark-app.dev') return;
-            
-            const payload = event.data;
-            
-            if (!payload || !payload.type) return;
-            
-            console.log('[Calculator] Received:', payload.type, payload.data);
-            
-            // Обработка разных типов сообщений
-            switch (payload.type) {
-                case 'INIT':
-                    this.onInit();
-                    break;
-                case 'STATE_UPDATE':
-                    this.onStateUpdate(payload.data);
-                    break;
-                case 'DETAIL_ADDED':
-                    this.onDetailAdded(payload.data.detail);
-                    break;
-                case 'CALCULATION_COMPLETE':
-                    this.onCalculationComplete(payload.data);
-                    break;
-                // ... другие обработчики
-            }
-            
-            // Вызов пользовательских обработчиков
-            const listeners = this.listeners.get(payload.type);
-            if (listeners) {
-                listeners.forEach(callback => callback(payload.data));
-            }
-        });
-    }
-    
-    sendMessage(type, data = {}) {
-        const payload = {
-            type,
-            data,
-            timestamp: Date.now()
-        };
-        
-        this.iframe.contentWindow.postMessage(payload, '*');
-    }
-    
-    requestState() {
-        this.sendMessage('STATE_REQUEST');
-    }
-    
-    setState(state) {
-        this.sendMessage('STATE_RESPONSE', state);
-    }
-    
-    on(type, callback) {
-        if (!this.listeners.has(type)) {
-            this.listeners.set(type, new Set());
-        }
-        this.listeners.get(type).add(callback);
-        
-        return () => {
-            const listeners = this.listeners.get(type);
-            if (listeners) {
-                listeners.delete(callback);
-            }
-        };
-    }
-    
-    onInit() {
-        console.log('[Calculator] Initialized');
-        
-        // Можно загрузить сохранённое состояние из БД
-        // и установить его в калькуляторе
-        const savedState = this.loadStateFromDatabase();
-        if (savedState) {
-            this.setState(savedState);
-        }
-    }
-    
-    onStateUpdate(state) {
-        this.state = state;
-        
-        // Сохранить состояние в БД
-        this.saveStateToDatabase(state);
-    }
-    
-    onDetailAdded(detail) {
-        console.log('[Calculator] Detail added:', detail);
-        
-        // Создать соответствующую запись в Битрикс
-        this.createDetailInBitrix(detail);
-    }
-    
-    onCalculationComplete(data) {
-        console.log('[Calculator] Calculation complete:', data);
-        
-        // Обновить цены в Битрикс
-        this.updatePricesInBitrix(data.result);
-    }
-    
-    // Интеграция с БД/API
-    loadStateFromDatabase() {
-        // Реализация загрузки состояния
-        return null;
-    }
-    
-    saveStateToDatabase(state) {
-        // Реализация сохранения состояния
-        console.log('Saving state:', state);
-    }
-    
-    createDetailInBitrix(detail) {
-        // Реализация создания детали в Битрикс
-        console.log('Creating detail in Bitrix:', detail);
-    }
-    
-    updatePricesInBitrix(result) {
-        // Реализация обновления цен в Битрикс
-        console.log('Updating prices in Bitrix:', result);
-    }
-}
-
-// Инициализация
-const calculator = new CalculatorIntegration('calculator-frame');
-
-// Подписка на события
-calculator.on('STATE_UPDATE', (state) => {
-    console.log('State changed:', state);
-    // Ваша логика обработки
-});
-
-calculator.on('CALCULATION_COMPLETE', (data) => {
-    console.log('Calculation finished:', data);
-    // Показать результаты пользователю
-});
-
-// Примеры взаимодействия
-document.getElementById('load-state').addEventListener('click', () => {
-    calculator.requestState();
-});
-
-document.getElementById('reset-calculator').addEventListener('click', () => {
-    calculator.setState({
-        selectedVariantIds: [],
-        testVariantId: null,
-        headerTabs: {
-            materials: [],
-            operations: [],
-            equipment: [],
-            details: []
-        },
-        details: [],
-        bindings: []
-    });
-});
+  }
+}, '*')
 ```
-
-### Пример полной интеграции с PHP (1С-Битрикс)
-
-```php
-<?php
-// calculator.php
-
-// Загрузка состояния калькулятора из БД
-$calculatorState = [];
-$variantId = (int)$_GET['variant_id'];
-
-if ($variantId > 0) {
-    // Загрузить из БД сохранённое состояние для этого варианта
-    $calculatorState = loadCalculatorState($variantId);
-}
-?>
-
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Калькулятор себестоимости</title>
-    <style>
-        body { margin: 0; padding: 0; overflow: hidden; }
-        #calculator-frame { width: 100vw; height: 100vh; border: none; }
-    </style>
-</head>
-<body>
-    <iframe 
-        id="calculator-frame" 
-        src="<?= CALCULATOR_URL ?>"
-    ></iframe>
-    
-    <script>
-        const VARIANT_ID = <?= $variantId ?>;
-        const INITIAL_STATE = <?= json_encode($calculatorState) ?>;
-        
-        const iframe = document.getElementById('calculator-frame');
-        let isInitialized = false;
-        
-        window.addEventListener('message', (event) => {
-            const payload = event.data;
-            
-            if (!payload || !payload.type) return;
-            
-            console.log('[Bitrix] Received:', payload.type);
-            
-            switch (payload.type) {
-                case 'INIT':
-                    if (!isInitialized) {
-                        isInitialized = true;
-                        
-                        // Установить начальное состояние
-                        if (INITIAL_STATE && Object.keys(INITIAL_STATE).length > 0) {
-                            iframe.contentWindow.postMessage({
-                                type: 'STATE_RESPONSE',
-                                data: INITIAL_STATE,
-                                timestamp: Date.now()
-                            }, '*');
-                        }
-                    }
-                    break;
-                    
-                case 'STATE_UPDATE':
-                    // Сохранить состояние на сервер
-                    saveState(payload.data);
-                    break;
-                    
-                case 'CALCULATION_COMPLETE':
-                    // Обновить цены в Битрикс
-                    updatePrices(payload.data.result);
-                    break;
-            }
-        });
-        
-        function saveState(state) {
-            fetch('/local/ajax/calculator_save_state.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    variant_id: VARIANT_ID,
-                    state: state
-                })
-            });
-        }
-        
-        function updatePrices(result) {
-            fetch('/local/ajax/calculator_update_prices.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    variant_id: VARIANT_ID,
-                    result: result
-                })
-            });
-        }
-    </script>
-</body>
-</html>
-```
-
-## Безопасность
-
-1. **Проверка origin**: Всегда проверяйте `event.origin` при получении сообщений
-2. **Валидация данных**: Проверяйте структуру и типы получаемых данных
-3. **HTTPS**: Используйте HTTPS для защиты передаваемых данных
-4. **Санитизация**: Очищайте данные перед отправкой в БД
 
 ## Отладка
 
-Все сообщения логируются в консоль с префиксами:
-- `[PostMessageBridge]` - для событий моста
-- `[App]` - для событий приложения
+Для включения режима отладки:
 
-Включите консоль браузера для мониторинга обмена сообщениями.
+```javascript
+localStorage.setItem('pwrt_debug', '1')
+```
+
+Все сообщения будут логироваться в консоль с префиксом `[PostMessageBridge]`.
