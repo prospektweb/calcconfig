@@ -152,9 +152,14 @@ async function handleSave(payload) {
     iframe.contentWindow.postMessage({
         source: 'bitrix',
         target: 'prospektweb.calc',
-        type: 'SAVE_RESULT',
+        type: 'RESPONSE',
         requestId: msg.requestId,
-        payload: result,
+        payload: {
+            requestType: 'SAVE_REQUEST',
+            requestId: msg.requestId,
+            status: 'success',
+            state: result
+        },
         timestamp: Date.now()
     }, '*');
 }
@@ -182,7 +187,7 @@ async function handleSave(payload) {
 | iframe → Битрикс | `INIT_DONE` | Инициализация завершена |
 | iframe → Битрикс | `CALC_PREVIEW` | Результат расчёта (без сохранения) |
 | iframe → Битрикс | `SAVE_REQUEST` | Запрос на сохранение |
-| Битрикс → iframe | `SAVE_RESULT` | Результат сохранения |
+| Битрикс → iframe | `RESPONSE` | Единый ответ на любой REQUEST (в т.ч. SAVE_REQUEST) |
 | Обе стороны | `ERROR` | Ошибка в процессе работы |
 | iframe → Битрикс | `CLOSE_REQUEST` | Запрос на закрытие окна |
 

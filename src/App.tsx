@@ -886,9 +886,9 @@ function App() {
   const handleCreateDetailConfirm = async () => {
     const name = newDetailName.trim() || `Деталь #${detailCounter.current++}`
     
-    // Send ADD_NEW_DETAIL_REQUEST
+    // Send ADD_DETAIL_REQUEST
     if (bitrixMeta && selectedVariantIds.length > 0) {
-      postMessageBridge.sendAddNewDetailRequest({
+      postMessageBridge.sendAddDetailRequest({
         offerIds: selectedVariantIds,
         name: name,
         ...getIblockInfo('CALC_DETAILS')!,
@@ -1842,9 +1842,9 @@ function App() {
             <Button onClick={() => {
               const name = newGroupName.trim() || 'Группа скрепления #1'
               
-              // Send ADD_NEW_GROUP_REQUEST
+              // Send ADD_GROUP_REQUEST
               if (bitrixMeta) {
-                postMessageBridge.sendAddNewGroupRequest({
+                postMessageBridge.sendAddGroupRequest({
                   name: name,
                   detailIds: groupDetailsToMerge,
                   ...getIblockInfo('CALC_DETAILS')!,

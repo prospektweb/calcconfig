@@ -1,5 +1,75 @@
 # Изменения в проекте: Интеграция с 1С-Битрикс
 
+## Последние изменения (2026-01-06)
+
+### Рефакторинг PostMessage протокола
+
+**Цель**: Упрощение и унификация протокола обмена сообщениями между калькулятором и Битрикс.
+
+#### Изменения в MessageType
+
+**Было**: 52 типа сообщений  
+**Стало**: 19 типов сообщений
+
+##### Новые типы:
+- `RESPONSE` — единый тип ответа на любой `*_REQUEST` (заменяет все `*_RESPONSE`)
+- `LOAD_ELEMENT_REQUEST` — унифицированный запрос загрузки элементов (калькулятор, операция, материал, оборудование)
+- `UPDATE_DETAIL_REQUEST` — обновление детали (объединяет `CHANGE_NAME_DETAIL_REQUEST`)
+- `UPDATE_STAGE_REQUEST` — обновление этапа (новый)
+- `UPDATE_GROUP_REQUEST` — обновление группы (новый)
+- `REORDER_REQUEST` — изменение порядка элементов (новый)
+
+##### Переименованные типы:
+- `ADD_NEW_DETAIL_REQUEST` → `ADD_DETAIL_REQUEST`
+- `ADD_NEW_STAGE_REQUEST` → `ADD_STAGE_REQUEST`
+- `ADD_NEW_GROUP_REQUEST` → `ADD_GROUP_REQUEST`
+
+##### Удаленные типы:
+- `ADD_OFFER_REQUEST`, `REMOVE_OFFER_REQUEST` — не используются
+- `SELECT_REQUEST`, `SELECT_DONE` — старая функциональность удалена
+- `CONFIG_ITEM_REMOVE`, `HEADER_ITEM_REMOVE` — не используются
+- `COPY_DETAIL_REQUEST`, `USE_DETAIL_REQUEST` — объединены с другими запросами
+- `SYNC_VARIANTS_REQUEST` — дублирует `REFRESH_REQUEST`
+- `SAVE_RESULT`, `REFRESH_RESULT` — заменены на `RESPONSE`
+- Все `*_RESPONSE` типы — заменены единым `RESPONSE`
+
+#### Новые payload интерфейсы
+
+- `LoadElementRequestPayload` — для `LOAD_ELEMENT_REQUEST`
+- `UpdateDetailRequestPayload` — для `UPDATE_DETAIL_REQUEST`
+- `AddStageRequestPayload` — для `ADD_STAGE_REQUEST`
+- `UpdateStageRequestPayload` — для `UPDATE_STAGE_REQUEST`
+- `DeleteStageRequestPayload` — расширенный для `DELETE_STAGE_REQUEST`
+- `ReorderRequestPayload` — для `REORDER_REQUEST`
+- `ResponsePayload` — унифицированный ответ
+
+#### Исправления багов
+
+1. **bitrix-utils.ts**: Исправлены пробелы в URL:
+   - `openBitrixAdmin`: убран пробел после `?` в URL (строка 64)
+   - `openIblockCatalog`: убран пробел после `?` в URL (строка 117)
+
+2. **StageTabs.tsx**: 
+   - Добавлено диалоговое окно подтверждения при удалении этапа
+   - Отправка `ADD_STAGE_REQUEST` при создании нового этапа
+   - Отправка `REORDER_REQUEST` при изменении порядка этапов (drag & drop)
+
+#### Обратная совместимость
+
+Калькулятор сохраняет старые методы отправки для обратной совместимости:
+- `sendCalcSettingsRequest()` → использует `sendLoadElementRequest('calculator', ...)`
+- `sendCalcOperationVariantRequest()` → использует `sendLoadElementRequest('operation', ...)`
+- `sendCalcMaterialVariantRequest()` → использует `sendLoadElementRequest('material', ...)`
+
+Битрикс может продолжать отправлять старые типы ответов, они обрабатываются.
+
+#### Обновленная документация
+
+- `POSTMESSAGE_API.md` — полностью переписан с описанием новых 19 типов
+- Удалены упоминания устаревших типов из всех документов
+
+---
+
 ## Обзор
 
 Проект полностью переработан для интеграции с 1С-Битрикс через протокол postMessage. Добавлена полная документация, обновлён API, изменён формат атрибутов UI.

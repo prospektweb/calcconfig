@@ -69,9 +69,11 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
         return
       }
 
-      postMessageBridge.sendChangeNameDetailRequest({
+      postMessageBridge.sendUpdateDetailRequest({
         detailId: detail.bitrixId,
-        newName: detail.name,
+        updates: {
+          name: detail.name,
+        },
         iblockId: detailsIblock.id,
         iblockType: detailsIblock.type,
       })
