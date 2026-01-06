@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
-import { CaretDown, CaretUp, Tag, Plus, Trash } from '@phosphor-icons/react'
+import { Tag, Plus, Trash } from '@phosphor-icons/react'
 import { 
   SalePricesSettings, 
   PriceTypeCode, 
@@ -16,19 +16,29 @@ import {
   PriceRange 
 } from '@/lib/types'
 
-interface PriceMessage {
-  id: string
-  timestamp: number
-  message: string
-}
+// Currency constants for price markup
+const CURRENCY_RUB = 'RUB'
+const CURRENCY_PERCENT = 'PRC'
+
+// Measure codes
+const MEASURE_CODE_PIECES = '796'  // pieces (show 'cost')
+const MEASURE_CODE_SERVICE = '999' // service (show 'run')
 
 interface PricePanelProps {
-  messages: PriceMessage[]
-  isExpanded: boolean
-  onToggle: () => void
   settings: SalePricesSettings
   onSettingsChange: (settings: SalePricesSettings) => void
   priceTypes?: Array<{ id: number; name: string; base: boolean; sort: number }>
+  presetPrices?: Array<{
+    typeId: number
+    price: number
+    currency: string  // "RUB" or "PRC" (percent)
+    quantityFrom: number | null
+    quantityTo: number | null
+  }>
+  presetMeasure?: {
+    code: string  // "796" = pieces (show 'cost'), "999" = service (show 'run')
+    name: string
+  }
 }
 
 const PRICE_TYPE_OPTIONS: Array<{ value: PriceTypeCode; label: string }> = [
@@ -48,20 +58,19 @@ const MARKUP_UNIT_OPTIONS: Array<{ value: MarkupUnit; label: string }> = [
 
 const createDefaultPriceTypeSettings = (): PriceTypeSettings => ({
   correctionBase: 'RUN',
-  prettyPriceEnabled: false,
-  prettyPriceCommonLimitEnabled: false,
-  prettyPriceCommonLimitRub: 100,
   ranges: [
     {
       from: 0,
       markupValue: 0,
       markupUnit: '%',
-      prettyPriceLimitRub: 100,
     }
   ],
 })
 
-export function PricePanel({ messages, isExpanded, onToggle, settings, onSettingsChange, priceTypes }: PricePanelProps) {
+export function PricePanel({ settings, onSettingsChange, priceTypes, presetPrices, presetMeasure }: PricePanelProps) {
+  // Determine correctionBase from presetMeasure
+  const defaultCorrectionBase: CorrectionBase = presetMeasure?.code === MEASURE_CODE_PIECES ? 'COST' : 'RUN'
+  
   // Transform priceTypes from props to options, fallback to hardcoded if not provided
   const priceTypeOptions = priceTypes && priceTypes.length > 0
     ? priceTypes.map(pt => ({
@@ -72,14 +81,58 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
       }))
     : PRICE_TYPE_OPTIONS
 
+  // Find base price type
+  const basePriceType = priceTypeOptions.find(pt => pt.isBase)
+  
+  // Initialize base price type on mount if not already selected
+  useEffect(() => {
+    if (basePriceType && !settings.selectedTypes.includes(basePriceType.value)) {
+      const newTypes = { ...settings.types }
+      if (!newTypes[basePriceType.value]) {
+        newTypes[basePriceType.value] = {
+          ...createDefaultPriceTypeSettings(),
+          correctionBase: defaultCorrectionBase,
+        }
+      }
+      onSettingsChange({
+        ...settings,
+        selectedTypes: [basePriceType.value, ...settings.selectedTypes],
+        types: newTypes,
+      })
+    }
+  }, [basePriceType, settings, onSettingsChange, defaultCorrectionBase])
+
+  // Get active price types from presetPrices
+  const activePriceTypeIds = new Set(presetPrices?.map(p => p.typeId) || [])
+  
   const handleTypeSelection = (priceType: PriceTypeCode, checked: boolean) => {
+    // Don't allow unchecking base price type
+    if (!checked && basePriceType?.value === priceType) {
+      return
+    }
+    
     const newSelectedTypes = checked
       ? [...settings.selectedTypes, priceType]
       : settings.selectedTypes.filter(t => t !== priceType)
     
     const newTypes = { ...settings.types }
     if (checked && !newTypes[priceType]) {
-      newTypes[priceType] = createDefaultPriceTypeSettings()
+      // Get markupUnit from presetPrices for this type
+      const priceTypeOption = priceTypeOptions.find(pt => pt.value === priceType)
+      const presetPrice = presetPrices?.find(p => p.typeId === priceTypeOption?.id)
+      const markupUnit: MarkupUnit = presetPrice?.currency === CURRENCY_PERCENT ? '%' : 'RUB'
+      
+      // Copy ranges from base type if available
+      const baseSettings = basePriceType ? newTypes[basePriceType.value] : null
+      const ranges = baseSettings?.ranges?.map(r => ({
+        ...r,
+        markupUnit,
+      })) || createDefaultPriceTypeSettings().ranges
+      
+      newTypes[priceType] = {
+        correctionBase: defaultCorrectionBase,
+        ranges,
+      }
     }
     
     onSettingsChange({
@@ -87,6 +140,37 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
       selectedTypes: newSelectedTypes,
       types: newTypes,
     })
+  }
+
+  // Sync ranges to all active types when base type ranges change
+  const syncRangesToAllTypes = (baseRanges: PriceRange[]) => {
+    if (!basePriceType) return
+    
+    const newTypes = { ...settings.types }
+    
+    for (const priceType of settings.selectedTypes) {
+      if (priceType !== basePriceType.value && newTypes[priceType]) {
+        const priceTypeOption = priceTypeOptions.find(pt => pt.value === priceType)
+        const presetPrice = presetPrices?.find(p => p.typeId === priceTypeOption?.id)
+        const defaultMarkupUnit: MarkupUnit = presetPrice?.currency === CURRENCY_PERCENT ? '%' : 'RUB'
+        
+        newTypes[priceType] = {
+          ...newTypes[priceType],
+          ranges: baseRanges.map(r => {
+            const existingRange = newTypes[priceType].ranges.find(
+              existingRange => existingRange.from === r.from
+            )
+            return {
+              from: r.from,
+              markupValue: existingRange?.markupValue ?? r.markupValue,
+              markupUnit: existingRange?.markupUnit ?? defaultMarkupUnit,
+            }
+          })
+        }
+      }
+    }
+    
+    onSettingsChange({ ...settings, types: newTypes })
   }
 
   const updatePriceTypeSettings = (priceType: PriceTypeCode, updates: Partial<PriceTypeSettings>) => {
@@ -137,9 +221,6 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
       from: newFrom,
       markupValue: 0,
       markupUnit: '%',
-      prettyPriceLimitRub: typeSettings.prettyPriceCommonLimitEnabled 
-        ? typeSettings.prettyPriceCommonLimitRub 
-        : 100,
     }
     
     const newRanges = [
@@ -149,6 +230,11 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
     ]
     
     updatePriceTypeSettings(priceType, { ranges: newRanges })
+    
+    // If this is base type, sync to all other types
+    if (basePriceType?.value === priceType) {
+      syncRangesToAllTypes(newRanges)
+    }
   }
 
   const removeRange = (priceType: PriceTypeCode, index: number) => {
@@ -159,6 +245,11 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
     
     const newRanges = typeSettings.ranges.filter((_, i) => i !== index)
     updatePriceTypeSettings(priceType, { ranges: newRanges })
+    
+    // If this is base type, sync to all other types
+    if (basePriceType?.value === priceType) {
+      syncRangesToAllTypes(newRanges)
+    }
   }
 
   const updateRange = (priceType: PriceTypeCode, index: number, updates: Partial<PriceRange>) => {
@@ -169,285 +260,199 @@ export function PricePanel({ messages, isExpanded, onToggle, settings, onSetting
       i === index ? { ...range, ...updates } : range
     )
     updatePriceTypeSettings(priceType, { ranges: newRanges })
+    
+    // If this is base type and 'from' was updated, sync to all other types
+    if (basePriceType?.value === priceType && 'from' in updates) {
+      syncRangesToAllTypes(newRanges)
+    }
   }
 
   return (
     <div id="panel-sale-prices" className="border-t border-border bg-card" data-pwcode="pricepanel">
-      <button
-        onClick={onToggle}
-        className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
-        data-pwcode="btn-toggle-pricepanel"
-      >
+      <div className="px-4 py-2 flex items-center">
         <span className="text-sm font-medium flex items-center gap-2">
           <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
             <Tag className="w-4 h-4" />
           </div>
           Отпускные цены
         </span>
-        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-          {isExpanded ? <CaretUp className="w-4 h-4" /> : <CaretDown className="w-4 h-4" />}
-        </div>
-      </button>
+      </div>
       
-      {isExpanded && (
-        <div className="border-t border-border overflow-y-scroll scrollbar-gutter-stable" style={{ maxHeight: '500px' }} data-pwcode="price-content">
-          <div className="px-4 py-3 space-y-4">
-              <div className="space-y-2">
-                <Label>Типы цен</Label>
-                <div className="flex items-center gap-4" data-pwcode="price-types-select">
-                  {priceTypeOptions.map(option => (
-                    <div key={option.value} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`price-type-${option.value}`}
-                        checked={settings.selectedTypes.includes(option.value)}
-                        onCheckedChange={(checked) => handleTypeSelection(option.value, checked as boolean)}
-                        data-pwcode="checkbox-pricetype"
-                      />
-                      <Label htmlFor={`price-type-${option.value}`} className="cursor-pointer">
-                        {option.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {settings.selectedTypes.map(priceType => {
-                const typeSettings = settings.types[priceType]
-                if (!typeSettings) return null
-
-                const priceTypeLabel = priceTypeOptions.find(o => o.value === priceType)?.label || priceType
-
+      <div className="border-t border-border overflow-y-scroll scrollbar-gutter-stable" style={{ maxHeight: '500px' }} data-pwcode="price-content">
+        <div className="px-4 py-3 space-y-4">
+          <div className="space-y-2">
+            <Label>Типы цен</Label>
+            <div className="flex items-center gap-4" data-pwcode="price-types-select">
+              {priceTypeOptions.map(option => {
+                const isBase = option.isBase
+                const priceTypeOption = priceTypeOptions.find(pt => pt.value === option.value)
+                const isActive = activePriceTypeIds.has(priceTypeOption?.id || 0) || isBase
+                const isChecked = settings.selectedTypes.includes(option.value)
+                
                 return (
-                  <div key={priceType} className="border border-border rounded-lg p-3 space-y-3 bg-muted/20" data-pwcode="price-type-block">
-                    <h3 className="font-medium text-sm">{priceTypeLabel}</h3>
-
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor={`correction-base-${priceType}`} className="whitespace-nowrap">Коррекция на основе</Label>
-                        <Select 
-                          value={typeSettings.correctionBase} 
-                          onValueChange={(value: CorrectionBase) => 
-                            updatePriceTypeSettings(priceType, { correctionBase: value })
-                          }
-                        >
-                          <SelectTrigger id={`correction-base-${priceType}`} className="w-32" data-pwcode="select-correction">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CORRECTION_BASE_OPTIONS.map(option => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id={`pretty-price-${priceType}`}
-                          checked={typeSettings.prettyPriceEnabled}
-                          onCheckedChange={(checked) => 
-                            updatePriceTypeSettings(priceType, { 
-                              prettyPriceEnabled: checked as boolean,
-                              prettyPriceCommonLimitEnabled: false,
-                            })
-                          }
-                          data-pwcode="checkbox-prettyprice"
-                        />
-                        <Label htmlFor={`pretty-price-${priceType}`} className="cursor-pointer whitespace-nowrap">
-                          Подбор "красивой" цены
-                        </Label>
-                      </div>
-
-                      {typeSettings.prettyPriceEnabled && (
-                        <>
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id={`common-limit-${priceType}`}
-                              checked={typeSettings.prettyPriceCommonLimitEnabled}
-                              onCheckedChange={(checked) => 
-                                updatePriceTypeSettings(priceType, { 
-                                  prettyPriceCommonLimitEnabled: checked as boolean 
-                                })
-                              }
-                              data-pwcode="checkbox-commonlimit"
-                            />
-                            <Label htmlFor={`common-limit-${priceType}`} className="cursor-pointer whitespace-nowrap">
-                              Общее ограничение
-                            </Label>
-                          </div>
-
-                          {typeSettings.prettyPriceCommonLimitEnabled && (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                value={typeSettings.prettyPriceCommonLimitRub}
-                                onChange={(e) => 
-                                  updatePriceTypeSettings(priceType, { 
-                                    prettyPriceCommonLimitRub: parseFloat(e.target.value) || 100 
-                                  })
-                                }
-                                className="w-24"
-                                min={0}
-                                step={1}
-                                data-pwcode="input-commonlimit"
-                              />
-                              <span className="text-sm text-muted-foreground">руб.</span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Диапазоны наценки</Label>
-                      <div className="space-y-2">
-                        {typeSettings.ranges.map((range, index) => {
-                          const to = calculateTo(typeSettings.ranges, index)
-                          const isFirst = index === 0
-
-                          return (
-                            <div key={index} className="flex items-center gap-2 flex-wrap text-sm" data-pwcode="price-range">
-                              <span className="text-muted-foreground">от</span>
-                              <Input
-                                type="number"
-                                value={range.from}
-                                onChange={(e) => {
-                                  const newValue = parseFloat(e.target.value) || 0
-                                  updateRange(priceType, index, { from: newValue })
-                                }}
-                                onBlur={(e) => {
-                                  const newValue = parseFloat(e.target.value) || 0
-                                  if (index > 0 && newValue >= 1) {
-                                    const prevFrom = typeSettings.ranges[index - 1]?.from || 0
-                                    if (newValue <= prevFrom) {
-                                      updateRange(priceType, index, { from: prevFrom + 1 })
-                                    }
-                                  }
-                                }}
-                                disabled={isFirst}
-                                className="w-24"
-                                min={1}
-                                data-pwcode="input-range-from"
-                              />
-
-                              <span className="text-muted-foreground">до</span>
-                              <Input
-                                type="text"
-                                value={to === null ? '∞' : to.toString()}
-                                disabled
-                                className="w-24"
-                                data-pwcode="input-range-to"
-                              />
-
-                              <span className="text-muted-foreground">применить наценку</span>
-                              <Input
-                                type="number"
-                                value={range.markupValue}
-                                onChange={(e) => 
-                                  updateRange(priceType, index, { 
-                                    markupValue: parseFloat(e.target.value) || 0 
-                                  })
-                                }
-                                className="w-24"
-                                min={0}
-                                step={0.1}
-                                data-pwcode="input-markup-value"
-                              />
-
-                              <Select 
-                                value={range.markupUnit} 
-                                onValueChange={(value: MarkupUnit) => 
-                                  updateRange(priceType, index, { markupUnit: value })
-                                }
-                              >
-                                <SelectTrigger className="w-20" data-pwcode="select-markup-unit">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {MARKUP_UNIT_OPTIONS.map(option => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                      {option.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-
-                              {typeSettings.prettyPriceEnabled && !typeSettings.prettyPriceCommonLimitEnabled && (
-                                <>
-                                  <span className="text-muted-foreground">подбор цены в рамках</span>
-                                  <Input
-                                    type="number"
-                                    value={range.prettyPriceLimitRub}
-                                    onChange={(e) => 
-                                      updateRange(priceType, index, { 
-                                        prettyPriceLimitRub: parseFloat(e.target.value) || 100 
-                                      })
-                                    }
-                                    className="w-24"
-                                    min={0}
-                                    step={1}
-                                    data-pwcode="input-prettylimit"
-                                  />
-                                  <span className="text-muted-foreground">руб.</span>
-                                </>
-                              )}
-
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => addRange(priceType, index)}
-                                className="h-8 w-8 p-0"
-                                title="Добавить диапазон"
-                                data-pwcode="btn-add-range"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </Button>
-
-                              {!isFirst && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeRange(priceType, index)}
-                                  className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                                  title="Удалить диапазон"
-                                  data-pwcode="btn-remove-range"
-                                >
-                                  <Trash className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
+                  <div key={option.value} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`price-type-${option.value}`}
+                      checked={isChecked}
+                      onCheckedChange={(checked) => handleTypeSelection(option.value, checked as boolean)}
+                      disabled={isBase || !isActive}
+                      data-pwcode="checkbox-pricetype"
+                    />
+                    <Label htmlFor={`price-type-${option.value}`} className={`cursor-pointer ${!isActive && !isBase ? 'text-muted-foreground' : ''}`}>
+                      {option.label} {isBase && '(базовый)'}
+                    </Label>
                   </div>
                 )
               })}
-
-              {messages.length > 0 && (
-                <div className="pt-2 border-t border-border">
-                  <Label className="text-xs text-muted-foreground mb-2 block">Сообщения</Label>
-                  <ScrollArea className="h-[100px]">
-                    <div className="space-y-1">
-                      {messages.map(msg => (
-                        <div key={msg.id} className="flex items-start gap-2 py-1">
-                          <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
-                            <Badge className="bg-accent text-accent-foreground">
-                              <Tag className="w-3.5 h-3.5" />
-                            </Badge>
-                          </div>
-                          <span className="text-sm flex-1">{msg.message}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </div>
-              )}
             </div>
           </div>
-        )}
+
+          {settings.selectedTypes.map(priceType => {
+            const typeSettings = settings.types[priceType]
+            if (!typeSettings) return null
+
+            const priceTypeLabel = priceTypeOptions.find(o => o.value === priceType)?.label || priceType
+            const isBaseType = basePriceType?.value === priceType
+
+            return (
+              <div key={priceType} className="border border-border rounded-lg p-3 space-y-3 bg-muted/20" data-pwcode="price-type-block">
+                <h3 className="font-medium text-sm">{priceTypeLabel}</h3>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor={`correction-base-${priceType}`} className="whitespace-nowrap">Коррекция на основе</Label>
+                    <Select 
+                      value={typeSettings.correctionBase} 
+                      onValueChange={(value: CorrectionBase) => 
+                        updatePriceTypeSettings(priceType, { correctionBase: value })
+                      }
+                    >
+                      <SelectTrigger id={`correction-base-${priceType}`} className="w-32" data-pwcode="select-correction">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CORRECTION_BASE_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Диапазоны наценки</Label>
+                  <div className="space-y-2">
+                    {typeSettings.ranges.map((range, index) => {
+                      const to = calculateTo(typeSettings.ranges, index)
+                      const isFirst = index === 0
+                      const priceTypeOption = priceTypeOptions.find(pt => pt.value === priceType)
+                      const presetPrice = presetPrices?.find(p => p.typeId === priceTypeOption?.id)
+
+                      return (
+                        <div key={index} className="flex items-center gap-2 flex-wrap text-sm" data-pwcode="price-range">
+                          <span className="text-muted-foreground">от</span>
+                          <Input
+                            type="number"
+                            value={range.from}
+                            onChange={(e) => {
+                              const newValue = parseFloat(e.target.value) || 0
+                              updateRange(priceType, index, { from: newValue })
+                            }}
+                            onBlur={(e) => {
+                              const newValue = parseFloat(e.target.value) || 0
+                              if (index > 0 && newValue >= 1) {
+                                const prevFrom = typeSettings.ranges[index - 1]?.from || 0
+                                if (newValue <= prevFrom) {
+                                  updateRange(priceType, index, { from: prevFrom + 1 })
+                                }
+                              }
+                            }}
+                            disabled={isFirst || !isBaseType}
+                            className="w-24"
+                            min={1}
+                            data-pwcode="input-range-from"
+                          />
+
+                          <span className="text-muted-foreground">до</span>
+                          <Input
+                            type="text"
+                            value={to === null ? '∞' : to.toString()}
+                            disabled
+                            className="w-24"
+                            data-pwcode="input-range-to"
+                          />
+
+                          <span className="text-muted-foreground">применить наценку</span>
+                          <Input
+                            type="number"
+                            value={range.markupValue}
+                            onChange={(e) => 
+                              updateRange(priceType, index, { 
+                                markupValue: parseFloat(e.target.value) || 0 
+                              })
+                            }
+                            className="w-24"
+                            min={0}
+                            step={0.1}
+                            data-pwcode="input-markup-value"
+                          />
+
+                          <Select 
+                            value={range.markupUnit} 
+                            onValueChange={(value: MarkupUnit) => 
+                              updateRange(priceType, index, { markupUnit: value })
+                            }
+                            disabled={presetPrice?.currency === CURRENCY_PERCENT}
+                          >
+                            <SelectTrigger className="w-20" data-pwcode="select-markup-unit">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {MARKUP_UNIT_OPTIONS.map(option => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          {isBaseType && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => addRange(priceType, index)}
+                              className="h-8 w-8 p-0"
+                              title="Добавить диапазон"
+                              data-pwcode="btn-add-range"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          )}
+
+                          {!isFirst && isBaseType && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeRange(priceType, index)}
+                              className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                              title="Удалить диапазон"
+                              data-pwcode="btn-remove-range"
+                            >
+                              <Trash className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
