@@ -41,9 +41,9 @@ interface PricePanelProps {
   }
 }
 
-const PRICE_TYPE_OPTIONS: Array<{ value: PriceTypeCode; label: string }> = [
-  { value: 'BASE_PRICE', label: 'Розничная цена' },
-  { value: 'TRADE_PRICE', label: 'Оптовая цена' },
+const PRICE_TYPE_OPTIONS: Array<{ value: PriceTypeCode; label: string; id?: number; isBase?: boolean }> = [
+  { value: 'BASE_PRICE', label: 'Розничная цена', id: 1, isBase: true },
+  { value: 'TRADE_PRICE', label: 'Оптовая цена', id: 2, isBase: false },
 ]
 
 const CORRECTION_BASE_OPTIONS: Array<{ value: CorrectionBase; label: string }> = [
