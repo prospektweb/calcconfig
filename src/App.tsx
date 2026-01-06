@@ -699,8 +699,8 @@ function App() {
         postMessageBridge.sendDeleteStageRequest({
           stageId: stage.stageId,
           detailId: detail.bitrixId,
-          previousStageId: detail.stages[stageToDelete.calcIndex - 1]?.stageId,
-          nextStageId: detail.stages[stageToDelete.calcIndex + 1]?.stageId,
+          previousStageId: detail.stages[stageToDelete.calcIndex - 1]?.stageId ?? undefined,
+          nextStageId: detail.stages[stageToDelete.calcIndex + 1]?.stageId ?? undefined,
           iblockId: stagesIblock.iblockId,
           iblockType: stagesIblock.iblockType,
         })

@@ -398,7 +398,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
       if (stagesIblock) {
         postMessageBridge.sendAddStageRequest({
           detailId: detailId,
-          previousStageId: previousStage?.stageId,
+          previousStageId: previousStage?.stageId ?? undefined,
           iblockId: stagesIblock.id,
           iblockType: stagesIblock.type,
         })
