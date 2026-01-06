@@ -61,7 +61,7 @@ export function openBitrixAdmin(params: OpenBitrixAdminParams) {
     if (isSection) {
       url = `${baseUrl}/bitrix/admin/iblock_section_edit.php?IBLOCK_ID=${iblockId}&type=${type}&lang=${lang}&ID=${id}`
     } else {
-      url = `${baseUrl}/bitrix/admin/iblock_element_edit.php? IBLOCK_ID=${iblockId}&type=${type}&lang=${lang}&ID=${id}`
+      url = `${baseUrl}/bitrix/admin/iblock_element_edit.php?IBLOCK_ID=${iblockId}&type=${type}&lang=${lang}&ID=${id}`
     }
   } else {
     url = `${baseUrl}/bitrix/admin/iblock_list_admin.php?IBLOCK_ID=${iblockId}&type=${type}&lang=${lang}&find_section_section=0`
@@ -114,7 +114,7 @@ export function openIblockCatalog(iblock: Iblock, lang: string = 'ru') {
   }
 
   const { baseUrl } = bitrixContext
-  const url = `${baseUrl}/bitrix/admin/iblock_list_admin.php? IBLOCK_ID=${iblock.id}&type=${iblock.type}&lang=${lang}&find_section_section=0`
+  const url = `${baseUrl}/bitrix/admin/iblock_list_admin.php?IBLOCK_ID=${iblock.id}&type=${iblock.type}&lang=${lang}&find_section_section=0`
 
   try {
     const newWindow = window.open(url, '_blank', 'noopener')
