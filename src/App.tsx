@@ -946,6 +946,11 @@ function App() {
   }
 
   const handleDeleteGroupKeepDetail = (detailId: number | string) => {
+    console.log('[DELETE_GROUP] Deleting group, keeping detail', { 
+      groupId: groupToDelete?.id, 
+      detailIdToKeep: detailId 
+    })
+    
     // Logic for keeping one detail and removing group
     if (!groupToDelete || !bitrixMeta) return
     
@@ -962,6 +967,10 @@ function App() {
   }
 
   const handleDeleteGroupAll = () => {
+    console.log('[DELETE_GROUP] Deleting group and all details', { 
+      groupId: groupToDelete?.id 
+    })
+    
     // Logic for deleting all details in group
     if (!groupToDelete || !bitrixMeta) return
     
@@ -1151,11 +1160,23 @@ function App() {
       newBinding.bindingIds.push(item2.id)
     }
     
+    console.log('[ADD_BINDING] Creating binding', { 
+      bindingId: newBinding.id, 
+      detailIds: newBinding.detailIds, 
+      bindingIds: newBinding.bindingIds 
+    })
+    
     setBindings(prev => [...(prev || []), newBinding])
     addInfoMessage('success', `Создано скрепление`)
   }
 
   const handleCalculation = async () => {
+    console.log('[CALC_RUN] Starting calculation', { 
+      detailsCount: details?.length || 0,
+      bindingsCount: bindings?.length || 0,
+      selectedOffers: selectedOffers.length
+    })
+    
     setIsCalculating(true)
     setCalculationProgress(0)
     
