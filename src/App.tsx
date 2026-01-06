@@ -1308,11 +1308,9 @@ function App() {
         )}
 
         <PricePanel
-          settings={salePricesSettings || { selectedTypes: [], types: {} }}
-          onSettingsChange={(newSettings) => setSalePricesSettings(newSettings)}
           priceTypes={bitrixMeta?.priceTypes}
           presetPrices={bitrixMeta?.preset?.prices}
-          presetMeasure={bitrixMeta?.preset?.measure}
+          presetId={bitrixMeta?.preset?.id}
         />
 
         <InfoPanel
