@@ -387,12 +387,11 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   const safeCalculators = calculators || []
 
   const handleAddCalculator = () => {
-    const newCalc = createEmptyStage()
-    
     // Найти предыдущий этап
     const previousStage = safeCalculators[safeCalculators.length - 1]
     
-    // Отправить событие в Битрикс
+    // Только отправить запрос, НЕ обновлять UI
+    // UI обновится при получении RESPONSE
     if (bitrixMeta && detailId) {
       const stagesIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_STAGES')
       if (stagesIblock) {
@@ -404,9 +403,6 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
         })
       }
     }
-    
-    onChange([...safeCalculators, newCalc])
-    setActiveTab(safeCalculators.length)
   }
 
   const handleRemoveCalculator = (index:  number) => {
@@ -415,10 +411,21 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
       return
     }
     
-    const newCalculators = safeCalculators.filter((_, i) => i !== index)
-    onChange(newCalculators)
-    if (activeTab >= newCalculators.length) {
-      setActiveTab(Math.max(0, newCalculators.length - 1))
+    const stage = safeCalculators[index]
+    // Только отправить запрос, НЕ обновлять UI
+    // UI обновится при получении RESPONSE
+    if (stage?.stageId && bitrixMeta && detailId) {
+      const stagesIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_STAGES')
+      if (stagesIblock) {
+        postMessageBridge.sendDeleteStageRequest({
+          stageId: stage.stageId,
+          detailId: detailId,
+          previousStageId: safeCalculators[index - 1]?.stageId,
+          nextStageId: safeCalculators[index + 1]?.stageId,
+          iblockId: stagesIblock.id,
+          iblockType: stagesIblock.type,
+        })
+      }
     }
   }
 
@@ -427,6 +434,24 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
       i === index ? {...calc,...updates } : calc
     )
     onChange(newCalculators)
+  }
+
+  const handleQuantityBlur = (index: number, field: 'operationQuantity' | 'materialQuantity') => {
+    const stage = safeCalculators[index]
+    if (stage?.stageId && bitrixMeta && detailId) {
+      const stagesIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_STAGES')
+      if (stagesIblock) {
+        postMessageBridge.sendUpdateStageRequest({
+          stageId: stage.stageId,
+          detailId: detailId,
+          updates: {
+            [field]: stage[field],
+          },
+          iblockId: stagesIblock.id,
+          iblockType: stagesIblock.type,
+        })
+      }
+    }
   }
 
   const reorderStages = (fromIndex: number, toIndex: number) => {
@@ -1018,6 +1043,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                             onChange={(e) => handleUpdateCalculator(index, {
                               operationQuantity: parseInt(e.target.value) || 1
                             })}
+                            onBlur={() => handleQuantityBlur(index, 'operationQuantity')}
                             className="w-20 max-w-[80px]"
                           />
                           <span className="text-sm text-muted-foreground w-[40px] text-right">
@@ -1132,6 +1158,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                           onChange={(e) => handleUpdateCalculator(index, {
                             materialQuantity: parseInt(e.target.value) || 1
                           })}
+                          onBlur={() => handleQuantityBlur(index, 'materialQuantity')}
                           className="w-20 max-w-[80px]"
                         />
                         <span className="text-sm text-muted-foreground w-[40px] text-right">
