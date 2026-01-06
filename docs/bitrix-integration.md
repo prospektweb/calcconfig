@@ -247,10 +247,13 @@ type MessageType =
   | 'INIT_DONE'
   | 'CALC_PREVIEW'
   | 'SAVE_REQUEST'
-  | 'SAVE_RESULT'
+  | 'RESPONSE'  // Единый ответ на любой REQUEST
   | 'ERROR'
   | 'CLOSE_REQUEST'
+  // ... и другие REQUEST типы (см. POSTMESSAGE_API.md)
 ```
+
+**Примечание**: Полный список из 19 типов сообщений см. в [POSTMESSAGE_API.md](../POSTMESSAGE_API.md)
 
 ### Жизненный цикл сообщений
 
@@ -572,59 +575,62 @@ interface SaveRequestPayload {
 
 ---
 
-#### 6. SAVE_RESULT (Битрикс → iframe)
+#### 6. RESPONSE (Битрикс → iframe)
 
 **Когда отправляется:**  
-Ответ на SAVE_REQUEST.
+Ответ на любой `*_REQUEST` (включая SAVE_REQUEST, ADD_DETAIL_REQUEST и др.).
 
 **Задача:**  
-Сообщить о результате сохранения.
+Сообщить о результате выполнения запроса и передать обновленное состояние.
 
 **Payload:**
 ```typescript
-interface SaveResultPayload {
-  status: 'ok' | 'error' | 'partial'
-  configId?: number        // ID созданной/обновлённой конфигурации
-  successOffers?: number[] // ID успешно обновлённых ТП
-  errors?: Array<{
-    offerId: number
-    message: string
-    code?: string
-  }>
-  message?: string
-}
-```
-
-**Пример (успех):**
-```json
-{
-  "source": "bitrix",
-  "target": "prospektweb.calc",
-  "type": "SAVE_RESULT",
-  "requestId": "save_1234567890123",
-  "payload": {
-    "status": "ok",
-    "configId": 42,
-    "successOffers": [525, 526],
-    "message": "Конфигурация и торговые предложения успешно сохранены"
+interface ResponsePayload {
+  requestType: string      // Тип исходного запроса (например, 'SAVE_REQUEST')
+  requestId: string        // ID исходного запроса
+  status: 'success' | 'error'
+  message?: string         // Сообщение об ошибке или успехе
+  state?: {               // Обновленное состояние (опционально)
+    elementsStore?: ElementsStore
+    preset?: Preset
+    // ... другие поля состояния
   }
 }
 ```
 
-**Пример (частичный успех):**
+**Пример (успех сохранения):**
 ```json
 {
   "source": "bitrix",
   "target": "prospektweb.calc",
-  "type": "SAVE_RESULT",
+  "type": "RESPONSE",
   "requestId": "save_1234567890123",
   "payload": {
-    "status": "partial",
-    "configId": 42,
-    "successOffers": [525],
-    "errors": [
-      {
-        "offerId": 526,
+    "requestType": "SAVE_REQUEST",
+    "requestId": "save_1234567890123",
+    "status": "success",
+    "message": "Конфигурация и торговые предложения успешно сохранены",
+    "state": {
+      "preset": {
+        "configId": 42
+      }
+    }
+  }
+}
+```
+
+**Пример (ошибка):**
+```json
+{
+  "source": "bitrix",
+  "target": "prospektweb.calc",
+  "type": "RESPONSE",
+  "requestId": "save_1234567890123",
+  "payload": {
+    "requestType": "SAVE_REQUEST",
+    "requestId": "save_1234567890123",
+    "status": "error",
+    "message": "Не удалось сохранить конфигурацию: недостаточно прав"
         "message": "Не удалось обновить цену BASE_PRICE",
         "code": "PRICE_UPDATE_FAILED"
       }
