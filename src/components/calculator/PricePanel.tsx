@@ -16,6 +16,14 @@ import {
   PriceRange 
 } from '@/lib/types'
 
+// Currency constants for price markup
+const CURRENCY_RUB = 'RUB'
+const CURRENCY_PERCENT = 'PRC'
+
+// Measure codes
+const MEASURE_CODE_PIECES = '796'  // pieces (show 'cost')
+const MEASURE_CODE_SERVICE = '999' // service (show 'run')
+
 interface PricePanelProps {
   settings: SalePricesSettings
   onSettingsChange: (settings: SalePricesSettings) => void
@@ -23,12 +31,12 @@ interface PricePanelProps {
   presetPrices?: Array<{
     typeId: number
     price: number
-    currency: string  // "RUB" или "PRC" (процент)
+    currency: string  // "RUB" or "PRC" (percent)
     quantityFrom: number | null
     quantityTo: number | null
   }>
   presetMeasure?: {
-    code: string  // "796" = штуки (показывать "стоимость"), "999" = услуга (показывать "тираж")
+    code: string  // "796" = pieces (show 'cost'), "999" = service (show 'run')
     name: string
   }
 }
@@ -61,7 +69,7 @@ const createDefaultPriceTypeSettings = (): PriceTypeSettings => ({
 
 export function PricePanel({ settings, onSettingsChange, priceTypes, presetPrices, presetMeasure }: PricePanelProps) {
   // Determine correctionBase from presetMeasure
-  const defaultCorrectionBase: CorrectionBase = presetMeasure?.code === '796' ? 'COST' : 'RUN'
+  const defaultCorrectionBase: CorrectionBase = presetMeasure?.code === MEASURE_CODE_PIECES ? 'COST' : 'RUN'
   
   // Transform priceTypes from props to options, fallback to hardcoded if not provided
   const priceTypeOptions = priceTypes && priceTypes.length > 0
@@ -112,7 +120,7 @@ export function PricePanel({ settings, onSettingsChange, priceTypes, presetPrice
       // Get markupUnit from presetPrices for this type
       const priceTypeOption = priceTypeOptions.find(pt => pt.value === priceType)
       const presetPrice = presetPrices?.find(p => p.typeId === priceTypeOption?.id)
-      const markupUnit: MarkupUnit = presetPrice?.currency === 'PRC' ? '%' : 'RUB'
+      const markupUnit: MarkupUnit = presetPrice?.currency === CURRENCY_PERCENT ? '%' : 'RUB'
       
       // Copy ranges from base type if available
       const baseSettings = basePriceType ? newTypes[basePriceType.value] : null
@@ -144,7 +152,7 @@ export function PricePanel({ settings, onSettingsChange, priceTypes, presetPrice
       if (priceType !== basePriceType.value && newTypes[priceType]) {
         const priceTypeOption = priceTypeOptions.find(pt => pt.value === priceType)
         const presetPrice = presetPrices?.find(p => p.typeId === priceTypeOption?.id)
-        const defaultMarkupUnit: MarkupUnit = presetPrice?.currency === 'PRC' ? '%' : 'RUB'
+        const defaultMarkupUnit: MarkupUnit = presetPrice?.currency === CURRENCY_PERCENT ? '%' : 'RUB'
         
         newTypes[priceType] = {
           ...newTypes[priceType],
@@ -396,7 +404,7 @@ export function PricePanel({ settings, onSettingsChange, priceTypes, presetPrice
                             onValueChange={(value: MarkupUnit) => 
                               updateRange(priceType, index, { markupUnit: value })
                             }
-                            disabled={presetPrice?.currency === 'PRC'}
+                            disabled={presetPrice?.currency === CURRENCY_PERCENT}
                           >
                             <SelectTrigger className="w-20" data-pwcode="select-markup-unit">
                               <SelectValue />

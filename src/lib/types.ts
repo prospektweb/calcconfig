@@ -62,12 +62,12 @@ export interface Preset {
   prices?: Array<{
     typeId: number
     price: number
-    currency: string  // "RUB" или "PRC" (процент)
+    currency: string  // "RUB" or "PRC" (percent)
     quantityFrom: number | null
     quantityTo: number | null
   }>
   measure?: {
-    code: string  // "796" = штуки, "999" = услуга
+    code: string  // "796" = pieces, "999" = service
     name: string
   }
 }
