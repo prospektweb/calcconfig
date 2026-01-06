@@ -907,12 +907,17 @@ function App() {
       )
     )
     
-    if (stage?.configId && bitrixMeta) {
+    if (stage?.stageId && bitrixMeta) {
       postMessageBridge.sendDeleteStageRequest({
-        configId: stage.configId,
-        ...(getIblockInfo('CALC_CONFIG') || { iblockId: 0, iblockType: '' }),
+        stageId: stage.stageId,
+        detailId: detail.bitrixId,
+        previousStageId:  detail.stages[stageToDelete.calcIndex - 1]?.configId,
+        nextStageId: detail.stages[stageToDelete.calcIndex + 1]?.configId,
+        ... getIblockInfo('CALC_STAGES'),
       })
     }
+
+    
     
     setIsDeleteStageDialogOpen(false)
     setStageToDelete(null)
@@ -1200,7 +1205,7 @@ function App() {
     }
 
     // Find preset iblock
-    const presetIblock = bitrixMeta.iblocks.find(ib => ib.code === 'CALC_CONFIG')
+    const presetIblock = bitrixMeta.iblocks.find(ib => ib. code === 'CALC_PRESETS')
     if (!presetIblock) {
       toast.error('Не найден инфоблок пресетов')
       return
