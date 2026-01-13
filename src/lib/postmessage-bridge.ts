@@ -30,7 +30,6 @@ export type MessageType =
   | 'REFRESH_RESULT'
   | 'ADD_NEW_GROUP_RESPONSE'
   | 'SELECT_DETAILS_REQUEST'
-  | 'SELECT_DETAILS_RESPONSE'
   
   // Детали
   | 'ADD_DETAIL_REQUEST'      // переименован из ADD_NEW_DETAIL_REQUEST
@@ -541,7 +540,7 @@ class PostMessageBridge {
     return this.sendMessage('ADD_DETAIL_REQUEST', payload)
   }
 
-  sendSelectDetailsRequest(payload: { iblockId: number, iblockType: string }) {
+  sendSelectDetailsRequest(payload: { binding: boolean, iblockId: number, iblockType: string }) {
     return this.sendMessage('SELECT_DETAILS_REQUEST', payload)
   }
 
