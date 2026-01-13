@@ -179,7 +179,7 @@ function App() {
           console.warn(`[${source}] Skipping settings item with missing id`)
           return
         }
-        settingsStore.setSettings(settingsItem.id. toString(), {
+        settingsStore.setSettings(settingsItem.id.toString(), {
           id: settingsItem.id,
           name: settingsItem.name,
           properties: settingsItem.properties || {},
