@@ -36,14 +36,10 @@ npm run build
 
 ### Основная документация
 
-📄 **[docs/bitrix-integration.md](./docs/bitrix-integration.md)** - Полная документация по интеграции:
-- Общий сценарий использования
-- Доменная модель (продукты, ТП, материалы, операции, конфигурации)
-- Режимы работы (NEW_CONFIG / EXISTING_CONFIG)
-- Протокол postMessage (все типы сообщений с примерами)
-- Справочник pwcode (идентификаторы UI элементов)
-- Версионность протокола
-- Примеры интеграции (JavaScript, PHP)
+- **[BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md)** - История изменений интеграции с Bitrix
+- **[IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)** - Детали реализации режима Bitrix Deploy
+- **[BITRIX_DEPLOY.md](./BITRIX_DEPLOY.md)** - Инструкция по развертыванию
+- **[README.md](./README.md)** - Основное руководство
 
 ### Дополнительные материалы
 
@@ -97,13 +93,13 @@ window.addEventListener('message', (event) => {
             sendInit();
             break;
             
-        case 'SAVE_REQUEST':
-            // Сохранение конфигурации
-            handleSave(msg.payload);
+        case 'CALC_RUN':
+            // Запуск расчёта
+            handleCalculation(msg.payload);
             break;
             
         case 'CLOSE_REQUEST':
-            // Закрытие окна
+            // Закрытие окна (содержит информацию о сохранении)
             handleClose(msg.payload);
             break;
     }
@@ -139,9 +135,9 @@ function sendInit() {
     }, '*');
 }
 
-async function handleSave(payload) {
-    // Сохранение через API Битрикс
-    const response = await fetch('/local/ajax/calc_save.php', {
+async function handleCalculation(payload) {
+    // Обработка запроса на расчёт через API Битрикс
+    const response = await fetch('/local/ajax/calc_run.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -153,14 +149,8 @@ async function handleSave(payload) {
     iframe.contentWindow.postMessage({
         source: 'bitrix',
         target: 'prospektweb.calc',
-        type: 'RESPONSE',
-        requestId: msg.requestId,
-        payload: {
-            requestType: 'SAVE_REQUEST',
-            requestId: msg.requestId,
-            status: 'success',
-            state: result
-        },
+        type: 'CALC_INFO',
+        payload: result,
         timestamp: Date.now()
     }, '*');
 }
@@ -186,13 +176,13 @@ async function handleSave(payload) {
 | iframe → Битрикс | `READY` | Калькулятор загружен и готов |
 | Битрикс → iframe | `INIT` | Стартовые данные и конфигурация |
 | iframe → Битрикс | `INIT_DONE` | Инициализация завершена |
-| iframe → Битрикс | `CALC_PREVIEW` | Результат расчёта (без сохранения) |
-| iframe → Битрикс | `SAVE_REQUEST` | Запрос на сохранение |
-| Битрикс → iframe | `RESPONSE` | Единый ответ на любой REQUEST (в т.ч. SAVE_REQUEST) |
+| iframe → Битрикс | `CALC_RUN` | Запуск расчёта |
+| Битрикс → iframe | `CALC_INFO` | Информация о расчёте |
+| Битрикс → iframe | `RESPONSE` | Единый ответ на любой REQUEST |
 | Обе стороны | `ERROR` | Ошибка в процессе работы |
 | iframe → Битрикс | `CLOSE_REQUEST` | Запрос на закрытие окна |
 
-Подробности см. в [docs/bitrix-integration.md](./docs/bitrix-integration.md)
+Подробности см. в [BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md) и [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)
 
 ## 🎨 Технологии
 

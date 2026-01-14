@@ -57,10 +57,10 @@ iframe → Битрикс: READY (калькулятор загружен)
 Битрикс → iframe: INIT (передача контекста и данных)
 iframe → Битрикс: INIT_DONE (готов к работе)
 ...работа с конфигурацией...
-iframe → Битрикс: CALC_PREVIEW (результат расчёта)
-...пользователь нажимает "Сохранить"...
-iframe → Битрикс: SAVE_REQUEST (запрос на сохранение)
-Битрикс → iframe: RESPONSE (результат сохранения)
+iframe → Битрикс: CALC_RUN (запуск расчёта)
+Битрикс → iframe: CALC_INFO (информация о расчёте)
+...пользователь завершает работу...
+iframe → Битрикс: CLOSE_REQUEST (запрос закрытия с данными о сохранении)
 ```
 
 ### Пример базовой интеграции
@@ -88,9 +88,14 @@ window.addEventListener('message', (event) => {
             }, '*');
             break;
             
-        case 'SAVE_REQUEST':
-            // Сохранить конфигурацию и обновить ТП
-            await saveConfiguration(msg.payload);
+        case 'CALC_RUN':
+            // Обработать запуск расчёта
+            await handleCalculation(msg.payload);
+            break;
+            
+        case 'CLOSE_REQUEST':
+            // Обработать закрытие (с информацией о сохранении)
+            await handleClose(msg.payload);
             break;
     }
 });
