@@ -36,19 +36,16 @@ npm run build
 
 ### Основная документация
 
-📄 **[docs/bitrix-integration.md](./docs/bitrix-integration.md)** - Полная документация по интеграции:
-- Общий сценарий использования
-- Доменная модель (продукты, ТП, материалы, операции, конфигурации)
-- Режимы работы (NEW_CONFIG / EXISTING_CONFIG)
-- Протокол postMessage (все типы сообщений с примерами)
-- Справочник pwcode (идентификаторы UI элементов)
-- Версионность протокола
-- Примеры интеграции (JavaScript, PHP)
+- **[BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md)** - История изменений интеграции с Bitrix
+- **[IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)** - Детали реализации режима Bitrix Deploy
+- **[BITRIX_DEPLOY.md](./BITRIX_DEPLOY.md)** - Инструкция по развертыванию
+- **[README.md](./README.md)** - Основное руководство
 
 ### Дополнительные материалы
 
 - **[PRD.md](./PRD.md)** - Product Requirements Document
-- **[POSTMESSAGE_API.md](./POSTMESSAGE_API.md)** - Старая версия API (устарела)
+- **[BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md)** - История изменений интеграции с Bitrix
+- **[IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)** - Детали реализации
 - **[test-integration.html](./test-integration.html)** - Тестовая страница для локальной отладки
 
 ## 🔌 Быстрый старт интеграции
@@ -96,13 +93,13 @@ window.addEventListener('message', (event) => {
             sendInit();
             break;
             
-        case 'SAVE_REQUEST':
-            // Сохранение конфигурации
-            handleSave(msg.payload);
+        case 'CALC_RUN':
+            // Запуск расчёта
+            handleCalculation(msg.payload);
             break;
             
         case 'CLOSE_REQUEST':
-            // Закрытие окна
+            // Закрытие окна (содержит информацию о сохранении)
             handleClose(msg.payload);
             break;
     }
@@ -138,9 +135,9 @@ function sendInit() {
     }, '*');
 }
 
-async function handleSave(payload) {
-    // Сохранение через API Битрикс
-    const response = await fetch('/local/ajax/calc_save.php', {
+async function handleCalculation(payload) {
+    // Обработка запроса на расчёт через API Битрикс
+    const response = await fetch('/local/ajax/calc_run.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -152,14 +149,8 @@ async function handleSave(payload) {
     iframe.contentWindow.postMessage({
         source: 'bitrix',
         target: 'prospektweb.calc',
-        type: 'RESPONSE',
-        requestId: msg.requestId,
-        payload: {
-            requestType: 'SAVE_REQUEST',
-            requestId: msg.requestId,
-            status: 'success',
-            state: result
-        },
+        type: 'CALC_INFO',
+        payload: result,
         timestamp: Date.now()
     }, '*');
 }
@@ -185,13 +176,13 @@ async function handleSave(payload) {
 | iframe → Битрикс | `READY` | Калькулятор загружен и готов |
 | Битрикс → iframe | `INIT` | Стартовые данные и конфигурация |
 | iframe → Битрикс | `INIT_DONE` | Инициализация завершена |
-| iframe → Битрикс | `CALC_PREVIEW` | Результат расчёта (без сохранения) |
-| iframe → Битрикс | `SAVE_REQUEST` | Запрос на сохранение |
-| Битрикс → iframe | `RESPONSE` | Единый ответ на любой REQUEST (в т.ч. SAVE_REQUEST) |
+| iframe → Битрикс | `CALC_RUN` | Запуск расчёта |
+| Битрикс → iframe | `CALC_INFO` | Информация о расчёте |
+| Битрикс → iframe | `RESPONSE` | Единый ответ на любой REQUEST |
 | Обе стороны | `ERROR` | Ошибка в процессе работы |
 | iframe → Битрикс | `CLOSE_REQUEST` | Запрос на закрытие окна |
 
-Подробности см. в [docs/bitrix-integration.md](./docs/bitrix-integration.md)
+Подробности см. в [BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md) и [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)
 
 ## 🎨 Технологии
 
@@ -249,8 +240,10 @@ src/
 ├── lib/
 │   ├── postmessage-bridge.ts  # Ядро postMessage API
 │   ├── types.ts          # TypeScript типы
-│   ├── mock-data.ts      # Тестовые данные
+│   ├── bitrix-utils.ts   # Утилиты для Bitrix
 │   └── utils.ts
+├── services/
+│   └── configStore.ts    # Хранилище конфигурации
 ├── types/
 │   └── global.d.ts       # Глобальные декларации типов
 ├── App.tsx               # Главный компонент
@@ -283,12 +276,12 @@ src/
 - `btn-save` - Сохранить
 - `btn-close` - Закрыть
 
-Полный список см. в [docs/bitrix-integration.md](./docs/bitrix-integration.md)
+Полный список см. в [BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md)
 
 ## 🤝 Поддержка
 
 Для вопросов по интеграции:
-1. Изучите [docs/bitrix-integration.md](./docs/bitrix-integration.md)
+1. Изучите [BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md) и [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)
 2. Посмотрите примеры в разделе документации
 3. Используйте `test-integration.html` для отладки
 
