@@ -34,7 +34,7 @@ export type MessageType =
   // Детали
   | 'ADD_DETAIL_REQUEST'      // переименован из ADD_NEW_DETAIL_REQUEST
   | 'UPDATE_DETAIL_REQUEST'   // объединяет CHANGE_NAME_DETAIL_REQUEST
-  | 'DELETE_DETAIL_REQUEST'
+  | 'REMOVE_DETAIL_REQUEST'
   
   // Этапы
   | 'ADD_STAGE_REQUEST'       // переименован из ADD_NEW_STAGE_REQUEST
@@ -551,8 +551,8 @@ class PostMessageBridge {
     return this.sendMessage('UPDATE_DETAIL_REQUEST', payload)
   }
 
-  sendDeleteDetailRequest(payload: { detailId: number, iblockId: number, iblockType: string }) {
-    return this.sendMessage('DELETE_DETAIL_REQUEST', payload)
+  sendRemoveDetailRequest(payload: { detailId: number, iblockId: number, iblockType: string }) {
+    return this.sendMessage('REMOVE_DETAIL_REQUEST', payload)
   }
 
   // Stage operations

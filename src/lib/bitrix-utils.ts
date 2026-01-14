@@ -98,3 +98,18 @@ export function openIblockCatalog(iblock: Iblock, lang: string = 'ru') {
 
   window.open(url, '_blank', 'noopener,noreferrer')
 }
+
+// ============================================
+// Helper to open catalog product page
+// ============================================
+
+export function openCatalogProduct(productId: number, iblockId: number, type: string, lang: string = 'ru') {
+  if (!bitrixContext) {
+    throw new Error('Контекст Bitrix не инициализирован')
+  }
+
+  const { baseUrl } = bitrixContext
+  const url = `${baseUrl}/bitrix/admin/cat_product_edit.php?IBLOCK_ID=${iblockId}&type=${type}&lang=${lang}&ID=${productId}`
+
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
