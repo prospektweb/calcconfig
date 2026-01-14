@@ -16,9 +16,6 @@ export type MessageType =
   | 'CALC_RUN'        // iframe → bitrix: запуск расчёта
   | 'CALC_INFO'       // bitrix → iframe: информация о расчёте
   
-  // Загрузка данных элемента
-  | 'LOAD_ELEMENT_REQUEST'  // Объединяет CALC_SETTINGS_REQUEST, CALC_OPERATION_REQUEST и т.д.
-  
   // Legacy responses (still in use)
   | 'SELECT_DONE'
   | 'CALC_SETTINGS_RESPONSE'
@@ -33,13 +30,19 @@ export type MessageType =
   
   // Детали
   | 'ADD_DETAIL_REQUEST'      // переименован из ADD_NEW_DETAIL_REQUEST
-  | 'UPDATE_DETAIL_REQUEST'   // объединяет CHANGE_NAME_DETAIL_REQUEST
   | 'REMOVE_DETAIL_REQUEST'
+  | 'RENAME_DETAIL_REQUEST'   // переименование детали
   
   // Этапы
   | 'ADD_STAGE_REQUEST'       // переименован из ADD_NEW_STAGE_REQUEST
   | 'UPDATE_STAGE_REQUEST' 
   | 'DELETE_STAGE_REQUEST'
+  
+  // Выбор элементов в этапе
+  | 'CHANGE_SETTINGS_REQUEST'
+  | 'CHANGE_OPERATION_VARIANT_REQUEST'
+  | 'CHANGE_EQUIPMENT_REQUEST'
+  | 'CHANGE_MATERIAL_VARIANT_REQUEST'
   
   // Группы/Скрепления
   | 'ADD_GROUP_REQUEST'       // переименован из ADD_NEW_GROUP_REQUEST
@@ -117,37 +120,10 @@ export interface CalcInfoPayload {
 }
 
 /**
- * Payload for LOAD_ELEMENT_REQUEST - unified request for loading calculator elements
- */
-export interface LoadElementRequestPayload {
-  elementType: 'calculator' | 'operation' | 'material' | 'equipment'
-  elementId: number
-  iblockId: number
-  iblockType: string
-}
-
-/**
- * Payload for UPDATE_DETAIL_REQUEST
- */
-export interface UpdateDetailRequestPayload {
-  detailId: number
-  updates: {
-    name?: string
-    width?: number
-    length?: number
-  }
-  iblockId: number
-  iblockType: string
-}
-
-/**
  * Payload for ADD_STAGE_REQUEST
  */
 export interface AddStageRequestPayload {
   detailId: number              // ID детали (Bitrix)
-  previousStageId?: number      // ID предыдущего этапа (для определения позиции)
-  iblockId: number
-  iblockType: string
 }
 
 /**
@@ -510,32 +486,27 @@ class PostMessageBridge {
     })
   }
 
-  sendLoadElementRequest(elementType: 'calculator' | 'operation' | 'material' | 'equipment', elementId: number, iblockId: number, iblockType: string) {
-    return this.sendMessage('LOAD_ELEMENT_REQUEST', {
-      elementType,
-      elementId,
-      iblockId,
-      iblockType,
-    })
-  }
-
-  // Legacy methods for backward compatibility - they now use sendLoadElementRequest
-  sendCalcSettingsRequest(id: number, iblockId: number, iblockType: string, lang: string) {
-    return this.sendLoadElementRequest('calculator', id, iblockId, iblockType)
-  }
-
-  sendCalcOperationVariantRequest(id: number, iblockId: number, iblockType: string, lang: string) {
-    return this.sendLoadElementRequest('operation', id, iblockId, iblockType)
-  }
-
-  sendCalcMaterialVariantRequest(id: number, iblockId: number, iblockType: string, lang: string) {
-    return this.sendLoadElementRequest('material', id, iblockId, iblockType)
-  }
-
   sendRefreshRequest(offerIds: number[]) {
     this.sendMessage('REFRESH_REQUEST', {
       offerIds,
     })
+  }
+
+  // Legacy methods for backward compatibility - kept as stubs
+  // The actual element data loading is handled by Bitrix through other mechanisms
+  sendCalcSettingsRequest(id: number, iblockId: number, iblockType: string, lang: string) {
+    // Stub - Bitrix handles this through its own mechanisms
+    console.log('[PostMessageBridge] sendCalcSettingsRequest (legacy stub)', { id, iblockId, iblockType, lang })
+  }
+
+  sendCalcOperationVariantRequest(id: number, iblockId: number, iblockType: string, lang: string) {
+    // Stub - Bitrix handles this through its own mechanisms
+    console.log('[PostMessageBridge] sendCalcOperationVariantRequest (legacy stub)', { id, iblockId, iblockType, lang })
+  }
+
+  sendCalcMaterialVariantRequest(id: number, iblockId: number, iblockType: string, lang: string) {
+    // Stub - Bitrix handles this through its own mechanisms
+    console.log('[PostMessageBridge] sendCalcMaterialVariantRequest (legacy stub)', { id, iblockId, iblockType, lang })
   }
 
   // Detail operations
@@ -547,8 +518,8 @@ class PostMessageBridge {
     return this.sendMessage('SELECT_DETAILS_REQUEST', payload)
   }
 
-  sendUpdateDetailRequest(payload: UpdateDetailRequestPayload) {
-    return this.sendMessage('UPDATE_DETAIL_REQUEST', payload)
+  sendRenameDetailRequest(payload: { detailId: number, name: string }) {
+    return this.sendMessage('RENAME_DETAIL_REQUEST', payload)
   }
 
   sendRemoveDetailRequest(payload: { detailId: number, iblockId: number, iblockType: string }) {
@@ -566,6 +537,23 @@ class PostMessageBridge {
 
   sendDeleteStageRequest(payload: DeleteStageRequestPayload) {
     return this.sendMessage('DELETE_STAGE_REQUEST', payload)
+  }
+
+  // Element selection in stages
+  sendChangeSettingsRequest(payload: { settingsId: number, stageId: number }) {
+    return this.sendMessage('CHANGE_SETTINGS_REQUEST', payload)
+  }
+
+  sendChangeOperationVariantRequest(payload: { operationVariantId: number, stageId: number }) {
+    return this.sendMessage('CHANGE_OPERATION_VARIANT_REQUEST', payload)
+  }
+
+  sendChangeEquipmentRequest(payload: { equipmentId: number, stageId: number }) {
+    return this.sendMessage('CHANGE_EQUIPMENT_REQUEST', payload)
+  }
+
+  sendChangeMaterialVariantRequest(payload: { materialVariantId: number, stageId: number }) {
+    return this.sendMessage('CHANGE_MATERIAL_VARIANT_REQUEST', payload)
   }
 
   // Group operations

@@ -62,21 +62,14 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
   }
   
   const handleNameBlur = () => {
-    // Send event to Bitrix when name changes
-    if (detail.bitrixId && detail.name && bitrixMeta) {
-      const detailsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_DETAILS')
-      if (! detailsIblock) {
-        return
-      }
-
-      postMessageBridge.sendUpdateDetailRequest({
+    // Send RENAME_DETAIL_REQUEST to Bitrix when name changes
+    if (detail.bitrixId && detail.name) {
+      console.log('[RENAME_DETAIL_REQUEST] Sending...', { detailId: detail.bitrixId, name: detail.name })
+      postMessageBridge.sendRenameDetailRequest({
         detailId: detail.bitrixId,
-        updates: {
-          name: detail.name,
-        },
-        iblockId: detailsIblock.id,
-        iblockType: detailsIblock.type,
+        name: detail.name,
       })
+      // UI не обновляем — ждём INIT
     }
   }
   
