@@ -78,6 +78,7 @@ function App() {
   // Dialog states for detail management
   const [isCreateDetailDialogOpen, setIsCreateDetailDialogOpen] = useState(false)
   const [newDetailName, setNewDetailName] = useState('')
+  const [isSelectDetailDialogOpen, setIsSelectDetailDialogOpen] = useState(false)
   const [isDeleteStageDialogOpen, setIsDeleteStageDialogOpen] = useState(false)
   const [stageToDelete, setStageToDelete] = useState<{detailId: string, calcIndex: number} | null>(null)
   const [isDeleteDetailDialogOpen, setIsDeleteDetailDialogOpen] = useState(false)
@@ -178,7 +179,7 @@ function App() {
           console.warn(`[${source}] Skipping settings item with missing id`)
           return
         }
-        settingsStore.setSettings(settingsItem.id. toString(), {
+        settingsStore.setSettings(settingsItem.id.toString(), {
           id: settingsItem.id,
           name: settingsItem.name,
           properties: settingsItem.properties || {},
@@ -251,29 +252,33 @@ function App() {
         
         referencesStore.setLoaded(true)
         
-        // Transform preset and elementsStore to UI format
+        // ПОЛНОСТЬЮ перестраиваем UI из preset и elementsStore
         if (message.payload.preset && message.payload.elementsStore) {
-          console.log('[INIT] Transforming preset and elementsStore to UI format')
+          console.info('[INIT] Transforming preset to UI...')
           try {
             const { details: transformedDetails, bindings: transformedBindings } = transformPresetToUI(
               message.payload.preset,
               message.payload.elementsStore
             )
             
-            if (transformedDetails.length > 0 || transformedBindings.length > 0) {
-              setDetails(transformedDetails)
-              setBindings(transformedBindings)
-              console.log('[INIT] Transformed data:', { 
-                details: transformedDetails.length, 
-                bindings: transformedBindings.length 
-              })
-            }
+            // ЗАМЕНЯЕМ состояние (не добавляем!)
+            setDetails(transformedDetails)
+            setBindings(transformedBindings)
+            console.info('[INIT] UI rebuilt:', {
+              details: transformedDetails.length,
+              bindings: transformedBindings.length,
+            })
           } catch (error) {
             console.error('[INIT] Transformation error:', error)
           }
           
           // Initialize calculatorSettings store from elementsStore.CALC_SETTINGS
           initializeCalculatorSettings(message.payload.elementsStore, 'INIT')
+        } else {
+          // Нет preset — очищаем
+          setDetails([])
+          setBindings([])
+          console.info('[INIT] No preset — UI cleared')
         }
         
         postMessageBridge.sendInitDone(
@@ -302,20 +307,23 @@ function App() {
                 refreshPayload.elementsStore
               )
               
-              if (transformedDetails.length > 0 || transformedBindings.length > 0) {
-                setDetails(transformedDetails)
-                setBindings(transformedBindings)
-                console.log('[REFRESH] Transformed data:', { 
-                  details: transformedDetails.length, 
-                  bindings: transformedBindings.length 
-                })
-              }
+              // ЗАМЕНЯЕМ состояние полностью
+              setDetails(transformedDetails)
+              setBindings(transformedBindings)
+              console.log('[REFRESH] Transformed data:', { 
+                details: transformedDetails.length, 
+                bindings: transformedBindings.length 
+              })
             } catch (error) {
               console.error('[REFRESH] Transformation error:', error)
             }
             
             // Initialize calculatorSettings store from elementsStore.CALC_SETTINGS
             initializeCalculatorSettings(refreshPayload.elementsStore, 'REFRESH')
+          } else {
+            // Нет preset — очищаем
+            setDetails([])
+            setBindings([])
           }
           
           console.info('[REFRESH] applied offers=', (refreshPayload.selectedOffers || []).length)
@@ -735,13 +743,45 @@ function App() {
   }
 
   const handleSelectDetail = () => {
-    // Send SELECT_DETAILS_REQUEST to open detail selection dialog
-    if (bitrixMeta) {
+    if (!bitrixMeta) return
+    
+    const hasDetails = (details || []).length > 0
+    
+    if (!hasDetails) {
+      // Нет деталей — сразу отправляем запрос на выбор
       postMessageBridge.sendSelectDetailsRequest({
+        binding: false,
         ...getIblockInfo('CALC_DETAILS')!,
       })
+      toast.info('Открытие окна выбора детали...')
+    } else {
+      // Есть детали — показываем диалог выбора действия
+      setIsSelectDetailDialogOpen(true)
     }
-    toast.info('Открытие окна выбора детали...')
+  }
+
+  const handleSelectDetailReplace = () => {
+    // Заменить деталь
+    if (bitrixMeta) {
+      postMessageBridge.sendSelectDetailsRequest({
+        binding: false,
+        ...getIblockInfo('CALC_DETAILS')!,
+      })
+      toast.info('Открытие окна выбора детали...')
+    }
+    setIsSelectDetailDialogOpen(false)
+  }
+
+  const handleSelectDetailBinding = () => {
+    // Создать скрепление
+    if (bitrixMeta) {
+      postMessageBridge.sendSelectDetailsRequest({
+        binding: true,
+        ...getIblockInfo('CALC_DETAILS')!,
+      })
+      toast.info('Открытие окна выбора детали для скрепления...')
+    }
+    setIsSelectDetailDialogOpen(false)
   }
 
   const handleDeleteStageConfirm = () => {
@@ -1421,6 +1461,27 @@ function App() {
             <AlertDialogAction onClick={handleDeleteDetailConfirm} className="bg-destructive">
               Удалить
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* AlertDialog: Select Detail Action */}
+      <AlertDialog open={isSelectDetailDialogOpen} onOpenChange={setIsSelectDetailDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Выбор детали</AlertDialogTitle>
+            <AlertDialogDescription>
+              Заменить деталь или создать скрепление из деталей?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <Button variant="outline" onClick={handleSelectDetailReplace}>
+              Заменить
+            </Button>
+            <Button onClick={handleSelectDetailBinding}>
+              Создать скрепление
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
