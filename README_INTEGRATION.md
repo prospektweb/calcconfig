@@ -48,7 +48,8 @@ npm run build
 ### Дополнительные материалы
 
 - **[PRD.md](./PRD.md)** - Product Requirements Document
-- **[POSTMESSAGE_API.md](./POSTMESSAGE_API.md)** - Старая версия API (устарела)
+- **[BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md)** - История изменений интеграции с Bitrix
+- **[IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)** - Детали реализации
 - **[test-integration.html](./test-integration.html)** - Тестовая страница для локальной отладки
 
 ## 🔌 Быстрый старт интеграции

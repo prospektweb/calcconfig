@@ -29,16 +29,9 @@ npm run build
 
 ### 📖 Основная документация
 
-**[docs/bitrix-integration.md](./docs/bitrix-integration.md)** — полное руководство по интеграции:
-- Сценарии использования и режимы работы
-- Доменная модель (продукты, ТП, материалы, конфигурации)
-- Протокол postMessage с примерами всех сообщений
-- Справочник pwcode для идентификации элементов UI
-- Примеры интеграции на JavaScript и PHP
-
-### 📘 Дополнительно
-
 - **[README_INTEGRATION.md](./README_INTEGRATION.md)** — краткий обзор интеграции
+- **[BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md)** — история изменений интеграции с Bitrix
+- **[IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)** — детали реализации
 - **[PRD.md](./PRD.md)** — требования к продукту
 - **test-integration.html** — страница для локального тестирования
 
@@ -103,29 +96,33 @@ window.addEventListener('message', (event) => {
 });
 ```
 
-Подробности в [docs/bitrix-integration.md](./docs/bitrix-integration.md)
+Подробности в [README_INTEGRATION.md](./README_INTEGRATION.md) и [BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md)
 
 ## Структура проекта
 
 ```
-/workspaces/spark-template/
-├── docs/
-│   └── bitrix-integration.md     # Полная документация
-├── src/
-│   ├── components/
-│   │   ├── calculator/           # Компоненты калькулятора
-│   │   └── ui/                   # UI компоненты (shadcn)
-│   ├── hooks/
-│   │   ├── use-postmessage.ts    # Hook для postMessage
-│   │   └── use-custom-drag.ts    # Drag & drop
-│   ├── lib/
-│   │   ├── postmessage-bridge.ts # Ядро postMessage API
-│   │   ├── types.ts              # TypeScript типы
-│   │   └── mock-data.ts          # Тестовые данные
-│   └── App.tsx                   # Главный компонент
-├── test-integration.html         # Тестовая страница
-├── README_INTEGRATION.md         # Краткий обзор
-└── PRD.md                        # Product requirements
+/src/
+├── components/
+│   ├── calculator/           # Компоненты калькулятора
+│   └── ui/                   # UI компоненты (shadcn)
+├── hooks/
+│   ├── use-config-kv.ts      # Hook для хранилища конфигурации
+│   ├── use-postmessage.ts    # Hook для postMessage
+│   ├── use-custom-drag.ts    # Drag & drop
+│   └── use-mobile.ts         # Mobile detection
+├── lib/
+│   ├── postmessage-bridge.ts # Ядро postMessage API
+│   ├── types.ts              # TypeScript типы
+│   ├── bitrix-utils.ts       # Утилиты для Bitrix
+│   ├── bitrix-transformers.ts
+│   ├── bitrix-to-ui-transformer.ts
+│   └── utils.ts
+├── services/
+│   └── configStore.ts        # Хранилище конфигурации
+├── stores/                   # Дополнительные хранилища
+├── styles/                   # Стили
+├── types/                    # Типы TypeScript
+└── App.tsx                   # Главный компонент
 ```
 
 ## Ключевые возможности
@@ -165,7 +162,7 @@ npm run dev
 ## Поддержка
 
 При возникновении вопросов:
-1. Изучите [docs/bitrix-integration.md](./docs/bitrix-integration.md)
+1. Изучите [README_INTEGRATION.md](./README_INTEGRATION.md) и [BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md)
 2. Посмотрите примеры в документации
 3. Используйте test-integration.html для отладки
 
