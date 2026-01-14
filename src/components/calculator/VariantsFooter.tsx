@@ -76,15 +76,23 @@ export function VariantsFooter({
       return
     }
 
-    // Get parent product info from CML2_LINK property
-    const cml2Link = offer.properties?.CML2_LINK
-    if (!cml2Link || !cml2Link.ID || !cml2Link.IBLOCK_ID) {
-      toast.error('Не найдена ссылка на родительский товар (CML2_LINK)')
+    // Получить ID родительского товара из offer.productId или CML2_LINK
+    const productId = offer.productId || offer.properties?.CML2_LINK?.ID
+    if (!productId) {
+      toast.error('Не найден ID родительского товара')
       return
     }
 
-    // Find iblock by IBLOCK_ID from CML2_LINK
-    const parentIblock = bitrixMeta.iblocks.find(ib => ib.id === cml2Link.IBLOCK_ID)
+    // Найти инфоблок товаров по коду PRODUCTS или CATALOG
+    let parentIblock = bitrixMeta.iblocks.find(ib => ib.code === 'PRODUCTS')
+    if (!parentIblock) {
+      parentIblock = bitrixMeta.iblocks.find(ib => ib.code === 'CATALOG')
+    }
+    // Также попробовать найти по IBLOCK_ID из CML2_LINK
+    if (!parentIblock && offer.properties?.CML2_LINK?.IBLOCK_ID) {
+      parentIblock = bitrixMeta.iblocks.find(ib => ib.id === offer.properties?.CML2_LINK?.IBLOCK_ID)
+    }
+    
     if (!parentIblock) {
       toast.error('Не найден инфоблок родительского товара')
       return
@@ -95,9 +103,9 @@ export function VariantsFooter({
         iblockId: parentIblock.id,
         type: parentIblock.type,
         lang: context.lang,
-        id: cml2Link.ID,
+        id: productId,
       })
-      addInfoMessage('info', `Открыт родительский товар ID: ${cml2Link.ID}`)
+      addInfoMessage('info', `Открыт родительский товар ID: ${productId}`)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Не удалось открыть товар'
       toast.error(message)

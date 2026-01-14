@@ -46,6 +46,9 @@ export type MessageType =
   | 'UPDATE_GROUP_REQUEST'    // НОВЫЙ
   | 'DELETE_GROUP_REQUEST'
   
+  // Пресеты
+  | 'CLEAR_PRESET_REQUEST'    // НОВЫЙ - очистка пресета
+  
   // Сортировка
   | 'REORDER_REQUEST'         // НОВЫЙ
   
@@ -536,7 +539,7 @@ class PostMessageBridge {
   }
 
   // Detail operations
-  sendAddDetailRequest(payload: { offerIds: number[], name: string, iblockId: number, iblockType: string }) {
+  sendAddDetailRequest(payload: { offerIds: number[], name: string, binding: boolean, iblockId: number, iblockType: string }) {
     return this.sendMessage('ADD_DETAIL_REQUEST', payload)
   }
 
@@ -576,6 +579,11 @@ class PostMessageBridge {
 
   sendDeleteGroupRequest(payload: { groupId: string, detailIdToKeep?: number | string, deleteAll?: boolean, iblockId: number, iblockType: string }) {
     return this.sendMessage('DELETE_GROUP_REQUEST', payload)
+  }
+
+  // Preset operations
+  sendClearPresetRequest(payload: { iblockId: number, iblockType: string }) {
+    return this.sendMessage('CLEAR_PRESET_REQUEST', payload)
   }
 
   // Reorder operation
