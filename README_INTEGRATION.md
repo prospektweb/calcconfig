@@ -240,8 +240,10 @@ src/
 ├── lib/
 │   ├── postmessage-bridge.ts  # Ядро postMessage API
 │   ├── types.ts          # TypeScript типы
-│   ├── mock-data.ts      # Тестовые данные
+│   ├── bitrix-utils.ts   # Утилиты для Bitrix
 │   └── utils.ts
+├── services/
+│   └── configStore.ts    # Хранилище конфигурации
 ├── types/
 │   └── global.d.ts       # Глобальные декларации типов
 ├── App.tsx               # Главный компонент
@@ -274,12 +276,12 @@ src/
 - `btn-save` - Сохранить
 - `btn-close` - Закрыть
 
-Полный список см. в [docs/bitrix-integration.md](./docs/bitrix-integration.md)
+Полный список см. в [BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md)
 
 ## 🤝 Поддержка
 
 Для вопросов по интеграции:
-1. Изучите [docs/bitrix-integration.md](./docs/bitrix-integration.md)
+1. Изучите [BITRIX_INTEGRATION_CHANGELOG.md](./BITRIX_INTEGRATION_CHANGELOG.md) и [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)
 2. Посмотрите примеры в разделе документации
 3. Используйте `test-integration.html` для отладки
 
