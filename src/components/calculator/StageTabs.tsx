@@ -387,21 +387,14 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   const safeCalculators = calculators || []
 
   const handleAddCalculator = () => {
-    // Найти предыдущий этап
-    const previousStage = safeCalculators[safeCalculators.length - 1]
-    
-    // Только отправить запрос, НЕ обновлять UI
+    // Только отправить запрос с detailId, НЕ обновлять UI
     // UI обновится при получении RESPONSE
     if (bitrixMeta && detailId) {
-      const stagesIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_STAGES')
-      if (stagesIblock) {
-        postMessageBridge.sendAddStageRequest({
-          detailId: detailId,
-          previousStageId: previousStage?.stageId ?? undefined,
-          iblockId: stagesIblock.id,
-          iblockType: stagesIblock.type,
-        })
-      }
+      console.log('[ADD_STAGE_REQUEST] Sending...', { detailId })
+      postMessageBridge.sendAddStageRequest({
+        detailId: detailId,
+      })
+      // UI не обновляем — ждём INIT
     }
   }
 
@@ -926,54 +919,39 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                         items={calculatorsHierarchy}
                         value={calc.settingsId?.toString() || null}
                         onValueChange={(value) => {
-                          console.log('[CalculatorTabs][DEBUG] Calculator selected', {
-                            newValue: value,
-                            previousCode: calc.settingsId,
-                            index:  index,
+                          const newSettingsId = parseInt(value, 10)
+                          console.log('[CHANGE_SETTINGS_REQUEST] Sending...', { 
+                            settingsId: newSettingsId, 
+                            stageId: calc.stageId 
                           })
 
-                          handleUpdateCalculator(index, {
-                            settingsId: parseInt(value, 10),
-                            operationVariantId: null,
-                            equipmentId: null,
-                            materialVariantId: null,
-                          })
-                          
-                          // Отправить запрос настроек калькулятора в Битрикс
-                          if (value && bitrixMeta) {
+                          // Send CHANGE_SETTINGS_REQUEST to Bitrix
+                          if (calc.stageId && bitrixMeta) {
+                            postMessageBridge.sendChangeSettingsRequest({
+                              settingsId: newSettingsId,
+                              stageId: calc.stageId,
+                            })
+                          }
+
+                          // Also request settings data if not already loaded
+                          // This is separate from CHANGE_SETTINGS_REQUEST:
+                          // - CHANGE_SETTINGS_REQUEST updates the stage's calculator in Bitrix
+                          // - sendCalcSettingsRequest loads the calculator's full properties for UI rendering
+                          if (!calculatorSettings[newSettingsId] && bitrixMeta) {
                             const context = getBitrixContext()
                             const settingsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_SETTINGS')
                             
-                            console.log('[CalculatorTabs][DEBUG] Preparing CALC_SETTINGS_REQUEST', {
-                              value: value,
-                              hasBitrixMeta:  !!bitrixMeta,
-                              hasContext: !!context,
-                              iblockId: settingsIblock?.id,
-                              contextLang: context?.lang,
-                            })
-                            
                             if (context && settingsIblock) {
-                              console.log('[CalculatorTabs][DEBUG] Sending CALC_SETTINGS_REQUEST', {
-                                id: parseInt(value, 10),
-                                iblockId: settingsIblock.id,
-                                iblockType: settingsIblock.type,
-                                lang: context.lang,
-                              })
-                              
                               postMessageBridge.sendCalcSettingsRequest(
-                                parseInt(value, 10),
+                                newSettingsId,
                                 settingsIblock.id,
                                 settingsIblock.type,
                                 context.lang
                               )
-                              console.log('[CalculatorTabs][DEBUG] CALC_SETTINGS_REQUEST sent')
-                            } else {
-                              console.warn('[CalculatorTabs][DEBUG] Missing context or settingsIblock', {
-                                context:  context,
-                                settingsIblock:  settingsIblock,
-                              })
                             }
                           }
+                          
+                          // UI не обновляем вручную — ждём INIT
                         }}
                         placeholder="Выберите калькулятор..."
                         data-pwcode="select-calculator"
@@ -1004,15 +982,24 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                           value={calc.operationVariantId?.toString() || null}
                           onValueChange={(value) => {
                             const newOperationId = parseInt(value)
-                            
-                            handleUpdateCalculator(index, {
-                              operationVariantId: newOperationId,
-                              equipmentId: null,  // Сбрасываем при смене операции
-                              materialVariantId: null,   // Сбрасываем при смене операции
+                            console.log('[CHANGE_OPERATION_VARIANT_REQUEST] Sending...', { 
+                              operationVariantId: newOperationId, 
+                              stageId: calc.stageId 
                             })
                             
-                            // Отправить запрос данных операции
-                            if (value && bitrixMeta) {
+                            // Send CHANGE_OPERATION_VARIANT_REQUEST to Bitrix
+                            if (calc.stageId && bitrixMeta) {
+                              postMessageBridge.sendChangeOperationVariantRequest({
+                                operationVariantId: newOperationId,
+                                stageId: calc.stageId,
+                              })
+                            }
+                            
+                            // Also request operation variant data if not already loaded
+                            // This is separate from CHANGE_OPERATION_VARIANT_REQUEST:
+                            // - CHANGE_OPERATION_VARIANT_REQUEST updates the stage's operation in Bitrix
+                            // - sendCalcOperationVariantRequest loads the operation's full properties (including itemParent with supported equipment/materials)
+                            if (!operationSettings[newOperationId.toString()] && bitrixMeta) {
                               const context = getBitrixContext()
                               const operationsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_OPERATIONS')
                               
@@ -1025,6 +1012,8 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                                 )
                               }
                             }
+                            
+                            // UI не обновляем вручную — ждём INIT
                           }}
                           placeholder="Выберите операцию..."
                           data-pwcode="select-operation"
@@ -1063,9 +1052,23 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                         <MultiLevelSelect
                           items={filteredEquipmentHierarchy}
                           value={calc.equipmentId?.toString() || null}
-                          onValueChange={(value) => handleUpdateCalculator(index, { 
-                            equipmentId: parseInt(value) 
-                          })}
+                          onValueChange={(value) => {
+                            const newEquipmentId = parseInt(value)
+                            console.log('[CHANGE_EQUIPMENT_REQUEST] Sending...', { 
+                              equipmentId: newEquipmentId, 
+                              stageId: calc.stageId 
+                            })
+                            
+                            // Send CHANGE_EQUIPMENT_REQUEST to Bitrix
+                            if (calc.stageId && bitrixMeta) {
+                              postMessageBridge.sendChangeEquipmentRequest({
+                                equipmentId: newEquipmentId,
+                                stageId: calc.stageId,
+                              })
+                            }
+                            
+                            // UI не обновляем вручную — ждём INIT
+                          }}
                           placeholder="Выберите оборудование..."
                           disabled={!calc.operationVariantId}
                           bitrixMeta={bitrixMeta}
@@ -1123,24 +1126,39 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                         items={filteredMaterialsHierarchy}
                         value={calc.materialVariantId?.toString() || null}
                         onValueChange={(value) => {
-                          handleUpdateCalculator(index, {
-                            materialVariantId: parseInt(value)
+                          const newMaterialVariantId = parseInt(value)
+                          console.log('[CHANGE_MATERIAL_VARIANT_REQUEST] Sending...', { 
+                            materialVariantId: newMaterialVariantId, 
+                            stageId: calc.stageId 
                           })
                           
-                          // Отправить запрос данных варианта материала
-                          if (value && bitrixMeta) {
+                          // Send CHANGE_MATERIAL_VARIANT_REQUEST to Bitrix
+                          if (calc.stageId && bitrixMeta) {
+                            postMessageBridge.sendChangeMaterialVariantRequest({
+                              materialVariantId: newMaterialVariantId,
+                              stageId: calc.stageId,
+                            })
+                          }
+                          
+                          // Also request material variant data if not already loaded
+                          // This is separate from CHANGE_MATERIAL_VARIANT_REQUEST:
+                          // - CHANGE_MATERIAL_VARIANT_REQUEST updates the stage's material in Bitrix
+                          // - sendCalcMaterialVariantRequest loads the material's full properties (including measure data)
+                          if (!materialVariants[newMaterialVariantId.toString()] && bitrixMeta) {
                             const context = getBitrixContext()
                             const materialsVariantsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_MATERIALS_VARIANTS')
                             
                             if (context && materialsVariantsIblock) {
                               postMessageBridge.sendCalcMaterialVariantRequest(
-                                parseInt(value, 10),
+                                newMaterialVariantId,
                                 materialsVariantsIblock.id,
                                 materialsVariantsIblock.type,
                                 context.lang
                               )
                             }
                           }
+                          
+                          // UI не обновляем вручную — ждём INIT
                         }}
                         placeholder="Выберите материал..."
                         bitrixMeta={bitrixMeta}

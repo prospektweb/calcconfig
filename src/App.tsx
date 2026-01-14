@@ -892,6 +892,9 @@ function App() {
           iblockType: iblockInfo.iblockType,
         })
       }
+      // УДАЛЯЕМ из UI сразу
+      setDetails(prev => (prev || []).filter(d => d.id !== detailId))
+      addInfoMessage('info', 'Пресет очищен')
     } else if (detail?.bitrixId) {
       // Любой другой уровень → REMOVE_DETAIL_REQUEST
       const iblockInfo = getIblockInfo('CALC_DETAILS')
@@ -903,11 +906,9 @@ function App() {
           iblockType: iblockInfo.iblockType,
         })
       }
+      // НЕ удаляем из UI — ждём INIT
+      addInfoMessage('info', 'Запрос на удаление отправлен')
     }
-    
-    // UI НЕ обновляем вручную — ждём INIT от Bitrix
-    // INIT автоматически перестроит UI
-    addInfoMessage('info', 'Запрос на удаление отправлен')
   }
 
   const handleDeleteBinding = (bindingId: string) => {
@@ -946,6 +947,9 @@ function App() {
           iblockType: iblockInfo.iblockType,
         })
       }
+      // УДАЛЯЕМ из UI сразу
+      setBindings(prev => (prev || []).filter(b => b.id !== bindingId))
+      addInfoMessage('info', 'Пресет очищен')
     } else if (binding?.bitrixId) {
       // Любой другой уровень → REMOVE_DETAIL_REQUEST (передаём bitrixId скрепления)
       const iblockInfo = getIblockInfo('CALC_DETAILS')
@@ -957,10 +961,9 @@ function App() {
           iblockType: iblockInfo.iblockType,
         })
       }
+      // НЕ удаляем из UI — ждём INIT
+      addInfoMessage('info', 'Запрос на удаление скрепления отправлен')
     }
-    
-    // UI НЕ обновляем — ждём INIT
-    addInfoMessage('info', 'Запрос на удаление скрепления отправлен')
   }
 
   const handleUpdateDetail = (detailId: string, updates: Partial<Detail>) => {
