@@ -90,7 +90,7 @@ function App() {
   const [pendingRemoveDetail, setPendingRemoveDetail] = useState<{
     detailId: string,
     bitrixId: number,
-    parentId: number
+    parentId: number | null
   } | null>(null)
   const detailCounter = useRef(1)
   
@@ -905,7 +905,12 @@ function App() {
       parentBindingId: parentBinding?.bitrixId
     })
 
-    if (!bitrixMeta || !detail?.bitrixId) return
+    if (!bitrixMeta || !detail?.bitrixId) {
+      if (!detail?.bitrixId) {
+        addInfoMessage('error', 'Не удалось удалить деталь: отсутствует ID')
+      }
+      return
+    }
 
     if (isOnlyTopLevelElement) {
       // Единственный элемент на верхнем уровне → CLEAR_PRESET_REQUEST
@@ -926,15 +931,23 @@ function App() {
       
       if (detailsInBinding === 2) {
         // Ровно 2 детали в скреплении → показываем диалог
+        if (!parentBinding.bitrixId) {
+          addInfoMessage('error', 'Не удалось удалить деталь: отсутствует ID скрепления')
+          return
+        }
         setPendingRemoveDetail({
           detailId,
           bitrixId: detail.bitrixId,
-          parentId: parentBinding.bitrixId!
+          parentId: parentBinding.bitrixId
         })
         setIsRemoveFromBindingDialogOpen(true)
       } else {
         // Больше 2 деталей → просто удаляем
-        sendRemoveDetailRequestHelper(detail.bitrixId, parentBinding.bitrixId!)
+        if (!parentBinding.bitrixId) {
+          addInfoMessage('error', 'Не удалось удалить деталь: отсутствует ID скрепления')
+          return
+        }
+        sendRemoveDetailRequestHelper(detail.bitrixId, parentBinding.bitrixId)
       }
     } else {
       // Верхний уровень, но не единственный элемент
@@ -970,7 +983,12 @@ function App() {
       parentBindingId: parentBinding?.bitrixId
     })
 
-    if (!bitrixMeta || !binding?.bitrixId) return
+    if (!bitrixMeta || !binding?.bitrixId) {
+      if (!binding?.bitrixId) {
+        addInfoMessage('error', 'Не удалось удалить скрепление: отсутствует ID')
+      }
+      return
+    }
 
     if (isOnlyTopLevelElement) {
       // Единственный элемент на верхнем уровне → CLEAR_PRESET_REQUEST
