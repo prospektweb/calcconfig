@@ -86,6 +86,12 @@ function App() {
   const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = useState(false)
   const [groupDetailsToMerge, setGroupDetailsToMerge] = useState<(number | string)[]>([])
   const [newGroupName, setNewGroupName] = useState('')
+  const [isRemoveFromBindingDialogOpen, setIsRemoveFromBindingDialogOpen] = useState(false)
+  const [pendingRemoveDetail, setPendingRemoveDetail] = useState<{
+    detailId: string,
+    bitrixId: number,
+    parentId: number
+  } | null>(null)
   const detailCounter = useRef(1)
   
   const [details, setDetails] = useConfigKV<Detail[]>('calc_details', [])
@@ -187,6 +193,22 @@ function App() {
       console.log(`[${source}] Calculator settings loaded successfully`)
     }
   }, [])
+
+  // Helper function to send REMOVE_DETAIL_REQUEST
+  const sendRemoveDetailRequestHelper = useCallback((detailBitrixId: number, parentId: number | null) => {
+    const iblockInfo = getIblockInfo('CALC_DETAILS')
+    if (iblockInfo) {
+      console.log('[REMOVE_DETAIL_REQUEST] Sending...', { detailId: detailBitrixId, parentId })
+      postMessageBridge.sendRemoveDetailRequest({
+        detailId: detailBitrixId,
+        parentId,
+        iblockId: iblockInfo.iblockId,
+        iblockType: iblockInfo.iblockType,
+      })
+    }
+    // НЕ удаляем из UI — ждём INIT
+    addInfoMessage('info', 'Запрос на удаление отправлен')
+  }, [bitrixMeta])
 
   useEffect(() => {
     return () => {
@@ -858,11 +880,13 @@ function App() {
   const handleDeleteDetail = (detailId: string) => {
     const detail = (details || []).find(d => d.id === detailId)
     
-    // Проверяем, это верхний уровень или нет
-    // Верхний уровень = элемент не вложен в скрепление
-    const isTopLevel = !bindings?.some(b => b.detailIds?.includes(detailId))
+    // Проверяем, вложена ли деталь в скрепление
+    const parentBinding = bindings?.find(b => b.detailIds?.includes(detailId))
     
-    // Проверяем, это единственный элемент на верхнем уровне
+    // Проверяем, это верхний уровень
+    const isTopLevel = !parentBinding
+    
+    // Проверяем количество элементов на верхнем уровне
     const topLevelDetails = (details || []).filter(d => 
       !bindings?.some(b => b.detailIds?.includes(d.id))
     )
@@ -877,13 +901,14 @@ function App() {
       detailId, 
       bitrixId: detail?.bitrixId,
       isTopLevel,
-      isOnlyTopLevelElement
+      isOnlyTopLevelElement,
+      parentBindingId: parentBinding?.bitrixId
     })
 
-    if (!bitrixMeta) return
+    if (!bitrixMeta || !detail?.bitrixId) return
 
     if (isOnlyTopLevelElement) {
-      // Верхний уровень, единственный элемент → CLEAR_PRESET_REQUEST
+      // Единственный элемент на верхнем уровне → CLEAR_PRESET_REQUEST
       const iblockInfo = getIblockInfo('CALC_DETAILS')
       if (iblockInfo) {
         console.log('[CLEAR_PRESET_REQUEST] Sending...')
@@ -892,32 +917,41 @@ function App() {
           iblockType: iblockInfo.iblockType,
         })
       }
-      // УДАЛЯЕМ из UI сразу
+      // Удаляем из UI сразу
       setDetails(prev => (prev || []).filter(d => d.id !== detailId))
       addInfoMessage('info', 'Пресет очищен')
-    } else if (detail?.bitrixId) {
-      // Любой другой уровень → REMOVE_DETAIL_REQUEST
-      const iblockInfo = getIblockInfo('CALC_DETAILS')
-      if (iblockInfo) {
-        console.log('[REMOVE_DETAIL_REQUEST] Sending...', { detailId: detail.bitrixId })
-        postMessageBridge.sendRemoveDetailRequest({
-          detailId: detail.bitrixId,
-          iblockId: iblockInfo.iblockId,
-          iblockType: iblockInfo.iblockType,
+    } else if (parentBinding) {
+      // Деталь вложена в скрепление
+      const detailsInBinding = parentBinding.detailIds?.length || 0
+      
+      if (detailsInBinding === 2) {
+        // Ровно 2 детали в скреплении → показываем диалог
+        setPendingRemoveDetail({
+          detailId,
+          bitrixId: detail.bitrixId,
+          parentId: parentBinding.bitrixId!
         })
+        setIsRemoveFromBindingDialogOpen(true)
+      } else {
+        // Больше 2 деталей → просто удаляем
+        sendRemoveDetailRequestHelper(detail.bitrixId, parentBinding.bitrixId!)
       }
-      // НЕ удаляем из UI — ждём INIT
-      addInfoMessage('info', 'Запрос на удаление отправлен')
+    } else {
+      // Верхний уровень, но не единственный элемент
+      sendRemoveDetailRequestHelper(detail.bitrixId, null)
     }
   }
 
   const handleDeleteBinding = (bindingId: string) => {
     const binding = (bindings || []).find(b => b.id === bindingId)
     
-    // Проверяем, это верхний уровень
-    const isTopLevel = !bindings?.some(parent => parent.bindingIds?.includes(bindingId))
+    // Проверяем, вложено ли скрепление в другое скрепление
+    const parentBinding = bindings?.find(parent => parent.bindingIds?.includes(bindingId))
     
-    // Проверяем, единственный элемент на верхнем уровне
+    // Проверяем, это верхний уровень
+    const isTopLevel = !parentBinding
+    
+    // Проверяем количество элементов на верхнем уровне
     const topLevelDetails = (details || []).filter(d => 
       !bindings?.some(b => b.detailIds?.includes(d.id))
     )
@@ -932,13 +966,14 @@ function App() {
       bindingId, 
       bitrixId: binding?.bitrixId,
       isTopLevel,
-      isOnlyTopLevelElement
+      isOnlyTopLevelElement,
+      parentBindingId: parentBinding?.bitrixId
     })
 
-    if (!bitrixMeta) return
+    if (!bitrixMeta || !binding?.bitrixId) return
 
     if (isOnlyTopLevelElement) {
-      // Верхний уровень, единственный элемент → CLEAR_PRESET_REQUEST
+      // Единственный элемент на верхнем уровне → CLEAR_PRESET_REQUEST
       const iblockInfo = getIblockInfo('CALC_DETAILS')
       if (iblockInfo) {
         console.log('[CLEAR_PRESET_REQUEST] Sending...')
@@ -947,23 +982,27 @@ function App() {
           iblockType: iblockInfo.iblockType,
         })
       }
-      // УДАЛЯЕМ из UI сразу
+      // Удаляем из UI сразу
       setBindings(prev => (prev || []).filter(b => b.id !== bindingId))
       addInfoMessage('info', 'Пресет очищен')
-    } else if (binding?.bitrixId) {
-      // Любой другой уровень → REMOVE_DETAIL_REQUEST (передаём bitrixId скрепления)
-      const iblockInfo = getIblockInfo('CALC_DETAILS')
-      if (iblockInfo) {
-        console.log('[REMOVE_DETAIL_REQUEST] Sending...', { detailId: binding.bitrixId })
-        postMessageBridge.sendRemoveDetailRequest({
-          detailId: binding.bitrixId,
-          iblockId: iblockInfo.iblockId,
-          iblockType: iblockInfo.iblockType,
-        })
-      }
-      // НЕ удаляем из UI — ждём INIT
-      addInfoMessage('info', 'Запрос на удаление скрепления отправлен')
+    } else {
+      // Не единственный элемент → REMOVE_DETAIL_REQUEST с parentId
+      const parentId = parentBinding?.bitrixId ?? null
+      sendRemoveDetailRequestHelper(binding.bitrixId, parentId)
     }
+  }
+
+  const handleConfirmRemoveFromBinding = () => {
+    if (pendingRemoveDetail) {
+      sendRemoveDetailRequestHelper(pendingRemoveDetail.bitrixId, pendingRemoveDetail.parentId)
+    }
+    setIsRemoveFromBindingDialogOpen(false)
+    setPendingRemoveDetail(null)
+  }
+
+  const handleCancelRemoveFromBinding = () => {
+    setIsRemoveFromBindingDialogOpen(false)
+    setPendingRemoveDetail(null)
   }
 
   const handleUpdateDetail = (detailId: string, updates: Partial<Detail>) => {
@@ -1502,6 +1541,24 @@ function App() {
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteStageConfirm}>
               Подтверждаю
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* AlertDialog: Удаление из скрепления с 2 деталями */}
+      <AlertDialog open={isRemoveFromBindingDialogOpen} onOpenChange={setIsRemoveFromBindingDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удаление детали</AlertDialogTitle>
+            <AlertDialogDescription>
+              Данное действие приведёт к удалению скрепления. Продолжить?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelRemoveFromBinding}>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmRemoveFromBinding}>
+              Продолжить
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
