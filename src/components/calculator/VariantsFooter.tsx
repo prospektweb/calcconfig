@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { JsonView, darkStyles, defaultStyles } from 'react-json-view-lite'
 import 'react-json-view-lite/dist/index.css'
 import { InitPayload } from '@/lib/postmessage-bridge'
-import { openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
+import { openBitrixAdmin, openCatalogProduct, getBitrixContext } from '@/lib/bitrix-utils'
 
 interface VariantsFooterProps {
   selectedOffers: InitPayload['selectedOffers']
@@ -99,12 +99,7 @@ export function VariantsFooter({
     }
 
     try {
-      openBitrixAdmin({
-        iblockId: parentIblock.id,
-        type: parentIblock.type,
-        lang: context.lang,
-        id: productId,
-      })
+      openCatalogProduct(productId, parentIblock.id, parentIblock.type, context.lang)
       addInfoMessage('info', `Открыт родительский товар ID: ${productId}`)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Не удалось открыть товар'

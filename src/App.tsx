@@ -83,10 +83,6 @@ function App() {
   const [selectDetailDialogMode, setSelectDetailDialogMode] = useState<'select' | 'create'>('select')
   const [isDeleteStageDialogOpen, setIsDeleteStageDialogOpen] = useState(false)
   const [stageToDelete, setStageToDelete] = useState<{detailId: string, calcIndex: number} | null>(null)
-  const [isDeleteDetailDialogOpen, setIsDeleteDetailDialogOpen] = useState(false)
-  const [detailToDelete, setDetailToDelete] = useState<string | null>(null)
-  const [isDeleteGroupDialogOpen, setIsDeleteGroupDialogOpen] = useState(false)
-  const [groupToDelete, setGroupToDelete] = useState<any>(null)
   const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = useState(false)
   const [groupDetailsToMerge, setGroupDetailsToMerge] = useState<(number | string)[]>([])
   const [newGroupName, setNewGroupName] = useState('')
@@ -858,94 +854,113 @@ function App() {
     toast.success('Этап удалён')
   }
 
-  const handleDeleteDetailConfirm = () => {
-    if (!detailToDelete) return
+
+  const handleDeleteDetail = (detailId: string) => {
+    const detail = (details || []).find(d => d.id === detailId)
     
-    const detail = (details || []).find(d => d.id === detailToDelete)
+    // Проверяем, это верхний уровень или нет
+    // Верхний уровень = элемент не вложен в скрепление
+    const isTopLevel = !bindings?.some(b => b.detailIds?.includes(detailId))
     
-    console.log('[DELETE_DETAIL] Deleting detail', { 
-      detailId: detailToDelete, 
-      bitrixId: detail?.bitrixId 
+    // Проверяем, это единственный элемент на верхнем уровне
+    const topLevelDetails = (details || []).filter(d => 
+      !bindings?.some(b => b.detailIds?.includes(d.id))
+    )
+    const topLevelBindings = (bindings || []).filter(b => 
+      !bindings?.some(parent => parent.bindingIds?.includes(b.id))
+    )
+    const isOnlyTopLevelElement = isTopLevel && 
+      topLevelDetails.length <= 1 && 
+      topLevelBindings.length === 0
+
+    console.log('[DELETE_DETAIL]', { 
+      detailId, 
+      bitrixId: detail?.bitrixId,
+      isTopLevel,
+      isOnlyTopLevelElement
     })
-    
-    // Check if this is the only top-level element
-    const remainingDetails = (details || []).filter(d => d.id !== detailToDelete)
-    const hasBindings = (bindings || []).length > 0
-    const isLastTopLevelElement = remainingDetails.length === 0 && !hasBindings
-    
-    if (isLastTopLevelElement && bitrixMeta) {
-      // This is the last element - send CLEAR_PRESET_REQUEST instead
-      const detailsIblock = getIblockInfo('CALC_DETAILS')
-      if (detailsIblock) {
+
+    if (!bitrixMeta) return
+
+    if (isOnlyTopLevelElement) {
+      // Верхний уровень, единственный элемент → CLEAR_PRESET_REQUEST
+      const iblockInfo = getIblockInfo('CALC_DETAILS')
+      if (iblockInfo) {
+        console.log('[CLEAR_PRESET_REQUEST] Sending...')
         postMessageBridge.sendClearPresetRequest({
-          iblockId: detailsIblock.iblockId,
-          iblockType: detailsIblock.iblockType,
+          iblockId: iblockInfo.iblockId,
+          iblockType: iblockInfo.iblockType,
         })
-        toast.info('Отправлен запрос на очистку пресета...')
       }
-    } else {
-      // Send DELETE_DETAIL_REQUEST if has bitrixId
-      if (detail?.bitrixId && bitrixMeta) {
-        postMessageBridge.sendDeleteDetailRequest({
+    } else if (detail?.bitrixId) {
+      // Любой другой уровень → REMOVE_DETAIL_REQUEST
+      const iblockInfo = getIblockInfo('CALC_DETAILS')
+      if (iblockInfo) {
+        console.log('[REMOVE_DETAIL_REQUEST] Sending...', { detailId: detail.bitrixId })
+        postMessageBridge.sendRemoveDetailRequest({
           detailId: detail.bitrixId,
-          ...getIblockInfo('CALC_DETAILS')!,
+          iblockId: iblockInfo.iblockId,
+          iblockType: iblockInfo.iblockType,
         })
       }
     }
     
-    // Remove from UI
-    setDetails(prev => (prev || []).filter(d => d.id !== detailToDelete))
-    
-    setIsDeleteDetailDialogOpen(false)
-    setDetailToDelete(null)
-    toast.success('Деталь удалена')
+    // UI НЕ обновляем вручную — ждём INIT от Bitrix
+    // INIT автоматически перестроит UI
+    addInfoMessage('info', 'Запрос на удаление отправлен')
   }
 
-  const handleDeleteGroupKeepDetail = (detailId: number | string) => {
-    console.log('[DELETE_GROUP] Deleting group, keeping detail', { 
-      groupId: groupToDelete?.id, 
-      detailIdToKeep: detailId 
-    })
+  const handleDeleteBinding = (bindingId: string) => {
+    const binding = (bindings || []).find(b => b.id === bindingId)
     
-    // Logic for keeping one detail and removing group
-    if (!groupToDelete || !bitrixMeta) return
+    // Проверяем, это верхний уровень
+    const isTopLevel = !bindings?.some(parent => parent.bindingIds?.includes(bindingId))
     
-    // Send DELETE_GROUP_REQUEST with detailIdToKeep
-    postMessageBridge.sendDeleteGroupRequest({
-      groupId: groupToDelete.id,
-      detailIdToKeep: detailId,
-      ...getIblockInfo('CALC_DETAILS')!,
-    })
-    
-    setIsDeleteGroupDialogOpen(false)
-    setGroupToDelete(null)
-    toast.info('Удаление группы...')
-  }
+    // Проверяем, единственный элемент на верхнем уровне
+    const topLevelDetails = (details || []).filter(d => 
+      !bindings?.some(b => b.detailIds?.includes(d.id))
+    )
+    const topLevelBindings = (bindings || []).filter(b => 
+      !bindings?.some(parent => parent.bindingIds?.includes(b.id))
+    )
+    const isOnlyTopLevelElement = isTopLevel && 
+      topLevelDetails.length === 0 && 
+      topLevelBindings.length <= 1
 
-  const handleDeleteGroupAll = () => {
-    console.log('[DELETE_GROUP] Deleting group and all details', { 
-      groupId: groupToDelete?.id 
+    console.log('[DELETE_BINDING]', { 
+      bindingId, 
+      bitrixId: binding?.bitrixId,
+      isTopLevel,
+      isOnlyTopLevelElement
     })
-    
-    // Logic for deleting all details in group
-    if (!groupToDelete || !bitrixMeta) return
-    
-    // Send DELETE_GROUP_REQUEST without detailIdToKeep
-    postMessageBridge.sendDeleteGroupRequest({
-      groupId: groupToDelete.id,
-      deleteAll: true,
-      ...getIblockInfo('CALC_DETAILS')!,
-    })
-    
-    setIsDeleteGroupDialogOpen(false)
-    setGroupToDelete(null)
-    toast.info('Удаление группы и всех деталей...')
-  }
 
+    if (!bitrixMeta) return
 
-  const handleDeleteDetail = (detailId: string) => {
-    setDetails(prev => (prev || []).filter(d => d.id !== detailId))
-    addInfoMessage('info', 'Деталь удалена')
+    if (isOnlyTopLevelElement) {
+      // Верхний уровень, единственный элемент → CLEAR_PRESET_REQUEST
+      const iblockInfo = getIblockInfo('CALC_DETAILS')
+      if (iblockInfo) {
+        console.log('[CLEAR_PRESET_REQUEST] Sending...')
+        postMessageBridge.sendClearPresetRequest({
+          iblockId: iblockInfo.iblockId,
+          iblockType: iblockInfo.iblockType,
+        })
+      }
+    } else if (binding?.bitrixId) {
+      // Любой другой уровень → REMOVE_DETAIL_REQUEST (передаём bitrixId скрепления)
+      const iblockInfo = getIblockInfo('CALC_DETAILS')
+      if (iblockInfo) {
+        console.log('[REMOVE_DETAIL_REQUEST] Sending...', { detailId: binding.bitrixId })
+        postMessageBridge.sendRemoveDetailRequest({
+          detailId: binding.bitrixId,
+          iblockId: iblockInfo.iblockId,
+          iblockType: iblockInfo.iblockType,
+        })
+      }
+    }
+    
+    // UI НЕ обновляем — ждём INIT
+    addInfoMessage('info', 'Запрос на удаление скрепления отправлен')
   }
 
   const handleUpdateDetail = (detailId: string, updates: Partial<Detail>) => {
@@ -1330,10 +1345,7 @@ function App() {
                         (prev || []).map(b => b.id === item.id ? { ...b, ...updates } : b)
                       )
                     }}
-                    onDelete={() => {
-                      setBindings(prev => (prev || []).filter(b => b.id !== item.id))
-                      addInfoMessage('info', 'Скрепление удалено')
-                    }}
+                    onDelete={() => handleDeleteBinding(item.id)}
                     onUpdateDetail={handleUpdateDetail}
                     onUpdateBinding={handleUpdateBinding}
                     orderNumber={index + 1}
@@ -1492,25 +1504,6 @@ function App() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* AlertDialog: Delete Detail */}
-      <AlertDialog open={isDeleteDetailDialogOpen} onOpenChange={setIsDeleteDetailDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Подтвердите удаление детали</AlertDialogTitle>
-            <AlertDialogDescription>
-              ⚠️ Деталь может использоваться в других сборках. 
-              Все связанные этапы будут удалены.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteDetailConfirm} className="bg-destructive">
-              Удалить
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* AlertDialog: Select Detail Action */}
       <AlertDialog open={isSelectDetailDialogOpen} onOpenChange={setIsSelectDetailDialogOpen}>
         <AlertDialogContent>
@@ -1535,45 +1528,6 @@ function App() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Dialog: Delete Group (Choose Detail) */}
-      <Dialog open={isDeleteGroupDialogOpen} onOpenChange={setIsDeleteGroupDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Удаление группы скрепления</DialogTitle>
-            <DialogDescription>
-              Выберите какую деталь оставить
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-2">
-            {groupToDelete?.detailIds?.map((detailId: number | string) => {
-              const detail = details.find(d => d.id === detailId || d.bitrixId === detailId)
-              return (
-                <Button
-                  key={detailId}
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => handleDeleteGroupKeepDetail(detailId)}
-                >
-                  Оставить [{detail?.name || `ID: ${detailId}`}]
-                </Button>
-              )
-            })}
-            <Button
-              variant="destructive"
-              className="w-full"
-              onClick={handleDeleteGroupAll}
-            >
-              Удалить всё
-            </Button>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteGroupDialogOpen(false)}>
-              Отмена
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Dialog: Create Group */}
       <Dialog open={isCreateGroupDialogOpen} onOpenChange={setIsCreateGroupDialogOpen}>
