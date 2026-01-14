@@ -121,6 +121,9 @@ export interface CalcInfoPayload {
 
 /**
  * Payload for ADD_STAGE_REQUEST
+ * 
+ * Note: Stage positioning (previousStageId, etc.) is handled by the Bitrix backend.
+ * The backend determines the correct insertion position based on the current state.
  */
 export interface AddStageRequestPayload {
   detailId: number              // ID детали (Bitrix)

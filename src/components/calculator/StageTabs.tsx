@@ -934,6 +934,9 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                           }
 
                           // Also request settings data if not already loaded
+                          // This is separate from CHANGE_SETTINGS_REQUEST:
+                          // - CHANGE_SETTINGS_REQUEST updates the stage's calculator in Bitrix
+                          // - sendCalcSettingsRequest loads the calculator's full properties for UI rendering
                           if (!calculatorSettings[newSettingsId] && bitrixMeta) {
                             const context = getBitrixContext()
                             const settingsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_SETTINGS')
@@ -993,6 +996,9 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                             }
                             
                             // Also request operation variant data if not already loaded
+                            // This is separate from CHANGE_OPERATION_VARIANT_REQUEST:
+                            // - CHANGE_OPERATION_VARIANT_REQUEST updates the stage's operation in Bitrix
+                            // - sendCalcOperationVariantRequest loads the operation's full properties (including itemParent with supported equipment/materials)
                             if (!operationSettings[newOperationId.toString()] && bitrixMeta) {
                               const context = getBitrixContext()
                               const operationsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_OPERATIONS')
@@ -1135,6 +1141,9 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                           }
                           
                           // Also request material variant data if not already loaded
+                          // This is separate from CHANGE_MATERIAL_VARIANT_REQUEST:
+                          // - CHANGE_MATERIAL_VARIANT_REQUEST updates the stage's material in Bitrix
+                          // - sendCalcMaterialVariantRequest loads the material's full properties (including measure data)
                           if (!materialVariants[newMaterialVariantId.toString()] && bitrixMeta) {
                             const context = getBitrixContext()
                             const materialsVariantsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_MATERIALS_VARIANTS')
