@@ -197,15 +197,18 @@ function App() {
   // Helper function to send REMOVE_DETAIL_REQUEST
   const sendRemoveDetailRequestHelper = useCallback((detailBitrixId: number, parentId: number | null) => {
     const iblockInfo = getIblockInfo('CALC_DETAILS')
-    if (iblockInfo) {
-      console.log('[REMOVE_DETAIL_REQUEST] Sending...', { detailId: detailBitrixId, parentId })
-      postMessageBridge.sendRemoveDetailRequest({
-        detailId: detailBitrixId,
-        parentId,
-        iblockId: iblockInfo.iblockId,
-        iblockType: iblockInfo.iblockType,
-      })
+    if (!iblockInfo) {
+      addInfoMessage('error', 'Не удалось отправить запрос на удаление: отсутствует информация об инфоблоке')
+      return
     }
+    
+    console.log('[REMOVE_DETAIL_REQUEST] Sending...', { detailId: detailBitrixId, parentId })
+    postMessageBridge.sendRemoveDetailRequest({
+      detailId: detailBitrixId,
+      parentId,
+      iblockId: iblockInfo.iblockId,
+      iblockType: iblockInfo.iblockType,
+    })
     // НЕ удаляем из UI — ждём INIT
     addInfoMessage('info', 'Запрос на удаление отправлен')
   }, [bitrixMeta])
