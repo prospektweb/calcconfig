@@ -7,6 +7,8 @@ import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut, DotsSixVertica
 import { DetailCard } from './DetailCard'
 import { StageTabs } from './StageTabs'
 import { InitPayload } from '@/lib/postmessage-bridge'
+import { openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
+import { toast } from 'sonner'
 
 interface BindingCardProps {
   binding: Binding
@@ -55,7 +57,38 @@ interface BindingCardProps {
   }
   
   const handleOpenInBitrix = () => {
-    window.open(`#binding-${binding.id}`, '_blank')
+    // Получить bitrixId из binding
+    const bindingIdNumber = binding.bitrixId ?? parseInt(binding.id.split('_')[1] || '0')
+    
+    if (bitrixMeta && bindingIdNumber) {
+      const context = getBitrixContext()
+      if (!context) {
+        toast.error('Контекст Bitrix не инициализирован')
+        return
+      }
+
+      // Найти инфоблок для групп скреплений (CALC_DETAILS или специальный)
+      const bindingsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_DETAILS')
+      if (!bindingsIblock) {
+        toast.error('Инфоблок групп скреплений не найден')
+        return
+      }
+
+      try {
+        openBitrixAdmin({
+          iblockId: bindingsIblock.id,
+          type: bindingsIblock.type,
+          lang: context.lang,
+          id: bindingIdNumber,
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Не удалось открыть группу скрепления'
+        toast.error(message)
+      }
+    } else {
+      // Fallback для dev-режима
+      window.open(`#binding-${binding.id}`, '_blank')
+    }
   }
   
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {

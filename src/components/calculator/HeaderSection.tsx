@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { List, Plus, FolderOpen } from '@phosphor-icons/react'
 import { InitPayload } from '@/lib/postmessage-bridge'
-import { openIblockEditPage } from '@/lib/bitrix-utils'
+import { openIblockCatalog } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
 
 interface Iblock {
@@ -50,7 +50,7 @@ export function HeaderSection({
   const handleOpenCatalog = (iblock: Iblock) => {
     try {
       const lang = bitrixMeta?.context?.lang || 'ru'
-      openIblockEditPage(iblock.id, iblock.type, lang)
+      openIblockCatalog(iblock, lang)
     } catch (error) {
       toast.error(`Не удалось открыть "${iblock.name}"`)
       console.error('[HeaderSection] Failed to open catalog', error)

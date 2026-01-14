@@ -50,7 +50,7 @@ export function openBitrixAdmin(params: OpenBitrixAdminParams) {
   const { iblockId, type, lang, id, isSection = false } = params
   const { baseUrl } = bitrixContext
 
-  if (! iblockId || !type || !lang) {
+  if (!iblockId || !type || !lang) {
     console.error('[openBitrixAdmin] Missing required parameters', { iblockId, type, lang })
     throw new Error('Не указаны обязательные параметры для открытия Bitrix')
   }
@@ -67,20 +67,8 @@ export function openBitrixAdmin(params: OpenBitrixAdminParams) {
     url = `${baseUrl}/bitrix/admin/iblock_list_admin.php?IBLOCK_ID=${iblockId}&type=${type}&lang=${lang}&find_section_section=0`
   }
 
-  try {
-    const newWindow = window.open('', '_blank')
-
-    if (!newWindow) {
-      console.warn('[openBitrixAdmin] Popup was blocked')
-      throw new Error('Всплывающее окно заблокировано браузером.Разрешите всплывающие окна для этого сайта.')
-    }
-
-    newWindow.opener = window
-    newWindow.location.href = url
-  } catch (error) {
-    console.error('[openBitrixAdmin] Failed to open window', error)
-    throw error
-  }
+  // Просто открываем URL, без проверки на блокировку
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
 
 export function openIblockEditPage(iblockId: number, type: string = 'calculator', lang: string = 'ru') {
@@ -92,15 +80,7 @@ export function openIblockEditPage(iblockId: number, type: string = 'calculator'
   const { baseUrl } = bitrixContext
   const url = `${baseUrl}/bitrix/admin/iblock_edit.php?type=${type}&lang=${lang}&ID=${iblockId}`
 
-  try {
-    const newWindow = window.open(url, '_blank', 'noopener')
-    if (!newWindow) {
-      throw new Error('Всплывающее окно заблокировано браузером')
-    }
-  } catch (error) {
-    console.error('[openIblockEditPage] Failed to open window', error)
-    throw error
-  }
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
 
 // ============================================
@@ -116,13 +96,5 @@ export function openIblockCatalog(iblock: Iblock, lang: string = 'ru') {
   const { baseUrl } = bitrixContext
   const url = `${baseUrl}/bitrix/admin/iblock_list_admin.php?IBLOCK_ID=${iblock.id}&type=${iblock.type}&lang=${lang}&find_section_section=0`
 
-  try {
-    const newWindow = window.open(url, '_blank', 'noopener')
-    if (!newWindow) {
-      throw new Error('Всплывающее окно заблокировано браузером')
-    }
-  } catch (error) {
-    console.error('[openIblockCatalog] Failed to open window', error)
-    throw error
-  }
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
