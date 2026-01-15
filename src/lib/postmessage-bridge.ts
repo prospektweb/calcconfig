@@ -525,7 +525,7 @@ class PostMessageBridge {
     return this.sendMessage('RENAME_DETAIL_REQUEST', payload)
   }
 
-  sendRemoveDetailRequest(payload: { detailId: number, iblockId: number, iblockType: string }) {
+  sendRemoveDetailRequest(payload: { detailId: number, parentId: number | null, iblockId: number, iblockType: string }) {
     return this.sendMessage('REMOVE_DETAIL_REQUEST', payload)
   }
 
