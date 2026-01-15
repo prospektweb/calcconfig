@@ -1,12 +1,11 @@
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Binding, Detail } from '@/lib/types'
-import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut, DotsSixVertical } from '@phosphor-icons/react'
+import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut, DotsSixVertical, Plus } from '@phosphor-icons/react'
 import { DetailCard } from './DetailCard'
 import { StageTabs } from './StageTabs'
-import { InitPayload } from '@/lib/postmessage-bridge'
+import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
 
@@ -52,13 +51,6 @@ interface BindingCardProps {
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !binding.isExpanded })
   }
-
-  const handleToggleStages = (checked: boolean) => {
-    onUpdate({ 
-      hasStages: checked,
-      stages: checked ? (binding.stages || []) : []
-    })
-  }
   
   const handleOpenInBitrix = () => {
     // Получить bitrixId из binding
@@ -99,6 +91,16 @@ interface BindingCardProps {
     onUpdate({ name: e.target.value })
   }
   
+  const handleNameBlur = () => {
+    // Send RENAME_DETAIL_REQUEST when binding name changes
+    if (binding.bitrixId && binding.name) {
+      postMessageBridge.sendRenameDetailRequest({
+        detailId: binding.bitrixId,
+        name: binding.name,
+      })
+    }
+  }
+  
   const handleDragHandleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
     const card = e.currentTarget.closest('[data-binding-card]') as HTMLElement
@@ -136,6 +138,7 @@ interface BindingCardProps {
           <Input
             value={binding.name}
             onChange={handleNameChange}
+            onBlur={handleNameBlur}
             className="h-6 text-sm font-medium bg-transparent border-none px-3 focus-visible:ring-1 focus-visible:ring-ring flex-1 min-w-[120px]"
             placeholder="Название группы скрепления"
             data-pwcode="input-binding-name"
@@ -242,32 +245,40 @@ interface BindingCardProps {
             </div>
           )}
 
-          <div className="flex items-center gap-2 border-t border-border pt-3" data-pwcode="binding-stages-checkbox">
-            <Checkbox
-              id={`stages-${binding.id}`}
-              checked={binding.hasStages}
-              onCheckedChange={handleToggleStages}
-              data-pwcode="checkbox-stages"
-            />
-            <label 
-              htmlFor={`stages-${binding.id}`}
-              className="text-sm font-medium cursor-pointer"
-            >
-              Этапы скрепления
-            </label>
-          </div>
-
-          {binding.hasStages && (
-            <div data-pwcode="binding-stages">
-              <StageTabs
-                calculators={binding.stages || []}
-                onChange={(calculators) => onUpdate({ stages: calculators })}
-                detailId={binding.bitrixId ?? undefined}
-                bitrixMeta={bitrixMeta}
-                onValidationMessage={onValidationMessage}
-              />
+          <div className="border-t border-border pt-3" data-pwcode="binding-stages-section">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium">Этапы скрепления</h4>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Send ADD_STAGE_REQUEST with detailId set to binding's bitrixId
+                  if (binding.bitrixId && bitrixMeta) {
+                    console.log('[ADD_STAGE_REQUEST] Sending for binding...', { detailId: binding.bitrixId })
+                    postMessageBridge.sendAddStageRequest({
+                      detailId: binding.bitrixId,
+                    })
+                  }
+                }}
+                className="h-7 w-7 p-0"
+                data-pwcode="btn-add-binding-stage"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
             </div>
-          )}
+            
+            {(binding.stages || []).length > 0 && (
+              <div data-pwcode="binding-stages">
+                <StageTabs
+                  calculators={binding.stages || []}
+                  onChange={(calculators) => onUpdate({ stages: calculators })}
+                  detailId={binding.bitrixId ?? undefined}
+                  bitrixMeta={bitrixMeta}
+                  onValidationMessage={onValidationMessage}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </Card>

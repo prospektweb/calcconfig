@@ -809,7 +809,17 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                   >
                     <TabsTrigger 
                       value={index.toString()} 
-                      className="pr-8 gap-1 data-[state=active]:bg-muted-foreground/80 data-[state=active]:text-primary-foreground"
+                      className={cn(
+                        "gap-1 data-[state=active]:bg-muted-foreground/80 data-[state=active]:text-primary-foreground",
+                        // Adjust padding based on number of buttons:
+                        // - Single stage with stageId: pr-7 (for open button)
+                        // - Single stage without stageId: pr-2 (no buttons)
+                        // - Multiple stages with stageId: pr-12 (for both open and delete buttons)
+                        // - Multiple stages without stageId: pr-8 (for delete button only)
+                        safeCalculators.length === 1 
+                          ? (calc.stageId ? "pr-7" : "pr-2")
+                          : (calc.stageId ? "pr-12" : "pr-8")
+                      )}
                     >
                       <div 
                         className="w-4 h-4 flex items-center justify-center flex-shrink-0 cursor-grab active:cursor-grabbing"

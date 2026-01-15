@@ -743,14 +743,25 @@ function App() {
   }
 
   const handleCreateDetail = () => {
-    setNewDetailName('')
-    
     const hasDetails = (details || []).length > 0 || (bindings || []).length > 0
     
     if (!hasDetails) {
-      // Нет деталей — сразу создаём с binding = false
-      setCreateDetailBinding(false)
-      setIsCreateDetailDialogOpen(true)
+      // Нет деталей — сразу создаём с binding = false и именем по умолчанию
+      const name = `Деталь #${detailCounter.current++}`
+      
+      console.log('[ADD_DETAIL_REQUEST] Sending create detail request', { name, offerIds: selectedVariantIds, binding: false })
+      
+      // Send ADD_DETAIL_REQUEST
+      if (bitrixMeta && selectedVariantIds.length > 0) {
+        postMessageBridge.sendAddDetailRequest({
+          offerIds: selectedVariantIds,
+          name: name,
+          binding: false,
+          ...getIblockInfo('CALC_DETAILS')!,
+        })
+      }
+      
+      toast.info('Запрос на создание детали отправлен...')
     } else {
       // Есть детали — показываем диалог выбора (используем тот же диалог что и для select)
       setSelectDetailDialogMode('create')
@@ -798,10 +809,23 @@ function App() {
 
   const handleSelectDetailReplace = () => {
     if (selectDetailDialogMode === 'create') {
-      // Режим создания — открываем диалог создания с binding = false
-      setCreateDetailBinding(false)
+      // Режим создания — создать деталь с именем по умолчанию и binding = false
+      const name = `Деталь #${detailCounter.current++}`
+      
+      console.log('[ADD_DETAIL_REQUEST] Sending create detail request', { name, offerIds: selectedVariantIds, binding: false })
+      
+      // Send ADD_DETAIL_REQUEST
+      if (bitrixMeta && selectedVariantIds.length > 0) {
+        postMessageBridge.sendAddDetailRequest({
+          offerIds: selectedVariantIds,
+          name: name,
+          binding: false,
+          ...getIblockInfo('CALC_DETAILS')!,
+        })
+      }
+      
+      toast.info('Запрос на создание детали отправлен...')
       setIsSelectDetailDialogOpen(false)
-      setIsCreateDetailDialogOpen(true)
     } else {
       // Режим выбора — заменить деталь
       if (bitrixMeta) {
@@ -817,10 +841,23 @@ function App() {
 
   const handleSelectDetailBinding = () => {
     if (selectDetailDialogMode === 'create') {
-      // Режим создания — открываем диалог создания с binding = true
-      setCreateDetailBinding(true)
+      // Режим создания — создать деталь с именем по умолчанию и binding = true
+      const name = `Деталь #${detailCounter.current++}`
+      
+      console.log('[ADD_DETAIL_REQUEST] Sending create detail request', { name, offerIds: selectedVariantIds, binding: true })
+      
+      // Send ADD_DETAIL_REQUEST
+      if (bitrixMeta && selectedVariantIds.length > 0) {
+        postMessageBridge.sendAddDetailRequest({
+          offerIds: selectedVariantIds,
+          name: name,
+          binding: true,
+          ...getIblockInfo('CALC_DETAILS')!,
+        })
+      }
+      
+      toast.info('Запрос на создание детали отправлен...')
       setIsSelectDetailDialogOpen(false)
-      setIsCreateDetailDialogOpen(true)
     } else {
       // Режим выбора — создать скрепление
       if (bitrixMeta) {
@@ -846,17 +883,7 @@ function App() {
       stageId: stage?.stageId 
     })
     
-    // Find detail and remove calculator at index
-    setDetails(prev => 
-      (prev || []).map(d => 
-        d.id === stageToDelete.detailId
-          ? {
-              ...d,
-              stages: d.stages.filter((_, i) => i !== stageToDelete.calcIndex)
-            }
-          : d
-      )
-    )
+    // НЕ удаляем из UI — ждём INIT
     
     if (stage?.stageId && bitrixMeta && detail?.bitrixId) {
       const stagesIblock = getIblockInfo('CALC_STAGES')
@@ -876,7 +903,7 @@ function App() {
     
     setIsDeleteStageDialogOpen(false)
     setStageToDelete(null)
-    toast.success('Этап удалён')
+    toast.info('Запрос на удаление этапа отправлен')
   }
 
 
@@ -925,9 +952,8 @@ function App() {
           iblockType: iblockInfo.iblockType,
         })
       }
-      // Удаляем из UI сразу
-      setDetails(prev => (prev || []).filter(d => d.id !== detailId))
-      addInfoMessage('info', 'Пресет очищен')
+      // НЕ удаляем из UI — ждём INIT
+      addInfoMessage('info', 'Запрос на очистку пресета отправлен')
     } else if (parentBinding) {
       // Деталь вложена в скрепление
       const detailsInBinding = parentBinding.detailIds?.length || 0
@@ -1003,9 +1029,8 @@ function App() {
           iblockType: iblockInfo.iblockType,
         })
       }
-      // Удаляем из UI сразу
-      setBindings(prev => (prev || []).filter(b => b.id !== bindingId))
-      addInfoMessage('info', 'Пресет очищен')
+      // НЕ удаляем из UI — ждём INIT
+      addInfoMessage('info', 'Запрос на очистку пресета отправлен')
     } else {
       // Не единственный элемент → REMOVE_DETAIL_REQUEST с parentId
       const parentId = parentBinding?.bitrixId ?? null
@@ -1602,7 +1627,7 @@ function App() {
                 : 'Заменить деталь или создать скрепление из деталей?'}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <Button variant="outline" onClick={handleSelectDetailReplace}>
               {selectDetailDialogMode === 'create' ? 'Заменить существующие' : 'Заменить'}
