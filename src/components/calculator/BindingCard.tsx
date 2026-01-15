@@ -20,6 +20,8 @@ interface BindingCardProps {
   onDelete: () => void
   onUpdateDetail: (detailId: string, updates: Partial<Detail>) => void
   onUpdateBinding?: (bindingId: string, updates: Partial<Binding>) => void
+  onDeleteDetail?: (detailId: string) => void
+  onDeleteBinding?: (bindingId: string) => void
   orderNumber: number
   detailStartIndex: number
   onDragStart?: (element: HTMLElement, e: React.MouseEvent) => void
@@ -38,6 +40,8 @@ interface BindingCardProps {
   onDelete, 
   onUpdateDetail,
   onUpdateBinding,
+  onDeleteDetail,
+  onDeleteBinding,
   orderNumber,
   detailStartIndex,
   onDragStart,
@@ -184,7 +188,11 @@ interface BindingCardProps {
                   key={detail.id}
                   detail={detail}
                   onUpdate={(updates) => onUpdateDetail(detail.id, updates)}
-                  onDelete={() => {}}
+                  onDelete={() => {
+                    if (onDeleteDetail) {
+                      onDeleteDetail(detail.id)
+                    }
+                  }}
                   isInBinding={true}
                   orderNumber={detailStartIndex + index + 1}
                   bitrixMeta={bitrixMeta}
@@ -214,9 +222,15 @@ interface BindingCardProps {
                           onUpdateBinding(nestedBinding.id, updates)
                         }
                       }}
-                      onDelete={() => {}}
+                      onDelete={() => {
+                        if (onDeleteBinding) {
+                          onDeleteBinding(nestedBinding.id)
+                        }
+                      }}
                       onUpdateDetail={onUpdateDetail}
                       onUpdateBinding={onUpdateBinding}
+                      onDeleteDetail={onDeleteDetail}
+                      onDeleteBinding={onDeleteBinding}
                       orderNumber={index + 1}
                       detailStartIndex={0}
                       bitrixMeta={bitrixMeta}
@@ -248,6 +262,7 @@ interface BindingCardProps {
               <StageTabs
                 calculators={binding.stages || []}
                 onChange={(calculators) => onUpdate({ stages: calculators })}
+                detailId={binding.bitrixId ?? undefined}
                 bitrixMeta={bitrixMeta}
                 onValidationMessage={onValidationMessage}
               />

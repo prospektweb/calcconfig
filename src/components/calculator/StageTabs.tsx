@@ -631,6 +631,14 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
         if (! isNaN(defaultOpId) && calc.operationVariantId !== defaultOpId) {
           handleUpdateCalculator(index, { operationVariantId:  defaultOpId })
           
+          // Send CHANGE_OPERATION_VARIANT_REQUEST if stageId exists
+          if (calc.stageId && bitrixMeta) {
+            postMessageBridge.sendChangeOperationVariantRequest({
+              operationVariantId: defaultOpId,
+              stageId: calc.stageId,
+            })
+          }
+          
           // Send request to get operation data (to receive itemParent with filters)
           if (bitrixMeta) {
             const context = getBitrixContext()
@@ -661,6 +669,14 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
           })
           
           handleUpdateCalculator(index, { materialVariantId: defaultMatId })
+          
+          // Send CHANGE_MATERIAL_VARIANT_REQUEST if stageId exists
+          if (calc.stageId && bitrixMeta) {
+            postMessageBridge.sendChangeMaterialVariantRequest({
+              materialVariantId: defaultMatId,
+              stageId: calc.stageId,
+            })
+          }
           
           // Send request to get material variant data
           if (bitrixMeta) {
@@ -715,7 +731,16 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
         
         const firstEquipmentValue = findFirstSelectableValue(hierarchyToSearch)
         if (firstEquipmentValue) {
-          handleUpdateCalculator(index, { equipmentId: parseInt(firstEquipmentValue) })
+          const equipmentId = parseInt(firstEquipmentValue)
+          handleUpdateCalculator(index, { equipmentId })
+          
+          // Send CHANGE_EQUIPMENT_REQUEST if stageId exists
+          if (calc.stageId && bitrixMeta) {
+            postMessageBridge.sendChangeEquipmentRequest({
+              equipmentId,
+              stageId: calc.stageId,
+            })
+          }
         }
       }
       
@@ -727,7 +752,16 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
         
         const firstMaterialValue = findFirstSelectableValue(hierarchyToSearch)
         if (firstMaterialValue) {
-          handleUpdateCalculator(index, { materialVariantId: parseInt(firstMaterialValue) })
+          const materialVariantId = parseInt(firstMaterialValue)
+          handleUpdateCalculator(index, { materialVariantId })
+          
+          // Send CHANGE_MATERIAL_VARIANT_REQUEST if stageId exists
+          if (calc.stageId && bitrixMeta) {
+            postMessageBridge.sendChangeMaterialVariantRequest({
+              materialVariantId,
+              stageId: calc.stageId,
+            })
+          }
           
           // Send request for material variant data
           if (bitrixMeta) {
@@ -736,7 +770,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
             
             if (context && materialsVariantsIblock) {
               postMessageBridge.sendCalcMaterialVariantRequest(
-                parseInt(firstMaterialValue),
+                materialVariantId,
                 materialsVariantsIblock.id,
                 materialsVariantsIblock.type,
                 context.lang

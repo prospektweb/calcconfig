@@ -1323,6 +1323,8 @@ function App() {
             onDelete={() => {}}
             onUpdateDetail={() => {}}
             onUpdateBinding={() => {}}
+            onDeleteDetail={handleDeleteDetail}
+            onDeleteBinding={handleDeleteBinding}
             orderNumber={allItems.findIndex(i => i.id === item.id) + 1}
             detailStartIndex={0}
             isDragging={false}
@@ -1411,6 +1413,8 @@ function App() {
                     onDelete={() => handleDeleteBinding(item.id)}
                     onUpdateDetail={handleUpdateDetail}
                     onUpdateBinding={handleUpdateBinding}
+                    onDeleteDetail={handleDeleteDetail}
+                    onDeleteBinding={handleDeleteBinding}
                     orderNumber={index + 1}
                     detailStartIndex={0}
                     onDragStart={handleBindingDragStart}
