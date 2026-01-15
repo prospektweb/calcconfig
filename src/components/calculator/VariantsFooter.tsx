@@ -77,7 +77,7 @@ export function VariantsFooter({
     }
 
     // Получить ID родительского товара из offer.productId или CML2_LINK
-    const productId = offer.productId || offer.properties?.CML2_LINK?.ID
+    const productId = offer.productId || offer.properties?.CML2_LINK?.VALUE
     if (!productId) {
       toast.error('Не найден ID родительского товара')
       return

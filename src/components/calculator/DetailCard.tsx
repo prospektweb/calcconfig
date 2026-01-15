@@ -160,6 +160,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
           <StageTabs
             calculators={detail.stages}
             onChange={(calculators) => onUpdate({ stages: calculators })}
+            detailId={detail.bitrixId ?? undefined}
             bitrixMeta={bitrixMeta}
             onValidationMessage={onValidationMessage}
           />

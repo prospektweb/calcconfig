@@ -20,15 +20,6 @@ interface HeaderSectionProps {
   onSelectDetail?: () => void
 }
 
-// Коды инфоблоков для отображения в меню
-const CATALOG_CODES = [
-  'CALC_DETAILS',
-  'CALC_MATERIALS',
-  'CALC_OPERATIONS',
-  'CALC_EQUIPMENT',
-  'CALC_STAGES',
-]
-
 export function HeaderSection({
   onOpenMenu,
   bitrixMeta,
@@ -36,14 +27,13 @@ export function HeaderSection({
   onSelectDetail,
 }: HeaderSectionProps) {
 
-  // Получаем инфоблоки для кнопок каталогов
+  // Получаем инфоблоки для кнопок каталогов - только те, у которых parent === null
   const catalogButtons = useMemo(() => {
     const iblocks = bitrixMeta?.iblocks as Iblock[] | undefined
     if (!iblocks || ! Array.isArray(iblocks)) return []
 
-    return CATALOG_CODES
-      .map(code => iblocks.find(ib => ib.code === code))
-      .filter((ib): ib is Iblock => ib !== undefined)
+    // Фильтруем инфоблоки с parent === null
+    return iblocks.filter(ib => ib.parent === null)
   }, [bitrixMeta?.iblocks])
 
   // Открытие каталога инфоблока в новой вкладке
