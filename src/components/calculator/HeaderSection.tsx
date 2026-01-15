@@ -32,8 +32,8 @@ export function HeaderSection({
     const iblocks = bitrixMeta?.iblocks as Iblock[] | undefined
     if (!iblocks || ! Array.isArray(iblocks)) return []
 
-    // Фильтруем инфоблоки с parent === null
-    return iblocks.filter(ib => ib.parent === null)
+    // Фильтруем инфоблоки с parent === null и исключаем OFFERS
+    return iblocks.filter(ib => ib.parent === null && ib.code !== 'OFFERS')
   }, [bitrixMeta?.iblocks])
 
   // Открытие каталога инфоблока в новой вкладке
@@ -74,7 +74,7 @@ export function HeaderSection({
               variant="ghost"
               size="sm"
               onClick={() => handleOpenCatalog(catalog)}
-              className="h-9 px-3 text-sm hover:bg-accent hover:text-accent-foreground"
+              className="h-9 px-3 text-[10px] hover:bg-accent hover:text-accent-foreground"
               data-pwcode={`btn-catalog-${catalog.code.toLowerCase()}`}
             >
               {catalog.name}

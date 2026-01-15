@@ -271,15 +271,30 @@ export function transformPresetToUI(
         )
       )
   
+  // Collect all detail IDs that are nested in ANY binding (including nested bindings)
+  const nestedDetailIds = new Set<string>()
+  Array.from(allBindings.values()).forEach(binding => {
+    binding.detailIds?.forEach(detailId => nestedDetailIds.add(detailId))
+  })
+  
+  // Set isExpanded: false for all details that are nested in bindings
+  const allDetailsArray = Array.from(allDetails.values())
+  const finalDetailsWithCollapsed = allDetailsArray.map(detail => {
+    if (nestedDetailIds.has(detail.id)) {
+      return { ...detail, isExpanded: false }
+    }
+    return detail
+  })
+  
   console.log('[transformPresetToUI] Final result:', {
-    detailsCount: finalDetails.length,
-    bindingsCount: bindings.length,
-    details: finalDetails,
-    bindings
+    allDetailsCount: finalDetailsWithCollapsed.length,
+    topLevelDetailsCount: finalDetails.length,
+    bindingsCount: allBindings.size,
+    nestedDetailIds: Array.from(nestedDetailIds),
   })
   
   return { 
-    details: finalDetails,
-    bindings: bindings.length > 0 ? bindings : []
+    details: finalDetailsWithCollapsed,
+    bindings: Array.from(allBindings.values())
   }
 }

@@ -431,19 +431,35 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
 
   const handleQuantityBlur = (index: number, field: 'operationQuantity' | 'materialQuantity') => {
     const stage = safeCalculators[index]
-    if (stage?.stageId && bitrixMeta && detailId) {
-      const stagesIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_STAGES')
-      if (stagesIblock) {
-        postMessageBridge.sendUpdateStageRequest({
+    if (stage?.stageId && bitrixMeta) {
+      // Send specific quantity change request based on field
+      if (field === 'operationQuantity') {
+        postMessageBridge.sendChangeOperationQuantityRequest({
           stageId: stage.stageId,
-          detailId: detailId,
-          updates: {
-            [field]: stage[field],
-          },
-          iblockId: stagesIblock.id,
-          iblockType: stagesIblock.type,
+          quantityValue: stage.operationQuantity,
+        })
+      } else if (field === 'materialQuantity') {
+        postMessageBridge.sendChangeMaterialQuantityRequest({
+          stageId: stage.stageId,
+          quantityValue: stage.materialQuantity,
         })
       }
+    }
+  }
+
+  const handleCustomFieldsBlur = (index: number) => {
+    const stage = safeCalculators[index]
+    if (stage?.stageId && bitrixMeta && stage.customFields) {
+      // Convert customFields object to array format expected by Bitrix
+      const customFieldsArray = Object.entries(stage.customFields).map(([code, value]) => ({
+        CODE: code,
+        VALUE: String(value),
+      }))
+      
+      postMessageBridge.sendChangeCustomFieldsValueRequest({
+        stageId: stage.stageId,
+        customFieldsValue: customFieldsArray,
+      })
     }
   }
 
@@ -809,7 +825,17 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                   >
                     <TabsTrigger 
                       value={index.toString()} 
-                      className="pr-8 gap-1 data-[state=active]:bg-muted-foreground/80 data-[state=active]:text-primary-foreground"
+                      className={cn(
+                        "gap-1 data-[state=active]:bg-muted-foreground/80 data-[state=active]:text-primary-foreground",
+                        // Adjust padding based on number of buttons:
+                        // - Single stage with stageId: pr-7 (for open button)
+                        // - Single stage without stageId: pr-2 (no buttons)
+                        // - Multiple stages with stageId: pr-12 (for both open and delete buttons)
+                        // - Multiple stages without stageId: pr-8 (for delete button only)
+                        safeCalculators.length === 1 
+                          ? (calc.stageId ? "pr-7" : "pr-2")
+                          : (calc.stageId ? "pr-12" : "pr-8")
+                      )}
                     >
                       <div 
                         className="w-4 h-4 flex items-center justify-center flex-shrink-0 cursor-grab active:cursor-grabbing"
@@ -1251,6 +1277,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                                     [field.code]: e.target.value
                                   }
                                 })}
+                                onBlur={() => handleCustomFieldsBlur(index)}
                                 min={field.min}
                                 max={field.max}
                                 step={field.step}
@@ -1270,12 +1297,16 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                                 calc.customFields?.[field.code] === '1' ||
                                 (calc.customFields?.[field.code] === undefined && field.default === true)
                               }
-                              onCheckedChange={(checked) => handleUpdateCalculator(index, {
-                                customFields: {
-                                  ...calc.customFields,
-                                  [field.code]: checked ?  'Y' :  'N'
-                                }
-                              })}
+                              onCheckedChange={(checked) => {
+                                handleUpdateCalculator(index, {
+                                  customFields: {
+                                    ...calc.customFields,
+                                    [field.code]: checked ?  'Y' :  'N'
+                                  }
+                                })
+                                // Send immediately on change for checkboxes
+                                setTimeout(() => handleCustomFieldsBlur(index), 0)
+                              }}
                             />
                           )}
                           
@@ -1289,6 +1320,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                                   [field.code]:  e.target.value
                                 }
                               })}
+                              onBlur={() => handleCustomFieldsBlur(index)}
                               maxLength={field.maxLength}
                             />
                           )}
@@ -1296,12 +1328,16 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                           {field.type === 'select' && field.options && (
                             <Select
                               value={String(calc.customFields?.[field.code] ?? field.default ?? '')}
-                              onValueChange={(value) => handleUpdateCalculator(index, {
-                                customFields: {
-                                  ...calc.customFields,
-                                  [field.code]: value
-                                }
-                              })}
+                              onValueChange={(value) => {
+                                handleUpdateCalculator(index, {
+                                  customFields: {
+                                    ...calc.customFields,
+                                    [field.code]: value
+                                  }
+                                })
+                                // Send immediately on change for selects
+                                setTimeout(() => handleCustomFieldsBlur(index), 0)
+                              }}
                             >
                               <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Выберите..." />
