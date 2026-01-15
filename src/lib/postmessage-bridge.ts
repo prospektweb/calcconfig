@@ -43,6 +43,9 @@ export type MessageType =
   | 'CHANGE_OPERATION_VARIANT_REQUEST'
   | 'CHANGE_EQUIPMENT_REQUEST'
   | 'CHANGE_MATERIAL_VARIANT_REQUEST'
+  | 'CHANGE_OPERATION_QUANTITY_REQUEST'   // НОВЫЙ
+  | 'CHANGE_MATERIAL_QUANTITY_REQUEST'    // НОВЫЙ
+  | 'CHANGE_CUSTOM_FIELDS_VALUE_REQUEST'  // НОВЫЙ
   
   // Группы/Скрепления
   | 'ADD_GROUP_REQUEST'       // переименован из ADD_NEW_GROUP_REQUEST
@@ -557,6 +560,18 @@ class PostMessageBridge {
 
   sendChangeMaterialVariantRequest(payload: { materialVariantId: number, stageId: number }) {
     return this.sendMessage('CHANGE_MATERIAL_VARIANT_REQUEST', payload)
+  }
+
+  sendChangeOperationQuantityRequest(payload: { stageId: number, quantityValue: number }) {
+    return this.sendMessage('CHANGE_OPERATION_QUANTITY_REQUEST', payload)
+  }
+
+  sendChangeMaterialQuantityRequest(payload: { stageId: number, quantityValue: number }) {
+    return this.sendMessage('CHANGE_MATERIAL_QUANTITY_REQUEST', payload)
+  }
+
+  sendChangeCustomFieldsValueRequest(payload: { stageId: number, customFieldsValue: Array<{ CODE: string, VALUE: string }> }) {
+    return this.sendMessage('CHANGE_CUSTOM_FIELDS_VALUE_REQUEST', payload)
   }
 
   // Group operations
