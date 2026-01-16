@@ -57,7 +57,6 @@ interface BindingCardProps {
   
   // Constants for drag behavior
   const DROP_ZONE_DETECTION_THRESHOLD = 100 // pixels
-  const DROP_ZONE_HEIGHT = 30 // pixels
   
   // Create memoized maps for details and bindings
   const detailMap = useMemo(() => new Map(details.map(d => [d.id, d])), [details])
@@ -443,52 +442,52 @@ interface BindingCardProps {
                 return (
                   <div key={child.id}>
                     {child.type === 'detail' ? (
-                  <DetailCard
-                    detail={child.item as Detail}
-                    onUpdate={(updates) => onUpdateDetail(child.id, updates)}
-                    onDelete={() => {
-                      if (onDeleteDetail) {
-                        onDeleteDetail(child.id)
-                      }
-                    }}
-                    isInBinding={true}
-                    orderNumber={detailStartIndex + index + 1}
-                    bitrixMeta={bitrixMeta}
-                    onValidationMessage={onValidationMessage}
-                    onDragStart={handleDetailDragStartInBinding}
-                    isDragging={isDraggingThis}
-                  />
-                ) : (
-                  <div className="ml-6 border-l-4 border-accent/30 pl-3">
-                    <BindingCard
-                      binding={child.item as Binding}
-                      details={allDetails.filter(d => (child.item as Binding).detailIds?.includes(d.id))}
-                      bindings={allBindings.filter(b => (child.item as Binding).bindingIds?.includes(b.id))}
-                      allDetails={allDetails}
-                      allBindings={allBindings}
-                      onUpdate={(updates) => {
-                        if (onUpdateBinding) {
-                          onUpdateBinding(child.id, updates)
-                        }
-                      }}
-                      onDelete={() => {
-                        if (onDeleteBinding) {
-                          onDeleteBinding(child.id)
-                        }
-                      }}
-                      onUpdateDetail={onUpdateDetail}
-                      onUpdateBinding={onUpdateBinding}
-                      onDeleteDetail={onDeleteDetail}
-                      onDeleteBinding={onDeleteBinding}
-                      orderNumber={index + 1}
-                      detailStartIndex={0}
-                      bitrixMeta={bitrixMeta}
-                      onValidationMessage={onValidationMessage}
-                      onDragStart={handleBindingDragStartInBinding}
-                      isDragging={isDraggingThis}
-                    />
-                  </div>
-                )}
+                      <DetailCard
+                        detail={child.item as Detail}
+                        onUpdate={(updates) => onUpdateDetail(child.id, updates)}
+                        onDelete={() => {
+                          if (onDeleteDetail) {
+                            onDeleteDetail(child.id)
+                          }
+                        }}
+                        isInBinding={true}
+                        orderNumber={detailStartIndex + index + 1}
+                        bitrixMeta={bitrixMeta}
+                        onValidationMessage={onValidationMessage}
+                        onDragStart={handleDetailDragStartInBinding}
+                        isDragging={isDraggingThis}
+                      />
+                    ) : (
+                      <div className="ml-6 border-l-4 border-accent/30 pl-3">
+                        <BindingCard
+                          binding={child.item as Binding}
+                          details={allDetails.filter(d => (child.item as Binding).detailIds?.includes(d.id))}
+                          bindings={allBindings.filter(b => (child.item as Binding).bindingIds?.includes(b.id))}
+                          allDetails={allDetails}
+                          allBindings={allBindings}
+                          onUpdate={(updates) => {
+                            if (onUpdateBinding) {
+                              onUpdateBinding(child.id, updates)
+                            }
+                          }}
+                          onDelete={() => {
+                            if (onDeleteBinding) {
+                              onDeleteBinding(child.id)
+                            }
+                          }}
+                          onUpdateDetail={onUpdateDetail}
+                          onUpdateBinding={onUpdateBinding}
+                          onDeleteDetail={onDeleteDetail}
+                          onDeleteBinding={onDeleteBinding}
+                          orderNumber={index + 1}
+                          detailStartIndex={0}
+                          bitrixMeta={bitrixMeta}
+                          onValidationMessage={onValidationMessage}
+                          onDragStart={handleBindingDragStartInBinding}
+                          isDragging={isDraggingThis}
+                        />
+                      </div>
+                    )}
                 
                 {/* Drop zone after each item */}
                 {dragState.isDragging && (
