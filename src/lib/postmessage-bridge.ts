@@ -56,7 +56,13 @@ export type MessageType =
   | 'CLEAR_PRESET_REQUEST'    // НОВЫЙ - очистка пресета
   
   // Сортировка
-  | 'REORDER_REQUEST'         // НОВЫЙ
+  | 'CHANGE_SORT_STAGE_REQUEST'  // Изменение порядка этапов
+  | 'CHANGE_DETAIL_SORT_REQUEST' // Изменение порядка деталей/скреплений внутри скрепления
+  | 'CHANGE_DETAIL_LEVEL_REQUEST' // Перенос детали/скрепления в другое скрепление
+  
+  // Добавление элементов в скрепление
+  | 'ADD_DETAIL_TO_BINDING_REQUEST'       // Создать новую деталь внутри скрепления
+  | 'SELECT_DETAILS_TO_BINDING_REQUEST'   // Выбрать существующие детали для скрепления
   
   // Диапазоны цен
   | 'ADD_PRICE_RANGE_REQUEST'
@@ -163,12 +169,43 @@ export interface DeleteStageRequestPayload {
 }
 
 /**
- * Payload for REORDER_REQUEST
+ * Payload for CHANGE_SORT_STAGE_REQUEST
  */
-export interface ReorderRequestPayload {
-  entityType: 'details' | 'stages' | 'groups'
-  parentId?: number             // Для stages - ID детали
-  orderedIds: number[]          // Новый порядок ID
+export interface ChangeSortStageRequestPayload {
+  detailId: number              // ID детали/скрепления в которой меняется сортировка этапов
+  sorting: number[]             // массив с ID этапов в заданной последовательности
+}
+
+/**
+ * Payload for CHANGE_DETAIL_SORT_REQUEST
+ */
+export interface ChangeDetailSortRequestPayload {
+  parentId: number              // ID текущего скрепления
+  sorting: number[]             // массив с ID вложенных деталей/скреплений в заданной последовательности
+}
+
+/**
+ * Payload for CHANGE_DETAIL_LEVEL_REQUEST
+ */
+export interface ChangeDetailLevelRequestPayload {
+  fromParentId: number          // ID текущего скрепления
+  detailId: number              // ID переносимой детали/скрепления
+  toParentId: number            // ID скрепления, куда переносим
+  sorting: number[]             // массив с ID вложенных деталей/скреплений для toParentId
+}
+
+/**
+ * Payload for ADD_DETAIL_TO_BINDING_REQUEST
+ */
+export interface AddDetailToBindingRequestPayload {
+  parentId: number
+}
+
+/**
+ * Payload for SELECT_DETAILS_TO_BINDING_REQUEST
+ */
+export interface SelectDetailsToBindingRequestPayload {
+  parentId: number
   iblockId: number
   iblockType: string
 }
@@ -592,9 +629,26 @@ class PostMessageBridge {
     return this.sendMessage('CLEAR_PRESET_REQUEST', payload)
   }
 
-  // Reorder operation
-  sendReorderRequest(payload: ReorderRequestPayload) {
-    return this.sendMessage('REORDER_REQUEST', payload)
+  // Sorting operations
+  sendChangeSortStageRequest(payload: ChangeSortStageRequestPayload) {
+    return this.sendMessage('CHANGE_SORT_STAGE_REQUEST', payload)
+  }
+
+  sendChangeDetailSortRequest(payload: ChangeDetailSortRequestPayload) {
+    return this.sendMessage('CHANGE_DETAIL_SORT_REQUEST', payload)
+  }
+
+  sendChangeDetailLevelRequest(payload: ChangeDetailLevelRequestPayload) {
+    return this.sendMessage('CHANGE_DETAIL_LEVEL_REQUEST', payload)
+  }
+
+  // Binding operations
+  sendAddDetailToBindingRequest(payload: AddDetailToBindingRequestPayload) {
+    return this.sendMessage('ADD_DETAIL_TO_BINDING_REQUEST', payload)
+  }
+
+  sendSelectDetailsToBindingRequest(payload: SelectDetailsToBindingRequestPayload) {
+    return this.sendMessage('SELECT_DETAILS_TO_BINDING_REQUEST', payload)
   }
 
   // Preset prices operation

@@ -2,7 +2,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Binding, Detail } from '@/lib/types'
-import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut, DotsSixVertical, Plus } from '@phosphor-icons/react'
+import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut, DotsSixVertical, Plus, Selection } from '@phosphor-icons/react'
 import { DetailCard } from './DetailCard'
 import { StageTabs } from './StageTabs'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
@@ -163,6 +163,45 @@ interface BindingCardProps {
           <Button
             variant="ghost"
             size="sm"
+            className="h-6 w-6 p-0 hover:bg-primary hover:text-primary-foreground"
+            onClick={() => {
+              // Send ADD_DETAIL_TO_BINDING_REQUEST
+              if (binding.bitrixId && bitrixMeta) {
+                postMessageBridge.sendAddDetailToBindingRequest({
+                  parentId: binding.bitrixId,
+                })
+              }
+            }}
+            data-pwcode="btn-create-detail-in-binding"
+            title="Создать деталь в скреплении"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 hover:bg-primary hover:text-primary-foreground"
+            onClick={() => {
+              // Send SELECT_DETAILS_TO_BINDING_REQUEST
+              if (binding.bitrixId && bitrixMeta) {
+                const detailsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_DETAILS')
+                if (detailsIblock) {
+                  postMessageBridge.sendSelectDetailsToBindingRequest({
+                    parentId: binding.bitrixId,
+                    iblockId: detailsIblock.id,
+                    iblockType: detailsIblock.type,
+                  })
+                }
+              }
+            }}
+            data-pwcode="btn-select-details-to-binding"
+            title="Выбрать детали для скрепления"
+          >
+            <Selection className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             className="h-6 w-6 p-0 hover:bg-accent hover:text-accent-foreground"
             onClick={handleToggleExpand}
             data-pwcode="btn-toggle-binding"
@@ -248,23 +287,26 @@ interface BindingCardProps {
           <div className="border-t border-border pt-3" data-pwcode="binding-stages-section">
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-medium">Этапы скрепления</h4>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  // Send ADD_STAGE_REQUEST with detailId set to binding's bitrixId
-                  if (binding.bitrixId && bitrixMeta) {
-                    console.log('[ADD_STAGE_REQUEST] Sending for binding...', { detailId: binding.bitrixId })
-                    postMessageBridge.sendAddStageRequest({
-                      detailId: binding.bitrixId,
-                    })
-                  }
-                }}
-                className="h-7 w-7 p-0"
-                data-pwcode="btn-add-binding-stage"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
+              {/* Show button only when there are no stages */}
+              {(binding.stages || []).length === 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Send ADD_STAGE_REQUEST with detailId set to binding's bitrixId
+                    if (binding.bitrixId && bitrixMeta) {
+                      console.log('[ADD_STAGE_REQUEST] Sending for binding...', { detailId: binding.bitrixId })
+                      postMessageBridge.sendAddStageRequest({
+                        detailId: binding.bitrixId,
+                      })
+                    }
+                  }}
+                  className="h-7 w-7 p-0"
+                  data-pwcode="btn-add-binding-stage"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              )}
             </div>
             
             {(binding.stages || []).length > 0 && (
