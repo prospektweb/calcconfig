@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Tag, Plus, Trash, CaretDown, CaretUp } from '@phosphor-icons/react'
-import { postMessageBridge, UpdatePresetPricesRequestPayload } from '@/lib/postmessage-bridge'
+import { postMessageBridge, PriceTypeSelectPayload, ChangeRangesPayload, UpdatePresetPricesRequestPayload } from '@/lib/postmessage-bridge'
 
 // Currency constants
 const CURRENCY_RUB = 'RUB'
@@ -104,14 +104,18 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
       })
       
       setPrices(newPrices)
-      setActiveTypeIds([...activeTypeIds, typeId])
-      sendUpdateRequest(newPrices)
+      const newActiveTypeIds = [...activeTypeIds, typeId]
+      setActiveTypeIds(newActiveTypeIds)
+      sendPriceTypeSelectRequest(newActiveTypeIds)
+      sendChangeRangesRequest(newPrices)
     } else {
       // Remove all ranges for this type
       const newPrices = prices.filter(p => p.typeId !== typeId)
       setPrices(newPrices)
-      setActiveTypeIds(activeTypeIds.filter(id => id !== typeId))
-      sendUpdateRequest(newPrices)
+      const newActiveTypeIds = activeTypeIds.filter(id => id !== typeId)
+      setActiveTypeIds(newActiveTypeIds)
+      sendPriceTypeSelectRequest(newActiveTypeIds)
+      sendChangeRangesRequest(newPrices)
     }
   }
 
@@ -155,7 +159,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
     })
     
     setPrices(newPrices)
-    sendUpdateRequest(newPrices)
+    sendChangeRangesRequest(newPrices)
   }
 
   // Remove a range
@@ -169,7 +173,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
     const newPrices = prices.filter(p => p.quantityFrom !== rangeToRemove.quantityFrom)
     
     setPrices(newPrices)
-    sendUpdateRequest(newPrices)
+    sendChangeRangesRequest(newPrices)
   }
 
   // Update price value
@@ -182,6 +186,10 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
     setPrices(newPrices)
   }
 
+  const handlePriceBlur = () => {
+    sendChangeRangesRequest(prices)
+  }
+
   // Update currency
   const handleCurrencyChange = (typeId: number, quantityFrom: number | null, newCurrency: 'RUB' | 'PRC') => {
     const newPrices = prices.map(p => 
@@ -190,7 +198,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
         : p
     )
     setPrices(newPrices)
-    sendUpdateRequest(newPrices)
+    sendChangeRangesRequest(newPrices)
   }
 
   // Update range boundary (only for base type)
@@ -218,6 +226,10 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
     setPrices(newPrices)
   }
 
+  const handleRangeFromBlur = () => {
+    sendChangeRangesRequest(prices)
+  }
+
   // Send update request to Bitrix
   const sendUpdateRequest = (updatedPrices: PriceRangeItem[]) => {
     if (!presetId) return
@@ -228,6 +240,48 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
     }
     
     postMessageBridge.sendUpdatePresetPricesRequest(payload)
+  }
+
+  // Send PRICE_TYPE_SELECT request
+  const sendPriceTypeSelectRequest = (currentActiveTypeIds: number[]) => {
+    const types = priceTypes.map(pt => ({
+      id: pt.id,
+      active: currentActiveTypeIds.includes(pt.id)
+    }))
+    
+    const payload: PriceTypeSelectPayload = {
+      types
+    }
+    
+    postMessageBridge.sendPriceTypeSelectRequest(payload)
+  }
+
+  // Send CHANGE_RANGES request
+  const sendChangeRangesRequest = (updatedPrices: PriceRangeItem[]) => {
+    // Calculate quantityTo for each range
+    const baseRanges = getBaseRanges()
+    const pricesWithCalculatedTo = updatedPrices.map(p => {
+      // Find the range index for this item
+      const rangeIndex = baseRanges.findIndex(r => r.quantityFrom === p.quantityFrom)
+      let quantityTo: number | null = null
+      
+      if (rangeIndex >= 0 && rangeIndex < baseRanges.length - 1) {
+        // Not the last range - calculate quantityTo
+        const nextFrom = baseRanges[rangeIndex + 1].quantityFrom || 0
+        quantityTo = nextFrom - 1
+      }
+      
+      return {
+        ...p,
+        quantityTo
+      }
+    })
+    
+    const payload: ChangeRangesPayload = {
+      prices: pricesWithCalculatedTo
+    }
+    
+    postMessageBridge.sendChangeRangesRequest(payload)
   }
 
   // Calculate quantityTo for each range
@@ -297,6 +351,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="border-b">
+                        <th className="text-center p-2 text-xs font-medium text-muted-foreground w-12">+</th>
                         <th className="text-left p-2 text-xs font-medium text-muted-foreground">От</th>
                         <th className="text-left p-2 text-xs font-medium text-muted-foreground">До</th>
                         {sortedPriceTypes
@@ -306,7 +361,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
                               {pt.name}
                             </th>
                           ))}
-                        {basePriceType && <th className="text-center p-2 text-xs font-medium text-muted-foreground">+/-</th>}
+                        <th className="text-center p-2 text-xs font-medium text-muted-foreground w-12">-</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -317,12 +372,29 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
                         
                         return (
                           <tr key={rangeIndex} className="border-b">
+                            {/* Add button column */}
+                            <td className="p-2">
+                              <div className="flex items-center justify-center">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleAddRange(rangeIndex)}
+                                  className="h-7 w-7 p-0"
+                                  title="Добавить диапазон"
+                                  data-pwcode="btn-add-range"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </td>
+                            
                             {/* From */}
                             <td className="p-2">
                               <Input
                                 type="number"
                                 value={range.quantityFrom || 0}
                                 onChange={(e) => handleRangeFromChange(rangeIndex, parseInt(e.target.value) || 0)}
+                                onBlur={handleRangeFromBlur}
                                 disabled={isFirst}
                                 className="w-20 h-8 text-xs"
                                 min={0}
@@ -355,7 +427,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
                                         type="number"
                                         value={priceItem?.price || 0}
                                         onChange={(e) => handlePriceChange(priceType.id, range.quantityFrom, parseFloat(e.target.value) || 0)}
-                                        onBlur={() => sendUpdateRequest(prices)}
+                                        onBlur={handlePriceBlur}
                                         className="w-20 h-8 text-xs"
                                         min={0}
                                         step={0.1}
@@ -366,7 +438,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
                                           const newCurrency = priceItem?.currency === CURRENCY_PRC ? CURRENCY_RUB : CURRENCY_PRC
                                           handleCurrencyChange(priceType.id, range.quantityFrom, newCurrency)
                                         }}
-                                        className="px-2 h-8 text-xs border rounded hover:bg-accent"
+                                        className="w-[45px] h-8 text-xs border rounded hover:bg-accent"
                                         data-pwcode="btn-toggle-currency"
                                       >
                                         {priceItem?.currency === CURRENCY_PRC ? '%' : 'RUB'}
@@ -376,36 +448,23 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
                                 )
                               })}
                             
-                            {/* Add/Remove buttons (only for base type) */}
-                            {basePriceType && (
-                              <td className="p-2">
-                                <div className="flex items-center gap-1 justify-center">
+                            {/* Remove button column */}
+                            <td className="p-2">
+                              <div className="flex items-center justify-center">
+                                {!isFirst && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleAddRange(rangeIndex)}
-                                    className="h-7 w-7 p-0"
-                                    title="Добавить диапазон"
-                                    data-pwcode="btn-add-range"
+                                    onClick={() => handleRemoveRange(rangeIndex)}
+                                    className="h-7 w-7 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                                    title="Удалить диапазон"
+                                    data-pwcode="btn-remove-range"
                                   >
-                                    <Plus className="w-4 h-4" />
+                                    <Trash className="w-4 h-4" />
                                   </Button>
-                                  
-                                  {!isFirst && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleRemoveRange(rangeIndex)}
-                                      className="h-7 w-7 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                                      title="Удалить диапазон"
-                                      data-pwcode="btn-remove-range"
-                                    >
-                                      <Trash className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </td>
-                            )}
+                                )}
+                              </div>
+                            </td>
                           </tr>
                         )
                       })}
