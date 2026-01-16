@@ -68,6 +68,8 @@ export type MessageType =
   | 'ADD_PRICE_RANGE_REQUEST'
   | 'DELETE_PRICE_RANGE_REQUEST'
   | 'UPDATE_PRESET_PRICES_REQUEST'  // НОВЫЙ
+  | 'PRICE_TYPE_SELECT'
+  | 'CHANGE_RANGES'
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -213,17 +215,36 @@ export interface SelectDetailsToBindingRequestPayload {
 }
 
 /**
+ * Price range item structure used in multiple payload types
+ */
+export interface PriceRangeItem {
+  typeId: number
+  price: number
+  currency: 'RUB' | 'PRC'
+  quantityFrom: number | null
+  quantityTo: number | null
+}
+
+/**
  * Payload for UPDATE_PRESET_PRICES_REQUEST
  */
 export interface UpdatePresetPricesRequestPayload {
   presetId: number
-  prices: Array<{
-    typeId: number
-    price: number
-    currency: 'RUB' | 'PRC'
-    quantityFrom: number | null
-    quantityTo: number | null
-  }>
+  prices: PriceRangeItem[]
+}
+
+/**
+ * Payload for PRICE_TYPE_SELECT
+ */
+export interface PriceTypeSelectPayload {
+  types: Array<{ id: number; active: boolean }>
+}
+
+/**
+ * Payload for CHANGE_RANGES
+ */
+export interface ChangeRangesPayload {
+  prices: PriceRangeItem[]
 }
 
 /**
@@ -656,6 +677,14 @@ class PostMessageBridge {
   // Preset prices operation
   sendUpdatePresetPricesRequest(payload: UpdatePresetPricesRequestPayload) {
     return this.sendMessage('UPDATE_PRESET_PRICES_REQUEST', payload)
+  }
+
+  sendPriceTypeSelectRequest(payload: PriceTypeSelectPayload) {
+    return this.sendMessage('PRICE_TYPE_SELECT', payload)
+  }
+
+  sendChangeRangesRequest(payload: ChangeRangesPayload) {
+    return this.sendMessage('CHANGE_RANGES', payload)
   }
 
   on(type: MessageType | '*', callback: (message: PwrtMessage) => void): () => void {
