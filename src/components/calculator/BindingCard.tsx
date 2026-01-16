@@ -184,7 +184,9 @@ interface BindingCardProps {
     
     // Don't allow drops from top level (sourceParentBindingId === null) into bindings
     if (sourceParentBindingId === null) {
-      console.warn('[DROP] Cannot move top-level items into bindings')
+      if (onValidationMessage) {
+        onValidationMessage('warning', 'Невозможно переместить элементы верхнего уровня в скрепление')
+      }
       dragContext.endDrag(false)
       return
     }
