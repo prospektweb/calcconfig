@@ -175,6 +175,7 @@ export interface Binding {
   stages: StageInstance[] // этапы скрепления
   detailIds: string[] // ID дочерних деталей (формат detail_${bitrixId})
   bindingIds: string[] // ID вложенных скреплений (формат binding_${bitrixId})
+  childrenOrder: string[] // Unified order list combining detailIds and bindingIds
   bitrixId: number | null
 }
 
@@ -249,6 +250,7 @@ export const createEmptyBinding = (name: string = 'Новая группа ск�
   stages: [],
   detailIds: [],
   bindingIds: [],
+  childrenOrder: [],
   bitrixId: null,
 })
 

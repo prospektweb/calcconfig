@@ -224,19 +224,14 @@ interface BindingCardProps {
         <div className="px-3 py-3 space-y-3" data-pwcode="binding-content">
           {/* Unified list of details and bindings */}
           {(() => {
-            // Create merged list based on order from binding.detailIds and binding.bindingIds
-            const mergedItems: Array<{ type: 'detail' | 'binding', item: Detail | Binding, id: string }> = []
-            
-            // Get the ordered IDs from binding properties
-            // The order is stored in binding's detailIds and bindingIds arrays
-            // We need to reconstruct the original order from DETAILS property
+            // Use childrenOrder to maintain proper order from DETAILS property
             const detailMap = new Map(details.map(d => [d.id, d]))
             const bindingMap = new Map(bindings.map(b => [b.id, b]))
             
-            // Combine both arrays and preserve order
-            const allChildIds = [...(binding.detailIds || []), ...(binding.bindingIds || [])]
+            const childrenOrder = binding.childrenOrder || []
+            const mergedItems: Array<{ type: 'detail' | 'binding', item: Detail | Binding, id: string }> = []
             
-            allChildIds.forEach(childId => {
+            childrenOrder.forEach(childId => {
               if (detailMap.has(childId)) {
                 mergedItems.push({ type: 'detail', item: detailMap.get(childId)!, id: childId })
               } else if (bindingMap.has(childId)) {
