@@ -30,6 +30,7 @@ interface BindingCardProps {
   isDragging?: boolean
   bitrixMeta?: InitPayload | null
   onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
+  isTopLevel?: boolean
 }
 
   export function BindingCard({
@@ -49,7 +50,8 @@ interface BindingCardProps {
   onDragStart,
   isDragging = false,
   bitrixMeta = null,
-  onValidationMessage
+  onValidationMessage,
+  isTopLevel = false
 }: BindingCardProps) {
   // Drag and drop state for items within binding
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
@@ -293,13 +295,15 @@ interface BindingCardProps {
     >
       <div className="bg-accent/10 border-b border-border px-3 py-2 flex items-center justify-between" data-pwcode="binding-header">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div 
-            className="flex-shrink-0 w-5 h-5 flex items-center justify-center cursor-grab active:cursor-grabbing"
-            onMouseDown={handleDragHandleMouseDown}
-            data-pwcode="binding-drag-handle"
-          >
-            <DotsSixVertical className="w-4 h-4 text-muted-foreground" />
-          </div>
+          {!isTopLevel && (
+            <div 
+              className="flex-shrink-0 w-5 h-5 flex items-center justify-center cursor-grab active:cursor-grabbing"
+              onMouseDown={handleDragHandleMouseDown}
+              data-pwcode="binding-drag-handle"
+            >
+              <DotsSixVertical className="w-4 h-4 text-muted-foreground" />
+            </div>
+          )}
           <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
             <span className="text-sm font-semibold text-foreground">
               #{orderNumber}
@@ -404,7 +408,7 @@ interface BindingCardProps {
         <div className="px-3 py-3 space-y-3" data-pwcode="binding-content">
           {/* Unified list of details and bindings */}
           {mergedItems.length > 0 && (
-            <div className="space-y-0" data-pwcode="binding-children">
+            <div className="space-y-2" data-pwcode="binding-children">
               {/* First drop zone */}
               {dragState.isDragging && (
                 <div 
@@ -458,35 +462,33 @@ interface BindingCardProps {
                         isDragging={isDraggingThis}
                       />
                     ) : (
-                      <div className="ml-6 border-l-4 border-accent/30 pl-3">
-                        <BindingCard
-                          binding={child.item as Binding}
-                          details={allDetails.filter(d => (child.item as Binding).detailIds?.includes(d.id))}
-                          bindings={allBindings.filter(b => (child.item as Binding).bindingIds?.includes(b.id))}
-                          allDetails={allDetails}
-                          allBindings={allBindings}
-                          onUpdate={(updates) => {
-                            if (onUpdateBinding) {
-                              onUpdateBinding(child.id, updates)
-                            }
-                          }}
-                          onDelete={() => {
-                            if (onDeleteBinding) {
-                              onDeleteBinding(child.id)
-                            }
-                          }}
-                          onUpdateDetail={onUpdateDetail}
-                          onUpdateBinding={onUpdateBinding}
-                          onDeleteDetail={onDeleteDetail}
-                          onDeleteBinding={onDeleteBinding}
-                          orderNumber={index + 1}
-                          detailStartIndex={0}
-                          bitrixMeta={bitrixMeta}
-                          onValidationMessage={onValidationMessage}
-                          onDragStart={handleBindingDragStartInBinding}
-                          isDragging={isDraggingThis}
-                        />
-                      </div>
+                      <BindingCard
+                        binding={child.item as Binding}
+                        details={allDetails.filter(d => (child.item as Binding).detailIds?.includes(d.id))}
+                        bindings={allBindings.filter(b => (child.item as Binding).bindingIds?.includes(b.id))}
+                        allDetails={allDetails}
+                        allBindings={allBindings}
+                        onUpdate={(updates) => {
+                          if (onUpdateBinding) {
+                            onUpdateBinding(child.id, updates)
+                          }
+                        }}
+                        onDelete={() => {
+                          if (onDeleteBinding) {
+                            onDeleteBinding(child.id)
+                          }
+                        }}
+                        onUpdateDetail={onUpdateDetail}
+                        onUpdateBinding={onUpdateBinding}
+                        onDeleteDetail={onDeleteDetail}
+                        onDeleteBinding={onDeleteBinding}
+                        orderNumber={index + 1}
+                        detailStartIndex={0}
+                        bitrixMeta={bitrixMeta}
+                        onValidationMessage={onValidationMessage}
+                        onDragStart={handleBindingDragStartInBinding}
+                        isDragging={isDraggingThis}
+                      />
                     )}
                 
                 {/* Drop zone after each item */}

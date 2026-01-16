@@ -18,9 +18,10 @@ interface DetailCardProps {
   isDragging?: boolean
   bitrixMeta?:  InitPayload | null
   onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
+  isTopLevel?: boolean
 }
 
-export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, isDragging = false, bitrixMeta, onValidationMessage }: DetailCardProps) {
+export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, isDragging = false, bitrixMeta, onValidationMessage, isTopLevel = false }: DetailCardProps) {
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !detail.isExpanded })
   }
@@ -90,13 +91,15 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
     >
       <div className="bg-primary/5 border-b border-border px-3 py-2 flex items-center justify-between" data-pwcode="detail-header">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div 
-            className="flex-shrink-0 w-5 h-5 flex items-center justify-center cursor-grab active:cursor-grabbing"
-            onMouseDown={handleDragHandleMouseDown}
-            data-pwcode="detail-drag-handle"
-          >
-            <DotsSixVertical className="w-4 h-4 text-muted-foreground" />
-          </div>
+          {!isTopLevel && (
+            <div 
+              className="flex-shrink-0 w-5 h-5 flex items-center justify-center cursor-grab active:cursor-grabbing"
+              onMouseDown={handleDragHandleMouseDown}
+              data-pwcode="detail-drag-handle"
+            >
+              <DotsSixVertical className="w-4 h-4 text-muted-foreground" />
+            </div>
+          )}
           <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
             <span className="text-sm font-semibold text-foreground">
               #{orderNumber}

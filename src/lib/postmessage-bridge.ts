@@ -68,8 +68,7 @@ export type MessageType =
   | 'ADD_PRICE_RANGE_REQUEST'
   | 'DELETE_PRICE_RANGE_REQUEST'
   | 'UPDATE_PRESET_PRICES_REQUEST'  // НОВЫЙ
-  | 'PRICE_TYPE_SELECT'
-  | 'CHANGE_RANGES'
+  | 'CHANGE_PRICE_PRESET_REQUEST'   // НОВЫЙ - единый тип для изменения цен
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -90,6 +89,8 @@ export interface InitPayload {
     lang: 'ru' | 'en'
     timestamp: number
     url: string
+    defaultExtraCurrency?: 'RUB' | 'PRC'
+    defaultExtraValue?: number
   }
   iblocks: Iblock[]
   iblocksTree?: {
@@ -233,19 +234,7 @@ export interface UpdatePresetPricesRequestPayload {
   prices: PriceRangeItem[]
 }
 
-/**
- * Payload for PRICE_TYPE_SELECT
- */
-export interface PriceTypeSelectPayload {
-  types: Array<{ id: number; active: boolean }>
-}
 
-/**
- * Payload for CHANGE_RANGES
- */
-export interface ChangeRangesPayload {
-  prices: PriceRangeItem[]
-}
 
 /**
  * Payload for RESPONSE (единый ответ)
@@ -679,12 +668,14 @@ class PostMessageBridge {
     return this.sendMessage('UPDATE_PRESET_PRICES_REQUEST', payload)
   }
 
-  sendPriceTypeSelectRequest(payload: PriceTypeSelectPayload) {
-    return this.sendMessage('PRICE_TYPE_SELECT', payload)
-  }
-
-  sendChangeRangesRequest(payload: ChangeRangesPayload) {
-    return this.sendMessage('CHANGE_RANGES', payload)
+  sendChangePricePresetRequest(prices: Array<{
+    typeId: number
+    price: number
+    currency: 'RUB' | 'PRC'
+    quantityFrom: number | null
+    quantityTo: number | null
+  }>) {
+    return this.sendMessage('CHANGE_PRICE_PRESET_REQUEST', prices)
   }
 
   on(type: MessageType | '*', callback: (message: PwrtMessage) => void): () => void {
