@@ -222,68 +222,93 @@ interface BindingCardProps {
 
       {binding.isExpanded && !isDragging && (
         <div className="px-3 py-3 space-y-3" data-pwcode="binding-content">
-          {details && details.length > 0 && (
-            <div className="space-y-1" data-pwcode="binding-details">
-              <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Детали в скреплении</h4>
-              {details.map((detail, index) => (
-                <DetailCard
-                  key={detail.id}
-                  detail={detail}
-                  onUpdate={(updates) => onUpdateDetail(detail.id, updates)}
-                  onDelete={() => {
-                    if (onDeleteDetail) {
-                      onDeleteDetail(detail.id)
-                    }
-                  }}
-                  isInBinding={true}
-                  orderNumber={detailStartIndex + index + 1}
-                  bitrixMeta={bitrixMeta}
-                  onValidationMessage={onValidationMessage}
-                />
-              ))}
-            </div>
-          )}
+          {/* Unified list of details and bindings */}
+          {(() => {
+            // Create merged list based on order from binding.detailIds and binding.bindingIds
+            const mergedItems: Array<{ type: 'detail' | 'binding', item: Detail | Binding, id: string }> = []
+            
+            // Get the ordered IDs from binding properties
+            // The order is stored in binding's detailIds and bindingIds arrays
+            // We need to reconstruct the original order from DETAILS property
+            const detailMap = new Map(details.map(d => [d.id, d]))
+            const bindingMap = new Map(bindings.map(b => [b.id, b]))
+            
+            // Combine both arrays and preserve order
+            const allChildIds = [...(binding.detailIds || []), ...(binding.bindingIds || [])]
+            
+            allChildIds.forEach(childId => {
+              if (detailMap.has(childId)) {
+                mergedItems.push({ type: 'detail', item: detailMap.get(childId)!, id: childId })
+              } else if (bindingMap.has(childId)) {
+                mergedItems.push({ type: 'binding', item: bindingMap.get(childId)!, id: childId })
+              }
+            })
+            
+            if (mergedItems.length === 0) return null
+            
+            return (
+              <div className="space-y-2" data-pwcode="binding-children">
+                {mergedItems.map((child, index) => {
+                  if (child.type === 'detail') {
+                    const detail = child.item as Detail
+                    return (
+                      <DetailCard
+                        key={detail.id}
+                        detail={detail}
+                        onUpdate={(updates) => onUpdateDetail(detail.id, updates)}
+                        onDelete={() => {
+                          if (onDeleteDetail) {
+                            onDeleteDetail(detail.id)
+                          }
+                        }}
+                        isInBinding={true}
+                        orderNumber={detailStartIndex + index + 1}
+                        bitrixMeta={bitrixMeta}
+                        onValidationMessage={onValidationMessage}
+                        onDragStart={onDragStart}
+                      />
+                    )
+                  } else {
+                    const nestedBinding = child.item as Binding
+                    const nestedDetails = allDetails.filter(d => nestedBinding.detailIds?.includes(d.id))
+                    const nestedBindings = allBindings.filter(b => nestedBinding.bindingIds?.includes(b.id))
+                    
+                    return (
+                      <div key={nestedBinding.id} className="ml-6 border-l-4 border-accent/30 pl-3">
+                        <BindingCard
+                          binding={nestedBinding}
+                          details={nestedDetails}
+                          bindings={nestedBindings}
+                          allDetails={allDetails}
+                          allBindings={allBindings}
+                          onUpdate={(updates) => {
+                            if (onUpdateBinding) {
+                              onUpdateBinding(nestedBinding.id, updates)
+                            }
+                          }}
+                          onDelete={() => {
+                            if (onDeleteBinding) {
+                              onDeleteBinding(nestedBinding.id)
+                            }
+                          }}
+                          onUpdateDetail={onUpdateDetail}
+                          onUpdateBinding={onUpdateBinding}
+                          onDeleteDetail={onDeleteDetail}
+                          onDeleteBinding={onDeleteBinding}
+                          orderNumber={index + 1}
+                          detailStartIndex={0}
+                          bitrixMeta={bitrixMeta}
+                          onValidationMessage={onValidationMessage}
+                          onDragStart={onDragStart}
+                        />
+                      </div>
+                    )
+                  }
+                })}
+              </div>
+            )
+          })()}
           
-          {bindings && bindings.length > 0 && (
-            <div className="space-y-2" data-pwcode="binding-nested">
-              <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Вложенные скрепления</h4>
-              {bindings.map((nestedBinding, index) => {
-                const nestedDetails = allDetails.filter(d => nestedBinding.detailIds?.includes(d.id))
-                const nestedBindings = allBindings.filter(b => nestedBinding.bindingIds?.includes(b.id))
-                
-                return (
-                  <div key={nestedBinding.id} className="ml-6 border-l-4 border-accent/30 pl-3">
-                    <BindingCard
-                      binding={nestedBinding}
-                      details={nestedDetails}
-                      bindings={nestedBindings}
-                      allDetails={allDetails}
-                      allBindings={allBindings}
-                      onUpdate={(updates) => {
-                        if (onUpdateBinding) {
-                          onUpdateBinding(nestedBinding.id, updates)
-                        }
-                      }}
-                      onDelete={() => {
-                        if (onDeleteBinding) {
-                          onDeleteBinding(nestedBinding.id)
-                        }
-                      }}
-                      onUpdateDetail={onUpdateDetail}
-                      onUpdateBinding={onUpdateBinding}
-                      onDeleteDetail={onDeleteDetail}
-                      onDeleteBinding={onDeleteBinding}
-                      orderNumber={index + 1}
-                      detailStartIndex={0}
-                      bitrixMeta={bitrixMeta}
-                      onValidationMessage={onValidationMessage}
-                    />
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
           <div className="border-t border-border pt-3" data-pwcode="binding-stages-section">
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-medium">Этапы скрепления</h4>
