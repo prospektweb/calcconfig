@@ -205,9 +205,9 @@ export interface AddDetailToBindingRequestPayload {
  * Payload for SELECT_DETAILS_TO_BINDING_REQUEST
  */
 export interface SelectDetailsToBindingRequestPayload {
-  parentId: number
-  iblockId: number
-  iblockType: string
+  parentId: number              // ID скрепления, куда добавляются детали
+  iblockId: number              // ID инфоблока CALC_DETAILS для выбора элементов
+  iblockType: string            // Тип инфоблока CALC_DETAILS
 }
 
 /**

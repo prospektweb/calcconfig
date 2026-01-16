@@ -469,7 +469,11 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
     const reorderedCalculators = [...safeCalculators]
     const [movedItem] = reorderedCalculators.splice(fromIndex, 1)
     
-    // Fixed logic: no adjustment needed, just insert at toIndex
+    // Insert at toIndex directly (no adjustment needed)
+    // After splice, toIndex already represents the correct position
+    // Example: Moving from 0 to 1 in [A, B, C]
+    //   - After splice(0,1): [B, C]
+    //   - Insert at 1: [B, A, C] ✓
     reorderedCalculators.splice(toIndex, 0, movedItem)
     
     onChange(reorderedCalculators)

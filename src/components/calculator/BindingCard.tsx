@@ -260,7 +260,8 @@ interface BindingCardProps {
                         orderNumber={detailStartIndex + index + 1}
                         bitrixMeta={bitrixMeta}
                         onValidationMessage={onValidationMessage}
-                        onDragStart={onDragStart}
+                        // Note: onDragStart could be used for drag-and-drop within bindings
+                        // Full implementation would require tracking parent binding context
                       />
                     )
                   } else {
@@ -294,7 +295,7 @@ interface BindingCardProps {
                           detailStartIndex={0}
                           bitrixMeta={bitrixMeta}
                           onValidationMessage={onValidationMessage}
-                          onDragStart={onDragStart}
+                          // Note: onDragStart would need context about parent binding for full implementation
                         />
                       </div>
                     )
