@@ -49,6 +49,30 @@ interface BindingCardProps {
   bitrixMeta = null,
   onValidationMessage
 }: BindingCardProps) {
+  // Create memoized maps for details and bindings
+  const detailMap = useMemo(() => new Map(details.map(d => [d.id, d])), [details])
+  const bindingMap = useMemo(() => new Map(bindings.map(b => [b.id, b])), [bindings])
+  
+  // Create merged items list based on childrenOrder
+  const mergedItems = useMemo(() => {
+    const childrenOrder = binding.childrenOrder || []
+    const items: Array<{ type: 'detail' | 'binding', item: Detail | Binding, id: string }> = []
+    
+    childrenOrder.forEach(childId => {
+      const detail = detailMap.get(childId)
+      if (detail) {
+        items.push({ type: 'detail', item: detail, id: childId })
+      } else {
+        const nestedBinding = bindingMap.get(childId)
+        if (nestedBinding) {
+          items.push({ type: 'binding', item: nestedBinding, id: childId })
+        }
+      }
+    })
+    
+    return items
+  }, [binding.childrenOrder, detailMap, bindingMap])
+  
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !binding.isExpanded })
   }
@@ -229,94 +253,68 @@ interface BindingCardProps {
       {binding.isExpanded && !isDragging && (
         <div className="px-3 py-3 space-y-3" data-pwcode="binding-content">
           {/* Unified list of details and bindings */}
-          {(() => {
-            // Use childrenOrder to maintain proper order from DETAILS property
-            // Memoize maps to avoid recreating on every render
-            // eslint-disable-next-line react-hooks/rules-of-hooks
-            const detailMap = useMemo(() => new Map(details.map(d => [d.id, d])), [details.map(d => d.id).join(',')])
-            // eslint-disable-next-line react-hooks/rules-of-hooks
-            const bindingMap = useMemo(() => new Map(bindings.map(b => [b.id, b])), [bindings.map(b => b.id).join(',')])
-            
-            const childrenOrder = binding.childrenOrder || []
-            const mergedItems: Array<{ type: 'detail' | 'binding', item: Detail | Binding, id: string }> = []
-            
-            childrenOrder.forEach(childId => {
-              const detail = detailMap.get(childId)
-              if (detail) {
-                mergedItems.push({ type: 'detail', item: detail, id: childId })
-              } else {
-                const binding = bindingMap.get(childId)
-                if (binding) {
-                  mergedItems.push({ type: 'binding', item: binding, id: childId })
-                }
-              }
-            })
-            
-            if (mergedItems.length === 0) return null
-            
-            return (
-              <div className="space-y-2" data-pwcode="binding-children">
-                {mergedItems.map((child, index) => {
-                  if (child.type === 'detail') {
-                    const detail = child.item as Detail
-                    return (
-                      <DetailCard
-                        key={detail.id}
-                        detail={detail}
-                        onUpdate={(updates) => onUpdateDetail(detail.id, updates)}
-                        onDelete={() => {
-                          if (onDeleteDetail) {
-                            onDeleteDetail(detail.id)
+          {mergedItems.length > 0 && (
+            <div className="space-y-2" data-pwcode="binding-children">
+              {mergedItems.map((child, index) => {
+                if (child.type === 'detail') {
+                  const detail = child.item as Detail
+                  return (
+                    <DetailCard
+                      key={detail.id}
+                      detail={detail}
+                      onUpdate={(updates) => onUpdateDetail(detail.id, updates)}
+                      onDelete={() => {
+                        if (onDeleteDetail) {
+                          onDeleteDetail(detail.id)
+                        }
+                      }}
+                      isInBinding={true}
+                      orderNumber={detailStartIndex + index + 1}
+                      bitrixMeta={bitrixMeta}
+                      onValidationMessage={onValidationMessage}
+                      // Note: onDragStart could be used for drag-and-drop within bindings
+                      // Full implementation would require tracking parent binding context
+                    />
+                  )
+                } else {
+                  const nestedBinding = child.item as Binding
+                  const nestedDetails = allDetails.filter(d => nestedBinding.detailIds?.includes(d.id))
+                  const nestedBindings = allBindings.filter(b => nestedBinding.bindingIds?.includes(b.id))
+                  
+                  return (
+                    <div key={nestedBinding.id} className="ml-6 border-l-4 border-accent/30 pl-3">
+                      <BindingCard
+                        binding={nestedBinding}
+                        details={nestedDetails}
+                        bindings={nestedBindings}
+                        allDetails={allDetails}
+                        allBindings={allBindings}
+                        onUpdate={(updates) => {
+                          if (onUpdateBinding) {
+                            onUpdateBinding(nestedBinding.id, updates)
                           }
                         }}
-                        isInBinding={true}
-                        orderNumber={detailStartIndex + index + 1}
+                        onDelete={() => {
+                          if (onDeleteBinding) {
+                            onDeleteBinding(nestedBinding.id)
+                          }
+                        }}
+                        onUpdateDetail={onUpdateDetail}
+                        onUpdateBinding={onUpdateBinding}
+                        onDeleteDetail={onDeleteDetail}
+                        onDeleteBinding={onDeleteBinding}
+                        orderNumber={index + 1}
+                        detailStartIndex={0}
                         bitrixMeta={bitrixMeta}
                         onValidationMessage={onValidationMessage}
-                        // Note: onDragStart could be used for drag-and-drop within bindings
-                        // Full implementation would require tracking parent binding context
+                        // Note: onDragStart would need context about parent binding for full implementation
                       />
-                    )
-                  } else {
-                    const nestedBinding = child.item as Binding
-                    const nestedDetails = allDetails.filter(d => nestedBinding.detailIds?.includes(d.id))
-                    const nestedBindings = allBindings.filter(b => nestedBinding.bindingIds?.includes(b.id))
-                    
-                    return (
-                      <div key={nestedBinding.id} className="ml-6 border-l-4 border-accent/30 pl-3">
-                        <BindingCard
-                          binding={nestedBinding}
-                          details={nestedDetails}
-                          bindings={nestedBindings}
-                          allDetails={allDetails}
-                          allBindings={allBindings}
-                          onUpdate={(updates) => {
-                            if (onUpdateBinding) {
-                              onUpdateBinding(nestedBinding.id, updates)
-                            }
-                          }}
-                          onDelete={() => {
-                            if (onDeleteBinding) {
-                              onDeleteBinding(nestedBinding.id)
-                            }
-                          }}
-                          onUpdateDetail={onUpdateDetail}
-                          onUpdateBinding={onUpdateBinding}
-                          onDeleteDetail={onDeleteDetail}
-                          onDeleteBinding={onDeleteBinding}
-                          orderNumber={index + 1}
-                          detailStartIndex={0}
-                          bitrixMeta={bitrixMeta}
-                          onValidationMessage={onValidationMessage}
-                          // Note: onDragStart would need context about parent binding for full implementation
-                        />
-                      </div>
-                    )
-                  }
-                })}
-              </div>
-            )
-          })()}
+                    </div>
+                  )
+                }
+              })}
+            </div>
+          )}
           
           <div className="border-t border-border pt-3" data-pwcode="binding-stages-section">
             <div className="flex items-center justify-between mb-2">
