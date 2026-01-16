@@ -182,6 +182,13 @@ interface BindingCardProps {
     // Check if this binding is the drop target
     if (dropTargetBindingId !== binding.bitrixId) return
     
+    // Don't allow drops from top level (sourceParentBindingId === null) into bindings
+    if (sourceParentBindingId === null) {
+      console.warn('[DROP] Cannot move top-level items into bindings')
+      dragContext.endDrag(false)
+      return
+    }
+    
     // Find dragged item's bitrixId
     let draggedItemBitrixId: number | null = null
     if (draggedItemType === 'detail') {
@@ -248,7 +255,7 @@ interface BindingCardProps {
       
       // Send CHANGE_DETAIL_LEVEL_REQUEST
       postMessageBridge.sendChangeDetailLevelRequest({
-        fromParentId: sourceParentBindingId ?? 0,
+        fromParentId: sourceParentBindingId,
         detailId: draggedItemBitrixId,
         toParentId: binding.bitrixId,
         sorting: sortingBitrixIds
