@@ -9,7 +9,7 @@ import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
 import { useMemo, useEffect, useRef } from 'react'
-import { useCustomDrag } from '@/hooks/use-custom-drag'
+import { useDragContext } from '@/contexts/DragContext'
 import { cn } from '@/lib/utils'
 
 interface BindingCardProps {
@@ -31,6 +31,7 @@ interface BindingCardProps {
   bitrixMeta?: InitPayload | null
   onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
   isTopLevel?: boolean
+  parentBindingId?: number | null
 }
 
   export function BindingCard({
@@ -51,10 +52,11 @@ interface BindingCardProps {
   isDragging = false,
   bitrixMeta = null,
   onValidationMessage,
-  isTopLevel = false
+  isTopLevel = false,
+  parentBindingId
 }: BindingCardProps) {
-  // Drag and drop state for items within binding
-  const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
+  // Use global drag context
+  const dragContext = useDragContext()
   const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
   
   // Constants for drag behavior
@@ -140,41 +142,14 @@ interface BindingCardProps {
   const handleDragHandleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
     const card = e.currentTarget.closest('[data-binding-card]') as HTMLElement
-    if (card && onDragStart) {
-      onDragStart(card, e)
+    if (card) {
+      dragContext.startDrag(binding.id, 'binding', card, e.clientX, e.clientY, parentBindingId ?? null)
     }
-  }
-
-  // Drag handlers for items within binding
-  const handleDetailDragStartInBinding = (element: HTMLElement, e: React.MouseEvent) => {
-    const detailId = element.getAttribute('data-detail-id')
-    if (!detailId) return
-
-    // Collapse the detail if expanded
-    const detail = details.find(d => d.id === detailId)
-    if (detail && detail.isExpanded) {
-      onUpdateDetail(detailId, { isExpanded: false })
-    }
-
-    startDrag(detailId, 'detail', element, e.clientX, e.clientY)
-  }
-
-  const handleBindingDragStartInBinding = (element: HTMLElement, e: React.MouseEvent) => {
-    const bindingId = element.getAttribute('data-binding-id')
-    if (!bindingId) return
-
-    // Collapse the binding if expanded
-    const childBinding = bindings.find(b => b.id === bindingId)
-    if (childBinding && childBinding.isExpanded && onUpdateBinding) {
-      onUpdateBinding(bindingId, { isExpanded: false })
-    }
-
-    startDrag(bindingId, 'binding', element, e.clientX, e.clientY)
   }
 
   // Monitor drag position and update drop target
   useEffect(() => {
-    if (!dragState.isDragging) return
+    if (!dragContext.dragState.isDragging) return
 
     const handleMouseMove = (e: MouseEvent) => {
       let minDistance = Infinity
@@ -191,29 +166,50 @@ interface BindingCardProps {
         }
       })
 
-      setDropTarget(nearestDropZone)
+      dragContext.setDropTarget(binding.bitrixId ?? null, nearestDropZone)
     }
 
     document.addEventListener('mousemove', handleMouseMove)
     return () => document.removeEventListener('mousemove', handleMouseMove)
-  }, [dragState.isDragging, setDropTarget, DROP_ZONE_DETECTION_THRESHOLD])
+  }, [dragContext.dragState.isDragging, dragContext, binding.bitrixId, DROP_ZONE_DETECTION_THRESHOLD])
 
-  // Handle reordering within binding
-  const handleReorderWithinBinding = (fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex) return
-
-    const reorderedItems = [...mergedItems]
-    const [movedItem] = reorderedItems.splice(fromIndex, 1)
+  // Handle drop within this binding
+  const handleDrop = (dropIndex: number) => {
+    const { draggedItemId, draggedItemType, sourceParentBindingId, dropTargetBindingId } = dragContext.dragState
     
-    const adjustedToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex
-    reorderedItems.splice(adjustedToIndex, 0, movedItem)
-
-    // Update childrenOrder
-    const newChildrenOrder = reorderedItems.map(item => item.id)
-    onUpdate({ childrenOrder: newChildrenOrder })
-
-    // Send CHANGE_DETAIL_SORT_REQUEST to Bitrix
-    if (binding.bitrixId) {
+    if (!draggedItemId || !draggedItemType) return
+    
+    // Check if this binding is the drop target
+    if (dropTargetBindingId !== binding.bitrixId) return
+    
+    // Find dragged item's bitrixId
+    let draggedItemBitrixId: number | null = null
+    if (draggedItemType === 'detail') {
+      const detail = allDetails.find(d => d.id === draggedItemId)
+      draggedItemBitrixId = detail?.bitrixId ?? null
+    } else {
+      const childBinding = allBindings.find(b => b.id === draggedItemId)
+      draggedItemBitrixId = childBinding?.bitrixId ?? null
+    }
+    
+    if (!draggedItemBitrixId || !binding.bitrixId) return
+    
+    // Same binding - reorder
+    if (sourceParentBindingId === binding.bitrixId) {
+      const fromIndex = mergedItems.findIndex(item => item.id === draggedItemId)
+      if (fromIndex === -1) return
+      
+      const reorderedItems = [...mergedItems]
+      const [movedItem] = reorderedItems.splice(fromIndex, 1)
+      
+      const adjustedToIndex = fromIndex < dropIndex ? dropIndex - 1 : dropIndex
+      reorderedItems.splice(adjustedToIndex, 0, movedItem)
+      
+      // Update childrenOrder
+      const newChildrenOrder = reorderedItems.map(item => item.id)
+      onUpdate({ childrenOrder: newChildrenOrder })
+      
+      // Send CHANGE_DETAIL_SORT_REQUEST
       const sortingBitrixIds = reorderedItems.map(item => {
         if (item.type === 'detail') {
           const detail = item.item as Detail
@@ -223,70 +219,46 @@ interface BindingCardProps {
           return childBinding.bitrixId || parseInt(childBinding.id.split('_')[1] || '0')
         }
       }).filter(id => id > 0)
-
+      
       postMessageBridge.sendChangeDetailSortRequest({
         parentId: binding.bitrixId,
         sorting: sortingBitrixIds
       })
+    } else {
+      // Different binding - move
+      // Build sorting array for target binding including the new item
+      const newSortingItems = [...mergedItems]
+      newSortingItems.splice(dropIndex, 0, { 
+        type: draggedItemType, 
+        id: draggedItemId, 
+        item: draggedItemType === 'detail' 
+          ? (allDetails.find(d => d.id === draggedItemId) as Detail)
+          : (allBindings.find(b => b.id === draggedItemId) as Binding)
+      })
+      
+      const sortingBitrixIds = newSortingItems.map(item => {
+        if (item.type === 'detail') {
+          const detail = item.item as Detail
+          return detail.bitrixId || parseInt(detail.id.split('_')[1] || '0')
+        } else {
+          const childBinding = item.item as Binding
+          return childBinding.bitrixId || parseInt(childBinding.id.split('_')[1] || '0')
+        }
+      }).filter(id => id > 0)
+      
+      // Send CHANGE_DETAIL_LEVEL_REQUEST
+      postMessageBridge.sendChangeDetailLevelRequest({
+        fromParentId: sourceParentBindingId ?? 0,
+        detailId: draggedItemBitrixId,
+        toParentId: binding.bitrixId,
+        sorting: sortingBitrixIds
+      })
     }
-  }
-
-  // Render dragged element
-  const getDraggedElement = () => {
-    if (!dragState.isDragging || !dragState.draggedItemId) return null
-
-    const draggedItem = mergedItems.find(item => item.id === dragState.draggedItemId)
-    if (!draggedItem) return null
-
-    return (
-      <div
-        style={{
-          position: 'fixed',
-          left: dragState.dragPosition.x,
-          top: dragState.dragPosition.y,
-          width: dragState.initialPosition?.width || 'auto',
-          pointerEvents: 'none',
-          zIndex: 9999,
-          opacity: 0.8,
-        }}
-      >
-        {draggedItem.type === 'detail' ? (
-          <DetailCard
-            detail={draggedItem.item as Detail}
-            onUpdate={() => {}}
-            onDelete={() => {}}
-            isInBinding={true}
-            orderNumber={0}
-            isDragging={false}
-            bitrixMeta={bitrixMeta}
-          />
-        ) : (
-          <BindingCard
-            binding={draggedItem.item as Binding}
-            details={allDetails.filter(d => (draggedItem.item as Binding).detailIds?.includes(d.id))}
-            bindings={allBindings.filter(b => (draggedItem.item as Binding).bindingIds?.includes(b.id))}
-            allDetails={allDetails}
-            allBindings={allBindings}
-            onUpdate={() => {}}
-            onDelete={() => {}}
-            onUpdateDetail={() => {}}
-            onUpdateBinding={() => {}}
-            onDeleteDetail={() => {}}
-            onDeleteBinding={() => {}}
-            orderNumber={0}
-            detailStartIndex={0}
-            isDragging={false}
-            bitrixMeta={bitrixMeta}
-          />
-        )}
-      </div>
-    )
+    
+    dragContext.endDrag(true)
   }
 
   return (
-    <>
-      {dragState.isDragging && getDraggedElement()}
-      
     <Card 
       data-binding-card
       data-binding-id={binding.id}
@@ -410,26 +382,22 @@ interface BindingCardProps {
           {mergedItems.length > 0 && (
             <div className="space-y-2" data-pwcode="binding-children">
               {/* First drop zone */}
-              {dragState.isDragging && (
+              {dragContext.dragState.isDragging && (
                 <div 
                   ref={(el) => { if (el) dropZoneRefs.current.set(0, el) }}
                   className={cn(
                     "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all h-8",
-                    dragState.dropTargetIndex === 0 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
+                    dragContext.dragState.dropTargetBindingId === binding.bitrixId && dragContext.dragState.dropTargetIndex === 0 
+                      ? "border-accent bg-accent/10" 
+                      : "border-border bg-muted/30"
                   )}
-                  onMouseUp={() => {
-                    if (dragState.dropTargetIndex === 0 && dragState.draggedItemId) {
-                      const fromIndex = mergedItems.findIndex(item => item.id === dragState.draggedItemId)
-                      if (fromIndex !== -1) {
-                        handleReorderWithinBinding(fromIndex, 0)
-                      }
-                    }
-                    endDrag(true)
-                  }}
+                  onMouseUp={() => handleDrop(0)}
                 >
                   <p className={cn(
                     "text-center text-xs",
-                    dragState.dropTargetIndex === 0 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                    dragContext.dragState.dropTargetBindingId === binding.bitrixId && dragContext.dragState.dropTargetIndex === 0 
+                      ? "text-accent-foreground font-medium" 
+                      : "text-muted-foreground"
                   )}>
                     Перетащите сюда
                   </p>
@@ -437,7 +405,7 @@ interface BindingCardProps {
               )}
               
               {mergedItems.map((child, index) => {
-                const isDraggingThis = dragState.isDragging && dragState.draggedItemId === child.id
+                const isDraggingThis = dragContext.dragState.isDragging && dragContext.dragState.draggedItemId === child.id
                 
                 if (isDraggingThis) {
                   return null
@@ -458,8 +426,8 @@ interface BindingCardProps {
                         orderNumber={detailStartIndex + index + 1}
                         bitrixMeta={bitrixMeta}
                         onValidationMessage={onValidationMessage}
-                        onDragStart={handleDetailDragStartInBinding}
                         isDragging={isDraggingThis}
+                        parentBindingId={binding.bitrixId ?? null}
                       />
                     ) : (
                       <BindingCard
@@ -486,32 +454,28 @@ interface BindingCardProps {
                         detailStartIndex={0}
                         bitrixMeta={bitrixMeta}
                         onValidationMessage={onValidationMessage}
-                        onDragStart={handleBindingDragStartInBinding}
                         isDragging={isDraggingThis}
+                        parentBindingId={binding.bitrixId ?? null}
                       />
                     )}
                 
                 {/* Drop zone after each item */}
-                {dragState.isDragging && (
+                {dragContext.dragState.isDragging && (
                   <div 
                     ref={(el) => { if (el) dropZoneRefs.current.set(index + 1, el) }}
                     className={cn(
                       "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all h-8",
-                      dragState.dropTargetIndex === index + 1 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
+                      dragContext.dragState.dropTargetBindingId === binding.bitrixId && dragContext.dragState.dropTargetIndex === index + 1 
+                        ? "border-accent bg-accent/10" 
+                        : "border-border bg-muted/30"
                     )}
-                    onMouseUp={() => {
-                      if (dragState.dropTargetIndex === index + 1 && dragState.draggedItemId) {
-                        const fromIndex = mergedItems.findIndex(item => item.id === dragState.draggedItemId)
-                        if (fromIndex !== -1) {
-                          handleReorderWithinBinding(fromIndex, index + 1)
-                        }
-                      }
-                      endDrag(true)
-                    }}
+                    onMouseUp={() => handleDrop(index + 1)}
                   >
                     <p className={cn(
                       "text-center text-xs",
-                      dragState.dropTargetIndex === index + 1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                      dragContext.dragState.dropTargetBindingId === binding.bitrixId && dragContext.dragState.dropTargetIndex === index + 1 
+                        ? "text-accent-foreground font-medium" 
+                        : "text-muted-foreground"
                     )}>
                       Перетащите сюда
                     </p>
@@ -563,6 +527,5 @@ interface BindingCardProps {
         </div>
       )}
     </Card>
-    </>
   )
 }
