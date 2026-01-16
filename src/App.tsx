@@ -34,8 +34,7 @@ import {
   ElementsStoreItem,
   createEmptyDetail,
   createEmptyBinding,
-  createEmptyStage,
-  getIblockByCode
+  createEmptyStage
 } from '@/lib/types'
 import { transformPresetToUI } from '@/lib/bitrix-to-ui-transformer'
 import { HeaderSection } from '@/components/calculator/HeaderSection'
@@ -48,7 +47,7 @@ import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
 import { postMessageBridge, InitPayload, CalcInfoPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload } from '@/lib/postmessage-bridge'
-import { setBitrixContext, openBitrixAdmin, getBitrixContext } from '@/lib/bitrix-utils'
+import { setBitrixContext, openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { useOperationSettingsStore } from '@/stores/operation-settings-store'

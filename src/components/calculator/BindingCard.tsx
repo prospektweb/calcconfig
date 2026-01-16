@@ -2,12 +2,13 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Binding, Detail } from '@/lib/types'
-import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut, DotsSixVertical, Plus } from '@phosphor-icons/react'
+import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut, DotsSixVertical, Plus, Selection } from '@phosphor-icons/react'
 import { DetailCard } from './DetailCard'
 import { StageTabs } from './StageTabs'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
+import { useMemo } from 'react'
 
 interface BindingCardProps {
   binding: Binding
@@ -48,6 +49,30 @@ interface BindingCardProps {
   bitrixMeta = null,
   onValidationMessage
 }: BindingCardProps) {
+  // Create memoized maps for details and bindings
+  const detailMap = useMemo(() => new Map(details.map(d => [d.id, d])), [details])
+  const bindingMap = useMemo(() => new Map(bindings.map(b => [b.id, b])), [bindings])
+  
+  // Create merged items list based on childrenOrder
+  const mergedItems = useMemo(() => {
+    const childrenOrder = binding.childrenOrder || []
+    const items: Array<{ type: 'detail' | 'binding', item: Detail | Binding, id: string }> = []
+    
+    childrenOrder.forEach(childId => {
+      const detail = detailMap.get(childId)
+      if (detail) {
+        items.push({ type: 'detail', item: detail, id: childId })
+      } else {
+        const nestedBinding = bindingMap.get(childId)
+        if (nestedBinding) {
+          items.push({ type: 'binding', item: nestedBinding, id: childId })
+        }
+      }
+    })
+    
+    return items
+  }, [binding.childrenOrder, detailMap, bindingMap])
+  
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !binding.isExpanded })
   }
@@ -163,6 +188,50 @@ interface BindingCardProps {
           <Button
             variant="ghost"
             size="sm"
+            className="h-6 w-6 p-0 hover:bg-primary hover:text-primary-foreground"
+            onClick={() => {
+              // Send ADD_DETAIL_TO_BINDING_REQUEST
+              if (binding.bitrixId && bitrixMeta) {
+                const detailsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_DETAILS')
+                if (detailsIblock) {
+                  postMessageBridge.sendAddDetailToBindingRequest({
+                    parentId: binding.bitrixId,
+                    iblockId: detailsIblock.id,
+                    iblockType: detailsIblock.type,
+                  })
+                }
+              }
+            }}
+            data-pwcode="btn-create-detail-in-binding"
+            title="Создать деталь в скреплении"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 hover:bg-primary hover:text-primary-foreground"
+            onClick={() => {
+              // Send SELECT_DETAILS_TO_BINDING_REQUEST
+              if (binding.bitrixId && bitrixMeta) {
+                const detailsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_DETAILS')
+                if (detailsIblock) {
+                  postMessageBridge.sendSelectDetailsToBindingRequest({
+                    parentId: binding.bitrixId,
+                    iblockId: detailsIblock.id,
+                    iblockType: detailsIblock.type,
+                  })
+                }
+              }
+            }}
+            data-pwcode="btn-select-details-to-binding"
+            title="Выбрать детали для скрепления"
+          >
+            <Selection className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             className="h-6 w-6 p-0 hover:bg-accent hover:text-accent-foreground"
             onClick={handleToggleExpand}
             data-pwcode="btn-toggle-binding"
@@ -183,88 +252,93 @@ interface BindingCardProps {
 
       {binding.isExpanded && !isDragging && (
         <div className="px-3 py-3 space-y-3" data-pwcode="binding-content">
-          {details && details.length > 0 && (
-            <div className="space-y-1" data-pwcode="binding-details">
-              <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Детали в скреплении</h4>
-              {details.map((detail, index) => (
-                <DetailCard
-                  key={detail.id}
-                  detail={detail}
-                  onUpdate={(updates) => onUpdateDetail(detail.id, updates)}
-                  onDelete={() => {
-                    if (onDeleteDetail) {
-                      onDeleteDetail(detail.id)
-                    }
-                  }}
-                  isInBinding={true}
-                  orderNumber={detailStartIndex + index + 1}
-                  bitrixMeta={bitrixMeta}
-                  onValidationMessage={onValidationMessage}
-                />
-              ))}
-            </div>
-          )}
-          
-          {bindings && bindings.length > 0 && (
-            <div className="space-y-2" data-pwcode="binding-nested">
-              <h4 className="text-xs font-medium mb-2 text-muted-foreground uppercase">Вложенные скрепления</h4>
-              {bindings.map((nestedBinding, index) => {
-                const nestedDetails = allDetails.filter(d => nestedBinding.detailIds?.includes(d.id))
-                const nestedBindings = allBindings.filter(b => nestedBinding.bindingIds?.includes(b.id))
-                
-                return (
-                  <div key={nestedBinding.id} className="ml-6 border-l-4 border-accent/30 pl-3">
-                    <BindingCard
-                      binding={nestedBinding}
-                      details={nestedDetails}
-                      bindings={nestedBindings}
-                      allDetails={allDetails}
-                      allBindings={allBindings}
-                      onUpdate={(updates) => {
-                        if (onUpdateBinding) {
-                          onUpdateBinding(nestedBinding.id, updates)
-                        }
-                      }}
+          {/* Unified list of details and bindings */}
+          {mergedItems.length > 0 && (
+            <div className="space-y-2" data-pwcode="binding-children">
+              {mergedItems.map((child, index) => {
+                if (child.type === 'detail') {
+                  const detail = child.item as Detail
+                  return (
+                    <DetailCard
+                      key={detail.id}
+                      detail={detail}
+                      onUpdate={(updates) => onUpdateDetail(detail.id, updates)}
                       onDelete={() => {
-                        if (onDeleteBinding) {
-                          onDeleteBinding(nestedBinding.id)
+                        if (onDeleteDetail) {
+                          onDeleteDetail(detail.id)
                         }
                       }}
-                      onUpdateDetail={onUpdateDetail}
-                      onUpdateBinding={onUpdateBinding}
-                      onDeleteDetail={onDeleteDetail}
-                      onDeleteBinding={onDeleteBinding}
-                      orderNumber={index + 1}
-                      detailStartIndex={0}
+                      isInBinding={true}
+                      orderNumber={detailStartIndex + index + 1}
                       bitrixMeta={bitrixMeta}
                       onValidationMessage={onValidationMessage}
+                      // Note: onDragStart could be used for drag-and-drop within bindings
+                      // Full implementation would require tracking parent binding context
                     />
-                  </div>
-                )
+                  )
+                } else {
+                  const nestedBinding = child.item as Binding
+                  const nestedDetails = allDetails.filter(d => nestedBinding.detailIds?.includes(d.id))
+                  const nestedBindings = allBindings.filter(b => nestedBinding.bindingIds?.includes(b.id))
+                  
+                  return (
+                    <div key={nestedBinding.id} className="ml-6 border-l-4 border-accent/30 pl-3">
+                      <BindingCard
+                        binding={nestedBinding}
+                        details={nestedDetails}
+                        bindings={nestedBindings}
+                        allDetails={allDetails}
+                        allBindings={allBindings}
+                        onUpdate={(updates) => {
+                          if (onUpdateBinding) {
+                            onUpdateBinding(nestedBinding.id, updates)
+                          }
+                        }}
+                        onDelete={() => {
+                          if (onDeleteBinding) {
+                            onDeleteBinding(nestedBinding.id)
+                          }
+                        }}
+                        onUpdateDetail={onUpdateDetail}
+                        onUpdateBinding={onUpdateBinding}
+                        onDeleteDetail={onDeleteDetail}
+                        onDeleteBinding={onDeleteBinding}
+                        orderNumber={index + 1}
+                        detailStartIndex={0}
+                        bitrixMeta={bitrixMeta}
+                        onValidationMessage={onValidationMessage}
+                        // Note: onDragStart would need context about parent binding for full implementation
+                      />
+                    </div>
+                  )
+                }
               })}
             </div>
           )}
-
+          
           <div className="border-t border-border pt-3" data-pwcode="binding-stages-section">
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-medium">Этапы скрепления</h4>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  // Send ADD_STAGE_REQUEST with detailId set to binding's bitrixId
-                  if (binding.bitrixId && bitrixMeta) {
-                    console.log('[ADD_STAGE_REQUEST] Sending for binding...', { detailId: binding.bitrixId })
-                    postMessageBridge.sendAddStageRequest({
-                      detailId: binding.bitrixId,
-                    })
-                  }
-                }}
-                className="h-7 w-7 p-0"
-                data-pwcode="btn-add-binding-stage"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
+              {/* Show button only when there are no stages */}
+              {(binding.stages || []).length === 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Send ADD_STAGE_REQUEST with detailId set to binding's bitrixId
+                    if (binding.bitrixId && bitrixMeta) {
+                      console.log('[ADD_STAGE_REQUEST] Sending for binding...', { detailId: binding.bitrixId })
+                      postMessageBridge.sendAddStageRequest({
+                        detailId: binding.bitrixId,
+                      })
+                    }
+                  }}
+                  className="h-7 w-7 p-0"
+                  data-pwcode="btn-add-binding-stage"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              )}
             </div>
             
             {(binding.stages || []).length > 0 && (

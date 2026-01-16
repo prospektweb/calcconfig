@@ -149,12 +149,13 @@ export function transformBinding(
   
   const hasStages = stages.length > 0
   
-  // Get child detail IDs and binding IDs
+  // Get child detail IDs and binding IDs in the correct order
   const childIds = bindingElement.properties.DETAILS?.VALUE || []
   const childIdArray = Array.isArray(childIds) ? childIds : (childIds ? [childIds] : [])
   
   const detailIds: string[] = []
   const bindingIds: string[] = []
+  const childrenOrder: string[] = [] // Unified order list
   
   if (elementsStore.CALC_DETAILS) {
     childIdArray.forEach(childId => {
@@ -164,9 +165,13 @@ export function transformBinding(
       if (childElement) {
         const childType = childElement.properties.TYPE?.VALUE_XML_ID
         if (childType === 'DETAIL') {
-          detailIds.push(`detail_${childElement.id}`)
+          const detailUiId = `detail_${childElement.id}`
+          detailIds.push(detailUiId)
+          childrenOrder.push(detailUiId)
         } else if (childType === 'BINDING') {
-          bindingIds.push(`binding_${childElement.id}`)
+          const bindingUiId = `binding_${childElement.id}`
+          bindingIds.push(bindingUiId)
+          childrenOrder.push(bindingUiId)
         }
       }
     })
@@ -180,6 +185,7 @@ export function transformBinding(
     stages,
     detailIds,
     bindingIds,
+    childrenOrder, // Add unified order
     bitrixId: bindingElement.id,
   }
 }
