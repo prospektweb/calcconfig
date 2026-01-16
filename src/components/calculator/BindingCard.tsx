@@ -55,6 +55,10 @@ interface BindingCardProps {
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
   
+  // Constants for drag behavior
+  const DROP_ZONE_DETECTION_THRESHOLD = 100 // pixels
+  const DROP_ZONE_HEIGHT = 30 // pixels
+  
   // Create memoized maps for details and bindings
   const detailMap = useMemo(() => new Map(details.map(d => [d.id, d])), [details])
   const bindingMap = useMemo(() => new Map(bindings.map(b => [b.id, b])), [bindings])
@@ -180,7 +184,7 @@ interface BindingCardProps {
         const centerY = rect.top + rect.height / 2
         const distance = Math.abs(e.clientY - centerY)
 
-        if (distance < minDistance && distance < 100) {
+        if (distance < minDistance && distance < DROP_ZONE_DETECTION_THRESHOLD) {
           minDistance = distance
           nearestDropZone = index
         }
@@ -191,7 +195,7 @@ interface BindingCardProps {
 
     document.addEventListener('mousemove', handleMouseMove)
     return () => document.removeEventListener('mousemove', handleMouseMove)
-  }, [dragState.isDragging, setDropTarget])
+  }, [dragState.isDragging, setDropTarget, DROP_ZONE_DETECTION_THRESHOLD])
 
   // Handle reordering within binding
   const handleReorderWithinBinding = (fromIndex: number, toIndex: number) => {
@@ -407,10 +411,9 @@ interface BindingCardProps {
                 <div 
                   ref={(el) => { if (el) dropZoneRefs.current.set(0, el) }}
                   className={cn(
-                    "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
+                    "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all h-8",
                     dragState.dropTargetIndex === 0 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
                   )}
-                  style={{ height: '30px' }}
                   onMouseUp={() => {
                     if (dragState.dropTargetIndex === 0 && dragState.draggedItemId) {
                       const fromIndex = mergedItems.findIndex(item => item.id === dragState.draggedItemId)
@@ -492,10 +495,9 @@ interface BindingCardProps {
                   <div 
                     ref={(el) => { if (el) dropZoneRefs.current.set(index + 1, el) }}
                     className={cn(
-                      "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",
+                      "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all h-8",
                       dragState.dropTargetIndex === index + 1 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
                     )}
-                    style={{ height: '30px' }}
                     onMouseUp={() => {
                       if (dragState.dropTargetIndex === index + 1 && dragState.draggedItemId) {
                         const fromIndex = mergedItems.findIndex(item => item.id === dragState.draggedItemId)

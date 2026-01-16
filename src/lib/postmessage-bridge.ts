@@ -215,17 +215,22 @@ export interface SelectDetailsToBindingRequestPayload {
 }
 
 /**
+ * Price range item structure used in multiple payload types
+ */
+export interface PriceRangeItem {
+  typeId: number
+  price: number
+  currency: 'RUB' | 'PRC'
+  quantityFrom: number | null
+  quantityTo: number | null
+}
+
+/**
  * Payload for UPDATE_PRESET_PRICES_REQUEST
  */
 export interface UpdatePresetPricesRequestPayload {
   presetId: number
-  prices: Array<{
-    typeId: number
-    price: number
-    currency: 'RUB' | 'PRC'
-    quantityFrom: number | null
-    quantityTo: number | null
-  }>
+  prices: PriceRangeItem[]
 }
 
 /**
@@ -239,13 +244,7 @@ export interface PriceTypeSelectPayload {
  * Payload for CHANGE_RANGES
  */
 export interface ChangeRangesPayload {
-  prices: Array<{
-    typeId: number
-    price: number
-    currency: 'RUB' | 'PRC'
-    quantityFrom: number | null
-    quantityTo: number | null
-  }>
+  prices: PriceRangeItem[]
 }
 
 /**

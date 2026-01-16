@@ -438,7 +438,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
                                           const newCurrency = priceItem?.currency === CURRENCY_PRC ? CURRENCY_RUB : CURRENCY_PRC
                                           handleCurrencyChange(priceType.id, range.quantityFrom, newCurrency)
                                         }}
-                                        className="w-[45px] h-8 text-xs border rounded hover:bg-accent"
+                                        className="w-11 h-8 text-xs border rounded hover:bg-accent"
                                         data-pwcode="btn-toggle-currency"
                                       >
                                         {priceItem?.currency === CURRENCY_PRC ? '%' : 'RUB'}
