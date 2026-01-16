@@ -168,9 +168,14 @@ interface BindingCardProps {
             onClick={() => {
               // Send ADD_DETAIL_TO_BINDING_REQUEST
               if (binding.bitrixId && bitrixMeta) {
-                postMessageBridge.sendAddDetailToBindingRequest({
-                  parentId: binding.bitrixId,
-                })
+                const detailsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_DETAILS')
+                if (detailsIblock) {
+                  postMessageBridge.sendAddDetailToBindingRequest({
+                    parentId: binding.bitrixId,
+                    iblockId: detailsIblock.id,
+                    iblockType: detailsIblock.type,
+                  })
+                }
               }
             }}
             data-pwcode="btn-create-detail-in-binding"
@@ -227,17 +232,23 @@ interface BindingCardProps {
           {(() => {
             // Use childrenOrder to maintain proper order from DETAILS property
             // Memoize maps to avoid recreating on every render
-            const detailMap = useMemo(() => new Map(details.map(d => [d.id, d])), [details])
-            const bindingMap = useMemo(() => new Map(bindings.map(b => [b.id, b])), [bindings])
+            // eslint-disable-next-line react-hooks/rules-of-hooks
+            const detailMap = useMemo(() => new Map(details.map(d => [d.id, d])), [details.map(d => d.id).join(',')])
+            // eslint-disable-next-line react-hooks/rules-of-hooks
+            const bindingMap = useMemo(() => new Map(bindings.map(b => [b.id, b])), [bindings.map(b => b.id).join(',')])
             
             const childrenOrder = binding.childrenOrder || []
             const mergedItems: Array<{ type: 'detail' | 'binding', item: Detail | Binding, id: string }> = []
             
             childrenOrder.forEach(childId => {
-              if (detailMap.has(childId)) {
-                mergedItems.push({ type: 'detail', item: detailMap.get(childId)!, id: childId })
-              } else if (bindingMap.has(childId)) {
-                mergedItems.push({ type: 'binding', item: bindingMap.get(childId)!, id: childId })
+              const detail = detailMap.get(childId)
+              if (detail) {
+                mergedItems.push({ type: 'detail', item: detail, id: childId })
+              } else {
+                const binding = bindingMap.get(childId)
+                if (binding) {
+                  mergedItems.push({ type: 'binding', item: binding, id: childId })
+                }
               }
             })
             

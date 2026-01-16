@@ -198,7 +198,9 @@ export interface ChangeDetailLevelRequestPayload {
  * Payload for ADD_DETAIL_TO_BINDING_REQUEST
  */
 export interface AddDetailToBindingRequestPayload {
-  parentId: number
+  parentId: number              // ID скрепления, в которое добавляется деталь
+  iblockId: number              // ID инфоблока CALC_DETAILS для создания элемента
+  iblockType: string            // Тип инфоблока CALC_DETAILS
 }
 
 /**
