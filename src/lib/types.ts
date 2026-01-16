@@ -262,9 +262,3 @@ export interface Iblock {
   name: string
   parent: number | null
 }
-
-// Хелпер для поиска инфоблока по коду
-export const getIblockByCode = (iblocks: Iblock[] | undefined, code: string): Iblock | undefined => {
-  if (!iblocks || ! Array.isArray(iblocks)) return undefined
-  return iblocks.find(ib => ib.code === code)
-}

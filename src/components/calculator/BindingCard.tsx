@@ -8,6 +8,7 @@ import { StageTabs } from './StageTabs'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
+import { useMemo } from 'react'
 
 interface BindingCardProps {
   binding: Binding
@@ -225,8 +226,9 @@ interface BindingCardProps {
           {/* Unified list of details and bindings */}
           {(() => {
             // Use childrenOrder to maintain proper order from DETAILS property
-            const detailMap = new Map(details.map(d => [d.id, d]))
-            const bindingMap = new Map(bindings.map(b => [b.id, b]))
+            // Memoize maps to avoid recreating on every render
+            const detailMap = useMemo(() => new Map(details.map(d => [d.id, d])), [details])
+            const bindingMap = useMemo(() => new Map(bindings.map(b => [b.id, b])), [bindings])
             
             const childrenOrder = binding.childrenOrder || []
             const mergedItems: Array<{ type: 'detail' | 'binding', item: Detail | Binding, id: string }> = []
