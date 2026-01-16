@@ -525,7 +525,7 @@ interface BindingCardProps {
           
           <div className="border-t border-border pt-3" data-pwcode="binding-stages-section">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium">Этапы скрепления</h4>
+              <h4 className="text-sm font-medium">Дополнительные этапы</h4>
               {/* Show button only when there are no stages */}
               {(binding.stages || []).length === 0 && (
                 <Button

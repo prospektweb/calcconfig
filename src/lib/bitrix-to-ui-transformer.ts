@@ -110,7 +110,7 @@ export function transformDetail(
     name: detailElement.name || 'Деталь',
     width: detailElement.fields?.width ?? null,
     length: detailElement.fields?.length ?? null,
-    isExpanded: true,
+    isExpanded: false,
     stages,
     bitrixId: detailElement.id,
   }
@@ -180,7 +180,7 @@ export function transformBinding(
   return {
     id: `binding_${bindingElement.id}`,
     name: bindingElement.name || 'Группа',
-    isExpanded: true,
+    isExpanded: false,
     hasStages,
     stages,
     detailIds,
