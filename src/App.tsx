@@ -1421,6 +1421,7 @@ function App() {
                     isDragging={isDraggingThis}
                     bitrixMeta={bitrixMeta}
                     onValidationMessage={addInfoMessage}
+                    isTopLevel={true}
                   />
                 ) : (
                   <BindingCard
@@ -1445,6 +1446,7 @@ function App() {
                     isDragging={isDraggingThis}
                     bitrixMeta={bitrixMeta}
                     onValidationMessage={addInfoMessage}
+                    isTopLevel={true}
                   />
                 )}
                 
@@ -1500,6 +1502,8 @@ function App() {
           priceTypes={bitrixMeta?.priceTypes}
           presetPrices={bitrixMeta?.preset?.prices}
           presetId={bitrixMeta?.preset?.id}
+          defaultExtraCurrency={bitrixMeta?.context?.defaultExtraCurrency}
+          defaultExtraValue={bitrixMeta?.context?.defaultExtraValue}
         />
 
         <InfoPanel

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Tag, Plus, Trash, CaretDown, CaretUp } from '@phosphor-icons/react'
-import { postMessageBridge, PriceTypeSelectPayload, ChangeRangesPayload, UpdatePresetPricesRequestPayload, PriceRangeItem } from '@/lib/postmessage-bridge'
+import { postMessageBridge, PriceRangeItem } from '@/lib/postmessage-bridge'
 
 // Currency constants
 const CURRENCY_RUB = 'RUB'
@@ -14,9 +14,11 @@ interface PricePanelProps {
   priceTypes?: Array<{ id: number; name: string; base: boolean; sort: number }>
   presetPrices?: PriceRangeItem[]
   presetId?: number
+  defaultExtraCurrency?: 'RUB' | 'PRC'
+  defaultExtraValue?: number
 }
 
-export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: PricePanelProps) {
+export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defaultExtraCurrency, defaultExtraValue }: PricePanelProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [prices, setPrices] = useState<PriceRangeItem[]>([])
   const [activeTypeIds, setActiveTypeIds] = useState<number[]>([])
@@ -27,6 +29,26 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
   
   // Sort price types by sort field
   const sortedPriceTypes = [...priceTypes].sort((a, b) => a.sort - b.sort)
+
+  // Prepare payload for send - calculate quantityTo correctly
+  const preparePayloadForSend = (currentPrices: PriceRangeItem[]): PriceRangeItem[] => {
+    // Получить все уникальные quantityFrom, отсортировать
+    const uniqueFroms = [...new Set(currentPrices.map(p => p.quantityFrom || 0))].sort((a, b) => a - b)
+    
+    return currentPrices.map(price => {
+      const currentFrom = price.quantityFrom || 0
+      const currentIndex = uniqueFroms.indexOf(currentFrom)
+      
+      // Если это последний диапазон — quantityTo = null
+      if (currentIndex === uniqueFroms.length - 1) {
+        return { ...price, quantityTo: null }
+      }
+      
+      // Иначе quantityTo = следующий.quantityFrom - 1
+      const nextFrom = uniqueFroms[currentIndex + 1]
+      return { ...price, quantityTo: nextFrom - 1 }
+    })
+  }
 
   // Initialize from presetPrices
   useEffect(() => {
@@ -42,8 +64,8 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
       // Initialize with default range for base type
       const defaultRange: PriceRangeItem = {
         typeId: basePriceType.id,
-        price: 10,
-        currency: CURRENCY_PRC,
+        price: defaultExtraValue ?? 10,
+        currency: defaultExtraCurrency ?? 'PRC',
         quantityFrom: 0,
         quantityTo: null,
       }
@@ -87,8 +109,8 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
         if (!exists) {
           newPrices.push({
             typeId,
-            price: 10,
-            currency: CURRENCY_PRC,
+            price: defaultExtraValue ?? 10,
+            currency: defaultExtraCurrency ?? 'PRC',
             quantityFrom: range.quantityFrom,
             quantityTo: range.quantityTo,
           })
@@ -98,16 +120,20 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
       setPrices(newPrices)
       const newActiveTypeIds = [...activeTypeIds, typeId]
       setActiveTypeIds(newActiveTypeIds)
-      sendPriceTypeSelectRequest(newActiveTypeIds)
-      sendChangeRangesRequest(newPrices)
+      
+      // Send unified update
+      const payload = preparePayloadForSend(newPrices)
+      postMessageBridge.sendChangePricePresetRequest(payload)
     } else {
       // Remove all ranges for this type
       const newPrices = prices.filter(p => p.typeId !== typeId)
       setPrices(newPrices)
       const newActiveTypeIds = activeTypeIds.filter(id => id !== typeId)
       setActiveTypeIds(newActiveTypeIds)
-      sendPriceTypeSelectRequest(newActiveTypeIds)
-      sendChangeRangesRequest(newPrices)
+      
+      // Send unified update
+      const payload = preparePayloadForSend(newPrices)
+      postMessageBridge.sendChangePricePresetRequest(payload)
     }
   }
 
@@ -143,15 +169,18 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
     activeTypeIds.forEach(typeId => {
       newPrices.push({
         typeId,
-        price: 10,
-        currency: CURRENCY_PRC,
+        price: defaultExtraValue ?? 10,
+        currency: defaultExtraCurrency ?? 'PRC',
         quantityFrom: newFrom,
         quantityTo: null,
       })
     })
     
     setPrices(newPrices)
-    sendChangeRangesRequest(newPrices)
+    
+    // Send unified update
+    const payload = preparePayloadForSend(newPrices)
+    postMessageBridge.sendChangePricePresetRequest(payload)
   }
 
   // Remove a range
@@ -165,7 +194,10 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
     const newPrices = prices.filter(p => p.quantityFrom !== rangeToRemove.quantityFrom)
     
     setPrices(newPrices)
-    sendChangeRangesRequest(newPrices)
+    
+    // Send unified update
+    const payload = preparePayloadForSend(newPrices)
+    postMessageBridge.sendChangePricePresetRequest(payload)
   }
 
   // Update price value
@@ -179,7 +211,9 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
   }
 
   const handlePriceBlur = () => {
-    sendChangeRangesRequest(prices)
+    // Send unified update
+    const payload = preparePayloadForSend(prices)
+    postMessageBridge.sendChangePricePresetRequest(payload)
   }
 
   // Update currency
@@ -190,7 +224,10 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
         : p
     )
     setPrices(newPrices)
-    sendChangeRangesRequest(newPrices)
+    
+    // Send unified update
+    const payload = preparePayloadForSend(newPrices)
+    postMessageBridge.sendChangePricePresetRequest(payload)
   }
 
   // Update range boundary (only for base type)
@@ -219,61 +256,9 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId }: Pri
   }
 
   const handleRangeFromBlur = () => {
-    sendChangeRangesRequest(prices)
-  }
-
-  // Send update request to Bitrix
-  const sendUpdateRequest = (updatedPrices: PriceRangeItem[]) => {
-    if (!presetId) return
-    
-    const payload: UpdatePresetPricesRequestPayload = {
-      presetId,
-      prices: updatedPrices,
-    }
-    
-    postMessageBridge.sendUpdatePresetPricesRequest(payload)
-  }
-
-  // Send PRICE_TYPE_SELECT request
-  const sendPriceTypeSelectRequest = (currentActiveTypeIds: number[]) => {
-    const types = priceTypes.map(pt => ({
-      id: pt.id,
-      active: currentActiveTypeIds.includes(pt.id)
-    }))
-    
-    const payload: PriceTypeSelectPayload = {
-      types
-    }
-    
-    postMessageBridge.sendPriceTypeSelectRequest(payload)
-  }
-
-  // Send CHANGE_RANGES request
-  const sendChangeRangesRequest = (updatedPrices: PriceRangeItem[]) => {
-    // Calculate quantityTo for each range
-    const baseRanges = getBaseRanges()
-    const pricesWithCalculatedTo = updatedPrices.map(p => {
-      // Find the range index for this item
-      const rangeIndex = baseRanges.findIndex(r => r.quantityFrom === p.quantityFrom)
-      let quantityTo: number | null = null
-      
-      if (rangeIndex >= 0 && rangeIndex < baseRanges.length - 1) {
-        // Not the last range - calculate quantityTo
-        const nextFrom = baseRanges[rangeIndex + 1].quantityFrom || 0
-        quantityTo = nextFrom - 1
-      }
-      
-      return {
-        ...p,
-        quantityTo
-      }
-    })
-    
-    const payload: ChangeRangesPayload = {
-      prices: pricesWithCalculatedTo
-    }
-    
-    postMessageBridge.sendChangeRangesRequest(payload)
+    // Send unified update
+    const payload = preparePayloadForSend(prices)
+    postMessageBridge.sendChangePricePresetRequest(payload)
   }
 
   // Calculate quantityTo for each range
