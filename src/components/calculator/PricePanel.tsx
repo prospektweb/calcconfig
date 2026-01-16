@@ -4,19 +4,11 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Tag, Plus, Trash, CaretDown, CaretUp } from '@phosphor-icons/react'
-import { postMessageBridge, PriceTypeSelectPayload, ChangeRangesPayload, UpdatePresetPricesRequestPayload } from '@/lib/postmessage-bridge'
+import { postMessageBridge, PriceTypeSelectPayload, ChangeRangesPayload, UpdatePresetPricesRequestPayload, PriceRangeItem } from '@/lib/postmessage-bridge'
 
 // Currency constants
 const CURRENCY_RUB = 'RUB'
 const CURRENCY_PRC = 'PRC'
-
-interface PriceRangeItem {
-  typeId: number
-  price: number
-  currency: 'RUB' | 'PRC'
-  quantityFrom: number | null
-  quantityTo: number | null
-}
 
 interface PricePanelProps {
   priceTypes?: Array<{ id: number; name: string; base: boolean; sort: number }>
