@@ -12,6 +12,7 @@ import { useMemo } from 'react'
 import { useDragContext } from '@/contexts/DragContext'
 import { DropIndicator } from '@/components/drag/DropIndicator'
 import { cn } from '@/lib/utils'
+import { setExpanded } from '@/lib/ui-state-storage'
 
 interface BindingCardProps {
   binding: Binding
@@ -84,7 +85,10 @@ interface BindingCardProps {
   }, [binding.childrenOrder, detailMap, bindingMap])
   
   const handleToggleExpand = () => {
-    onUpdate({ isExpanded: !binding.isExpanded })
+    const newExpandedState = !binding.isExpanded
+    onUpdate({ isExpanded: newExpandedState })
+    // Persist to localStorage
+    setExpanded(binding.id, newExpandedState)
   }
   
   const handleOpenInBitrix = () => {
@@ -147,6 +151,23 @@ interface BindingCardProps {
       }, card)
     }
   }
+  
+  const handleHeaderClick = (e: React.MouseEvent) => {
+    // Only toggle if clicking on the header itself, not on interactive elements
+    const target = e.target as HTMLElement
+    
+    // Check if the click is on an interactive element
+    if (
+      target.closest('button') || 
+      target.closest('input') || 
+      target.closest('[data-pwcode="binding-drag-handle"]')
+    ) {
+      return
+    }
+    
+    // Toggle expand/collapse
+    handleToggleExpand()
+  }
 
   return (
     <Card 
@@ -155,7 +176,11 @@ interface BindingCardProps {
       className={`overflow-hidden border-2 border-accent/30 ${isDragging ? 'invisible' : ''}`}
       data-pwcode="binding-card"
     >
-      <div className="bg-accent/10 border-b border-border px-3 py-2 flex items-center justify-between" data-pwcode="binding-header">
+      <div 
+        className="bg-accent/10 border-b border-border px-3 py-2 flex items-center justify-between cursor-pointer" 
+        data-pwcode="binding-header"
+        onClick={handleHeaderClick}
+      >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {!isTopLevel && (
             <div 

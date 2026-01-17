@@ -37,6 +37,7 @@ import {
   createEmptyStage
 } from '@/lib/types'
 import { transformPresetToUI } from '@/lib/bitrix-to-ui-transformer'
+import { loadExpandedById } from '@/lib/ui-state-storage'
 import { HeaderSection } from '@/components/calculator/HeaderSection'
 import { VariantsFooter } from '@/components/calculator/VariantsFooter'
 import { DetailCard } from '@/components/calculator/DetailCard'
@@ -295,9 +296,13 @@ function App() {
         if (message.payload.preset && message.payload.elementsStore) {
           console.info('[INIT] Transforming preset to UI...')
           try {
+            // Load persisted expanded state
+            const expandedById = loadExpandedById()
+            
             const { details: transformedDetails, bindings: transformedBindings } = transformPresetToUI(
               message.payload.preset,
-              message.payload.elementsStore
+              message.payload.elementsStore,
+              expandedById
             )
             
             // ЗАМЕНЯЕМ состояние (не добавляем!)
@@ -341,9 +346,13 @@ function App() {
           if (refreshPayload.preset && refreshPayload.elementsStore) {
             console.log('[REFRESH] Transforming preset and elementsStore to UI format')
             try {
+              // Load persisted expanded state
+              const expandedById = loadExpandedById()
+              
               const { details: transformedDetails, bindings: transformedBindings } = transformPresetToUI(
                 refreshPayload.preset,
-                refreshPayload.elementsStore
+                refreshPayload.elementsStore,
+                expandedById
               )
               
               // ЗАМЕНЯЕМ состояние полностью
@@ -681,9 +690,13 @@ function App() {
         // Transform preset and elementsStore to UI format
         if (payload.state?.preset && payload.state?.elementsStore) {
           try {
+            // Load persisted expanded state
+            const expandedById = loadExpandedById()
+            
             const { details: transformedDetails, bindings: transformedBindings } = transformPresetToUI(
               payload.state.preset,
-              payload.state.elementsStore
+              payload.state.elementsStore,
+              expandedById
             )
             
             setDetails(transformedDetails)
@@ -708,9 +721,13 @@ function App() {
         // Transform preset and elementsStore to UI format
         if (payload.state?.preset && payload.state?.elementsStore) {
           try {
+            // Load persisted expanded state
+            const expandedById = loadExpandedById()
+            
             const { details: transformedDetails, bindings: transformedBindings } = transformPresetToUI(
               payload.state.preset,
-              payload.state.elementsStore
+              payload.state.elementsStore,
+              expandedById
             )
             
             setDetails(transformedDetails)
