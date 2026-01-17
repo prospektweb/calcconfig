@@ -95,6 +95,23 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
       }, card)
     }
   }
+  
+  const handleHeaderClick = (e: React.MouseEvent) => {
+    // Only toggle if clicking on the header itself, not on interactive elements
+    const target = e.target as HTMLElement
+    
+    // Check if the click is on an interactive element
+    if (
+      target.closest('button') || 
+      target.closest('input') || 
+      target.closest('[data-pwcode="detail-drag-handle"]')
+    ) {
+      return
+    }
+    
+    // Toggle expand/collapse
+    handleToggleExpand()
+  }
 
   return (
     <Card 
@@ -103,7 +120,11 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
       className={`overflow-hidden transition-all ${isDragging ?  'invisible' : ''}`}
       data-pwcode="detail-card"
     >
-      <div className="bg-primary/5 border-b border-border px-3 py-2 flex items-center justify-between" data-pwcode="detail-header">
+      <div 
+        className="bg-primary/5 border-b border-border px-3 py-2 flex items-center justify-between cursor-pointer" 
+        data-pwcode="detail-header"
+        onClick={handleHeaderClick}
+      >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {!isTopLevel && (
             <div 
