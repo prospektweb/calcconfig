@@ -292,8 +292,8 @@ export function transformPresetToUI(
   const allDetailsArray = Array.from(allDetails.values())
   const finalDetailsWithCollapsed = allDetailsArray.map(detail => {
     if (nestedDetailIds.has(detail.id)) {
-      // If in localStorage есть сохранённое значение — использовать его
-      // Иначе по умолчанию collapsed
+      // If localStorage has a saved value - use it
+      // Otherwise default to collapsed
       const persistedExpanded = expandedById?.[detail.id]
       if (persistedExpanded !== undefined) {
         return { ...detail, isExpanded: persistedExpanded }
