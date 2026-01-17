@@ -44,7 +44,8 @@ import { BindingCard } from '@/components/calculator/BindingCard'
 import { InfoPanel } from '@/components/calculator/InfoPanel'
 import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
-import { useDragContext } from '@/contexts/DragContext'
+import { DragOverlay } from '@/components/drag/DragOverlay'
+import { useDragContext, DragProvider } from '@/contexts/DragContext'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
 import { postMessageBridge, InitPayload, CalcInfoPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext, openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
@@ -55,6 +56,29 @@ import { useMaterialSettingsStore } from '@/stores/material-settings-store'
 import { useOperationVariantStore } from '@/stores/operation-variant-store'
 import { useMaterialVariantStore } from '@/stores/material-variant-store'
 import { transformBitrixTreeSelectElement, transformBitrixTreeSelectChild } from '@/lib/bitrix-transformers'
+
+// Helper function to check if targetBinding is a descendant of sourceBinding
+function isDescendant(
+  sourceBindingId: number,
+  targetBindingId: number,
+  bindings: Binding[]
+): boolean {
+  if (sourceBindingId === targetBindingId) return true
+  
+  // Find the target binding
+  const targetBinding = bindings.find(b => b.bitrixId === targetBindingId)
+  if (!targetBinding) return false
+  
+  // Check if any child binding is the source or contains the source
+  for (const childBindingId of targetBinding.bindingIds || []) {
+    const childBitrixId = bindings.find(b => b.id === childBindingId)?.bitrixId
+    if (childBitrixId && isDescendant(sourceBindingId, childBitrixId, bindings)) {
+      return true
+    }
+  }
+  
+  return false
+}
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -1296,7 +1320,7 @@ function App() {
     <div className="min-h-screen bg-background flex flex-col">
       <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} bitrixMeta={bitrixMeta} />
       
-      {dragContext.dragState.isDragging && getDraggedElement()}
+      <DragOverlay />
       
       <div className="w-full flex flex-col min-h-screen">
         <header className="border-b border-border bg-card" data-pwcode="header">
@@ -1630,4 +1654,139 @@ function App() {
   )
 }
 
-export default App
+function AppWrapper() {
+  const [details, setDetails] = useConfigKV<Detail[]>('calc_details', [])
+  const [bindings, setBindings] = useConfigKV<Binding[]>('calc_bindings', [])
+
+  const handleDrop = useCallback((dragItem: any, dropTarget: any) => {
+    console.log('[DROP] Handling drop', { dragItem, dropTarget })
+
+    // Find the dragged item
+    let draggedDetail: Detail | null = null
+    let draggedBinding: Binding | null = null
+    
+    if (dragItem.kind === 'detail') {
+      draggedDetail = (details || []).find(d => d.id === dragItem.id) || null
+    } else {
+      draggedBinding = (bindings || []).find(b => b.id === dragItem.id) || null
+    }
+
+    if (!draggedDetail && !draggedBinding) {
+      console.error('[DROP] Dragged item not found')
+      return
+    }
+
+    const draggedBitrixId = draggedDetail?.bitrixId || draggedBinding?.bitrixId
+    if (!draggedBitrixId) {
+      console.error('[DROP] Dragged item has no bitrixId')
+      return
+    }
+
+    // Determine operation type
+    const isSameBinding = dragItem.sourceBindingId === dropTarget.bindingId
+    
+    if (isSameBinding) {
+      // SORT operation - reorder within same binding
+      console.log('[DROP] SORT operation')
+      
+      // Update UI first
+      setBindings(prev => {
+        return (prev || []).map(binding => {
+          if (binding.bitrixId !== dropTarget.bindingId) return binding
+          
+          const childrenOrder = binding.childrenOrder || []
+          const fromIndex = childrenOrder.indexOf(dragItem.id)
+          if (fromIndex === -1) return binding
+          
+          const newOrder = [...childrenOrder]
+          const [movedItem] = newOrder.splice(fromIndex, 1)
+          newOrder.splice(dropTarget.position.index, 0, movedItem)
+          
+          return { ...binding, childrenOrder: newOrder }
+        })
+      })
+      
+      // Send SORT request
+      const targetBinding = (bindings || []).find(b => b.bitrixId === dropTarget.bindingId)
+      if (targetBinding) {
+        const newChildrenOrder = [...(targetBinding.childrenOrder || [])]
+        const fromIndex = newChildrenOrder.indexOf(dragItem.id)
+        if (fromIndex !== -1) {
+          const [movedItem] = newChildrenOrder.splice(fromIndex, 1)
+          newChildrenOrder.splice(dropTarget.position.index, 0, movedItem)
+          
+          const sortingBitrixIds = newChildrenOrder.map(childId => {
+            const detail = (details || []).find(d => d.id === childId)
+            const binding = (bindings || []).find(b => b.id === childId)
+            return detail?.bitrixId || binding?.bitrixId || 0
+          }).filter(id => id > 0)
+          
+          postMessageBridge.sendChangeDetailSortRequest({
+            parentId: dropTarget.bindingId,
+            sorting: sortingBitrixIds
+          })
+        }
+      }
+    } else {
+      // LEVEL operation - move to different binding
+      console.log('[DROP] LEVEL operation')
+      
+      // Update UI first - remove from source and add to target
+      setBindings(prev => {
+        return (prev || []).map(binding => {
+          // Remove from source binding
+          if (binding.bitrixId === dragItem.sourceBindingId) {
+            const detailIds = (binding.detailIds || []).filter(id => id !== dragItem.id)
+            const bindingIds = (binding.bindingIds || []).filter(id => id !== dragItem.id)
+            const childrenOrder = (binding.childrenOrder || []).filter(id => id !== dragItem.id)
+            return { ...binding, detailIds, bindingIds, childrenOrder }
+          }
+          
+          // Add to target binding
+          if (binding.bitrixId === dropTarget.bindingId) {
+            const childrenOrder = [...(binding.childrenOrder || [])]
+            childrenOrder.splice(dropTarget.position.index, 0, dragItem.id)
+            
+            if (dragItem.kind === 'detail') {
+              const detailIds = [...(binding.detailIds || []), dragItem.id]
+              return { ...binding, detailIds, childrenOrder }
+            } else {
+              const bindingIds = [...(binding.bindingIds || []), dragItem.id]
+              return { ...binding, bindingIds, childrenOrder }
+            }
+          }
+          
+          return binding
+        })
+      })
+      
+      // Send LEVEL request
+      const targetBinding = (bindings || []).find(b => b.bitrixId === dropTarget.bindingId)
+      if (targetBinding) {
+        const newChildrenOrder = [...(targetBinding.childrenOrder || [])]
+        newChildrenOrder.splice(dropTarget.position.index, 0, dragItem.id)
+        
+        const sortingBitrixIds = newChildrenOrder.map(childId => {
+          const detail = (details || []).find(d => d.id === childId)
+          const binding = (bindings || []).find(b => b.id === childId)
+          return detail?.bitrixId || binding?.bitrixId || 0
+        }).filter(id => id > 0)
+        
+        postMessageBridge.sendChangeDetailLevelRequest({
+          fromParentId: dragItem.sourceBindingId,
+          detailId: draggedBitrixId,
+          toParentId: dropTarget.bindingId,
+          sorting: sortingBitrixIds
+        })
+      }
+    }
+  }, [details, bindings, setBindings])
+
+  return (
+    <DragProvider onDrop={handleDrop}>
+      <App />
+    </DragProvider>
+  )
+}
+
+export default AppWrapper
