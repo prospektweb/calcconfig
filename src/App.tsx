@@ -1699,8 +1699,36 @@ function AppWrapper() {
     return sortingBitrixIds
   }, [findElementBitrixId])
 
+  // Helper function to recursively find binding by bitrixId
+  const findBindingByBitrixId = useCallback((bitrixId: number): Binding | null => {
+    // Поиск на верхнем уровне
+    const directFind = (bindings || []).find(b => b.bitrixId === bitrixId)
+    if (directFind) return directFind
+    
+    // Рекурсивный поиск во вложенных bindings
+    const searchNested = (bindingsList: Binding[]): Binding | null => {
+      for (const binding of bindingsList) {
+        if (binding.bitrixId === bitrixId) return binding
+        
+        // Искать в дочерних bindings
+        for (const childBindingId of binding.bindingIds || []) {
+          const childBinding = (bindings || []).find(b => b.id === childBindingId)
+          if (childBinding) {
+            if (childBinding.bitrixId === bitrixId) return childBinding
+            const found = searchNested([childBinding])
+            if (found) return found
+          }
+        }
+      }
+      return null
+    }
+    
+    return searchNested(bindings || [])
+  }, [bindings])
+
   const handleDrop = useCallback((dragItem: any, dropTarget: any) => {
     console.log('[DROP] Handling drop', { dragItem, dropTarget })
+    console.log('[DROP] All bindings:', (bindings || []).map(b => ({ id: b.id, bitrixId: b.bitrixId, name: b.name })))
 
     // Use bitrixId directly from dragItem - no need to search!
     const draggedBitrixId = dragItem.bitrixId
@@ -1717,7 +1745,7 @@ function AppWrapper() {
       console.log('[DROP] SORT operation')
       
       // Find target binding BEFORE state update
-      const targetBinding = (bindings || []).find(b => b.bitrixId === dropTarget.bindingId)
+      const targetBinding = findBindingByBitrixId(dropTarget.bindingId)
       console.log('[DROP] targetBinding:', targetBinding)
       
       if (!targetBinding) {
@@ -1790,7 +1818,7 @@ function AppWrapper() {
       console.log('[DROP] LEVEL operation')
       
       // Find target binding BEFORE state update
-      const targetBinding = (bindings || []).find(b => b.bitrixId === dropTarget.bindingId)
+      const targetBinding = findBindingByBitrixId(dropTarget.bindingId)
       console.log('[DROP] targetBinding:', targetBinding)
       
       if (!targetBinding) {
@@ -1863,7 +1891,7 @@ function AppWrapper() {
         sorting: sortingBitrixIds
       })
     }
-  }, [details, bindings, setBindings, findElementBitrixId, getEffectiveChildrenOrder, computeSortingBitrixIds])
+  }, [details, bindings, setBindings, findElementBitrixId, getEffectiveChildrenOrder, computeSortingBitrixIds, findBindingByBitrixId])
 
   return (
     <DragProvider onDrop={handleDrop}>
