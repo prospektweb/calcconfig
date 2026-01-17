@@ -1667,20 +1667,21 @@ function AppWrapper() {
         // Search in nested details of this binding
         const nestedDetailIds = b.detailIds || []
         for (const detailId of nestedDetailIds) {
-          const nestedDetail = (details || []).find(d => d.id === detailId)
-          if (nestedDetail && nestedDetail.id === elementId) {
-            return nestedDetail.bitrixId || null
+          if (detailId === elementId) {
+            const nestedDetail = (details || []).find(d => d.id === detailId)
+            if (nestedDetail) return nestedDetail.bitrixId || null
           }
         }
         
-        // Search in nested bindings
+        // Search in nested bindings recursively
         const nestedBindingIds = b.bindingIds || []
         for (const bindingId of nestedBindingIds) {
-          const nestedBinding = (bindings || []).find(nb => nb.id === bindingId)
-          if (nestedBinding && nestedBinding.id === elementId) {
-            return nestedBinding.bitrixId || null
+          if (bindingId === elementId) {
+            const nestedBinding = (bindings || []).find(nb => nb.id === bindingId)
+            if (nestedBinding) return nestedBinding.bitrixId || null
           }
-          // Recursively search deeper
+          // Search deeper in nested bindings
+          const nestedBinding = (bindings || []).find(nb => nb.id === bindingId)
           if (nestedBinding) {
             const found = searchInBindings([nestedBinding])
             if (found) return found
