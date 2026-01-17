@@ -5,6 +5,7 @@ interface DragItem {
   kind: 'detail' | 'binding'
   sourceBindingId: number | null
   sourceIndex: number
+  bitrixId: number
 }
 
 interface DropTarget {
