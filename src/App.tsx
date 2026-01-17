@@ -131,7 +131,6 @@ function App() {
   const [calculationProgress, setCalculationProgress] = useState(0)
 
   const dragContext = useDragContext()
-  const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
 
   const [salePricesSettings, setSalePricesSettings] = useConfigKV<SalePricesSettings>('calc_sale_prices_settings', {
     selectedTypes: [],
@@ -1080,31 +1079,6 @@ function App() {
     )
   }
 
-  useEffect(() => {
-    if (!dragContext.dragState.isDragging) return
-
-    const handleMouseMove = (e: MouseEvent) => {
-      let nearestDropZone: number | null = null
-      let minDistance = Infinity
-
-      dropZoneRefs.current.forEach((element, index) => {
-        const rect = element.getBoundingClientRect()
-        const centerY = rect.top + rect.height / 2
-        const distance = Math.abs(e.clientY - centerY)
-        
-        if (distance < minDistance && distance < 100) {
-          minDistance = distance
-          nearestDropZone = index
-        }
-      })
-
-      dragContext.setDropTarget(null, nearestDropZone)
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    return () => document.removeEventListener('mousemove', handleMouseMove)
-  }, [dragContext.dragState.isDragging, dragContext])
-  
   const handleMainAreaDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()

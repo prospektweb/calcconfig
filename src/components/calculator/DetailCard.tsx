@@ -78,11 +78,17 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
     }
   }
   
-  const handleDragHandleMouseDown = (e:  React.MouseEvent) => {
+  const handleDragHandlePointerDown = (e: React.PointerEvent) => {
     e.preventDefault()
     const card = e.currentTarget.closest('[data-detail-card]') as HTMLElement
     if (card) {
-      dragContext.startDrag(detail.id, 'detail', card, e.clientX, e.clientY, parentBindingId ?? null)
+      // Calculate source index if in a binding
+      const sourceIndex = 0 // Will be determined by binding
+      dragContext.startDrag(e, {
+        id: detail.id,
+        kind: 'detail',
+        sourceBindingId: parentBindingId,
+      }, card)
     }
   }
 
@@ -98,7 +104,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
           {!isTopLevel && (
             <div 
               className="flex-shrink-0 w-5 h-5 flex items-center justify-center cursor-grab active:cursor-grabbing"
-              onMouseDown={handleDragHandleMouseDown}
+              onPointerDown={handleDragHandlePointerDown}
               data-pwcode="detail-drag-handle"
             >
               <DotsSixVertical className="w-4 h-4 text-muted-foreground" />
