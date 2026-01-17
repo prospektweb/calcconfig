@@ -1651,23 +1651,15 @@ function AppWrapper() {
 
   // Helper function to recursively find bitrixId by element id
   const findElementBitrixId = useCallback((elementId: string): number | null => {
-    // Search in all details
+    // First, search in all top-level details
     for (const d of details || []) {
       if (d.id === elementId) return d.bitrixId || null
     }
     
-    // Search in all bindings recursively
+    // Then search in bindings and their nested children recursively
     const searchInBindings = (bindingsList: Binding[]): number | null => {
       for (const b of bindingsList) {
         if (b.id === elementId) return b.bitrixId || null
-        
-        // Search in nested details of this binding
-        for (const detailId of b.detailIds || []) {
-          if (detailId === elementId) {
-            const detail = (details || []).find(d => d.id === detailId)
-            if (detail) return detail.bitrixId || null
-          }
-        }
         
         // Search in nested bindings recursively
         for (const bindingId of b.bindingIds || []) {
