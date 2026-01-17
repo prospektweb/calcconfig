@@ -65,6 +65,7 @@ export function DragProvider({ children, onDrop }: DragProviderProps) {
 
   const dragStateRef = useRef<DragState>(dragState)
   const onDropRef = useRef(onDrop)
+  const lastValidDropTargetRef = useRef<DropTarget | null>(null)
 
   useEffect(() => {
     dragStateRef.current = dragState
@@ -167,6 +168,9 @@ export function DragProvider({ children, onDrop }: DragProviderProps) {
     const currentItem = dragStateRef.current.item
     if (currentItem && !canDrop(currentItem, dropTarget)) {
       dropTarget = null
+    } else if (dropTarget !== null) {
+      // Save valid drop target for stable drop handling
+      lastValidDropTargetRef.current = dropTarget
     }
 
     setDragState(prev => ({ ...prev, dropTarget }))
@@ -214,9 +218,13 @@ export function DragProvider({ children, onDrop }: DragProviderProps) {
 
   const endDrag = useCallback(() => {
     const currentState = dragStateRef.current
-    if (currentState.active && currentState.item && currentState.dropTarget) {
-      onDropRef.current(currentState.item, currentState.dropTarget)
+    const targetToUse = lastValidDropTargetRef.current
+    
+    if (currentState.active && currentState.item && targetToUse) {
+      onDropRef.current(currentState.item, targetToUse)
     }
+    
+    lastValidDropTargetRef.current = null
     cleanup()
   }, [cleanup])
 
