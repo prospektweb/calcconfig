@@ -1652,11 +1652,8 @@ function AppWrapper() {
   // Helper function to recursively find bitrixId by element id
   const findElementBitrixId = useCallback((elementId: string): number | null => {
     // Search in all details
-    const searchInDetails = (detailsList: Detail[]): number | null => {
-      for (const d of detailsList) {
-        if (d.id === elementId) return d.bitrixId || null
-      }
-      return null
+    for (const d of details || []) {
+      if (d.id === elementId) return d.bitrixId || null
     }
     
     // Search in all bindings recursively
@@ -1665,24 +1662,21 @@ function AppWrapper() {
         if (b.id === elementId) return b.bitrixId || null
         
         // Search in nested details of this binding
-        const nestedDetailIds = b.detailIds || []
-        for (const detailId of nestedDetailIds) {
+        for (const detailId of b.detailIds || []) {
           if (detailId === elementId) {
-            const nestedDetail = (details || []).find(d => d.id === detailId)
-            if (nestedDetail) return nestedDetail.bitrixId || null
+            const detail = (details || []).find(d => d.id === detailId)
+            if (detail) return detail.bitrixId || null
           }
         }
         
         // Search in nested bindings recursively
-        const nestedBindingIds = b.bindingIds || []
-        for (const bindingId of nestedBindingIds) {
-          if (bindingId === elementId) {
-            const nestedBinding = (bindings || []).find(nb => nb.id === bindingId)
-            if (nestedBinding) return nestedBinding.bitrixId || null
-          }
-          // Search deeper in nested bindings
+        for (const bindingId of b.bindingIds || []) {
           const nestedBinding = (bindings || []).find(nb => nb.id === bindingId)
           if (nestedBinding) {
+            if (nestedBinding.id === elementId) {
+              return nestedBinding.bitrixId || null
+            }
+            // Search deeper in nested bindings
             const found = searchInBindings([nestedBinding])
             if (found) return found
           }
@@ -1691,7 +1685,7 @@ function AppWrapper() {
       return null
     }
     
-    return searchInDetails(details || []) || searchInBindings(bindings || [])
+    return searchInBindings(bindings || [])
   }, [details, bindings])
 
   const handleDrop = useCallback((dragItem: any, dropTarget: any) => {
