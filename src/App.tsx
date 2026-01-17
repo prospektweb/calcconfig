@@ -1694,45 +1694,107 @@ function AppWrapper() {
       // SORT operation - reorder within same binding
       console.log('[DROP] SORT operation')
       
+      // Find target binding BEFORE state update
+      const targetBinding = (bindings || []).find(b => b.bitrixId === dropTarget.bindingId)
+      console.log('[DROP] targetBinding:', targetBinding)
+      
+      if (!targetBinding) {
+        console.error('[DROP] Target binding not found:', dropTarget.bindingId)
+        return
+      }
+      
+      // Compute effective children order (fallback to detailIds + bindingIds if empty)
+      const effectiveChildrenOrder = targetBinding.childrenOrder?.length 
+        ? targetBinding.childrenOrder 
+        : [...(targetBinding.detailIds || []), ...(targetBinding.bindingIds || [])]
+      
+      console.log('[DROP] childrenOrder:', targetBinding.childrenOrder)
+      console.log('[DROP] effectiveChildrenOrder:', effectiveChildrenOrder)
+      
       // Update UI first
       setBindings(prev => {
         return (prev || []).map(binding => {
           if (binding.bitrixId !== dropTarget.bindingId) return binding
           
-          const childrenOrder = binding.childrenOrder || []
-          const fromIndex = childrenOrder.indexOf(dragItem.id)
-          if (fromIndex === -1) return binding
+          // Use effective children order
+          const currentOrder = binding.childrenOrder?.length 
+            ? binding.childrenOrder 
+            : [...(binding.detailIds || []), ...(binding.bindingIds || [])]
           
-          const newOrder = [...childrenOrder]
+          const fromIndex = currentOrder.indexOf(dragItem.id)
+          if (fromIndex === -1) {
+            console.warn('[DROP] Item not found in children order:', dragItem.id)
+            return binding
+          }
+          
+          const newOrder = [...currentOrder]
           const [movedItem] = newOrder.splice(fromIndex, 1)
           newOrder.splice(dropTarget.position.index, 0, movedItem)
           
-          return { ...binding, childrenOrder: newOrder }
+          // Also update detailIds and bindingIds to match new order
+          const newDetailIds = newOrder.filter(id => binding.detailIds?.includes(id))
+          const newBindingIds = newOrder.filter(id => binding.bindingIds?.includes(id))
+          
+          return { 
+            ...binding, 
+            childrenOrder: newOrder,
+            detailIds: newDetailIds.length > 0 ? newDetailIds : binding.detailIds,
+            bindingIds: newBindingIds.length > 0 ? newBindingIds : binding.bindingIds
+          }
         })
       })
       
-      // Send SORT request
-      const targetBinding = (bindings || []).find(b => b.bitrixId === dropTarget.bindingId)
-      if (targetBinding) {
-        const newChildrenOrder = [...(targetBinding.childrenOrder || [])]
-        const fromIndex = newChildrenOrder.indexOf(dragItem.id)
-        if (fromIndex !== -1) {
-          const [movedItem] = newChildrenOrder.splice(fromIndex, 1)
-          newChildrenOrder.splice(dropTarget.position.index, 0, movedItem)
-          
-          const sortingBitrixIds = newChildrenOrder
-            .map(childId => findElementBitrixId(childId))
-            .filter((id): id is number => id !== null && id > 0)
-          
-          postMessageBridge.sendChangeDetailSortRequest({
-            parentId: dropTarget.bindingId,
-            sorting: sortingBitrixIds
-          })
+      // Calculate new order for message
+      const newChildrenOrder = [...effectiveChildrenOrder]
+      const fromIndex = newChildrenOrder.indexOf(dragItem.id)
+      if (fromIndex !== -1) {
+        const [movedItem] = newChildrenOrder.splice(fromIndex, 1)
+        newChildrenOrder.splice(dropTarget.position.index, 0, movedItem)
+        
+        console.log('[DROP] newChildrenOrder:', newChildrenOrder)
+        
+        const sortingBitrixIds = newChildrenOrder
+          .map(childId => findElementBitrixId(childId))
+          .filter((id): id is number => id !== null && id > 0)
+        
+        console.log('[DROP] sortingBitrixIds:', sortingBitrixIds)
+        
+        if (sortingBitrixIds.length === 0) {
+          console.warn('[DROP] sortingBitrixIds is empty, but sending request anyway')
         }
+        
+        console.log('[DROP] Sending SORT request:', {
+          parentId: dropTarget.bindingId,
+          sorting: sortingBitrixIds
+        })
+        
+        postMessageBridge.sendChangeDetailSortRequest({
+          parentId: dropTarget.bindingId,
+          sorting: sortingBitrixIds
+        })
+      } else {
+        console.error('[DROP] Item not found in effective children order:', dragItem.id)
       }
     } else {
       // LEVEL operation - move to different binding
       console.log('[DROP] LEVEL operation')
+      
+      // Find target binding BEFORE state update
+      const targetBinding = (bindings || []).find(b => b.bitrixId === dropTarget.bindingId)
+      console.log('[DROP] targetBinding:', targetBinding)
+      
+      if (!targetBinding) {
+        console.error('[DROP] Target binding not found:', dropTarget.bindingId)
+        return
+      }
+      
+      // Compute effective children order (fallback to detailIds + bindingIds if empty)
+      const effectiveChildrenOrder = targetBinding.childrenOrder?.length 
+        ? targetBinding.childrenOrder 
+        : [...(targetBinding.detailIds || []), ...(targetBinding.bindingIds || [])]
+      
+      console.log('[DROP] childrenOrder:', targetBinding.childrenOrder)
+      console.log('[DROP] effectiveChildrenOrder:', effectiveChildrenOrder)
       
       // Update UI first - remove from source and add to target
       setBindings(prev => {
@@ -1747,15 +1809,25 @@ function AppWrapper() {
           
           // Add to target binding
           if (binding.bitrixId === dropTarget.bindingId) {
-            const childrenOrder = [...(binding.childrenOrder || [])]
-            childrenOrder.splice(dropTarget.position.index, 0, dragItem.id)
+            // Use effective children order
+            const currentOrder = binding.childrenOrder?.length 
+              ? [...binding.childrenOrder] 
+              : [...(binding.detailIds || []), ...(binding.bindingIds || [])]
+            
+            currentOrder.splice(dropTarget.position.index, 0, dragItem.id)
             
             if (dragItem.kind === 'detail') {
-              const detailIds = [...(binding.detailIds || []), dragItem.id]
-              return { ...binding, detailIds, childrenOrder }
+              const detailIds = [...(binding.detailIds || [])]
+              if (!detailIds.includes(dragItem.id)) {
+                detailIds.push(dragItem.id)
+              }
+              return { ...binding, detailIds, childrenOrder: currentOrder }
             } else {
-              const bindingIds = [...(binding.bindingIds || []), dragItem.id]
-              return { ...binding, bindingIds, childrenOrder }
+              const bindingIds = [...(binding.bindingIds || [])]
+              if (!bindingIds.includes(dragItem.id)) {
+                bindingIds.push(dragItem.id)
+              }
+              return { ...binding, bindingIds, childrenOrder: currentOrder }
             }
           }
           
@@ -1763,23 +1835,35 @@ function AppWrapper() {
         })
       })
       
-      // Send LEVEL request
-      const targetBinding = (bindings || []).find(b => b.bitrixId === dropTarget.bindingId)
-      if (targetBinding) {
-        const newChildrenOrder = [...(targetBinding.childrenOrder || [])]
-        newChildrenOrder.splice(dropTarget.position.index, 0, dragItem.id)
-        
-        const sortingBitrixIds = newChildrenOrder
-          .map(childId => findElementBitrixId(childId))
-          .filter((id): id is number => id !== null && id > 0)
-        
-        postMessageBridge.sendChangeDetailLevelRequest({
-          fromParentId: dragItem.sourceBindingId,
-          detailId: draggedBitrixId,
-          toParentId: dropTarget.bindingId,
-          sorting: sortingBitrixIds
-        })
+      // Calculate new order for message
+      const newChildrenOrder = [...effectiveChildrenOrder]
+      newChildrenOrder.splice(dropTarget.position.index, 0, dragItem.id)
+      
+      console.log('[DROP] newChildrenOrder:', newChildrenOrder)
+      
+      const sortingBitrixIds = newChildrenOrder
+        .map(childId => findElementBitrixId(childId))
+        .filter((id): id is number => id !== null && id > 0)
+      
+      console.log('[DROP] sortingBitrixIds:', sortingBitrixIds)
+      
+      if (sortingBitrixIds.length === 0) {
+        console.warn('[DROP] sortingBitrixIds is empty, but sending request anyway')
       }
+      
+      console.log('[DROP] Sending LEVEL request:', {
+        fromParentId: dragItem.sourceBindingId,
+        detailId: draggedBitrixId,
+        toParentId: dropTarget.bindingId,
+        sorting: sortingBitrixIds
+      })
+      
+      postMessageBridge.sendChangeDetailLevelRequest({
+        fromParentId: dragItem.sourceBindingId,
+        detailId: draggedBitrixId,
+        toParentId: dropTarget.bindingId,
+        sorting: sortingBitrixIds
+      })
     }
   }, [details, bindings, setBindings, findElementBitrixId])
 
