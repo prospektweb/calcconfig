@@ -1649,6 +1649,13 @@ function AppWrapper() {
   const [details, setDetails] = useConfigKV<Detail[]>('calc_details', [])
   const [bindings, setBindings] = useConfigKV<Binding[]>('calc_bindings', [])
 
+  // Helper function to get effective children order (fallback to detailIds + bindingIds if empty)
+  const getEffectiveChildrenOrder = useCallback((binding: Binding): string[] => {
+    return binding.childrenOrder?.length 
+      ? binding.childrenOrder 
+      : [...(binding.detailIds || []), ...(binding.bindingIds || [])]
+  }, [])
+
   // Helper function to recursively find bitrixId by element id
   const findElementBitrixId = useCallback((elementId: string): number | null => {
     // First, search in all top-level details
@@ -1704,9 +1711,7 @@ function AppWrapper() {
       }
       
       // Compute effective children order (fallback to detailIds + bindingIds if empty)
-      const effectiveChildrenOrder = targetBinding.childrenOrder?.length 
-        ? targetBinding.childrenOrder 
-        : [...(targetBinding.detailIds || []), ...(targetBinding.bindingIds || [])]
+      const effectiveChildrenOrder = getEffectiveChildrenOrder(targetBinding)
       
       console.log('[DROP] childrenOrder:', targetBinding.childrenOrder)
       console.log('[DROP] effectiveChildrenOrder:', effectiveChildrenOrder)
@@ -1717,9 +1722,7 @@ function AppWrapper() {
           if (binding.bitrixId !== dropTarget.bindingId) return binding
           
           // Use effective children order
-          const currentOrder = binding.childrenOrder?.length 
-            ? binding.childrenOrder 
-            : [...(binding.detailIds || []), ...(binding.bindingIds || [])]
+          const currentOrder = getEffectiveChildrenOrder(binding)
           
           const fromIndex = currentOrder.indexOf(dragItem.id)
           if (fromIndex === -1) {
@@ -1731,15 +1734,15 @@ function AppWrapper() {
           const [movedItem] = newOrder.splice(fromIndex, 1)
           newOrder.splice(dropTarget.position.index, 0, movedItem)
           
-          // Also update detailIds and bindingIds to match new order
-          const newDetailIds = newOrder.filter(id => binding.detailIds?.includes(id))
-          const newBindingIds = newOrder.filter(id => binding.bindingIds?.includes(id))
+          // Update detailIds and bindingIds to match new order
+          const newDetailIds = newOrder.filter(id => (binding.detailIds || []).includes(id))
+          const newBindingIds = newOrder.filter(id => (binding.bindingIds || []).includes(id))
           
           return { 
             ...binding, 
             childrenOrder: newOrder,
-            detailIds: newDetailIds.length > 0 ? newDetailIds : binding.detailIds,
-            bindingIds: newBindingIds.length > 0 ? newBindingIds : binding.bindingIds
+            detailIds: newDetailIds,
+            bindingIds: newBindingIds
           }
         })
       })
@@ -1789,9 +1792,7 @@ function AppWrapper() {
       }
       
       // Compute effective children order (fallback to detailIds + bindingIds if empty)
-      const effectiveChildrenOrder = targetBinding.childrenOrder?.length 
-        ? targetBinding.childrenOrder 
-        : [...(targetBinding.detailIds || []), ...(targetBinding.bindingIds || [])]
+      const effectiveChildrenOrder = getEffectiveChildrenOrder(targetBinding)
       
       console.log('[DROP] childrenOrder:', targetBinding.childrenOrder)
       console.log('[DROP] effectiveChildrenOrder:', effectiveChildrenOrder)
@@ -1810,24 +1811,22 @@ function AppWrapper() {
           // Add to target binding
           if (binding.bitrixId === dropTarget.bindingId) {
             // Use effective children order
-            const currentOrder = binding.childrenOrder?.length 
-              ? [...binding.childrenOrder] 
-              : [...(binding.detailIds || []), ...(binding.bindingIds || [])]
-            
-            currentOrder.splice(dropTarget.position.index, 0, dragItem.id)
+            const currentOrder = getEffectiveChildrenOrder(binding)
+            const newOrder = [...currentOrder]
+            newOrder.splice(dropTarget.position.index, 0, dragItem.id)
             
             if (dragItem.kind === 'detail') {
               const detailIds = [...(binding.detailIds || [])]
               if (!detailIds.includes(dragItem.id)) {
                 detailIds.push(dragItem.id)
               }
-              return { ...binding, detailIds, childrenOrder: currentOrder }
+              return { ...binding, detailIds, childrenOrder: newOrder }
             } else {
               const bindingIds = [...(binding.bindingIds || [])]
               if (!bindingIds.includes(dragItem.id)) {
                 bindingIds.push(dragItem.id)
               }
-              return { ...binding, bindingIds, childrenOrder: currentOrder }
+              return { ...binding, bindingIds, childrenOrder: newOrder }
             }
           }
           
@@ -1865,7 +1864,7 @@ function AppWrapper() {
         sorting: sortingBitrixIds
       })
     }
-  }, [details, bindings, setBindings, findElementBitrixId])
+  }, [details, bindings, setBindings, findElementBitrixId, getEffectiveChildrenOrder])
 
   return (
     <DragProvider onDrop={handleDrop}>
