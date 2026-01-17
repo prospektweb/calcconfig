@@ -7,6 +7,7 @@ import { StageTabs } from './StageTabs'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
+import { useDragContext } from '@/contexts/DragContext'
 
 interface DetailCardProps {
   detail: Detail
@@ -19,9 +20,12 @@ interface DetailCardProps {
   bitrixMeta?:  InitPayload | null
   onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
   isTopLevel?: boolean
+  parentBindingId?: number | null
 }
 
-export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, isDragging = false, bitrixMeta, onValidationMessage, isTopLevel = false }: DetailCardProps) {
+export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, isDragging = false, bitrixMeta, onValidationMessage, isTopLevel = false, parentBindingId }: DetailCardProps) {
+  const dragContext = useDragContext()
+  
   const handleToggleExpand = () => {
     onUpdate({ isExpanded: !detail.isExpanded })
   }
@@ -77,8 +81,8 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
   const handleDragHandleMouseDown = (e:  React.MouseEvent) => {
     e.preventDefault()
     const card = e.currentTarget.closest('[data-detail-card]') as HTMLElement
-    if (card && onDragStart) {
-      onDragStart(card, e)
+    if (card) {
+      dragContext.startDrag(detail.id, 'detail', card, e.clientX, e.clientY, parentBindingId ?? null)
     }
   }
 
@@ -86,7 +90,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
     <Card 
       data-detail-card
       data-detail-id={detail.id}
-      className={`overflow-hidden transition-all ${isInBinding ? 'ml-4' : ''} ${isDragging ?  'invisible' : ''}`}
+      className={`overflow-hidden transition-all ${isDragging ?  'invisible' : ''}`}
       data-pwcode="detail-card"
     >
       <div className="bg-primary/5 border-b border-border px-3 py-2 flex items-center justify-between" data-pwcode="detail-header">

@@ -44,7 +44,7 @@ import { BindingCard } from '@/components/calculator/BindingCard'
 import { InfoPanel } from '@/components/calculator/InfoPanel'
 import { PricePanel } from '@/components/calculator/PricePanel'
 import { SidebarMenu } from '@/components/calculator/SidebarMenu'
-import { useCustomDrag } from '@/hooks/use-custom-drag'
+import { useDragContext } from '@/contexts/DragContext'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
 import { postMessageBridge, InitPayload, CalcInfoPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext, openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
@@ -55,12 +55,6 @@ import { useMaterialSettingsStore } from '@/stores/material-settings-store'
 import { useOperationVariantStore } from '@/stores/operation-variant-store'
 import { useMaterialVariantStore } from '@/stores/material-variant-store'
 import { transformBitrixTreeSelectElement, transformBitrixTreeSelectChild } from '@/lib/bitrix-transformers'
-
-type DragItem = {
-  type: 'detail' | 'binding'
-  index: number
-  id: string
-}
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -112,7 +106,7 @@ function App() {
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
 
-  const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
+  const dragContext = useDragContext()
   const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
 
   const [salePricesSettings, setSalePricesSettings] = useConfigKV<SalePricesSettings>('calc_sale_prices_settings', {
@@ -1063,31 +1057,7 @@ function App() {
   }
 
   useEffect(() => {
-    if (!dragState.isDragging) return
-
-    const handleMouseUp = (e: MouseEvent) => {
-      const allItems = getAllItemsInOrder()
-      const draggedItemIndex = dragState.draggedItemId 
-        ? allItems.findIndex(item => 
-            item.type === dragState.draggedItemType && item.id === dragState.draggedItemId
-          )
-        : -1
-
-      if (dragState.dropTargetIndex !== null && draggedItemIndex !== -1) {
-        reorderItems(draggedItemIndex, dragState.dropTargetIndex)
-        endDrag(true)
-        addInfoMessage('success', 'Порядок элементов изменён')
-      } else {
-        cancelDrag()
-      }
-    }
-
-    document.addEventListener('mouseup', handleMouseUp)
-    return () => document.removeEventListener('mouseup', handleMouseUp)
-  }, [dragState])
-
-  useEffect(() => {
-    if (!dragState.isDragging) return
+    if (!dragContext.dragState.isDragging) return
 
     const handleMouseMove = (e: MouseEvent) => {
       let nearestDropZone: number | null = null
@@ -1104,36 +1074,12 @@ function App() {
         }
       })
 
-      setDropTarget(nearestDropZone)
+      dragContext.setDropTarget(null, nearestDropZone)
     }
 
     document.addEventListener('mousemove', handleMouseMove)
     return () => document.removeEventListener('mousemove', handleMouseMove)
-  }, [dragState.isDragging, setDropTarget])
-  
-  const handleDetailDragStart = (element: HTMLElement, e: React.MouseEvent) => {
-    const detailId = element.getAttribute('data-detail-id')
-    if (!detailId) return
-
-    const detail = (details || []).find(d => d.id === detailId)
-    if (detail && detail.isExpanded) {
-      handleUpdateDetail(detailId, { isExpanded: false })
-    }
-
-    startDrag(detailId, 'detail', element, e.clientX, e.clientY)
-  }
-  
-  const handleBindingDragStart = (element: HTMLElement, e: React.MouseEvent) => {
-    const bindingId = element.getAttribute('data-binding-id')
-    if (!bindingId) return
-
-    const binding = (bindings || []).find(b => b.id === bindingId)
-    if (binding && binding.isExpanded) {
-      handleUpdateBinding(bindingId, { isExpanded: false })
-    }
-
-    startDrag(bindingId, 'binding', element, e.clientX, e.clientY)
-  }
+  }, [dragContext.dragState.isDragging, dragContext])
   
   const handleMainAreaDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -1167,35 +1113,7 @@ function App() {
     return result
   }
   
-  const reorderItems = (fromIndex: number, toIndex: number) => {
-    const allItems = getAllItemsInOrder()
-    
-    if (fromIndex === toIndex) return
-    
-    const reorderedItems = [...allItems]
-    const [movedItem] = reorderedItems.splice(fromIndex, 1)
-    
-    const adjustedToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex
-    reorderedItems.splice(adjustedToIndex, 0, movedItem)
-    
-    const newDetails: Detail[] = []
-    const newBindings: Binding[] = []
-    
-    reorderedItems.forEach((item) => {
-      if (item.type === 'detail') {
-        const detail = (details || []).find(d => d.id === item.id)
-        if (detail) newDetails.push(detail)
-      } else {
-        const binding = (bindings || []).find(b => b.id === item.id)
-        if (binding) newBindings.push(binding)
-      }
-    })
-    
-    setDetails(newDetails)
-    setBindings(newBindings)
-    addInfoMessage('success', 'Порядок элементов изменён')
-  }
-
+  
   const handleCreateBinding = (index: number) => {
     const allItems = getAllItemsInOrder()
     
@@ -1309,38 +1227,53 @@ function App() {
   const allItems = getAllItemsInOrder()
   
   const getDraggedElement = () => {
-    if (!dragState.isDragging || !dragState.draggedItemId || !dragState.initialPosition) return null
+    if (!dragContext.dragState.isDragging || !dragContext.dragState.draggedItemId || !dragContext.dragState.initialPosition) return null
     
-    const item = allItems.find(i => i.id === dragState.draggedItemId)
-    if (!item) return null
+    // Find item in all details and bindings
+    let item: Detail | Binding | null = null
+    let itemType: 'detail' | 'binding' | null = null
+    
+    const detail = (details || []).find(d => d.id === dragContext.dragState.draggedItemId)
+    if (detail) {
+      item = detail
+      itemType = 'detail'
+    } else {
+      const binding = (bindings || []).find(b => b.id === dragContext.dragState.draggedItemId)
+      if (binding) {
+        item = binding
+        itemType = 'binding'
+      }
+    }
+    
+    if (!item || !itemType) return null
     
     return (
       <div
         style={{
           position: 'fixed',
-          left: dragState.dragPosition.x,
-          top: dragState.dragPosition.y,
-          width: dragState.initialPosition.width,
+          left: dragContext.dragState.dragPosition.x,
+          top: dragContext.dragState.dragPosition.y,
+          width: dragContext.dragState.initialPosition.width,
           zIndex: 9999,
           pointerEvents: 'none',
           opacity: 0.9,
         }}
       >
-        {item.type === 'detail' ? (
+        {itemType === 'detail' ? (
           <DetailCard
-            detail={item.item as Detail}
+            detail={item as Detail}
             onUpdate={() => {}}
             onDelete={() => {}}
             isInBinding={false}
-            orderNumber={allItems.findIndex(i => i.id === item.id) + 1}
+            orderNumber={0}
             isDragging={false}
             bitrixMeta={bitrixMeta}
           />
         ) : (
           <BindingCard
-            binding={item.item as Binding}
-            details={(details || []).filter(d => (item.item as Binding).detailIds?.includes(d.id))}
-            bindings={(bindings || []).filter(b => (item.item as Binding).bindingIds?.includes(b.id))}
+            binding={item as Binding}
+            details={(details || []).filter(d => (item as Binding).detailIds?.includes(d.id))}
+            bindings={(bindings || []).filter(b => (item as Binding).bindingIds?.includes(b.id))}
             allDetails={details || []}
             allBindings={bindings || []}
             onUpdate={() => {}}
@@ -1349,7 +1282,7 @@ function App() {
             onUpdateBinding={() => {}}
             onDeleteDetail={handleDeleteDetail}
             onDeleteBinding={handleDeleteBinding}
-            orderNumber={allItems.findIndex(i => i.id === item.id) + 1}
+            orderNumber={0}
             detailStartIndex={0}
             isDragging={false}
             bitrixMeta={bitrixMeta}
@@ -1363,7 +1296,7 @@ function App() {
     <div className="min-h-screen bg-background flex flex-col">
       <SidebarMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} bitrixMeta={bitrixMeta} />
       
-      {dragState.isDragging && getDraggedElement()}
+      {dragContext.dragState.isDragging && getDraggedElement()}
       
       <div className="w-full flex flex-col min-h-screen">
         <header className="border-b border-border bg-card" data-pwcode="header">
@@ -1383,18 +1316,22 @@ function App() {
         >
          
           <div className="space-y-0">
-            {dragState.isDragging && allItems.length > 0 && (
+            {dragContext.dragState.isDragging && allItems.length > 0 && (
               <div 
                 ref={(el) => { if (el) dropZoneRefs.current.set(0, el) }}
                 className={cn(
                   "border-2 border-dashed rounded-lg flex items-center justify-center mb-2 transition-all",
-                  dragState.dropTargetIndex === 0 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
+                  dragContext.dragState.dropTargetBindingId === null && dragContext.dragState.dropTargetIndex === 0 
+                    ? "border-accent bg-accent/10" 
+                    : "border-border bg-muted/30"
                 )}
                 style={{ height: '43px' }}
               >
                 <p className={cn(
                   "text-center text-sm",
-                  dragState.dropTargetIndex === 0 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                  dragContext.dragState.dropTargetBindingId === null && dragContext.dragState.dropTargetIndex === 0 
+                    ? "text-accent-foreground font-medium" 
+                    : "text-muted-foreground"
                 )}>
                   Перетащите деталь сюда
                 </p>
@@ -1402,7 +1339,7 @@ function App() {
             )}
             
             {allItems.map((item, index) => {
-              const isDraggingThis = dragState.isDragging && dragState.draggedItemId === item.id
+              const isDraggingThis = dragContext.dragState.isDragging && dragContext.dragState.draggedItemId === item.id
               
               if (isDraggingThis) {
                 return null
@@ -1417,11 +1354,11 @@ function App() {
                     onDelete={() => handleDeleteDetail(item.id)}
                     isInBinding={false}
                     orderNumber={index + 1}
-                    onDragStart={handleDetailDragStart}
                     isDragging={isDraggingThis}
                     bitrixMeta={bitrixMeta}
                     onValidationMessage={addInfoMessage}
                     isTopLevel={true}
+                    parentBindingId={null}
                   />
                 ) : (
                   <BindingCard
@@ -1442,33 +1379,37 @@ function App() {
                     onDeleteBinding={handleDeleteBinding}
                     orderNumber={index + 1}
                     detailStartIndex={0}
-                    onDragStart={handleBindingDragStart}
                     isDragging={isDraggingThis}
                     bitrixMeta={bitrixMeta}
                     onValidationMessage={addInfoMessage}
                     isTopLevel={true}
+                    parentBindingId={null}
                   />
                 )}
                 
-                {dragState.isDragging && (
+                {dragContext.dragState.isDragging && (
                   <div 
                     ref={(el) => { if (el) dropZoneRefs.current.set(index + 1, el) }}
                     className={cn(
                       "border-2 border-dashed rounded-lg flex items-center justify-center my-2 transition-all",
-                      dragState.dropTargetIndex === index + 1 ? "border-accent bg-accent/10" : "border-border bg-muted/30"
+                      dragContext.dragState.dropTargetBindingId === null && dragContext.dragState.dropTargetIndex === index + 1 
+                        ? "border-accent bg-accent/10" 
+                        : "border-border bg-muted/30"
                     )}
                     style={{ height: '43px' }}
                   >
                     <p className={cn(
                       "text-center text-sm",
-                      dragState.dropTargetIndex === index + 1 ? "text-accent-foreground font-medium" : "text-muted-foreground"
+                      dragContext.dragState.dropTargetBindingId === null && dragContext.dragState.dropTargetIndex === index + 1 
+                        ? "text-accent-foreground font-medium" 
+                        : "text-muted-foreground"
                     )}>
                       Перетащите деталь сюда
                     </p>
                   </div>
                 )}
                 
-                {index < allItems.length - 1 && !dragState.isDragging && (
+                {index < allItems.length - 1 && !dragContext.dragState.isDragging && (
                   <div className="flex justify-center -my-3 z-10 relative" style={{ marginTop: '-12px', marginBottom: '-12px' }}>
                     <Button
                       variant="ghost"

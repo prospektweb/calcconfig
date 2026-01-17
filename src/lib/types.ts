@@ -237,7 +237,7 @@ export const createEmptyDetail = (name: string = 'Новая деталь', bitr
   name,
   width: 210,
   length: 297,
-  isExpanded: true,
+  isExpanded: false,
   stages: [createEmptyStage()],
   bitrixId,
 })
@@ -245,7 +245,7 @@ export const createEmptyDetail = (name: string = 'Новая деталь', bitr
 export const createEmptyBinding = (name: string = 'Новая группа скрепления'): Binding => ({
   id: `binding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
   name,
-  isExpanded: true,
+  isExpanded: false,
   hasStages: false,
   stages: [],
   detailIds: [],
