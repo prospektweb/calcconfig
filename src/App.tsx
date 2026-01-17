@@ -1665,9 +1665,6 @@ function AppWrapper() {
         for (const bindingId of b.bindingIds || []) {
           const nestedBinding = (bindings || []).find(nb => nb.id === bindingId)
           if (nestedBinding) {
-            if (nestedBinding.id === elementId) {
-              return nestedBinding.bitrixId || null
-            }
             // Search deeper in nested bindings
             const found = searchInBindings([nestedBinding])
             if (found) return found
