@@ -67,7 +67,8 @@ export function transformStage(stageElement: CalcStageElement): StageInstance {
  */
 export function transformDetail(
   detailElement: CalcDetailElement,
-  elementsStore: ElementsStore
+  elementsStore: ElementsStore,
+  expandedById?: Record<string, boolean>
 ): Detail {
   console.log('[transformDetail] Transforming detail:', {
     id: detailElement.id,
@@ -105,12 +106,13 @@ export function transformDetail(
     })
   }
   
+  const uiId = `detail_${detailElement.id}`
   const result = {
-    id: `detail_${detailElement.id}`,
+    id: uiId,
     name: detailElement.name || 'Деталь',
     width: detailElement.fields?.width ?? null,
     length: detailElement.fields?.length ?? null,
-    isExpanded: false,
+    isExpanded: expandedById?.[uiId] ?? false,
     stages,
     bitrixId: detailElement.id,
   }
@@ -130,7 +132,8 @@ export function transformDetail(
  */
 export function transformBinding(
   bindingElement: CalcDetailElement,
-  elementsStore: ElementsStore
+  elementsStore: ElementsStore,
+  expandedById?: Record<string, boolean>
 ): Binding {
   // Get stages for this binding
   const stageIds = bindingElement.properties.CALC_STAGES?.VALUE || []
@@ -177,10 +180,11 @@ export function transformBinding(
     })
   }
   
+  const uiId = `binding_${bindingElement.id}`
   return {
-    id: `binding_${bindingElement.id}`,
+    id: uiId,
     name: bindingElement.name || 'Группа',
-    isExpanded: false,
+    isExpanded: expandedById?.[uiId] ?? false,
     hasStages,
     stages,
     detailIds,
@@ -195,7 +199,8 @@ export function transformBinding(
  */
 export function transformPresetToUI(
   preset: Preset,
-  elementsStore: ElementsStore
+  elementsStore: ElementsStore,
+  expandedById?: Record<string, boolean>
 ): { details: Detail[]; bindings: Binding[] } {
   console.log('[transformPresetToUI] Starting transformation:', {
     presetId: preset.id,
@@ -235,9 +240,9 @@ export function transformPresetToUI(
     })
     
     if (elementType === 'DETAIL') {
-      details.push(transformDetail(element, elementsStore))
+      details.push(transformDetail(element, elementsStore, expandedById))
     } else if (elementType === 'BINDING') {
-      bindings.push(transformBinding(element, elementsStore))
+      bindings.push(transformBinding(element, elementsStore, expandedById))
     }
   })
   
@@ -252,10 +257,10 @@ export function transformPresetToUI(
     const elementType = calcDetailElement.properties.TYPE?.VALUE_XML_ID
     
     if (elementType === 'DETAIL') {
-      const detail = transformDetail(calcDetailElement, elementsStore)
+      const detail = transformDetail(calcDetailElement, elementsStore, expandedById)
       allDetails.set(calcDetailElement.id, detail)
     } else if (elementType === 'BINDING') {
-      const binding = transformBinding(calcDetailElement, elementsStore)
+      const binding = transformBinding(calcDetailElement, elementsStore, expandedById)
       allBindings.set(calcDetailElement.id, binding)
     }
   })

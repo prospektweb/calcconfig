@@ -8,6 +8,7 @@ import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
 import { useDragContext } from '@/contexts/DragContext'
+import { setExpanded } from '@/lib/ui-state-storage'
 
 interface DetailCardProps {
   detail: Detail
@@ -27,7 +28,10 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
   const dragContext = useDragContext()
   
   const handleToggleExpand = () => {
-    onUpdate({ isExpanded: !detail.isExpanded })
+    const newExpandedState = !detail.isExpanded
+    onUpdate({ isExpanded: newExpandedState })
+    // Persist to localStorage
+    setExpanded(detail.id, newExpandedState)
   }
   
   const handleOpenInBitrix = () => {

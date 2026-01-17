@@ -12,6 +12,7 @@ import { useMemo } from 'react'
 import { useDragContext } from '@/contexts/DragContext'
 import { DropIndicator } from '@/components/drag/DropIndicator'
 import { cn } from '@/lib/utils'
+import { setExpanded } from '@/lib/ui-state-storage'
 
 interface BindingCardProps {
   binding: Binding
@@ -84,7 +85,10 @@ interface BindingCardProps {
   }, [binding.childrenOrder, detailMap, bindingMap])
   
   const handleToggleExpand = () => {
-    onUpdate({ isExpanded: !binding.isExpanded })
+    const newExpandedState = !binding.isExpanded
+    onUpdate({ isExpanded: newExpandedState })
+    // Persist to localStorage
+    setExpanded(binding.id, newExpandedState)
   }
   
   const handleOpenInBitrix = () => {
