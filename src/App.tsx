@@ -1649,28 +1649,6 @@ function AppWrapper() {
   const [details, setDetails] = useConfigKV<Detail[]>('calc_details', [])
   const [bindings, setBindings] = useConfigKV<Binding[]>('calc_bindings', [])
 
-  // Helper function to get effective children order (fallback to detailIds + bindingIds if empty)
-  const getEffectiveChildrenOrder = useCallback((binding: Binding): string[] => {
-    return binding.childrenOrder?.length 
-      ? binding.childrenOrder 
-      : [...(binding.detailIds || []), ...(binding.bindingIds || [])]
-  }, [])
-
-  // Helper function to compute sortingBitrixIds from children order
-  const computeSortingBitrixIds = useCallback((childrenOrder: string[]): number[] => {
-    const sortingBitrixIds = childrenOrder
-      .map(childId => findElementBitrixId(childId))
-      .filter((id): id is number => id !== null && id > 0)
-    
-    console.log('[DROP] sortingBitrixIds:', sortingBitrixIds)
-    
-    if (sortingBitrixIds.length === 0) {
-      console.warn('[DROP] sortingBitrixIds is empty, but sending request anyway')
-    }
-    
-    return sortingBitrixIds
-  }, [findElementBitrixId])
-
   // Helper function to recursively find bitrixId by element id
   const findElementBitrixId = useCallback((elementId: string): number | null => {
     // First, search in all top-level details
@@ -1698,6 +1676,28 @@ function AppWrapper() {
     
     return searchInBindings(bindings || [])
   }, [details, bindings])
+
+  // Helper function to get effective children order (fallback to detailIds + bindingIds if empty)
+  const getEffectiveChildrenOrder = useCallback((binding: Binding): string[] => {
+    return binding.childrenOrder?.length 
+      ? binding.childrenOrder 
+      : [...(binding.detailIds || []), ...(binding.bindingIds || [])]
+  }, [])
+
+  // Helper function to compute sortingBitrixIds from children order
+  const computeSortingBitrixIds = useCallback((childrenOrder: string[]): number[] => {
+    const sortingBitrixIds = childrenOrder
+      .map(childId => findElementBitrixId(childId))
+      .filter((id): id is number => id !== null && id > 0)
+    
+    console.log('[DROP] sortingBitrixIds:', sortingBitrixIds)
+    
+    if (sortingBitrixIds.length === 0) {
+      console.warn('[DROP] sortingBitrixIds is empty, but sending request anyway')
+    }
+    
+    return sortingBitrixIds
+  }, [findElementBitrixId])
 
   const handleDrop = useCallback((dragItem: any, dropTarget: any) => {
     console.log('[DROP] Handling drop', { dragItem, dropTarget })
