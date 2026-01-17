@@ -1649,25 +1649,55 @@ function AppWrapper() {
   const [details, setDetails] = useConfigKV<Detail[]>('calc_details', [])
   const [bindings, setBindings] = useConfigKV<Binding[]>('calc_bindings', [])
 
+  // Helper function to recursively find bitrixId by element id
+  const findElementBitrixId = useCallback((elementId: string): number | null => {
+    // Search in all details
+    const searchInDetails = (detailsList: Detail[]): number | null => {
+      for (const d of detailsList) {
+        if (d.id === elementId) return d.bitrixId || null
+      }
+      return null
+    }
+    
+    // Search in all bindings recursively
+    const searchInBindings = (bindingsList: Binding[]): number | null => {
+      for (const b of bindingsList) {
+        if (b.id === elementId) return b.bitrixId || null
+        
+        // Search in nested details of this binding
+        const nestedDetailIds = b.detailIds || []
+        for (const detailId of nestedDetailIds) {
+          const nestedDetail = (details || []).find(d => d.id === detailId)
+          if (nestedDetail && nestedDetail.id === elementId) {
+            return nestedDetail.bitrixId || null
+          }
+        }
+        
+        // Search in nested bindings
+        const nestedBindingIds = b.bindingIds || []
+        for (const bindingId of nestedBindingIds) {
+          const nestedBinding = (bindings || []).find(nb => nb.id === bindingId)
+          if (nestedBinding && nestedBinding.id === elementId) {
+            return nestedBinding.bitrixId || null
+          }
+          // Recursively search deeper
+          if (nestedBinding) {
+            const found = searchInBindings([nestedBinding])
+            if (found) return found
+          }
+        }
+      }
+      return null
+    }
+    
+    return searchInDetails(details || []) || searchInBindings(bindings || [])
+  }, [details, bindings])
+
   const handleDrop = useCallback((dragItem: any, dropTarget: any) => {
     console.log('[DROP] Handling drop', { dragItem, dropTarget })
 
-    // Find the dragged item
-    let draggedDetail: Detail | null = null
-    let draggedBinding: Binding | null = null
-    
-    if (dragItem.kind === 'detail') {
-      draggedDetail = (details || []).find(d => d.id === dragItem.id) || null
-    } else {
-      draggedBinding = (bindings || []).find(b => b.id === dragItem.id) || null
-    }
-
-    if (!draggedDetail && !draggedBinding) {
-      console.error('[DROP] Dragged item not found')
-      return
-    }
-
-    const draggedBitrixId = draggedDetail?.bitrixId || draggedBinding?.bitrixId
+    // Use bitrixId directly from dragItem - no need to search!
+    const draggedBitrixId = dragItem.bitrixId
     if (!draggedBitrixId) {
       console.error('[DROP] Dragged item has no bitrixId')
       return
@@ -1706,11 +1736,9 @@ function AppWrapper() {
           const [movedItem] = newChildrenOrder.splice(fromIndex, 1)
           newChildrenOrder.splice(dropTarget.position.index, 0, movedItem)
           
-          const sortingBitrixIds = newChildrenOrder.map(childId => {
-            const detail = (details || []).find(d => d.id === childId)
-            const binding = (bindings || []).find(b => b.id === childId)
-            return detail?.bitrixId || binding?.bitrixId || 0
-          }).filter(id => id > 0)
+          const sortingBitrixIds = newChildrenOrder
+            .map(childId => findElementBitrixId(childId))
+            .filter((id): id is number => id !== null && id > 0)
           
           postMessageBridge.sendChangeDetailSortRequest({
             parentId: dropTarget.bindingId,
@@ -1757,11 +1785,9 @@ function AppWrapper() {
         const newChildrenOrder = [...(targetBinding.childrenOrder || [])]
         newChildrenOrder.splice(dropTarget.position.index, 0, dragItem.id)
         
-        const sortingBitrixIds = newChildrenOrder.map(childId => {
-          const detail = (details || []).find(d => d.id === childId)
-          const binding = (bindings || []).find(b => b.id === childId)
-          return detail?.bitrixId || binding?.bitrixId || 0
-        }).filter(id => id > 0)
+        const sortingBitrixIds = newChildrenOrder
+          .map(childId => findElementBitrixId(childId))
+          .filter((id): id is number => id !== null && id > 0)
         
         postMessageBridge.sendChangeDetailLevelRequest({
           fromParentId: dragItem.sourceBindingId,
@@ -1771,7 +1797,7 @@ function AppWrapper() {
         })
       }
     }
-  }, [details, bindings, setBindings])
+  }, [details, bindings, setBindings, findElementBitrixId])
 
   return (
     <DragProvider onDrop={handleDrop}>

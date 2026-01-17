@@ -92,6 +92,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
         id: detail.id,
         kind: 'detail',
         sourceBindingId: parentBindingId,
+        bitrixId: detail.bitrixId || 0,
       }, card)
     }
   }

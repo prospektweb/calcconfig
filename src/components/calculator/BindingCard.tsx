@@ -148,6 +148,7 @@ interface BindingCardProps {
         id: binding.id,
         kind: 'binding',
         sourceBindingId: parentBindingId ?? null,
+        bitrixId: binding.bitrixId || 0,
       }, card)
     }
   }
