@@ -1656,6 +1656,21 @@ function AppWrapper() {
       : [...(binding.detailIds || []), ...(binding.bindingIds || [])]
   }, [])
 
+  // Helper function to compute sortingBitrixIds from children order
+  const computeSortingBitrixIds = useCallback((childrenOrder: string[]): number[] => {
+    const sortingBitrixIds = childrenOrder
+      .map(childId => findElementBitrixId(childId))
+      .filter((id): id is number => id !== null && id > 0)
+    
+    console.log('[DROP] sortingBitrixIds:', sortingBitrixIds)
+    
+    if (sortingBitrixIds.length === 0) {
+      console.warn('[DROP] sortingBitrixIds is empty, but sending request anyway')
+    }
+    
+    return sortingBitrixIds
+  }, [findElementBitrixId])
+
   // Helper function to recursively find bitrixId by element id
   const findElementBitrixId = useCallback((elementId: string): number | null => {
     // First, search in all top-level details
@@ -1756,15 +1771,7 @@ function AppWrapper() {
         
         console.log('[DROP] newChildrenOrder:', newChildrenOrder)
         
-        const sortingBitrixIds = newChildrenOrder
-          .map(childId => findElementBitrixId(childId))
-          .filter((id): id is number => id !== null && id > 0)
-        
-        console.log('[DROP] sortingBitrixIds:', sortingBitrixIds)
-        
-        if (sortingBitrixIds.length === 0) {
-          console.warn('[DROP] sortingBitrixIds is empty, but sending request anyway')
-        }
+        const sortingBitrixIds = computeSortingBitrixIds(newChildrenOrder)
         
         console.log('[DROP] Sending SORT request:', {
           parentId: dropTarget.bindingId,
@@ -1840,15 +1847,7 @@ function AppWrapper() {
       
       console.log('[DROP] newChildrenOrder:', newChildrenOrder)
       
-      const sortingBitrixIds = newChildrenOrder
-        .map(childId => findElementBitrixId(childId))
-        .filter((id): id is number => id !== null && id > 0)
-      
-      console.log('[DROP] sortingBitrixIds:', sortingBitrixIds)
-      
-      if (sortingBitrixIds.length === 0) {
-        console.warn('[DROP] sortingBitrixIds is empty, but sending request anyway')
-      }
+      const sortingBitrixIds = computeSortingBitrixIds(newChildrenOrder)
       
       console.log('[DROP] Sending LEVEL request:', {
         fromParentId: dragItem.sourceBindingId,
@@ -1864,7 +1863,7 @@ function AppWrapper() {
         sorting: sortingBitrixIds
       })
     }
-  }, [details, bindings, setBindings, findElementBitrixId, getEffectiveChildrenOrder])
+  }, [details, bindings, setBindings, findElementBitrixId, getEffectiveChildrenOrder, computeSortingBitrixIds])
 
   return (
     <DragProvider onDrop={handleDrop}>
