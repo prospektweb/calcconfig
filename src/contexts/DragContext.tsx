@@ -34,6 +34,7 @@ interface DragContextValue {
   startDrag: (e: React.PointerEvent, item: Omit<DragItem, 'sourceIndex'>, sourceEl: HTMLElement) => void
   endDrag: () => void
   cancelDrag: () => void
+  setOnDrop: (handler: (dragItem: DragItem, dropTarget: DropTarget) => void) => void
 }
 
 const DragContext = createContext<DragContextValue | null>(null)
@@ -48,10 +49,9 @@ export function useDragContext() {
 
 interface DragProviderProps {
   children: ReactNode
-  onDrop: (dragItem: DragItem, dropTarget: DropTarget) => void
 }
 
-export function DragProvider({ children, onDrop }: DragProviderProps) {
+export function DragProvider({ children }: DragProviderProps) {
   const [dragState, setDragState] = useState<DragState>({
     active: false,
     pointerId: null,
@@ -65,16 +65,16 @@ export function DragProvider({ children, onDrop }: DragProviderProps) {
   })
 
   const dragStateRef = useRef<DragState>(dragState)
-  const onDropRef = useRef(onDrop)
+  const onDropRef = useRef<((dragItem: DragItem, dropTarget: DropTarget) => void) | null>(null)
   const lastValidDropTargetRef = useRef<DropTarget | null>(null)
 
   useEffect(() => {
     dragStateRef.current = dragState
   }, [dragState])
 
-  useEffect(() => {
-    onDropRef.current = onDrop
-  }, [onDrop])
+  const setOnDrop = useCallback((handler: (dragItem: DragItem, dropTarget: DropTarget) => void) => {
+    onDropRef.current = handler
+  }, [])
 
   const cleanup = useCallback(() => {
     setDragState({
@@ -221,7 +221,7 @@ export function DragProvider({ children, onDrop }: DragProviderProps) {
     const currentState = dragStateRef.current
     const targetToUse = lastValidDropTargetRef.current
     
-    if (currentState.active && currentState.item && targetToUse) {
+    if (currentState.active && currentState.item && targetToUse && onDropRef.current) {
       onDropRef.current(currentState.item, targetToUse)
     }
     
@@ -287,6 +287,7 @@ export function DragProvider({ children, onDrop }: DragProviderProps) {
     startDrag,
     endDrag,
     cancelDrag,
+    setOnDrop,
   }
 
   return <DragContext.Provider value={value}>{children}</DragContext.Provider>
