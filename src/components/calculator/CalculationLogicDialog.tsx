@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { X, CaretLeft, CaretRight } from '@phosphor-icons/react'
+import { CaretLeft, CaretRight, ArrowsOut, ArrowsIn } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 
 interface CalculationLogicDialogProps {
@@ -27,6 +27,7 @@ export function CalculationLogicDialog({
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false)
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true)
   const [activeTab, setActiveTab] = useState('inputs')
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Show current and previous stages only
   const visibleStages = allStages.slice(0, stageIndex + 1)
@@ -34,7 +35,12 @@ export function CalculationLogicDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="max-w-[90vw] max-h-[90vh] p-0 gap-0 flex flex-col"
+        className={cn(
+          "p-0 gap-0 flex flex-col",
+          isFullscreen 
+            ? "w-screen h-screen max-w-full max-h-full" 
+            : "min-w-[1024px] w-fit max-w-[90vw] max-h-[90vh]"
+        )}
         data-pwcode="calculation-logic-dialog"
       >
         {/* Fixed Header */}
@@ -52,9 +58,10 @@ export function CalculationLogicDialog({
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={() => onOpenChange(false)}
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              title={isFullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}
             >
-              <X className="w-4 h-4" />
+              {isFullscreen ? <ArrowsIn className="w-4 h-4" /> : <ArrowsOut className="w-4 h-4" />}
             </Button>
           </div>
         </DialogHeader>

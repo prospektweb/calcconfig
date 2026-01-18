@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { X, Plus, Trash } from '@phosphor-icons/react'
+import { Plus, Trash, ArrowsOut, ArrowsIn } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { InitPayload } from '@/lib/postmessage-bridge'
 
@@ -31,6 +31,7 @@ interface OptionsDialogProps {
 interface PropertyEnum {
   VALUE: string
   VALUE_XML_ID?: string
+  SORT?: number
 }
 
 interface Property {
@@ -41,7 +42,8 @@ interface Property {
 }
 
 interface MappingRow {
-  key: string
+  value: string
+  xmlId: string
   variantId: string
 }
 
@@ -61,19 +63,38 @@ export function OptionsDialog({
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
   const [mappingRows, setMappingRows] = useState<MappingRow[]>([])
   const [hasInitialized, setHasInitialized] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Get iblock properties based on type
   const getPropertiesList = (): Property[] => {
     if (!bitrixMeta) return []
     
-    // Use SKU properties from siblings if available
-    if (bitrixMeta.siblings?.skuProperties) {
-      return Object.values(bitrixMeta.siblings.skuProperties).map(prop => ({
-        CODE: prop.CODE,
-        NAME: prop.NAME,
-        PROPERTY_TYPE: prop.PROPERTY_TYPE,
-        ENUMS: prop.ENUMS || [],
-      }))
+    // Find the SKU (offers) iblock - торговые предложения
+    const skuIblock = bitrixMeta.iblocks.find(ib => 
+      ib.code === 'CATALOG_OFFERS' || 
+      ib.code?.includes('OFFERS') ||
+      ib.type === 'offers'
+    )
+    
+    if (!skuIblock) {
+      console.warn('[OptionsDialog] SKU iblock not found')
+      return []
+    }
+    
+    // Get properties from elementsStore if available
+    if (bitrixMeta.elementsStore && skuIblock.code) {
+      const skuElements = bitrixMeta.elementsStore[skuIblock.code]
+      if (skuElements && skuElements.length > 0) {
+        const firstElement = skuElements[0]
+        if (firstElement.properties) {
+          return Object.entries(firstElement.properties).map(([code, prop]: [string, any]) => ({
+            CODE: code,
+            NAME: prop.NAME || code,
+            PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
+            ENUMS: prop.ENUMS || [],
+          }))
+        }
+      }
     }
     
     // Fallback: try to get from selectedOffers properties
@@ -99,16 +120,17 @@ export function OptionsDialog({
     if (open && existingOptions && !hasInitialized) {
       try {
         const parsed = JSON.parse(existingOptions)
-        if (parsed.propertyCode && parsed.mapping) {
+        if (parsed.propertyCode && parsed.mappings) {
           setSelectedPropertyCode(parsed.propertyCode)
           
           // Find the property
           const prop = propertiesList.find(p => p.CODE === parsed.propertyCode)
           if (prop) {
             setSelectedProperty(prop)
-            setMappingRows(Object.entries(parsed.mapping).map(([key, variantId]) => ({
-              key,
-              variantId: String(variantId),
+            setMappingRows(parsed.mappings.map((mapping: any) => ({
+              value: mapping.value || '',
+              xmlId: mapping.xmlId || '',
+              variantId: String(mapping.variantId || ''),
             })))
           }
         }
@@ -126,6 +148,7 @@ export function OptionsDialog({
       setSelectedProperty(null)
       setMappingRows([])
       setHasInitialized(false)
+      setIsFullscreen(false)
     }
   }, [open])
 
@@ -137,25 +160,33 @@ export function OptionsDialog({
     // Initialize rows based on property type
     if (prop && prop.PROPERTY_TYPE === 'L' && prop.ENUMS) {
       // For list type, create rows for each enum value
-      setMappingRows(prop.ENUMS.map(enumItem => ({
-        key: enumItem.VALUE,
+      // Sort by SORT if available
+      const sortedEnums = [...prop.ENUMS].sort((a, b) => {
+        const sortA = a.SORT ?? 500
+        const sortB = b.SORT ?? 500
+        return sortA - sortB
+      })
+      
+      setMappingRows(sortedEnums.map(enumItem => ({
+        value: enumItem.VALUE,
+        xmlId: enumItem.VALUE_XML_ID || '',
         variantId: '',
       })))
     } else {
       // For other types, start with one empty row
-      setMappingRows([{ key: '', variantId: '' }])
+      setMappingRows([{ value: '', xmlId: '', variantId: '' }])
     }
   }
 
   const handleAddRow = () => {
-    setMappingRows([...mappingRows, { key: '', variantId: '' }])
+    setMappingRows([...mappingRows, { value: '', xmlId: '', variantId: '' }])
   }
 
   const handleRemoveRow = (index: number) => {
     setMappingRows(mappingRows.filter((_, i) => i !== index))
   }
 
-  const handleUpdateRow = (index: number, field: 'key' | 'variantId', value: string) => {
+  const handleUpdateRow = (index: number, field: 'value' | 'xmlId' | 'variantId', value: string) => {
     const newRows = [...mappingRows]
     newRows[index][field] = value
     setMappingRows(newRows)
@@ -164,8 +195,8 @@ export function OptionsDialog({
     if (selectedProperty && selectedProperty.PROPERTY_TYPE !== 'L') {
       if (index === mappingRows.length - 1 && field === 'variantId' && value) {
         const lastRow = newRows[index]
-        if (lastRow.key && lastRow.variantId) {
-          setMappingRows([...newRows, { key: '', variantId: '' }])
+        if (lastRow.value && lastRow.variantId) {
+          setMappingRows([...newRows, { value: '', xmlId: '', variantId: '' }])
         }
       }
     }
@@ -179,24 +210,26 @@ export function OptionsDialog({
       return mappingRows.every(row => row.variantId)
     } else {
       // For other types, at least one complete row
-      return mappingRows.some(row => row.key && row.variantId)
+      return mappingRows.some(row => row.value && row.variantId)
     }
   }
 
   const handleSave = () => {
     if (!canSave()) return
     
-    // Build mapping object
-    const mapping: Record<string, number> = {}
-    mappingRows.forEach(row => {
-      if (row.key && row.variantId) {
-        mapping[row.key] = parseInt(row.variantId, 10)
-      }
-    })
+    // Build mappings array
+    const mappings = mappingRows
+      .filter(row => row.variantId)
+      .map(row => ({
+        value: row.value,
+        xmlId: row.xmlId,
+        variantId: parseInt(row.variantId, 10)
+      }))
     
     const optionsJson = JSON.stringify({
       propertyCode: selectedPropertyCode,
-      mapping,
+      propertyType: selectedProperty?.PROPERTY_TYPE || 'S',
+      mappings,
     })
     
     onSave(optionsJson)
@@ -230,8 +263,25 @@ export function OptionsDialog({
     return result
   }
 
-  // Get variants hierarchy from siblings if available, otherwise use passed hierarchy
+  // Get variants hierarchy from elementsSiblings if available, otherwise use passed hierarchy
   const getVariantsHierarchy = (): any[] => {
+    // Try to get from elementsSiblings array first (new structure)
+    if (bitrixMeta?.elementsStore) {
+      const elementsSiblings = bitrixMeta.elementsStore['CALC_STAGES_SIBLINGS']
+      if (Array.isArray(elementsSiblings)) {
+        const stageSiblings = elementsSiblings.find((item: any) => item.stageId === stageId)
+        if (stageSiblings) {
+          if (type === 'operation' && stageSiblings.CALC_OPERATIONS_VARIANTS) {
+            return stageSiblings.CALC_OPERATIONS_VARIANTS
+          }
+          if (type === 'material' && stageSiblings.CALC_MATERIALS_VARIANTS) {
+            return stageSiblings.CALC_MATERIALS_VARIANTS
+          }
+        }
+      }
+    }
+    
+    // Fallback to siblings structure (old structure)
     if (bitrixMeta?.siblings) {
       if (type === 'operation' && bitrixMeta.siblings.operationsVariants) {
         return bitrixMeta.siblings.operationsVariants
@@ -240,7 +290,8 @@ export function OptionsDialog({
         return bitrixMeta.siblings.materialsVariants
       }
     }
-    // Fallback to passed hierarchy
+    
+    // Final fallback to passed hierarchy
     return variantsHierarchy
   }
 
@@ -249,7 +300,12 @@ export function OptionsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="min-w-[1024px] w-fit max-w-[90vw] max-h-[80vh] p-0 gap-0 flex flex-col"
+        className={cn(
+          "p-0 gap-0 flex flex-col",
+          isFullscreen 
+            ? "w-screen h-screen max-w-full max-h-full" 
+            : "min-w-[1024px] w-fit max-w-[90vw] max-h-[80vh]"
+        )}
         data-pwcode={`options-dialog-${type}`}
       >
         {/* Fixed Header */}
@@ -263,6 +319,15 @@ export function OptionsDialog({
                 Сопоставление свойств ТП с вариантами {type === 'operation' ? 'операций' : 'материалов'}
               </p>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              title={isFullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}
+            >
+              {isFullscreen ? <ArrowsIn className="w-4 h-4" /> : <ArrowsOut className="w-4 h-4" />}
+            </Button>
           </div>
         </DialogHeader>
 
@@ -279,7 +344,7 @@ export function OptionsDialog({
                 <SelectContent>
                   {propertiesList.map(prop => (
                     <SelectItem key={prop.CODE} value={prop.CODE}>
-                      {prop.NAME}
+                      {prop.NAME} ({prop.PROPERTY_TYPE})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -316,11 +381,11 @@ export function OptionsDialog({
                         <tr key={index} className="border-t">
                           <td className="px-4 py-2">
                             {selectedProperty.PROPERTY_TYPE === 'L' ? (
-                              <span className="text-sm">{row.key}</span>
+                              <span className="text-sm">{row.value}</span>
                             ) : (
                               <Input
-                                value={row.key}
-                                onChange={(e) => handleUpdateRow(index, 'key', e.target.value)}
+                                value={row.value}
+                                onChange={(e) => handleUpdateRow(index, 'value', e.target.value)}
                                 placeholder="Введите значение..."
                                 className="h-8"
                               />
