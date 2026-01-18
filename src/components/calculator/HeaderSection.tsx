@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { List, Plus, FolderOpen } from '@phosphor-icons/react'
+import { List, Plus, FolderOpen, ArrowClockwise } from '@phosphor-icons/react'
 import { InitPayload } from '@/lib/postmessage-bridge'
 import { openIblockCatalog } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
@@ -62,6 +62,18 @@ export function HeaderSection({
             data-pwcode="btn-menu"
           >
             <List className="w-5 h-5" />
+          </Button>
+
+          {/* Кнопка обновить */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => window.location.reload()}
+            className="h-9 w-9 p-0 hover:bg-accent hover:text-accent-foreground"
+            aria-label="Обновить"
+            data-pwcode="btn-refresh"
+          >
+            <ArrowClockwise className="w-5 h-5" />
           </Button>
 
           {/* Разделитель */}

@@ -847,7 +847,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                       >
                         <DotsSixVertical className="w-3.5 h-3.5" />
                       </div>
-                      Этап #{index + 1}
+                      {calc.stageName ? `Этап #${index + 1}: ${calc.stageName}` : `Этап #${index + 1}`}
                     </TabsTrigger>
                     {/* Button to open stage in Bitrix */}
                     {calc.stageId && (
@@ -911,7 +911,13 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
           >
             <div className="px-3 py-2 bg-muted-foreground/80 text-primary-foreground rounded flex items-center gap-1">
               <DotsSixVertical className="w-3.5 h-3.5" />
-              Этап #{safeCalculators.findIndex(calc => calc.id === dragState.draggedItemId) + 1}
+              {(() => {
+                const draggedStageIndex = safeCalculators.findIndex(calc => calc.id === dragState.draggedItemId)
+                const draggedStage = safeCalculators[draggedStageIndex]
+                return draggedStage?.stageName 
+                  ? `Этап #${draggedStageIndex + 1}: ${draggedStage.stageName}` 
+                  : `Этап #${draggedStageIndex + 1}`
+              })()}
             </div>
           </div>
         )}

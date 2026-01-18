@@ -48,6 +48,7 @@ export function transformStage(stageElement: CalcStageElement): StageInstance {
   const result = {
     id: `stage_${stageElement.id}`,
     stageId: stageElement.id,
+    stageName: stageElement.name,
     settingsId: parseNumber(props.CALC_SETTINGS?.VALUE ?? null),
     operationVariantId: parseNumber(props.OPERATION_VARIANT?.VALUE ?? null),
     operationQuantity: parseNumber(props.OPERATION_QUANTITY?.VALUE ?? null) ?? 1,

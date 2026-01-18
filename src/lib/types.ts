@@ -148,6 +148,7 @@ export interface CalcStageElement extends ElementsStoreItem {
 export interface StageInstance {
   id: string
   stageId: number | null // ID из CALC_STAGES
+  stageName?: string // NAME from CALC_STAGES element
   settingsId: number | null // ID из CALC_SETTINGS
   operationVariantId: number | null // из OPERATION_VARIANT
   operationQuantity: number // из OPERATION_QUANTITY
