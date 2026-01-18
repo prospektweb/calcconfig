@@ -45,9 +45,16 @@ export function transformStage(stageElement: CalcStageElement): StageInstance {
     return isNaN(parsed) ? null : parsed
   }
   
+  // Helper to parse string value
+  const parseString = (value: BitrixPropertyValue['VALUE']): string | undefined => {
+    if (typeof value === 'string' && value) return value
+    return undefined
+  }
+  
   const result = {
     id: `stage_${stageElement.id}`,
     stageId: stageElement.id,
+    stageName: stageElement.name,
     settingsId: parseNumber(props.CALC_SETTINGS?.VALUE ?? null),
     operationVariantId: parseNumber(props.OPERATION_VARIANT?.VALUE ?? null),
     operationQuantity: parseNumber(props.OPERATION_QUANTITY?.VALUE ?? null) ?? 1,
@@ -55,6 +62,8 @@ export function transformStage(stageElement: CalcStageElement): StageInstance {
     materialVariantId: parseNumber(props.MATERIAL_VARIANT?.VALUE ?? null),
     materialQuantity: parseNumber(props.MATERIAL_QUANTITY?.VALUE ?? null) ?? 1,
     customFields,
+    optionsOperation: parseString(props.OPTIONS_OPERATION?.VALUE),
+    optionsMaterial: parseString(props.OPTIONS_MATERIAL?.VALUE),
   }
   
   console.log('[transformStage] Result:', result)

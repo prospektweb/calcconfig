@@ -11,9 +11,11 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, X, DotsSixVertical, Package, Wrench, Hammer, ArrowSquareOut } from '@phosphor-icons/react'
+import { Plus, X, DotsSixVertical, Package, Wrench, Hammer, ArrowSquareOut, Gear } from '@phosphor-icons/react'
 import { StageInstance, createEmptyStage } from '@/lib/types'
 import { MultiLevelSelect, MultiLevelItem } from './MultiLevelSelect'
+import { CalculationLogicDialog } from './CalculationLogicDialog'
+import { OptionsDialog } from './OptionsDialog'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore, CalcSettingsItem } from '@/stores/calculator-settings-store'
 import { useOperationSettingsStore } from '@/stores/operation-settings-store'
@@ -255,6 +257,11 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   const [operationDropZoneHover, setOperationDropZoneHover] = useState<number | null>(null)
   const [equipmentDropZoneHover, setEquipmentDropZoneHover] = useState<number | null>(null)
   const reportedValidationKeysRef = useRef<Set<string>>(new Set())
+  const [calculationLogicDialogOpen, setCalculationLogicDialogOpen] = useState(false)
+  const [calculationLogicStageIndex, setCalculationLogicStageIndex] = useState<number | null>(null)
+  const [optionsDialogOpen, setOptionsDialogOpen] = useState(false)
+  const [optionsDialogType, setOptionsDialogType] = useState<'operation' | 'material'>('operation')
+  const [optionsDialogStageIndex, setOptionsDialogStageIndex] = useState<number | null>(null)
 
   const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material' | 'stage' | 'config') => {
     if (!bitrixMeta) return null
@@ -847,7 +854,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                       >
                         <DotsSixVertical className="w-3.5 h-3.5" />
                       </div>
-                      Этап #{index + 1}
+                      {calc.stageName ? `Этап #${index + 1}: ${calc.stageName}` : `Этап #${index + 1}`}
                     </TabsTrigger>
                     {/* Button to open stage in Bitrix */}
                     {calc.stageId && (
@@ -911,7 +918,13 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
           >
             <div className="px-3 py-2 bg-muted-foreground/80 text-primary-foreground rounded flex items-center gap-1">
               <DotsSixVertical className="w-3.5 h-3.5" />
-              Этап #{safeCalculators.findIndex(calc => calc.id === dragState.draggedItemId) + 1}
+              {(() => {
+                const draggedStageIndex = safeCalculators.findIndex(calc => calc.id === dragState.draggedItemId)
+                const draggedStage = safeCalculators[draggedStageIndex]
+                return draggedStage?.stageName 
+                  ? `Этап #${draggedStageIndex + 1}: ${draggedStage.stageName}` 
+                  : `Этап #${draggedStageIndex + 1}`
+              })()}
             </div>
           </div>
         )}
@@ -1016,6 +1029,19 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                         bitrixMeta={bitrixMeta}
                       />
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => {
+                      setCalculationLogicStageIndex(index)
+                      setCalculationLogicDialogOpen(true)
+                    }}
+                    data-pwcode="btn-calculator-logic"
+                    title="Логика расчёта"
+                  >
+                    <Gear className="w-4 h-4" />
+                  </Button>
                   {renderSelectedId(toNumber(calc.settingsId), 'calculator', 'btn-open-calculator-bitrix')}
                 </div>
               </div>
@@ -1078,6 +1104,25 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                           bitrixMeta={bitrixMeta}
                         />
                       </div>
+                      {calc.operationVariantId && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            "h-9 w-9",
+                            calc.optionsOperation ? "opacity-100" : "opacity-30"
+                          )}
+                          onClick={() => {
+                            setOptionsDialogType('operation')
+                            setOptionsDialogStageIndex(index)
+                            setOptionsDialogOpen(true)
+                          }}
+                          data-pwcode="btn-operation-options"
+                          title="Настройки операции"
+                        >
+                          <Gear className="w-4 h-4" />
+                        </Button>
+                      )}
                       {renderSelectedId(toNumber(calc.operationVariantId), 'operation', 'btn-open-operation-bitrix')}
                       
                       {/* Поле количества операции */}
@@ -1222,6 +1267,25 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                         bitrixMeta={bitrixMeta}
                       />
                     </div>
+                    {calc.materialVariantId && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-9 w-9",
+                          calc.optionsMaterial ? "opacity-100" : "opacity-30"
+                        )}
+                        onClick={() => {
+                          setOptionsDialogType('material')
+                          setOptionsDialogStageIndex(index)
+                          setOptionsDialogOpen(true)
+                        }}
+                        data-pwcode="btn-material-options"
+                        title="Настройки материала"
+                      >
+                        <Gear className="w-4 h-4" />
+                      </Button>
+                    )}
                     {renderSelectedId(toNumber(calc.materialVariantId), 'material', 'btn-open-material-bitrix')}
                     
                     {/* Поле количества материала */}
@@ -1359,6 +1423,81 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
           )
         })}
       </Tabs>
+
+      {/* Calculation Logic Dialog */}
+      {calculationLogicStageIndex !== null && (
+        <CalculationLogicDialog
+          open={calculationLogicDialogOpen}
+          onOpenChange={setCalculationLogicDialogOpen}
+          stageIndex={calculationLogicStageIndex}
+          stageName={safeCalculators[calculationLogicStageIndex]?.stageName}
+          calculatorName={
+            safeCalculators[calculationLogicStageIndex]?.settingsId
+              ? calculatorSettings[safeCalculators[calculationLogicStageIndex].settingsId!.toString()]?.name
+              : undefined
+          }
+          allStages={safeCalculators.map((calc, idx) => ({
+            index: idx,
+            name: calc.stageName,
+          }))}
+        />
+      )}
+
+      {/* Options Dialog */}
+      {optionsDialogStageIndex !== null && safeCalculators[optionsDialogStageIndex] && (
+        <OptionsDialog
+          open={optionsDialogOpen}
+          onOpenChange={setOptionsDialogOpen}
+          type={optionsDialogType}
+          stageId={safeCalculators[optionsDialogStageIndex].stageId!}
+          currentVariantId={
+            optionsDialogType === 'operation'
+              ? safeCalculators[optionsDialogStageIndex].operationVariantId
+              : safeCalculators[optionsDialogStageIndex].materialVariantId
+          }
+          variantsHierarchy={
+            optionsDialogType === 'operation' ? operationsHierarchy : materialsHierarchy
+          }
+          existingOptions={
+            optionsDialogType === 'operation'
+              ? safeCalculators[optionsDialogStageIndex].optionsOperation || null
+              : safeCalculators[optionsDialogStageIndex].optionsMaterial || null
+          }
+          bitrixMeta={bitrixMeta}
+          onSave={(json) => {
+            const stage = safeCalculators[optionsDialogStageIndex]
+            if (stage.stageId) {
+              if (optionsDialogType === 'operation') {
+                postMessageBridge.sendChangeOptionsOperation({
+                  stageId: stage.stageId,
+                  json,
+                })
+              } else {
+                postMessageBridge.sendChangeOptionsMaterial({
+                  stageId: stage.stageId,
+                  json,
+                })
+              }
+              toast.success('Настройки сохранены')
+            }
+          }}
+          onClear={() => {
+            const stage = safeCalculators[optionsDialogStageIndex]
+            if (stage.stageId) {
+              if (optionsDialogType === 'operation') {
+                postMessageBridge.sendClearOptionsOperation({
+                  stageId: stage.stageId,
+                })
+              } else {
+                postMessageBridge.sendClearOptionsMaterial({
+                  stageId: stage.stageId,
+                })
+              }
+              toast.success('Настройки сброшены')
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

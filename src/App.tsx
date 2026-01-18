@@ -1711,12 +1711,6 @@ function App() {
           defaultExtraValue={bitrixMeta?.context?.defaultExtraValue}
         />
 
-        <InfoPanel
-          messages={infoMessages}
-          isExpanded={isInfoPanelExpanded}
-          onToggle={() => setIsInfoPanelExpanded(!isInfoPanelExpanded)}
-        />
-
         <VariantsFooter
           selectedOffers={selectedOffers}
           addInfoMessage={addInfoMessage}
@@ -1757,6 +1751,12 @@ function App() {
             </div>
           </div>
         </footer>
+
+        <InfoPanel
+          messages={infoMessages}
+          isExpanded={isInfoPanelExpanded}
+          onToggle={() => setIsInfoPanelExpanded(!isInfoPanelExpanded)}
+        />
       </div>
       
       {/* Dialog: Create Detail */}
