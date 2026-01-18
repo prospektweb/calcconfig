@@ -11,9 +11,10 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, X, DotsSixVertical, Package, Wrench, Hammer, ArrowSquareOut } from '@phosphor-icons/react'
+import { Plus, X, DotsSixVertical, Package, Wrench, Hammer, ArrowSquareOut, Gear } from '@phosphor-icons/react'
 import { StageInstance, createEmptyStage } from '@/lib/types'
 import { MultiLevelSelect, MultiLevelItem } from './MultiLevelSelect'
+import { CalculationLogicDialog } from './CalculationLogicDialog'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore, CalcSettingsItem } from '@/stores/calculator-settings-store'
 import { useOperationSettingsStore } from '@/stores/operation-settings-store'
@@ -255,6 +256,8 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   const [operationDropZoneHover, setOperationDropZoneHover] = useState<number | null>(null)
   const [equipmentDropZoneHover, setEquipmentDropZoneHover] = useState<number | null>(null)
   const reportedValidationKeysRef = useRef<Set<string>>(new Set())
+  const [calculationLogicDialogOpen, setCalculationLogicDialogOpen] = useState(false)
+  const [calculationLogicStageIndex, setCalculationLogicStageIndex] = useState<number | null>(null)
 
   const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material' | 'stage' | 'config') => {
     if (!bitrixMeta) return null
@@ -1022,6 +1025,19 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                         bitrixMeta={bitrixMeta}
                       />
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => {
+                      setCalculationLogicStageIndex(index)
+                      setCalculationLogicDialogOpen(true)
+                    }}
+                    data-pwcode="btn-calculator-logic"
+                    title="Логика расчёта"
+                  >
+                    <Gear className="w-4 h-4" />
+                  </Button>
                   {renderSelectedId(toNumber(calc.settingsId), 'calculator', 'btn-open-calculator-bitrix')}
                 </div>
               </div>
@@ -1365,6 +1381,25 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
           )
         })}
       </Tabs>
+
+      {/* Calculation Logic Dialog */}
+      {calculationLogicStageIndex !== null && (
+        <CalculationLogicDialog
+          open={calculationLogicDialogOpen}
+          onOpenChange={setCalculationLogicDialogOpen}
+          stageIndex={calculationLogicStageIndex}
+          stageName={safeCalculators[calculationLogicStageIndex]?.stageName}
+          calculatorName={
+            safeCalculators[calculationLogicStageIndex]?.settingsId
+              ? calculatorSettings[safeCalculators[calculationLogicStageIndex].settingsId!.toString()]?.name
+              : undefined
+          }
+          allStages={safeCalculators.map((calc, idx) => ({
+            index: idx,
+            name: calc.stageName,
+          }))}
+        />
+      )}
     </div>
   )
 }
