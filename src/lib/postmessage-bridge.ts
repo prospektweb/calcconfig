@@ -46,6 +46,10 @@ export type MessageType =
   | 'CHANGE_OPERATION_QUANTITY_REQUEST'   // НОВЫЙ
   | 'CHANGE_MATERIAL_QUANTITY_REQUEST'    // НОВЫЙ
   | 'CHANGE_CUSTOM_FIELDS_VALUE_REQUEST'  // НОВЫЙ
+  | 'CHANGE_OPTIONS_OPERATION'            // НОВЫЙ - настройки операции
+  | 'CHANGE_OPTIONS_MATERIAL'             // НОВЫЙ - настройки материала
+  | 'CLEAR_OPTIONS_OPERATION'             // НОВЫЙ - сброс настроек операции
+  | 'CLEAR_OPTIONS_MATERIAL'              // НОВЫЙ - сброс настроек материала
   
   // Группы/Скрепления
   | 'ADD_GROUP_REQUEST'       // переименован из ADD_NEW_GROUP_REQUEST
@@ -621,6 +625,22 @@ class PostMessageBridge {
 
   sendChangeCustomFieldsValueRequest(payload: { stageId: number, customFieldsValue: Array<{ CODE: string, VALUE: string }> }) {
     return this.sendMessage('CHANGE_CUSTOM_FIELDS_VALUE_REQUEST', payload)
+  }
+
+  sendChangeOptionsOperation(payload: { stageId: number, json: string }) {
+    return this.sendMessage('CHANGE_OPTIONS_OPERATION', payload)
+  }
+
+  sendChangeOptionsMaterial(payload: { stageId: number, json: string }) {
+    return this.sendMessage('CHANGE_OPTIONS_MATERIAL', payload)
+  }
+
+  sendClearOptionsOperation(payload: { stageId: number }) {
+    return this.sendMessage('CLEAR_OPTIONS_OPERATION', payload)
+  }
+
+  sendClearOptionsMaterial(payload: { stageId: number }) {
+    return this.sendMessage('CLEAR_OPTIONS_MATERIAL', payload)
   }
 
   // Group operations

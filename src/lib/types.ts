@@ -141,6 +141,8 @@ export interface CalcStageElement extends ElementsStoreItem {
     MATERIAL_VARIANT?: BitrixPropertyValue // ID from CALC_MATERIALS_VARIANTS
     MATERIAL_QUANTITY?: BitrixPropertyValue
     CUSTOM_FIELDS_VALUE?: BitrixPropertyValue
+    OPTIONS_OPERATION?: BitrixPropertyValue // JSON string with operation options mapping
+    OPTIONS_MATERIAL?: BitrixPropertyValue // JSON string with material options mapping
     [key:  string]: BitrixPropertyValue | undefined
   }
 }
@@ -156,6 +158,8 @@ export interface StageInstance {
   materialVariantId: number | null // из MATERIAL_VARIANT
   materialQuantity: number // из MATERIAL_QUANTITY
   customFields: Record<string, string> // из CUSTOM_FIELDS_VALUE (VALUE[i] → DESCRIPTION[i])
+  optionsOperation?: string // JSON string from OPTIONS_OPERATION
+  optionsMaterial?: string // JSON string from OPTIONS_MATERIAL
 }
 
 export interface Detail {

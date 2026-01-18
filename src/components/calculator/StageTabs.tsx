@@ -15,6 +15,7 @@ import { Plus, X, DotsSixVertical, Package, Wrench, Hammer, ArrowSquareOut, Gear
 import { StageInstance, createEmptyStage } from '@/lib/types'
 import { MultiLevelSelect, MultiLevelItem } from './MultiLevelSelect'
 import { CalculationLogicDialog } from './CalculationLogicDialog'
+import { OptionsDialog } from './OptionsDialog'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore, CalcSettingsItem } from '@/stores/calculator-settings-store'
 import { useOperationSettingsStore } from '@/stores/operation-settings-store'
@@ -258,6 +259,9 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   const reportedValidationKeysRef = useRef<Set<string>>(new Set())
   const [calculationLogicDialogOpen, setCalculationLogicDialogOpen] = useState(false)
   const [calculationLogicStageIndex, setCalculationLogicStageIndex] = useState<number | null>(null)
+  const [optionsDialogOpen, setOptionsDialogOpen] = useState(false)
+  const [optionsDialogType, setOptionsDialogType] = useState<'operation' | 'material'>('operation')
+  const [optionsDialogStageIndex, setOptionsDialogStageIndex] = useState<number | null>(null)
 
   const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material' | 'stage' | 'config') => {
     if (!bitrixMeta) return null
@@ -1100,6 +1104,25 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                           bitrixMeta={bitrixMeta}
                         />
                       </div>
+                      {calc.operationVariantId && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            "h-9 w-9",
+                            calc.optionsOperation ? "opacity-100" : "opacity-30"
+                          )}
+                          onClick={() => {
+                            setOptionsDialogType('operation')
+                            setOptionsDialogStageIndex(index)
+                            setOptionsDialogOpen(true)
+                          }}
+                          data-pwcode="btn-operation-options"
+                          title="Настройки операции"
+                        >
+                          <Gear className="w-4 h-4" />
+                        </Button>
+                      )}
                       {renderSelectedId(toNumber(calc.operationVariantId), 'operation', 'btn-open-operation-bitrix')}
                       
                       {/* Поле количества операции */}
@@ -1244,6 +1267,25 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                         bitrixMeta={bitrixMeta}
                       />
                     </div>
+                    {calc.materialVariantId && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-9 w-9",
+                          calc.optionsMaterial ? "opacity-100" : "opacity-30"
+                        )}
+                        onClick={() => {
+                          setOptionsDialogType('material')
+                          setOptionsDialogStageIndex(index)
+                          setOptionsDialogOpen(true)
+                        }}
+                        data-pwcode="btn-material-options"
+                        title="Настройки материала"
+                      >
+                        <Gear className="w-4 h-4" />
+                      </Button>
+                    )}
                     {renderSelectedId(toNumber(calc.materialVariantId), 'material', 'btn-open-material-bitrix')}
                     
                     {/* Поле количества материала */}
@@ -1398,6 +1440,62 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
             index: idx,
             name: calc.stageName,
           }))}
+        />
+      )}
+
+      {/* Options Dialog */}
+      {optionsDialogStageIndex !== null && safeCalculators[optionsDialogStageIndex] && (
+        <OptionsDialog
+          open={optionsDialogOpen}
+          onOpenChange={setOptionsDialogOpen}
+          type={optionsDialogType}
+          stageId={safeCalculators[optionsDialogStageIndex].stageId!}
+          currentVariantId={
+            optionsDialogType === 'operation'
+              ? safeCalculators[optionsDialogStageIndex].operationVariantId
+              : safeCalculators[optionsDialogStageIndex].materialVariantId
+          }
+          variantsHierarchy={
+            optionsDialogType === 'operation' ? operationsHierarchy : materialsHierarchy
+          }
+          existingOptions={
+            optionsDialogType === 'operation'
+              ? safeCalculators[optionsDialogStageIndex].optionsOperation || null
+              : safeCalculators[optionsDialogStageIndex].optionsMaterial || null
+          }
+          bitrixMeta={bitrixMeta}
+          onSave={(json) => {
+            const stage = safeCalculators[optionsDialogStageIndex]
+            if (stage.stageId) {
+              if (optionsDialogType === 'operation') {
+                postMessageBridge.sendChangeOptionsOperation({
+                  stageId: stage.stageId,
+                  json,
+                })
+              } else {
+                postMessageBridge.sendChangeOptionsMaterial({
+                  stageId: stage.stageId,
+                  json,
+                })
+              }
+              toast.success('Настройки сохранены')
+            }
+          }}
+          onClear={() => {
+            const stage = safeCalculators[optionsDialogStageIndex]
+            if (stage.stageId) {
+              if (optionsDialogType === 'operation') {
+                postMessageBridge.sendClearOptionsOperation({
+                  stageId: stage.stageId,
+                })
+              } else {
+                postMessageBridge.sendClearOptionsMaterial({
+                  stageId: stage.stageId,
+                })
+              }
+              toast.success('Настройки сброшены')
+            }
+          }}
         />
       )}
     </div>
