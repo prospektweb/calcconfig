@@ -64,24 +64,32 @@ export function OptionsDialog({
 
   // Get iblock properties based on type
   const getPropertiesList = (): Property[] => {
-    if (!bitrixMeta || !bitrixMeta.iblocks) return []
+    if (!bitrixMeta) return []
     
-    // Find the appropriate iblock based on type
-    const iblockCode = type === 'operation' ? 'CALC_OPERATIONS' : 'CALC_MATERIALS'
-    const iblock = bitrixMeta.iblocks.find(ib => ib.code === iblockCode)
+    // Use SKU properties from siblings if available
+    if (bitrixMeta.siblings?.skuProperties) {
+      return Object.values(bitrixMeta.siblings.skuProperties).map(prop => ({
+        CODE: prop.CODE,
+        NAME: prop.NAME,
+        PROPERTY_TYPE: prop.PROPERTY_TYPE,
+        ENUMS: prop.ENUMS || [],
+      }))
+    }
     
-    if (!iblock) return []
+    // Fallback: try to get from selectedOffers properties
+    if (bitrixMeta.selectedOffers && bitrixMeta.selectedOffers.length > 0) {
+      const firstOffer = bitrixMeta.selectedOffers[0]
+      if (firstOffer.properties) {
+        return Object.entries(firstOffer.properties).map(([code, prop]: [string, any]) => ({
+          CODE: code,
+          NAME: prop.NAME || code,
+          PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
+          ENUMS: prop.ENUMS || [],
+        }))
+      }
+    }
     
-    // In a real implementation, we would fetch properties from the iblock
-    // For now, return a placeholder that would be populated from bitrixMeta
-    const properties: any = (iblock as any).properties || {}
-    
-    return Object.entries(properties).map(([code, prop]: [string, any]) => ({
-      CODE: code,
-      NAME: prop.NAME || code,
-      PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
-      ENUMS: prop.ENUMS || [],
-    }))
+    return []
   }
 
   const propertiesList = getPropertiesList()
@@ -222,12 +230,26 @@ export function OptionsDialog({
     return result
   }
 
-  const flatVariants = flattenVariants(variantsHierarchy)
+  // Get variants hierarchy from siblings if available, otherwise use passed hierarchy
+  const getVariantsHierarchy = (): any[] => {
+    if (bitrixMeta?.siblings) {
+      if (type === 'operation' && bitrixMeta.siblings.operationsVariants) {
+        return bitrixMeta.siblings.operationsVariants
+      }
+      if (type === 'material' && bitrixMeta.siblings.materialsVariants) {
+        return bitrixMeta.siblings.materialsVariants
+      }
+    }
+    // Fallback to passed hierarchy
+    return variantsHierarchy
+  }
+
+  const flatVariants = flattenVariants(getVariantsHierarchy())
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="max-w-2xl max-h-[80vh] p-0 gap-0 flex flex-col"
+        className="min-w-[1024px] w-fit max-w-[90vw] max-h-[80vh] p-0 gap-0 flex flex-col"
         data-pwcode={`options-dialog-${type}`}
       >
         {/* Fixed Header */}
@@ -241,14 +263,6 @@ export function OptionsDialog({
                 Сопоставление свойств ТП с вариантами {type === 'operation' ? 'операций' : 'материалов'}
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="w-4 h-4" />
-            </Button>
           </div>
         </DialogHeader>
 
@@ -257,7 +271,7 @@ export function OptionsDialog({
           <div className="space-y-4">
             {/* Property Selection */}
             <div>
-              <Label>Свойства ТП</Label>
+              <Label className="pb-[10px] inline-block">Свойство ТП</Label>
               <Select value={selectedPropertyCode} onValueChange={handlePropertySelect}>
                 <SelectTrigger>
                   <SelectValue placeholder="Выберите свойство..." />
@@ -275,7 +289,7 @@ export function OptionsDialog({
             {/* Mapping Table */}
             {selectedProperty && (
               <div className="space-y-3">
-                <Label>
+                <Label className="pb-[10px] inline-block">
                   Сопоставление{' '}
                   {selectedProperty.PROPERTY_TYPE === 'L' && '(тип: список)'}
                 </Label>
@@ -284,12 +298,12 @@ export function OptionsDialog({
                   <table className="w-full">
                     <thead className="bg-muted">
                       <tr>
-                        <th className="px-4 py-2 text-left text-sm font-medium">
+                        <th className="px-4 py-2 text-left text-sm font-medium whitespace-nowrap">
                           {selectedProperty.PROPERTY_TYPE === 'L' 
                             ? 'Значение свойства' 
                             : 'Произвольное значение'}
                         </th>
-                        <th className="px-4 py-2 text-left text-sm font-medium">
+                        <th className="px-4 py-2 text-left text-sm font-medium whitespace-nowrap">
                           Вариант {type === 'operation' ? 'операции' : 'материала'}
                         </th>
                         {selectedProperty.PROPERTY_TYPE !== 'L' && (

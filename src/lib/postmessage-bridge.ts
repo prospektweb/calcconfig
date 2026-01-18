@@ -123,6 +123,19 @@ export interface InitPayload {
     base: boolean
     sort: number
   }>
+  siblings?: {
+    operationsVariants?: BitrixTreeItem[]
+    materialsVariants?: BitrixTreeItem[]
+    skuProperties?: Record<string, {
+      CODE: string
+      NAME: string
+      PROPERTY_TYPE: string
+      ENUMS?: Array<{
+        VALUE: string
+        VALUE_XML_ID?: string
+      }>
+    }>
+  }
 }
 
 export interface CalcInfoPayload {
