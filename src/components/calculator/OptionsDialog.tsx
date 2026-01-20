@@ -66,6 +66,26 @@ export function OptionsDialog({
   const [hasInitialized, setHasInitialized] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  useEffect(() => {
+    if (!open) return
+    const elementsStoreKeys = Object.keys(bitrixMeta?.elementsStore ?? {})
+    console.warn('[OptionsDialog] dialog open', {
+      open,
+      type,
+      stageId,
+      currentVariantId,
+    })
+    console.warn('[OptionsDialog] bitrixMeta availability', {
+      hasBitrixMeta: Boolean(bitrixMeta),
+      hasElementsStore: Boolean(bitrixMeta?.elementsStore),
+      elementsStoreKeys,
+    })
+    console.warn('[OptionsDialog] CALC_STAGES_SIBLINGS snapshot', {
+      value: bitrixMeta?.elementsStore?.CALC_STAGES_SIBLINGS,
+      type: typeof bitrixMeta?.elementsStore?.CALC_STAGES_SIBLINGS,
+    })
+  }, [open, type, stageId, currentVariantId, bitrixMeta])
+
   // Get iblock properties based on type
   const getPropertiesList = (): Property[] => {
     if (!bitrixMeta) return []
@@ -316,14 +336,28 @@ export function OptionsDialog({
       const elementsSiblings = bitrixMeta.elementsStore['CALC_STAGES_SIBLINGS']
       if (Array.isArray(elementsSiblings)) {
         const normalizedStageId = Number(stageId)
+        console.warn('[OptionsDialog] CALC_STAGES_SIBLINGS lookup', {
+          stageId,
+          normalizedStageId,
+          type,
+          availableStageIds: elementsSiblings.map((item: any) => item.stageId),
+        })
         const stageSiblings = elementsSiblings.find(
           (item: any) => Number(item.stageId) === normalizedStageId
         )
         if (stageSiblings) {
           if (type === 'operation' && stageSiblings.CALC_OPERATIONS_VARIANTS) {
+            console.warn('[OptionsDialog] Using stage operation variants', {
+              stageId,
+              variantsCount: stageSiblings.CALC_OPERATIONS_VARIANTS.length,
+            })
             return stageSiblings.CALC_OPERATIONS_VARIANTS
           }
           if (type === 'material' && stageSiblings.CALC_MATERIALS_VARIANTS) {
+            console.warn('[OptionsDialog] Using stage material variants', {
+              stageId,
+              variantsCount: stageSiblings.CALC_MATERIALS_VARIANTS.length,
+            })
             return stageSiblings.CALC_MATERIALS_VARIANTS
           }
           return []
