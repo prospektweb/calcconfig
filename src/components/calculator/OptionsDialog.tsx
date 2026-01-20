@@ -279,7 +279,10 @@ export function OptionsDialog({
     if (bitrixMeta?.elementsStore) {
       const elementsSiblings = bitrixMeta.elementsStore['CALC_STAGES_SIBLINGS']
       if (Array.isArray(elementsSiblings)) {
-        const stageSiblings = elementsSiblings.find((item: any) => item.stageId === stageId)
+        const normalizedStageId = Number(stageId)
+        const stageSiblings = elementsSiblings.find(
+          (item: any) => Number(item.stageId) === normalizedStageId
+        )
         if (stageSiblings) {
           if (type === 'operation' && stageSiblings.CALC_OPERATIONS_VARIANTS) {
             return stageSiblings.CALC_OPERATIONS_VARIANTS
@@ -288,6 +291,8 @@ export function OptionsDialog({
             return stageSiblings.CALC_MATERIALS_VARIANTS
           }
         }
+        console.warn('[OptionsDialog] No CALC_STAGES_SIBLINGS entry for stageId:', stageId)
+        return []
       }
     }
     
