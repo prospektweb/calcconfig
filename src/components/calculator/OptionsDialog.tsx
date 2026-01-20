@@ -66,6 +66,18 @@ export function OptionsDialog({
   const [hasInitialized, setHasInitialized] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  const decodeHtmlEntities = (value: string) => {
+    if (!/[&](quot|#34|amp|lt|gt);/.test(value)) {
+      return value
+    }
+    return value
+      .replace(/&quot;/g, '"')
+      .replace(/&#34;/g, '"')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+  }
+
   useEffect(() => {
     if (!open) return
     const elementsStoreKeys = Object.keys(bitrixMeta?.elementsStore ?? {})
@@ -149,7 +161,8 @@ export function OptionsDialog({
   useEffect(() => {
     if (open && existingOptions && !hasInitialized) {
       try {
-        const parsed = JSON.parse(existingOptions)
+        const decodedOptions = decodeHtmlEntities(existingOptions)
+        const parsed = JSON.parse(decodedOptions)
         if (parsed.propertyCode && parsed.mappings) {
           setSelectedPropertyCode(parsed.propertyCode)
           
