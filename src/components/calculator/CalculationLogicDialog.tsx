@@ -23,22 +23,25 @@ import { validateAll } from './logic/validator'
 function buildLogicContext(initPayload: InitPayload | null | undefined): any {
   if (!initPayload) return null
 
-  // Find offers iblock
-  const offersIblock = initPayload.iblocks?.find(ib => ib.type === 'offers')
-  
-  if (!offersIblock && initPayload.iblocks?.length) {
+  // Helper function to find offers iblock
+  const findOffersIblock = () => {
+    // First try to find by type
+    const offersByType = initPayload.iblocks?.find(ib => ib.type === 'offers')
+    if (offersByType) return offersByType
+    
     // Fallback: try to find by code
-    const offersByCode = initPayload.iblocks.find(ib => 
+    const offersByCode = initPayload.iblocks?.find(ib => 
       ib.code?.toUpperCase() === 'OFFERS' || ib.code?.toUpperCase().includes('OFFER')
     )
-    if (!offersByCode) {
+    
+    if (!offersByCode && initPayload.iblocks?.length) {
       console.warn('[buildLogicContext] offers iblock not found')
     }
+    
+    return offersByCode
   }
   
-  const iblock = offersIblock || initPayload.iblocks?.find(ib => 
-    ib.code?.toUpperCase() === 'OFFERS' || ib.code?.toUpperCase().includes('OFFER')
-  )
+  const iblock = findOffersIblock()
 
   // Build offer.properties from iblock.properties
   const offerProperties: Record<string, any> = {}

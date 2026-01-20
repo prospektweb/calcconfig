@@ -83,6 +83,9 @@ export function validateAll(
   const errors: Array<{ varId: string; error: string }> = []
   const inputNames = inputs.map(inp => inp.name)
   
+  // Regex pattern for stages array index
+  const STAGES_INDEX_PATTERN = /stages\[(\d+)\]/
+  
   // Validate input parameters
   for (const input of inputs) {
     // Check for selectedOffers reference
@@ -98,11 +101,11 @@ export function validateAll(
     const arrayIndexMatch = input.sourcePath.match(/\[(\d+)\]/g)
     if (arrayIndexMatch) {
       // Check if it's in a stages path
-      const isStagesPath = input.sourcePath.match(/stages\[(\d+)\]/)
+      const isStagesPath = input.sourcePath.match(STAGES_INDEX_PATTERN)
       
       if (isStagesPath) {
         // For stages path, check if stage index is not in the future
-        const stageNumMatch = input.sourcePath.match(/stages\[(\d+)\]/)
+        const stageNumMatch = input.sourcePath.match(STAGES_INDEX_PATTERN)
         if (stageNumMatch) {
           const stageNum = parseInt(stageNumMatch[1])
           if (stageNum > stageIndex) {

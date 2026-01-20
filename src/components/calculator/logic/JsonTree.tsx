@@ -83,9 +83,10 @@ function TreeNode({ value, path, onLeafClick, isPathDisabled, searchTerm }: Tree
 
   const handleClick = () => {
     if (isLeaf && !disabled) {
-      // If node has __sourcePath and __sourceType, use them
-      if (hasLeafMarker && value.__sourcePath && value.__sourceType) {
-        onLeafClick?.(value.__sourcePath, value, value.__sourceType)
+      // If node has __sourcePath marker, use it; otherwise use the path
+      if (hasLeafMarker && value.__sourcePath) {
+        const sourceType = value.__sourceType || type
+        onLeafClick?.(value.__sourcePath, value, sourceType)
       } else {
         onLeafClick?.(path, value, type)
       }
