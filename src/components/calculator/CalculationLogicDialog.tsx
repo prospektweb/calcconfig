@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -6,6 +6,15 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { CaretLeft, CaretRight, ArrowsOut, ArrowsIn } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import { InitPayload } from '@/lib/postmessage-bridge'
+import { toast } from 'sonner'
+import { JsonTree } from './logic/JsonTree'
+import { InputsTab } from './logic/InputsTab'
+import { FormulasTab } from './logic/FormulasTab'
+import { OutputsTab } from './logic/OutputsTab'
+import { InputParam, FormulaVar, StageOutputs, OfferPlanItem, StageLogic } from './logic/types'
+import { saveLogic, loadLogic } from './logic/storage'
+import { validateAll } from './logic/validator'
 
 interface CalculationLogicDialogProps {
   open: boolean
@@ -14,6 +23,9 @@ interface CalculationLogicDialogProps {
   stageName?: string
   calculatorName?: string
   allStages: Array<{ index: number; name?: string }>
+  initPayload?: InitPayload | null
+  currentStageId?: number | null
+  currentSettingsId?: number | null
 }
 
 export function CalculationLogicDialog({
@@ -23,14 +35,120 @@ export function CalculationLogicDialog({
   stageName,
   calculatorName,
   allStages,
+  initPayload,
+  currentStageId,
+  currentSettingsId,
 }: CalculationLogicDialogProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false)
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true)
   const [activeTab, setActiveTab] = useState('inputs')
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  // State for logic editing
+  const [inputs, setInputs] = useState<InputParam[]>([])
+  const [vars, setVars] = useState<FormulaVar[]>([])
+  const [outputs, setOutputs] = useState<StageOutputs>({})
+  const [offerPlan, setOfferPlan] = useState<OfferPlanItem[]>([])
+
+  // Load saved logic when dialog opens
+  useEffect(() => {
+    if (open && currentSettingsId !== null && currentSettingsId !== undefined && 
+        currentStageId !== null && currentStageId !== undefined) {
+      const saved = loadLogic(currentSettingsId, currentStageId)
+      if (saved) {
+        setInputs(saved.inputs)
+        setVars(saved.vars)
+        setOutputs(saved.outputs)
+        setOfferPlan(saved.offerPlan)
+      } else {
+        // Reset to empty state
+        setInputs([])
+        setVars([])
+        setOutputs({})
+        setOfferPlan([])
+      }
+    }
+  }, [open, currentSettingsId, currentStageId])
+
   // Show current and previous stages only
   const visibleStages = allStages.slice(0, stageIndex + 1)
+
+  const handleLeafClick = (path: string, value: any, type: string) => {
+    // Generate unique ID and name
+    const id = `input_${Date.now()}`
+    let baseName = path.split('.').pop()?.replace(/\[(\d+)\]$/, '_$1') || 'param'
+    baseName = baseName.replace(/[^a-zA-Z0-9_]/g, '_')
+    
+    // Ensure uniqueness
+    let name = baseName
+    let counter = 1
+    while (inputs.some(inp => inp.name === name)) {
+      name = `${baseName}_${counter}`
+      counter++
+    }
+
+    const newInput: InputParam = {
+      id,
+      name,
+      sourcePath: path,
+      sourceType: type as any
+    }
+
+    setInputs([...inputs, newInput])
+    setActiveTab('inputs')
+    toast.success(`Параметр "${name}" добавлен`)
+  }
+
+  const isPathDisabled = (path: string): boolean => {
+    // Disable paths that reference future stages
+    // Format: stages[N] or stages.N
+    const stageMatch = path.match(/^stages[\.\[](\d+)/)
+    if (stageMatch) {
+      const stageNum = parseInt(stageMatch[1])
+      return stageNum > stageIndex
+    }
+    return false
+  }
+
+  const handleValidate = () => {
+    const result = validateAll(inputs, vars, stageIndex)
+    if (result.valid) {
+      toast.success('Проверка пройдена')
+    } else {
+      toast.error('Есть ошибки в формулах')
+      // Update vars with errors
+      const varsWithErrors = vars.map(v => {
+        const error = result.errors.find(e => e.varId === v.id)
+        return error ? { ...v, error: error.error } : { ...v, error: null }
+      })
+      setVars(varsWithErrors)
+    }
+  }
+
+  const handleSave = () => {
+    if (currentSettingsId === null || currentSettingsId === undefined ||
+        currentStageId === null || currentStageId === undefined) {
+      toast.error('Невозможно сохранить: отсутствует ID этапа или настроек')
+      return
+    }
+
+    const logic: StageLogic = {
+      version: 1,
+      stageIndex,
+      inputs,
+      vars,
+      outputs,
+      offerPlan
+    }
+
+    try {
+      saveLogic(currentSettingsId, currentStageId, logic)
+      toast.success('Логика сохранена (локально)')
+      onOpenChange(false)
+    } catch (error) {
+      toast.error('Ошибка сохранения')
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -103,39 +221,19 @@ export function CalculationLogicDialog({
                   <CaretLeft className="w-4 h-4" />
                 </Button>
               </div>
-              <ScrollArea className="flex-1 p-4">
-                <Accordion type="multiple" defaultValue={[`stage-${stageIndex}`]}>
-                  {visibleStages.map((stage) => (
-                    <AccordionItem key={stage.index} value={`stage-${stage.index}`}>
-                      <AccordionTrigger className="text-sm">
-                        Этап #{stage.index + 1}{stage.name ? `: ${stage.name}` : ''}
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-3 pl-4">
-                          <div>
-                            <h4 className="text-xs font-medium mb-2">Входные параметры</h4>
-                            <p className="text-xs text-muted-foreground">
-                              Здесь будут отображаться переменные этапа
-                            </p>
-                          </div>
-                          <div>
-                            <h4 className="text-xs font-medium mb-2">Переменные</h4>
-                            <p className="text-xs text-muted-foreground">
-                              Здесь будут отображаться переменные этапа
-                            </p>
-                          </div>
-                          <div>
-                            <h4 className="text-xs font-medium mb-2">Итоги</h4>
-                            <p className="text-xs text-muted-foreground">
-                              Здесь будут отображаться переменные этапа
-                            </p>
-                          </div>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </ScrollArea>
+              <div className="flex-1 p-4 overflow-hidden">
+                {initPayload ? (
+                  <JsonTree
+                    data={initPayload}
+                    onLeafClick={handleLeafClick}
+                    isPathDisabled={isPathDisabled}
+                  />
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    Нет данных контекста
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -172,29 +270,28 @@ export function CalculationLogicDialog({
               <div className="flex-1 overflow-hidden">
                 <TabsContent value="inputs" className="h-full m-0 p-0">
                   <ScrollArea className="h-full">
-                    <div className="p-4">
-                      <p className="text-sm text-muted-foreground">
-                        Placeholder: Здесь будет редактор входных параметров
-                      </p>
-                    </div>
+                    <InputsTab inputs={inputs} onChange={setInputs} />
                   </ScrollArea>
                 </TabsContent>
                 <TabsContent value="formulas" className="h-full m-0 p-0">
                   <ScrollArea className="h-full">
-                    <div className="p-4">
-                      <p className="text-sm text-muted-foreground">
-                        Placeholder: Здесь будет редактор формул
-                      </p>
-                    </div>
+                    <FormulasTab 
+                      inputs={inputs} 
+                      vars={vars} 
+                      onChange={setVars}
+                      stageIndex={stageIndex}
+                    />
                   </ScrollArea>
                 </TabsContent>
                 <TabsContent value="outputs" className="h-full m-0 p-0">
                   <ScrollArea className="h-full">
-                    <div className="p-4">
-                      <p className="text-sm text-muted-foreground">
-                        Placeholder: Здесь будет редактор итогов этапа
-                      </p>
-                    </div>
+                    <OutputsTab 
+                      vars={vars}
+                      outputs={outputs}
+                      offerPlan={offerPlan}
+                      onOutputsChange={setOutputs}
+                      onOfferPlanChange={setOfferPlan}
+                    />
                   </ScrollArea>
                 </TabsContent>
               </div>
@@ -216,29 +313,92 @@ export function CalculationLogicDialog({
                 </Button>
               </div>
               <ScrollArea className="flex-1 p-4">
-                <Accordion type="single" collapsible>
-                  <AccordionItem value="functions">
-                    <AccordionTrigger className="text-sm">Функции</AccordionTrigger>
-                    <AccordionContent>
-                      <p className="text-xs text-muted-foreground">
-                        Контент будет добавлен позже
-                      </p>
-                    </AccordionContent>
-                  </AccordionItem>
+                <Accordion type="single" collapsible defaultValue="syntax">
                   <AccordionItem value="syntax">
                     <AccordionTrigger className="text-sm">Синтаксис</AccordionTrigger>
                     <AccordionContent>
-                      <p className="text-xs text-muted-foreground">
-                        Контент будет добавлен позже
-                      </p>
+                      <div className="space-y-3 text-xs">
+                        <div>
+                          <h4 className="font-medium mb-1">Типы данных</h4>
+                          <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
+                            <li>number (число)</li>
+                            <li>string (строка)</li>
+                            <li>boolean (true/false)</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="font-medium mb-1">Операторы</h4>
+                          <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
+                            <li>Арифметика: + - * / ( )</li>
+                            <li>Сравнение: == != &gt; &lt; &gt;= &lt;=</li>
+                            <li>Логика: and or not</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="font-medium mb-1">Правила</h4>
+                          <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
+                            <li>Переменные выполняются сверху вниз</li>
+                            <li>Нельзя ссылаться на переменные ниже</li>
+                            <li>Нельзя ссылаться на данные будущих этапов</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="functions">
+                    <AccordionTrigger className="text-sm">Функции</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3 text-xs">
+                        <div>
+                          <h4 className="font-medium">if(condition, a, b)</h4>
+                          <p className="text-muted-foreground">Условный оператор</p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium">Математика</h4>
+                          <p className="text-muted-foreground">round, ceil, floor, min, max, abs</p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium">Строки</h4>
+                          <p className="text-muted-foreground">
+                            trim, lower, upper, len, contains, replace
+                          </p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium">Преобразование</h4>
+                          <p className="text-muted-foreground">toNumber, toString</p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium">Массивы</h4>
+                          <p className="text-muted-foreground">split, join, get</p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium">Регулярные выражения</h4>
+                          <p className="text-muted-foreground">regexMatch, regexExtract</p>
+                        </div>
+                      </div>
                     </AccordionContent>
                   </AccordionItem>
                   <AccordionItem value="errors">
                     <AccordionTrigger className="text-sm">Ошибки</AccordionTrigger>
                     <AccordionContent>
-                      <p className="text-xs text-muted-foreground">
-                        Контент будет добавлен позже
-                      </p>
+                      <div className="space-y-2 text-xs text-muted-foreground">
+                        <div>
+                          <p className="font-medium text-foreground">Неизвестная переменная: X</p>
+                          <p>Переменная не определена в входных параметрах или формулах</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">Ссылка на переменную ниже по списку: Y</p>
+                          <p>Нельзя использовать переменные, определённые ниже текущей</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">Данные следующего этапа недоступны</p>
+                          <p>Нельзя ссылаться на данные этапов с большим индексом</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">Несовпадение типов</p>
+                          <p>Операция требует другой тип данных</p>
+                        </div>
+                      </div>
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
@@ -265,18 +425,24 @@ export function CalculationLogicDialog({
         <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0">
           <div className="flex items-center justify-between w-full">
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleValidate}
+                data-pwcode="logic-btn-validate"
+              >
                 Проверить
-              </Button>
-              <Button variant="ghost" size="sm" disabled className="hidden">
-                Сбросить
               </Button>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
                 Отмена
               </Button>
-              <Button size="sm" disabled>
+              <Button 
+                size="sm"
+                onClick={handleSave}
+                data-pwcode="logic-btn-save"
+              >
                 Сохранить
               </Button>
             </div>
