@@ -31,6 +31,11 @@ export function validateFormula(
     return { valid: false, error: 'Формула не может быть пустой' }
   }
 
+  // Check for forbidden selectedOffers reference
+  if (formula.includes('selectedOffers')) {
+    return { valid: false, error: 'Запрещённый источник: selectedOffers. Используйте offer.*' }
+  }
+
   // Check for basic syntax issues
   const openParens = (formula.match(/\(/g) || []).length
   const closeParens = (formula.match(/\)/g) || []).length
@@ -77,6 +82,52 @@ export function validateAll(
 ): { valid: boolean; errors: Array<{ varId: string; error: string }> } {
   const errors: Array<{ varId: string; error: string }> = []
   const inputNames = inputs.map(inp => inp.name)
+  
+  // Validate input parameters
+  for (const input of inputs) {
+    // Check for selectedOffers reference
+    if (input.sourcePath.includes('selectedOffers')) {
+      errors.push({
+        varId: input.id,
+        error: `Запрещённый источник: selectedOffers. Используйте offer.*`
+      })
+    }
+    
+    // Check for forbidden array indices (except stages[N])
+    // Match array indices like [0], [1], etc.
+    const arrayIndexMatch = input.sourcePath.match(/\[(\d+)\]/g)
+    if (arrayIndexMatch) {
+      // Check if it's in a stages path
+      const isStagesPath = input.sourcePath.match(/stages\[(\d+)\]/)
+      
+      if (isStagesPath) {
+        // For stages path, check if stage index is not in the future
+        const stageNumMatch = input.sourcePath.match(/stages\[(\d+)\]/)
+        if (stageNumMatch) {
+          const stageNum = parseInt(stageNumMatch[1])
+          if (stageNum > stageIndex) {
+            errors.push({
+              varId: input.id,
+              error: `Данные следующего этапа недоступны`
+            })
+          }
+        }
+      } else {
+        // For offer.* paths and other paths, indices are forbidden
+        if (input.sourcePath.startsWith('offer.')) {
+          errors.push({
+            varId: input.id,
+            error: `Запрещены индексы массивов в путях offer.*`
+          })
+        } else if (!input.sourcePath.startsWith('stages')) {
+          errors.push({
+            varId: input.id,
+            error: `Запрещены индексы массивов в путях (кроме stages[N])`
+          })
+        }
+      }
+    }
+  }
   
   // Validate each variable
   vars.forEach((v, idx) => {

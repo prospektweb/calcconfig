@@ -28,7 +28,11 @@ function getValueType(value: any): string {
 function TreeNode({ value, path, onLeafClick, isPathDisabled, searchTerm }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const type = getValueType(value)
-  const isObject = type === 'object'
+  
+  // Check if this node has __leaf marker (for property descriptors)
+  const hasLeafMarker = value && typeof value === 'object' && value.__leaf === true
+  
+  const isObject = type === 'object' && !hasLeafMarker
   const isArray = type === 'array'
   const isLeaf = !isObject && !isArray
   const disabled = isPathDisabled?.(path) || false
@@ -79,7 +83,12 @@ function TreeNode({ value, path, onLeafClick, isPathDisabled, searchTerm }: Tree
 
   const handleClick = () => {
     if (isLeaf && !disabled) {
-      onLeafClick?.(path, value, type)
+      // If node has __sourcePath and __sourceType, use them
+      if (hasLeafMarker && value.__sourcePath && value.__sourceType) {
+        onLeafClick?.(value.__sourcePath, value, value.__sourceType)
+      } else {
+        onLeafClick?.(path, value, type)
+      }
     } else if (!isLeaf) {
       setIsExpanded(!isExpanded)
     }
@@ -132,9 +141,11 @@ function TreeNode({ value, path, onLeafClick, isPathDisabled, searchTerm }: Tree
           </TooltipTrigger>
           <TooltipContent side="right" className="max-w-md">
             <div className="space-y-1">
-              <div className="font-mono text-xs break-all">{path}</div>
+              <div className="font-mono text-xs break-all">
+                {hasLeafMarker && value.__sourcePath ? value.__sourcePath : path}
+              </div>
               <div className="text-xs text-muted-foreground">
-                Тип: {type}
+                Тип: {hasLeafMarker && value.__sourceType ? value.__sourceType : type}
                 {disabled && ' • Данные следующих этапов недоступны'}
               </div>
             </div>

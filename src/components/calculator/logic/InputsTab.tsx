@@ -71,7 +71,7 @@ export function InputsTab({ inputs, onChange }: InputsTabProps) {
       {inputs.length === 0 ? (
         <div className="text-center py-8 text-sm text-muted-foreground">
           <p>Входные параметры пока не добавлены</p>
-          <p className="mt-2">Кликните на значение в дереве INIT слева, чтобы добавить параметр</p>
+          <p className="mt-2">Кликните на поле в дереве Контекста слева, чтобы добавить параметр</p>
         </div>
       ) : (
         <div className="space-y-2">

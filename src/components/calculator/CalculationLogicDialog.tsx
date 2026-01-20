@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -15,6 +15,87 @@ import { OutputsTab } from './logic/OutputsTab'
 import { InputParam, FormulaVar, StageOutputs, OfferPlanItem, StageLogic } from './logic/types'
 import { saveLogic, loadLogic } from './logic/storage'
 import { validateAll } from './logic/validator'
+
+/**
+ * Build logic context for the context tree panel
+ * Removes selectedOffers and constructs offer object with properties from iblocks
+ */
+function buildLogicContext(initPayload: InitPayload | null | undefined): any {
+  if (!initPayload) return null
+
+  // Find offers iblock
+  const offersIblock = initPayload.iblocks?.find(ib => ib.type === 'offers')
+  
+  if (!offersIblock && initPayload.iblocks?.length) {
+    // Fallback: try to find by code
+    const offersByCode = initPayload.iblocks.find(ib => 
+      ib.code?.toUpperCase() === 'OFFERS' || ib.code?.toUpperCase().includes('OFFER')
+    )
+    if (!offersByCode) {
+      console.warn('[buildLogicContext] offers iblock not found')
+    }
+  }
+  
+  const iblock = offersIblock || initPayload.iblocks?.find(ib => 
+    ib.code?.toUpperCase() === 'OFFERS' || ib.code?.toUpperCase().includes('OFFER')
+  )
+
+  // Build offer.properties from iblock.properties
+  const offerProperties: Record<string, any> = {}
+  if (iblock?.properties) {
+    for (const prop of iblock.properties) {
+      if (prop.CODE) {
+        // Create property descriptor with __leaf marker
+        offerProperties[prop.CODE] = {
+          CODE: prop.CODE,
+          NAME: prop.NAME,
+          PROPERTY_TYPE: prop.PROPERTY_TYPE,
+          ...(prop.ENUMS ? { ENUMS: prop.ENUMS } : {}),
+          // Marker for JsonTree to treat this as a clickable leaf
+          __leaf: true,
+          __sourcePath: `offer.properties.${prop.CODE}`,
+          __sourceType: 'property'
+        }
+      }
+    }
+  }
+
+  // Get first offer for reference data
+  const firstOffer = initPayload.selectedOffers?.[0]
+
+  // Construct logic context
+  const logicContext: any = {
+    context: initPayload.context,
+  }
+
+  // Add preset if exists
+  if (initPayload.preset) {
+    logicContext.preset = initPayload.preset
+  }
+
+  // Add elementsStore if exists
+  if (initPayload.elementsStore) {
+    logicContext.elementsStore = initPayload.elementsStore
+  }
+
+  // Add stages if available
+  if (initPayload.preset?.properties?.CALC_STAGES || initPayload.elementsStore?.CALC_STAGES) {
+    logicContext.stages = initPayload.preset?.properties?.CALC_STAGES || initPayload.elementsStore?.CALC_STAGES
+  }
+
+  // Add offer object (single instance, not array)
+  logicContext.offer = {
+    id: 0, // placeholder
+    name: '',
+    code: firstOffer?.name || '',
+    measure: '',
+    measureRatio: 1,
+    prices: initPayload.priceTypes || firstOffer?.prices || [],
+    properties: offerProperties
+  }
+
+  return logicContext
+}
 
 interface CalculationLogicDialogProps {
   open: boolean
@@ -73,6 +154,9 @@ export function CalculationLogicDialog({
   // Show current and previous stages only
   const visibleStages = allStages.slice(0, stageIndex + 1)
 
+  // Build context for the left panel (without selectedOffers)
+  const logicContext = useMemo(() => buildLogicContext(initPayload), [initPayload])
+
   const handleLeafClick = (path: string, value: any, type: string) => {
     // Generate unique ID and name
     const id = `input_${Date.now()}`
@@ -115,7 +199,14 @@ export function CalculationLogicDialog({
     if (result.valid) {
       toast.success('Проверка пройдена')
     } else {
-      toast.error('Есть ошибки в формулах')
+      // Show first error in toast for visibility
+      const firstError = result.errors[0]
+      if (firstError) {
+        toast.error(firstError.error)
+      } else {
+        toast.error('Есть ошибки в формулах')
+      }
+      
       // Update vars with errors
       const varsWithErrors = vars.map(v => {
         const error = result.errors.find(e => e.varId === v.id)
@@ -222,9 +313,9 @@ export function CalculationLogicDialog({
                 </Button>
               </div>
               <div className="flex-1 p-4 overflow-hidden">
-                {initPayload ? (
+                {logicContext ? (
                   <JsonTree
-                    data={initPayload}
+                    data={logicContext}
                     onLeafClick={handleLeafClick}
                     isPathDisabled={isPathDisabled}
                   />
