@@ -66,6 +66,26 @@ export function OptionsDialog({
   const [hasInitialized, setHasInitialized] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  useEffect(() => {
+    if (!open) return
+    const elementsStoreKeys = Object.keys(bitrixMeta?.elementsStore ?? {})
+    console.warn('[OptionsDialog] dialog open', {
+      open,
+      type,
+      stageId,
+      currentVariantId,
+    })
+    console.warn('[OptionsDialog] bitrixMeta availability', {
+      hasBitrixMeta: Boolean(bitrixMeta),
+      hasElementsStore: Boolean(bitrixMeta?.elementsStore),
+      elementsStoreKeys,
+    })
+    console.warn('[OptionsDialog] CALC_STAGES_SIBLINGS snapshot', {
+      value: bitrixMeta?.elementsStore?.CALC_STAGES_SIBLINGS,
+      type: typeof bitrixMeta?.elementsStore?.CALC_STAGES_SIBLINGS,
+    })
+  }, [open, type, stageId, currentVariantId, bitrixMeta])
+
   // Get iblock properties based on type
   const getPropertiesList = (): Property[] => {
     if (!bitrixMeta) return []
