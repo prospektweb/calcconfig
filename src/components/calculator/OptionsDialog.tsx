@@ -293,9 +293,45 @@ export function OptionsDialog({
     return result
   }
 
+  const buildVariantOptions = (items: any[]): Array<{ value: string; label: string }> => {
+    if (!Array.isArray(items)) return []
+
+    const looksLikeElements = items.every(
+      (item) => item && typeof item === 'object' && 'id' in item && 'name' in item
+    )
+
+    if (looksLikeElements) {
+      return items.map((item) => ({
+        value: String(item.id),
+        label: String(item.name),
+      }))
+    }
+
+    return flattenVariants(items)
+  }
+
   // Get variants hierarchy from elementsSiblings if available, otherwise use passed hierarchy
   const getVariantsHierarchy = (): any[] => {
     // Try to get from elementsSiblings array first (new structure)
+    const rootElementsSiblings = (bitrixMeta as any)?.elementsSiblings
+    if (Array.isArray(rootElementsSiblings)) {
+      const normalizedStageId = Number(stageId)
+      const stageSiblings = rootElementsSiblings.find(
+        (item: any) => Number(item.stageId) === normalizedStageId
+      )
+      if (stageSiblings) {
+        if (type === 'operation' && stageSiblings.CALC_OPERATIONS_VARIANTS) {
+          return stageSiblings.CALC_OPERATIONS_VARIANTS
+        }
+        if (type === 'material' && stageSiblings.CALC_MATERIALS_VARIANTS) {
+          return stageSiblings.CALC_MATERIALS_VARIANTS
+        }
+        return []
+      }
+      return []
+    }
+
+    // Try to get from elementsSiblings array in elementsStore (legacy)
     if (bitrixMeta?.elementsStore) {
       const elementsSiblings = bitrixMeta.elementsStore['CALC_STAGES_SIBLINGS']
       if (Array.isArray(elementsSiblings)) {
@@ -324,14 +360,8 @@ export function OptionsDialog({
             })
             return stageSiblings.CALC_MATERIALS_VARIANTS
           }
-          console.warn('[OptionsDialog] Stage siblings found but variants missing', {
-            stageId,
-            type,
-            keys: Object.keys(stageSiblings),
-          })
           return []
         }
-        console.warn('[OptionsDialog] No CALC_STAGES_SIBLINGS entry for stageId:', stageId)
         return []
       }
     }
@@ -350,7 +380,7 @@ export function OptionsDialog({
     return variantsHierarchy
   }
 
-  const flatVariants = flattenVariants(getVariantsHierarchy())
+  const flatVariants = buildVariantOptions(getVariantsHierarchy())
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -117,6 +117,7 @@ export interface InitPayload {
   }>
   preset?: Preset
   elementsStore?: ElementsStore
+  elementsSiblings?: Array<Record<string, any>>
   priceTypes?: Array<{
     id: number
     name: string
