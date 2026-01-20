@@ -280,16 +280,36 @@ export function OptionsDialog({
       const elementsSiblings = bitrixMeta.elementsStore['CALC_STAGES_SIBLINGS']
       if (Array.isArray(elementsSiblings)) {
         const normalizedStageId = Number(stageId)
+        console.warn('[OptionsDialog] CALC_STAGES_SIBLINGS lookup', {
+          stageId,
+          normalizedStageId,
+          type,
+          availableStageIds: elementsSiblings.map((item: any) => item.stageId),
+        })
         const stageSiblings = elementsSiblings.find(
           (item: any) => Number(item.stageId) === normalizedStageId
         )
         if (stageSiblings) {
           if (type === 'operation' && stageSiblings.CALC_OPERATIONS_VARIANTS) {
+            console.warn('[OptionsDialog] Using stage operation variants', {
+              stageId,
+              variantsCount: stageSiblings.CALC_OPERATIONS_VARIANTS.length,
+            })
             return stageSiblings.CALC_OPERATIONS_VARIANTS
           }
           if (type === 'material' && stageSiblings.CALC_MATERIALS_VARIANTS) {
+            console.warn('[OptionsDialog] Using stage material variants', {
+              stageId,
+              variantsCount: stageSiblings.CALC_MATERIALS_VARIANTS.length,
+            })
             return stageSiblings.CALC_MATERIALS_VARIANTS
           }
+          console.warn('[OptionsDialog] Stage siblings found but variants missing', {
+            stageId,
+            type,
+            keys: Object.keys(stageSiblings),
+          })
+          return []
         }
         console.warn('[OptionsDialog] No CALC_STAGES_SIBLINGS entry for stageId:', stageId)
         return []
