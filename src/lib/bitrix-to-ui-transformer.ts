@@ -62,8 +62,16 @@ export function transformStage(stageElement: CalcStageElement): StageInstance {
     materialVariantId: parseNumber(props.MATERIAL_VARIANT?.VALUE ?? null),
     materialQuantity: parseNumber(props.MATERIAL_QUANTITY?.VALUE ?? null) ?? 1,
     customFields,
-    optionsOperation: parseString(props.OPTIONS_OPERATION?.VALUE),
-    optionsMaterial: parseString(props.OPTIONS_MATERIAL?.VALUE),
+    optionsOperation: parseString(
+      typeof props.OPTIONS_OPERATION?.['~VALUE'] === 'string'
+        ? props.OPTIONS_OPERATION['~VALUE']
+        : props.OPTIONS_OPERATION?.VALUE
+    ),
+    optionsMaterial: parseString(
+      typeof props.OPTIONS_MATERIAL?.['~VALUE'] === 'string'
+        ? props.OPTIONS_MATERIAL['~VALUE']
+        : props.OPTIONS_MATERIAL?.VALUE
+    ),
   }
   
   console.log('[transformStage] Result:', result)
