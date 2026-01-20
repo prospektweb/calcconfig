@@ -31,6 +31,7 @@ interface OptionsDialogProps {
 interface PropertyEnum {
   VALUE: string
   VALUE_XML_ID?: string
+  XML_ID?: string
   SORT?: number
 }
 
@@ -79,6 +80,15 @@ export function OptionsDialog({
     if (!skuIblock) {
       console.warn('[OptionsDialog] SKU iblock not found')
       return []
+    }
+
+    if (Array.isArray(skuIblock.properties)) {
+      return skuIblock.properties.map((prop: any) => ({
+        CODE: prop.CODE,
+        NAME: prop.NAME || prop.CODE,
+        PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
+        ENUMS: prop.ENUMS || [],
+      }))
     }
     
     // Get properties from elementsStore if available
@@ -169,7 +179,7 @@ export function OptionsDialog({
       
       setMappingRows(sortedEnums.map(enumItem => ({
         value: enumItem.VALUE,
-        xmlId: enumItem.VALUE_XML_ID || '',
+        xmlId: enumItem.VALUE_XML_ID || enumItem.XML_ID || '',
         variantId: '',
       })))
     } else {

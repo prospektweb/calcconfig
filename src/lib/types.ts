@@ -42,6 +42,18 @@ export interface Iblock {
   type: string
   name: string
   parent:  number | null
+  properties?: Array<{
+    ID: number
+    CODE: string
+    NAME: string
+    PROPERTY_TYPE: string
+    ENUMS?: Array<{
+      ID: number
+      VALUE: string
+      XML_ID?: string
+      SORT?: number
+    }>
+  }>
 }
 
 // Preset interface for the new data model
