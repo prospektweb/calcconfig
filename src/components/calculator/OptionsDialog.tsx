@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -386,11 +386,12 @@ export function OptionsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
         className={cn(
-          "p-0 gap-0 flex flex-col",
+          "p-0 gap-0 flex flex-col overflow-hidden min-h-0",
           isFullscreen 
-            ? "w-screen h-screen max-w-full max-h-full" 
-            : "min-w-[1024px] w-fit max-w-[90vw] max-h-[80vh]"
+            ? "inset-0 w-screen h-screen max-w-none max-h-none sm:max-w-none sm:max-h-none rounded-none translate-x-0 translate-y-0" 
+            : "min-w-[1024px] w-[90vw] max-w-[90vw] sm:max-w-[90vw] h-[80vh] max-h-[80vh]"
         )}
+        hideClose
         data-pwcode={`options-dialog-${type}`}
       >
         {/* Fixed Header */}
@@ -404,20 +405,40 @@ export function OptionsDialog({
                 Сопоставление свойств ТП с вариантами {type === 'operation' ? 'операций' : 'материалов'}
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              title={isFullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}
-            >
-              {isFullscreen ? <ArrowsIn className="w-4 h-4" /> : <ArrowsOut className="w-4 h-4" />}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                title={isFullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}
+              >
+                {isFullscreen ? <ArrowsIn className="w-4 h-4" /> : <ArrowsOut className="w-4 h-4" />}
+              </Button>
+              <DialogClose asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  title="Закрыть"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+                    <path
+                      d="M18 6 6 18M6 6l12 12"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </Button>
+              </DialogClose>
+            </div>
           </div>
         </DialogHeader>
 
         {/* Body */}
-        <ScrollArea className="flex-1 p-6">
+        <ScrollArea className="flex-1 min-h-0 p-6 bg-background">
           <div className="space-y-4">
             {/* Property Selection */}
             <div>

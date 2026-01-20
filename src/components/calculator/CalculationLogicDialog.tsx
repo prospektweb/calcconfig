@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
@@ -36,11 +36,12 @@ export function CalculationLogicDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
         className={cn(
-          "p-0 gap-0 flex flex-col",
+          "p-0 gap-0 flex flex-col overflow-hidden min-h-0",
           isFullscreen 
-            ? "w-screen h-screen max-w-full max-h-full" 
-            : "min-w-[1024px] w-fit max-w-[90vw] max-h-[90vh]"
+            ? "inset-0 w-screen h-screen max-w-none max-h-none sm:max-w-none sm:max-h-none rounded-none translate-x-0 translate-y-0" 
+            : "min-w-[1024px] w-[90vw] max-w-[90vw] sm:max-w-[90vw] h-[90vh] max-h-[90vh]"
         )}
+        hideClose
         data-pwcode="calculation-logic-dialog"
       >
         {/* Fixed Header */}
@@ -54,20 +55,40 @@ export function CalculationLogicDialog({
                 Этап #{stageIndex + 1}{stageName ? `: ${stageName}` : ''} • Калькулятор: {calculatorName || 'Не выбран'}
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              title={isFullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}
-            >
-              {isFullscreen ? <ArrowsIn className="w-4 h-4" /> : <ArrowsOut className="w-4 h-4" />}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                title={isFullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}
+              >
+                {isFullscreen ? <ArrowsIn className="w-4 h-4" /> : <ArrowsOut className="w-4 h-4" />}
+              </Button>
+              <DialogClose asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  title="Закрыть"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+                    <path
+                      d="M18 6 6 18M6 6l12 12"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </Button>
+              </DialogClose>
+            </div>
           </div>
         </DialogHeader>
 
         {/* Body - Three Column Layout */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden min-h-0">
           {/* Left Panel - Context (Collapsible) */}
           {!leftPanelCollapsed && (
             <div className="w-80 border-r border-border flex flex-col">
@@ -134,7 +155,7 @@ export function CalculationLogicDialog({
 
           {/* Center Panel - Editor (Main, Not Collapsible) */}
           <div className="flex-1 flex flex-col">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
               <div className="px-4 py-3 border-b border-border">
                 <TabsList className="w-full justify-start">
                   <TabsTrigger value="inputs" className="flex-1">
