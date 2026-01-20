@@ -1440,6 +1440,9 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
             index: idx,
             name: calc.stageName,
           }))}
+          initPayload={bitrixMeta}
+          currentStageId={safeCalculators[calculationLogicStageIndex]?.stageId ?? null}
+          currentSettingsId={safeCalculators[calculationLogicStageIndex]?.settingsId ?? null}
         />
       )}
 
