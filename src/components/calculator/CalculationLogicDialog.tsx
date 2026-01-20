@@ -38,8 +38,8 @@ export function CalculationLogicDialog({
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden min-h-0",
           isFullscreen 
-            ? "inset-0 w-full h-full max-w-none max-h-none rounded-none translate-x-0 translate-y-0" 
-            : "min-w-[1024px] w-fit max-w-[90vw] max-h-[90vh]"
+            ? "inset-0 w-screen h-screen max-w-none max-h-none sm:max-w-none sm:max-h-none rounded-none translate-x-0 translate-y-0" 
+            : "min-w-[1024px] w-[90vw] max-w-[90vw] sm:max-w-[90vw] h-[90vh] max-h-[90vh]"
         )}
         hideClose
         data-pwcode="calculation-logic-dialog"
