@@ -1,10 +1,8 @@
-import { ALLOWED_FUNCTIONS } from './types'
+import { ALLOWED_FUNCTIONS, ValueType } from './types'
 
 // ============================================================================
 // TYPES
 // ============================================================================
-
-export type ValueType = 'number' | 'string' | 'bool' | 'array' | 'any' | 'unknown'
 
 export type Severity = 'error' | 'warning'
 export type Scope = 'input' | 'var' | 'result' | 'global'
@@ -348,7 +346,7 @@ export function inferExprType(
               severity: 'error',
               scope,
               refId,
-              message: `Оператор + не поддерживает смешение типов (${left} и ${right})`
+              message: `Оператор + не поддерживает смешивание типов (${left} и ${right})`
             })
             left = 'unknown'
           }

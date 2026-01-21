@@ -149,11 +149,6 @@ export function validateAll(
     if (input.sourcePath.includes('selectedOffers')) {
       issues.push({
         severity: 'error',
-        scope: 'global',
-        message: `Запрещённый источник: selectedOffers. Используйте offer.*`
-      })
-      issues.push({
-        severity: 'error',
         scope: 'input',
         refId: input.id,
         message: `Запрещённый источник: selectedOffers. Используйте offer.*`
