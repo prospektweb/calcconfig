@@ -17,54 +17,54 @@ import { saveLogic, loadLogic } from './logic/storage'
 import { validateAll } from './logic/validator'
 
 /**
+ * Recursively nullify all values in an object/array, preserving structure
+ * - Primitives (string/number/bool) => null
+ * - null/undefined => null
+ * - Arrays: empty => [], non-empty => [deepNullifyShape(first element)]
+ * - Objects: recursively nullify all values
+ */
+function deepNullifyShape(obj: any): any {
+  // Handle null/undefined
+  if (obj === null || obj === undefined) {
+    return null
+  }
+
+  // Handle primitives
+  if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') {
+    return null
+  }
+
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) {
+      return []
+    }
+    // Return array with single nullified template element
+    return [deepNullifyShape(obj[0])]
+  }
+
+  // Handle objects
+  if (typeof obj === 'object') {
+    const result: Record<string, any> = {}
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        result[key] = deepNullifyShape(obj[key])
+      }
+    }
+    return result
+  }
+
+  // Fallback
+  return null
+}
+
+/**
  * Build logic context for the context tree panel
- * Removes selectedOffers and constructs offer object with properties from iblocks
+ * Uses selectedOffers[0] structure but with all values nullified
+ * Removes selectedOffers from context and excludes offer.prices
  */
 function buildLogicContext(initPayload: InitPayload | null | undefined): any {
   if (!initPayload) return null
-
-  // Helper function to find offers iblock
-  const findOffersIblock = () => {
-    // First try to find by type
-    const offersByType = initPayload.iblocks?.find(ib => ib.type === 'offers')
-    if (offersByType) return offersByType
-    
-    // Fallback: try to find by code
-    const offersByCode = initPayload.iblocks?.find(ib => 
-      ib.code?.toUpperCase() === 'OFFERS' || ib.code?.toUpperCase().includes('OFFER')
-    )
-    
-    if (!offersByCode && initPayload.iblocks?.length) {
-      console.warn('[buildLogicContext] offers iblock not found')
-    }
-    
-    return offersByCode
-  }
-  
-  const iblock = findOffersIblock()
-
-  // Build offer.properties from iblock.properties
-  const offerProperties: Record<string, any> = {}
-  if (iblock?.properties) {
-    for (const prop of iblock.properties) {
-      if (prop.CODE) {
-        // Create property descriptor with __leaf marker
-        offerProperties[prop.CODE] = {
-          CODE: prop.CODE,
-          NAME: prop.NAME,
-          PROPERTY_TYPE: prop.PROPERTY_TYPE,
-          ...(prop.ENUMS ? { ENUMS: prop.ENUMS } : {}),
-          // Marker for JsonTree to treat this as a clickable leaf
-          __leaf: true,
-          __sourcePath: `offer.properties.${prop.CODE}`,
-          __sourceType: 'property'
-        }
-      }
-    }
-  }
-
-  // Get first offer for reference data
-  const firstOffer = initPayload.selectedOffers?.[0]
 
   // Construct logic context
   const logicContext: any = {
@@ -86,15 +86,24 @@ function buildLogicContext(initPayload: InitPayload | null | undefined): any {
     logicContext.stages = initPayload.preset?.properties?.CALC_STAGES || initPayload.elementsStore?.CALC_STAGES
   }
 
-  // Add offer object (single instance, not array)
-  logicContext.offer = {
-    id: 0, // placeholder
-    name: '',
-    code: firstOffer?.name || '',
-    measure: '',
-    measureRatio: 1,
-    prices: initPayload.priceTypes || firstOffer?.prices || [],
-    properties: offerProperties
+  // Build offer model from selectedOffers[0] if available
+  if (initPayload.selectedOffers?.[0]) {
+    const offer0 = initPayload.selectedOffers[0]
+    const offerModel = deepNullifyShape(offer0)
+    
+    // Remove prices from offer model
+    if (offerModel && typeof offerModel === 'object') {
+      delete offerModel.prices
+    }
+    
+    logicContext.offer = offerModel
+  } else {
+    // Fallback: create minimal offer structure
+    logicContext.offer = {
+      id: null,
+      name: null,
+      properties: {}
+    }
   }
 
   return logicContext

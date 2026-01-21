@@ -36,6 +36,21 @@ export function validateFormula(
     return { valid: false, error: 'Запрещённый источник: selectedOffers. Используйте offer.*' }
   }
 
+  // Check for forbidden array indices (except stages[N])
+  const arrayIndexPattern = /\[(\d+)\]/g
+  const arrayIndexMatches = formula.match(arrayIndexPattern)
+  if (arrayIndexMatches) {
+    // Check if all matches are stages[N] pattern
+    const stagesPattern = /stages\[(\d+)\]/g
+    const stagesMatches = formula.match(stagesPattern)
+    const stagesMatchCount = stagesMatches ? stagesMatches.length : 0
+    
+    // If there are more array index matches than stages matches, there are forbidden indices
+    if (arrayIndexMatches.length > stagesMatchCount) {
+      return { valid: false, error: 'Запрещены индексы в путях. Нельзя использовать [0], [1] и т.п.' }
+    }
+  }
+
   // Check for basic syntax issues
   const openParens = (formula.match(/\(/g) || []).length
   const closeParens = (formula.match(/\)/g) || []).length
@@ -83,9 +98,6 @@ export function validateAll(
   const errors: Array<{ varId: string; error: string }> = []
   const inputNames = inputs.map(inp => inp.name)
   
-  // Regex pattern for stages array index
-  const STAGES_INDEX_PATTERN = /stages\[(\d+)\]/
-  
   // Validate input parameters
   for (const input of inputs) {
     // Check for selectedOffers reference
@@ -97,17 +109,16 @@ export function validateAll(
     }
     
     // Check for forbidden array indices (except stages[N])
-    // Match array indices like [0], [1], etc.
-    const arrayIndexMatch = input.sourcePath.match(/\[(\d+)\]/g)
-    if (arrayIndexMatch) {
-      // Check if it's in a stages path
-      const isStagesPath = input.sourcePath.match(STAGES_INDEX_PATTERN)
-      
-      if (isStagesPath) {
-        // For stages path, check if stage index is not in the future
-        const stageNumMatch = input.sourcePath.match(STAGES_INDEX_PATTERN)
-        if (stageNumMatch) {
-          const stageNum = parseInt(stageNumMatch[1])
+    const arrayIndexPattern = /\[(\d+)\]/g
+    const arrayIndexMatches = input.sourcePath.match(arrayIndexPattern)
+    
+    if (arrayIndexMatches) {
+      // Check if path starts with stages[
+      if (input.sourcePath.startsWith('stages[')) {
+        // Extract stage index and validate it's not in the future
+        const stageMatch = input.sourcePath.match(/^stages\[(\d+)\]/)
+        if (stageMatch) {
+          const stageNum = parseInt(stageMatch[1])
           if (stageNum > stageIndex) {
             errors.push({
               varId: input.id,
@@ -116,18 +127,11 @@ export function validateAll(
           }
         }
       } else {
-        // For offer.* paths and other paths, indices are forbidden
-        if (input.sourcePath.startsWith('offer.')) {
-          errors.push({
-            varId: input.id,
-            error: `Запрещены индексы массивов в путях offer.*`
-          })
-        } else if (!input.sourcePath.startsWith('stages')) {
-          errors.push({
-            varId: input.id,
-            error: `Запрещены индексы массивов в путях (кроме stages[N])`
-          })
-        }
+        // For all other paths, array indices are forbidden
+        errors.push({
+          varId: input.id,
+          error: `Запрещены индексы в путях. Нельзя использовать [0], [1] и т.п.`
+        })
       }
     }
   }
