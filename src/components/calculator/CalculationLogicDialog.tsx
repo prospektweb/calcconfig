@@ -236,27 +236,16 @@ export function CalculationLogicDialog({
     })
     setVars(varsWithTypes)
     
-    if (result.valid) {
-      const warningCount = result.issues.filter(i => i.severity === 'warning').length
-      if (warningCount > 0) {
-        toast.warning(`Проверка пройдена с предупреждениями: ${warningCount}`)
-      } else {
-        toast.success('Проверка пройдена')
-      }
+    // Count errors and warnings
+    const errors = result.issues.filter(i => i.severity === 'error')
+    const warnings = result.issues.filter(i => i.severity === 'warning')
+    
+    if (errors.length > 0) {
+      toast.error(`Проверка не пройдена: ${errors.length} ${errors.length === 1 ? 'ошибка' : errors.length < 5 ? 'ошибки' : 'ошибок'}`)
+    } else if (warnings.length > 0) {
+      toast.warning(`Проверка пройдена с предупреждениями: ${warnings.length}`)
     } else {
-      // Count errors and warnings
-      const errorCount = result.issues.filter(i => i.severity === 'error').length
-      const warningCount = result.issues.filter(i => i.severity === 'warning').length
-      
-      // Show summary in toast
-      toast.error(`Проверка не пройдена: ${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}${warningCount > 0 ? `, ${warningCount} ${warningCount === 1 ? 'предупреждение' : warningCount < 5 ? 'предупреждения' : 'предупреждений'}` : ''}`)
-      
-      // Update vars with errors
-      const varsWithErrors = varsWithTypes.map(v => {
-        const issue = result.issues.find(i => i.refId === v.id && i.severity === 'error')
-        return issue ? { ...v, error: issue.message } : { ...v, error: null }
-      })
-      setVars(varsWithErrors)
+      toast.success('Проверка пройдена')
     }
   }
 
