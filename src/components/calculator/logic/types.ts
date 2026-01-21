@@ -1,4 +1,4 @@
-export type ValueType = 'number' | 'string' | 'bool' | 'any' | 'unknown'
+export type ValueType = 'number' | 'string' | 'bool' | 'array' | 'any' | 'unknown'
 
 export interface InputParam {
   id: string
@@ -41,8 +41,8 @@ export interface StageLogic {
 
 export interface ValidationIssue {
   severity: 'error' | 'warning'
-  scope: 'input' | 'var' | 'result'
-  refId: string
+  scope: 'input' | 'var' | 'result' | 'global'
+  refId?: string
   message: string
   hint?: string
 }

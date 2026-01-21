@@ -171,6 +171,7 @@ export function InputsTab({ inputs, onChange, issues = [] }: InputsTabProps) {
                       <SelectItem value="number">number</SelectItem>
                       <SelectItem value="string">string</SelectItem>
                       <SelectItem value="bool">bool</SelectItem>
+                      <SelectItem value="array">array</SelectItem>
                       <SelectItem value="any">any</SelectItem>
                       <SelectItem value="unknown">unknown</SelectItem>
                     </SelectContent>
