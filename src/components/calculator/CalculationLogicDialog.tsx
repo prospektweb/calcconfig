@@ -214,7 +214,7 @@ export function CalculationLogicDialog({
   }
 
   const handleValidate = () => {
-    const result = validateAll(inputs, vars, stageIndex)
+    const result = validateAll(inputs, vars, stageIndex, offerPlan)
     setValidationIssues(result.issues)
     
     // Also update vars with inferred types
@@ -415,10 +415,13 @@ export function CalculationLogicDialog({
                   <ScrollArea className="h-full">
                     <OutputsTab 
                       vars={vars}
+                      inputs={inputs}
                       outputs={outputs}
                       offerPlan={offerPlan}
                       onOutputsChange={setOutputs}
                       onOfferPlanChange={setOfferPlan}
+                      issues={validationIssues}
+                      offerModel={logicContext?.offer}
                     />
                   </ScrollArea>
                 </TabsContent>

@@ -1,4 +1,4 @@
-import { InputParam, FormulaVar, ALLOWED_FUNCTIONS, ValueType, ValidationIssue } from './types'
+import { InputParam, FormulaVar, ALLOWED_FUNCTIONS, ValueType, ValidationIssue, OfferPlanItem } from './types'
 import { inferExprType, SymbolTable, SymbolInfo } from './type-checker'
 
 // Extract identifiers from formula (simplified, doesn't handle strings/complex cases)
@@ -23,6 +23,42 @@ export function extractIdentifiers(formula: string): string[] {
   }
   
   return identifiers
+}
+
+/**
+ * Infer type from target path based on patterns
+ * Used for result mapping validation
+ */
+export function inferTargetType(targetPath: string): ValueType {
+  const segments = targetPath.split('.')
+  const lastSegment = segments[segments.length - 1]
+  const lastSegmentUpper = lastSegment.toUpperCase()
+  
+  // String patterns
+  const stringPatterns = ['VALUE_XML_ID', 'XML_ID', 'DESCRIPTION', 'NAME', 'CODE', 'SYMBOL', 'CURRENCY']
+  if (stringPatterns.includes(lastSegmentUpper)) {
+    return 'string'
+  }
+  
+  // Number patterns
+  const numberPatterns = ['ENUM_ID', 'VALUE_ENUM_ID', 'ID', 'SORT', 'MULTIPLE_CNT']
+  const numberPatternLower = ['measureRatio', 'price', 'quantityFrom', 'quantityTo']
+  if (numberPatterns.includes(lastSegmentUpper) || numberPatternLower.includes(lastSegment)) {
+    return 'number'
+  }
+  
+  // Boolean patterns
+  const boolPatterns = ['ACTIVE', 'MULTIPLE', 'IS_REQUIRED', 'FILTRABLE', 'SEARCHABLE']
+  if (boolPatterns.includes(lastSegmentUpper)) {
+    return 'bool'
+  }
+  
+  // VALUE is always unknown
+  if (lastSegmentUpper === 'VALUE') {
+    return 'unknown'
+  }
+  
+  return 'unknown'
 }
 
 /**
@@ -227,7 +263,8 @@ function sortIssues(issues: ValidationIssue[]): ValidationIssue[] {
 export function validateAll(
   inputs: InputParam[],
   vars: FormulaVar[],
-  stageIndex: number
+  stageIndex: number,
+  offerPlan: OfferPlanItem[] = []
 ): { valid: boolean; issues: ValidationIssue[] } {
   const issues: ValidationIssue[] = []
   const inputNames = inputs.map(inp => inp.name)
@@ -360,6 +397,131 @@ export function validateAll(
       }
     }
   })
+
+  // Helper function to get source type
+  function getSourceType(
+    source: string,
+    sourceType: 'var' | 'input' | 'const' | undefined,
+    symbols: SymbolTable,
+    inputs: InputParam[],
+    vars: FormulaVar[]
+  ): ValueType {
+    // If sourceType === 'const'
+    if (sourceType === 'const') {
+      // Try to determine literal type
+      const numVal = parseFloat(source)
+      if (!isNaN(numVal)) return 'number'
+      if (source === 'true' || source === 'false') return 'bool'
+      return 'string'
+    }
+    
+    // If it's a variable
+    const varInfo = symbols[source]
+    if (varInfo) {
+      return varInfo.inferredType || varInfo.declaredType || 'unknown'
+    }
+    
+    // If it's an input parameter
+    const input = inputs.find(i => i.name === source)
+    if (input) {
+      return input.valueType || inferTypeFromSourcePath(input.sourcePath).type
+    }
+    
+    // Not found
+    return 'unknown'
+  }
+
+  // Validate offer plan items
+  for (const item of offerPlan) {
+    const targetPath = item.targetPath || (item.field ? `offer.${item.field}` : '')
+    
+    if (!targetPath) {
+      issues.push({
+        severity: 'error',
+        scope: 'result',
+        refId: item.id,
+        message: 'Не указан путь назначения'
+      })
+      continue
+    }
+    
+    // Check for forbidden patterns
+    if (targetPath.includes('selectedOffers')) {
+      issues.push({
+        severity: 'error',
+        scope: 'result',
+        refId: item.id,
+        message: 'Запрещённый путь: selectedOffers. Используйте offer.*'
+      })
+    }
+    
+    const arrayIndexPattern = /\[(\d+)\]/g
+    if (arrayIndexPattern.test(targetPath)) {
+      issues.push({
+        severity: 'error',
+        scope: 'result',
+        refId: item.id,
+        message: 'Запрещены индексы в путях. Нельзя использовать [0], [1] и т.п.'
+      })
+    }
+    
+    // Check if source exists
+    const source = item.varName || item.constValue?.toString() || ''
+    if (!source) {
+      issues.push({
+        severity: 'error',
+        scope: 'result',
+        refId: item.id,
+        message: 'Источник значения не указан'
+      })
+      continue
+    }
+    
+    // Check if source exists (for non-const)
+    if (item.sourceType !== 'const') {
+      const varExists = vars.some(v => v.name === source)
+      const inputExists = inputs.some(i => i.name === source)
+      if (!varExists && !inputExists) {
+        issues.push({
+          severity: 'error',
+          scope: 'result',
+          refId: item.id,
+          message: `Источник не найден: ${source}`
+        })
+        continue
+      }
+    }
+    
+    // Type compatibility check
+    const targetType = inferTargetType(targetPath)
+    const sourceType = getSourceType(source, item.sourceType, symbols, inputs, vars)
+    
+    if (targetType === 'unknown') {
+      issues.push({
+        severity: 'warning',
+        scope: 'result',
+        refId: item.id,
+        message: 'Тип целевого поля не определён — проверка типов невозможна',
+        hint: 'Выберите конкретный leaf (например .VALUE_XML_ID или .ENUM_ID)'
+      })
+    } else if (sourceType === 'unknown') {
+      issues.push({
+        severity: 'warning',
+        scope: 'result',
+        refId: item.id,
+        message: 'Тип источника не определён — проверка типов невозможна',
+        hint: 'Укажите тип входного параметра или исправьте формулу'
+      })
+    } else if (targetType !== sourceType) {
+      issues.push({
+        severity: 'error',
+        scope: 'result',
+        refId: item.id,
+        message: `Несовместимые типы: target ожидает ${targetType}, источник даёт ${sourceType}`,
+        hint: 'Выберите другой leaf (например .VALUE_XML_ID) или приведите источник к нужному типу (toNumber/toString)'
+      })
+    }
+  }
 
   return { 
     valid: issues.filter(i => i.severity === 'error').length === 0, 
