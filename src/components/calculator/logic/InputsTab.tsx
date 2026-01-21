@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Trash2, AlertCircle } from 'lucide-react'
+import { Pencil, Trash2, AlertCircle, Info } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { InputParam, ValueType, ValidationIssue } from './types'
 import { inferTypeFromSourcePath } from './validator'
 import { toast } from 'sonner'
@@ -70,7 +76,7 @@ export function InputsTab({ inputs, onChange, issues = [] }: InputsTabProps) {
 
   const handleTypeChange = (id: string, valueType: ValueType) => {
     onChange(inputs.map(inp => 
-      inp.id === id ? { ...inp, valueType } : inp
+      inp.id === id ? { ...inp, valueType, typeSource: 'manual' } : inp
     ))
   }
 
@@ -99,7 +105,20 @@ export function InputsTab({ inputs, onChange, issues = [] }: InputsTabProps) {
             const inputIssues = getInputIssues(input.id)
             const hasError = inputIssues.some(i => i.severity === 'error')
             const hasWarning = inputIssues.some(i => i.severity === 'warning')
-            const inferredType = input.valueType || inferTypeFromSourcePath(input.sourcePath)
+            const inferred = inferTypeFromSourcePath(input.sourcePath)
+            
+            // Determine tooltip message
+            let typeTooltip = ''
+            if (input.typeSource === 'manual') {
+              typeTooltip = 'Тип задан вручную администратором'
+            } else if (input.autoTypeReason) {
+              typeTooltip = `Тип определён автоматически по пути: ${input.autoTypeReason}`
+            } else {
+              // Fallback for older inputs without autoTypeReason
+              typeTooltip = inferred.type !== 'unknown' 
+                ? `Тип определён автоматически по пути: ${inferred.reason}`
+                : 'Тип не удалось определить автоматически → unknown'
+            }
             
             return (
               <div 
@@ -177,11 +196,16 @@ export function InputsTab({ inputs, onChange, issues = [] }: InputsTabProps) {
                     </SelectContent>
                   </Select>
                   
-                  {inferredType !== 'unknown' && (
-                    <span className="text-xs text-muted-foreground">
-                      (авто: {inferredType})
-                    </span>
-                  )}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">{typeTooltip}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   
                   {(hasError || hasWarning) && (
                     <div className="ml-auto flex items-center gap-1">
