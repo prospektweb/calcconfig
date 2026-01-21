@@ -237,18 +237,19 @@ export function CalculationLogicDialog({
     setVars(varsWithTypes)
     
     if (result.valid) {
-      toast.success('Проверка пройдена')
+      const warningCount = result.issues.filter(i => i.severity === 'warning').length
+      if (warningCount > 0) {
+        toast.warning(`Проверка пройдена с предупреждениями: ${warningCount}`)
+      } else {
+        toast.success('Проверка пройдена')
+      }
     } else {
       // Count errors and warnings
       const errorCount = result.issues.filter(i => i.severity === 'error').length
       const warningCount = result.issues.filter(i => i.severity === 'warning').length
       
       // Show summary in toast
-      if (errorCount > 0) {
-        toast.error(`Проверка не пройдена: ${errorCount} ошибок${warningCount > 0 ? `, ${warningCount} предупреждений` : ''}`)
-      } else {
-        toast.warning(`${warningCount} предупреждений`)
-      }
+      toast.error(`Проверка не пройдена: ${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}${warningCount > 0 ? `, ${warningCount} ${warningCount === 1 ? 'предупреждение' : warningCount < 5 ? 'предупреждения' : 'предупреждений'}` : ''}`)
       
       // Update vars with errors
       const varsWithErrors = varsWithTypes.map(v => {
