@@ -37,13 +37,40 @@ export interface OfferPlanItem {
   constValue?: string | number  // if sourceType === 'const'
 }
 
+// HL mapping для обязательных полей этапа
+export interface HLMapping {
+  sourceKind: 'var' | 'input' | null
+  sourceRef: string  // имя переменной или input
+}
+
+export interface ResultsHL {
+  width: HLMapping
+  length: HLMapping
+  height: HLMapping
+  weight: HLMapping
+  purchasingPrice: HLMapping
+  basePrice: HLMapping
+}
+
+// Правило записи в ТП
+export interface WritePlanItem {
+  id: string
+  targetPath: string  // offer.name | offer.code | offer.properties.COLOR.VALUE | etc
+  sourceKind: 'var' | 'input'
+  sourceRef: string
+  expectedType: 'string' | 'number' | 'bool'
+}
+
 export interface StageLogic {
   version: 1
   stageIndex: number
   inputs: InputParam[]
   vars: FormulaVar[]
-  outputs: StageOutputs
-  offerPlan: OfferPlanItem[]
+  outputs: StageOutputs  // deprecated, но оставить для обратной совместимости
+  offerPlan: OfferPlanItem[]  // deprecated
+  // НОВЫЕ поля:
+  resultsHL?: ResultsHL
+  writePlan?: WritePlanItem[]
 }
 
 export interface ValidationIssue {
