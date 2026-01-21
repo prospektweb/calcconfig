@@ -4,8 +4,12 @@ import { inferExprType, SymbolTable, SymbolInfo } from './type-checker'
 // Extract identifiers from formula (simplified, doesn't handle strings/complex cases)
 export function extractIdentifiers(formula: string): string[] {
   const identifiers: string[] = []
+  
+  // First, remove string literals to avoid identifying content inside strings as identifiers
+  const withoutStrings = formula.replace(/"[^"]*"|'[^']*'/g, '""')
+  
   // Match word characters that are not part of function names or keywords
-  const tokens = formula.match(/\b[a-zA-Z_][a-zA-Z0-9_]*/g) || []
+  const tokens = withoutStrings.match(/\b[a-zA-Z_][a-zA-Z0-9_]*/g) || []
   
   for (const token of tokens) {
     // Skip allowed functions and keywords
@@ -132,6 +136,57 @@ export function inferType(
   })
   
   return inferExprType(formula, symbols)
+}
+
+/**
+ * Deduplicate issues by creating a unique key from severity, scope, refId, and message
+ */
+function deduplicateIssues(issues: ValidationIssue[]): ValidationIssue[] {
+  const seen = new Set<string>()
+  return issues.filter(issue => {
+    const key = `${issue.severity}|${issue.scope}|${issue.refId || ''}|${issue.message}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+/**
+ * Sort issues by priority:
+ * 1. Errors with forbidden sources (selectedOffers, array indices)
+ * 2. Syntax errors (brackets, syntax)
+ * 3. Unknown variable errors
+ * 4. Other errors (type mismatches, etc.)
+ * 5. Warnings
+ */
+function sortIssues(issues: ValidationIssue[]): ValidationIssue[] {
+  const priority = (issue: ValidationIssue): number => {
+    // 1. error + forbidden sources (selectedOffers, indices)
+    if (issue.severity === 'error' && 
+        (issue.message.includes('selectedOffers') || 
+         issue.message.includes('Запрещены индексы'))) {
+      return 0
+    }
+    // 2. error syntax
+    if (issue.severity === 'error' && 
+        (issue.message.includes('скобок') || 
+         issue.message.includes('синтаксис'))) {
+      return 1
+    }
+    // 3. error unknown variable
+    if (issue.severity === 'error' && 
+        issue.message.includes('Неизвестная переменная')) {
+      return 2
+    }
+    // 4. error type mismatch and others
+    if (issue.severity === 'error') {
+      return 3
+    }
+    // 5. warnings
+    return 4
+  }
+  
+  return [...issues].sort((a, b) => priority(a) - priority(b))
 }
 
 // Validate all formulas
@@ -269,5 +324,8 @@ export function validateAll(
     }
   })
 
-  return { valid: issues.filter(i => i.severity === 'error').length === 0, issues }
+  return { 
+    valid: issues.filter(i => i.severity === 'error').length === 0, 
+    issues: sortIssues(deduplicateIssues(issues))
+  }
 }
