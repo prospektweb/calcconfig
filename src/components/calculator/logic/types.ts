@@ -28,8 +28,13 @@ export interface StageOutputs {
 
 export interface OfferPlanItem {
   id: string
-  field: 'PRICE' | 'WEIGHT' | 'DIM_W' | 'DIM_H' | 'DIM_D'
+  // Old fields (for backward compatibility):
+  field?: 'PRICE' | 'WEIGHT' | 'DIM_W' | 'DIM_H' | 'DIM_D'
   varName: string
+  // New fields:
+  targetPath?: string  // e.g.: offer.properties.COLOR.VALUE_XML_ID
+  sourceType?: 'var' | 'input' | 'const'  // where value comes from
+  constValue?: string | number  // if sourceType === 'const'
 }
 
 export interface StageLogic {
