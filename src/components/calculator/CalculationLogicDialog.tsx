@@ -12,9 +12,9 @@ import { JsonTree } from './logic/JsonTree'
 import { InputsTab } from './logic/InputsTab'
 import { FormulasTab } from './logic/FormulasTab'
 import { OutputsTab } from './logic/OutputsTab'
-import { InputParam, FormulaVar, StageOutputs, OfferPlanItem, StageLogic } from './logic/types'
+import { InputParam, FormulaVar, StageOutputs, OfferPlanItem, StageLogic, ValidationIssue, ValueType } from './logic/types'
 import { saveLogic, loadLogic } from './logic/storage'
-import { validateAll } from './logic/validator'
+import { validateAll, inferType, inferTypeFromSourcePath } from './logic/validator'
 
 /**
  * Recursively nullify all values in an object/array, preserving structure
@@ -142,6 +142,7 @@ export function CalculationLogicDialog({
   const [vars, setVars] = useState<FormulaVar[]>([])
   const [outputs, setOutputs] = useState<StageOutputs>({})
   const [offerPlan, setOfferPlan] = useState<OfferPlanItem[]>([])
+  const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
 
   // Load saved logic when dialog opens
   useEffect(() => {
@@ -183,11 +184,15 @@ export function CalculationLogicDialog({
       counter++
     }
 
+    // Infer type from path
+    const inferredType = inferTypeFromSourcePath(path)
+
     const newInput: InputParam = {
       id,
       name,
       sourcePath: path,
-      sourceType: type as any
+      sourceType: type as any,
+      valueType: inferredType !== 'unknown' ? inferredType : undefined
     }
 
     setInputs([...inputs, newInput])
@@ -208,21 +213,47 @@ export function CalculationLogicDialog({
 
   const handleValidate = () => {
     const result = validateAll(inputs, vars, stageIndex)
+    setValidationIssues(result.issues)
+    
+    // Also update vars with inferred types
+    const symbolTable = new Map<string, ValueType>()
+    
+    // Add inputs to symbol table
+    for (const input of inputs) {
+      const type = input.valueType || inferTypeFromSourcePath(input.sourcePath)
+      symbolTable.set(input.name, type)
+    }
+    
+    // Update vars with inferred types
+    const varsWithTypes = vars.map(v => {
+      if (v.formula.trim()) {
+        const typeResult = inferType(v.formula, symbolTable)
+        symbolTable.set(v.name, typeResult.type)
+        return { ...v, inferredType: typeResult.type }
+      }
+      symbolTable.set(v.name, 'unknown')
+      return { ...v, inferredType: 'unknown' as ValueType }
+    })
+    setVars(varsWithTypes)
+    
     if (result.valid) {
       toast.success('Проверка пройдена')
     } else {
-      // Show first error in toast for visibility
-      const firstError = result.errors[0]
-      if (firstError) {
-        toast.error(firstError.error)
+      // Count errors and warnings
+      const errorCount = result.issues.filter(i => i.severity === 'error').length
+      const warningCount = result.issues.filter(i => i.severity === 'warning').length
+      
+      // Show summary in toast
+      if (errorCount > 0) {
+        toast.error(`Проверка не пройдена: ${errorCount} ошибок${warningCount > 0 ? `, ${warningCount} предупреждений` : ''}`)
       } else {
-        toast.error('Есть ошибки в формулах')
+        toast.warning(`${warningCount} предупреждений`)
       }
       
       // Update vars with errors
-      const varsWithErrors = vars.map(v => {
-        const error = result.errors.find(e => e.varId === v.id)
-        return error ? { ...v, error: error.error } : { ...v, error: null }
+      const varsWithErrors = varsWithTypes.map(v => {
+        const issue = result.issues.find(i => i.refId === v.id && i.severity === 'error')
+        return issue ? { ...v, error: issue.message } : { ...v, error: null }
       })
       setVars(varsWithErrors)
     }
@@ -373,7 +404,7 @@ export function CalculationLogicDialog({
               <div className="flex-1 overflow-hidden">
                 <TabsContent value="inputs" className="h-full m-0 p-0">
                   <ScrollArea className="h-full">
-                    <InputsTab inputs={inputs} onChange={setInputs} />
+                    <InputsTab inputs={inputs} onChange={setInputs} issues={validationIssues} />
                   </ScrollArea>
                 </TabsContent>
                 <TabsContent value="formulas" className="h-full m-0 p-0">
@@ -383,6 +414,7 @@ export function CalculationLogicDialog({
                       vars={vars} 
                       onChange={setVars}
                       stageIndex={stageIndex}
+                      issues={validationIssues}
                     />
                   </ScrollArea>
                 </TabsContent>

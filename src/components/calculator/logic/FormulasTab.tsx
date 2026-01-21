@@ -10,18 +10,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { FormulaVar, InputParam } from './types'
+import { FormulaVar, InputParam, ValidationIssue } from './types'
 import { validateFormula } from './validator'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 interface FormulasTabProps {
   inputs: InputParam[]
   vars: FormulaVar[]
   onChange: (vars: FormulaVar[]) => void
   stageIndex: number
+  issues?: ValidationIssue[]
 }
 
-export function FormulasTab({ inputs, vars, onChange, stageIndex }: FormulasTabProps) {
+export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }: FormulasTabProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
 
@@ -119,6 +121,10 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex }: FormulasTabP
     }
   }
 
+  const getVarIssues = (varId: string) => {
+    return issues.filter(i => i.scope === 'var' && i.refId === varId)
+  }
+
   const errors = vars.filter(v => v.error).map(v => ({ name: v.name, error: v.error! }))
 
   return (
@@ -137,90 +143,131 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex }: FormulasTabP
         </div>
       ) : (
         <div className="space-y-3">
-          {vars.map((v, idx) => (
-            <div 
-              key={v.id}
-              className="p-3 border border-border rounded-md bg-card space-y-2"
-            >
-              <div className="flex items-center gap-2">
-                {editingId === v.id ? (
-                  <Input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, v.id)}
-                    onBlur={() => handleSaveEdit(v.id)}
-                    autoFocus
-                    className="h-7 text-sm max-w-xs"
-                    placeholder="Имя переменной"
-                  />
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{v.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={() => handleStartEdit(v)}
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </Button>
+          {vars.map((v, idx) => {
+            const varIssues = getVarIssues(v.id)
+            const hasError = varIssues.some(i => i.severity === 'error') || !!v.error
+            const hasWarning = varIssues.some(i => i.severity === 'warning')
+            
+            return (
+              <div 
+                key={v.id}
+                className={cn(
+                  "p-3 border rounded-md bg-card space-y-2",
+                  hasError && "border-destructive",
+                  hasWarning && !hasError && "border-yellow-500"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  {editingId === v.id ? (
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, v.id)}
+                      onBlur={() => handleSaveEdit(v.id)}
+                      autoFocus
+                      className="h-7 text-sm max-w-xs"
+                      placeholder="Имя переменной"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{v.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => handleStartEdit(v)}
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                  
+                  <span className="text-sm text-muted-foreground">=</span>
+                  
+                  {v.inferredType && (
+                    <Badge variant="outline" className="text-xs">
+                      {v.inferredType}
+                    </Badge>
+                  )}
+                  
+                  <div className="flex-1" />
+                  
+                  {hasError ? (
+                    <Badge variant="destructive" className="text-xs gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Ошибка
+                    </Badge>
+                  ) : hasWarning ? (
+                    <Badge variant="outline" className="text-xs gap-1 border-yellow-500 text-yellow-700 dark:text-yellow-400">
+                      <AlertCircle className="w-3 h-3" />
+                      Внимание
+                    </Badge>
+                  ) : v.formula.trim() ? (
+                    <Badge variant="default" className="text-xs gap-1 bg-green-600">
+                      <CheckCircle2 className="w-3 h-3" />
+                      OK
+                    </Badge>
+                  ) : null}
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleDuplicate(v)}>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Дублировать
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleDelete(v.id)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Удалить
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                
+                <Textarea
+                  value={v.formula}
+                  onChange={(e) => handleFormulaChange(v.id, e.target.value)}
+                  onBlur={(e) => handleFormulaBlur(v.id, e.target.value)}
+                  placeholder="Введите формулу..."
+                  className="min-h-[80px] font-mono text-xs"
+                />
+                
+                {v.error && (
+                  <div className="text-xs text-destructive flex items-start gap-1 p-2 rounded-md bg-destructive/10">
+                    <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    <span>{v.error}</span>
                   </div>
                 )}
                 
-                <span className="text-sm text-muted-foreground">=</span>
-                
-                <div className="flex-1" />
-                
-                {v.error ? (
-                  <Badge variant="destructive" className="text-xs gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    Ошибка
-                  </Badge>
-                ) : v.formula.trim() ? (
-                  <Badge variant="default" className="text-xs gap-1 bg-green-600">
-                    <CheckCircle2 className="w-3 h-3" />
-                    OK
-                  </Badge>
-                ) : null}
-                
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleDuplicate(v)}>
-                      <Copy className="w-4 h-4 mr-2" />
-                      Дублировать
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => handleDelete(v.id)}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Удалить
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {varIssues.length > 0 && (
+                  <div className="space-y-1">
+                    {varIssues.map((issue, idx) => (
+                      <div 
+                        key={idx}
+                        className={cn(
+                          "text-xs flex items-start gap-1 p-2 rounded-md",
+                          issue.severity === 'error' ? "bg-destructive/10 text-destructive" : "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400"
+                        )}
+                      >
+                        <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span>{issue.message}</span>
+                          {issue.hint && <p className="text-xs opacity-80 mt-1">{issue.hint}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              
-              <Textarea
-                value={v.formula}
-                onChange={(e) => handleFormulaChange(v.id, e.target.value)}
-                onBlur={(e) => handleFormulaBlur(v.id, e.target.value)}
-                placeholder="Введите формулу..."
-                className="min-h-[80px] font-mono text-xs"
-              />
-              
-              {v.error && (
-                <div className="text-xs text-destructive flex items-start gap-1">
-                  <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                  <span>{v.error}</span>
-                </div>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

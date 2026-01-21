@@ -1,8 +1,11 @@
+export type ValueType = 'number' | 'string' | 'bool' | 'any' | 'unknown'
+
 export interface InputParam {
   id: string
   name: string
   sourcePath: string
   sourceType: 'string' | 'number' | 'boolean' | 'null' | 'object' | 'array'
+  valueType?: ValueType
 }
 
 export interface FormulaVar {
@@ -10,6 +13,7 @@ export interface FormulaVar {
   name: string
   formula: string
   error?: string | null
+  inferredType?: ValueType
 }
 
 export interface StageOutputs {
@@ -33,6 +37,14 @@ export interface StageLogic {
   vars: FormulaVar[]
   outputs: StageOutputs
   offerPlan: OfferPlanItem[]
+}
+
+export interface ValidationIssue {
+  severity: 'error' | 'warning'
+  scope: 'input' | 'var' | 'result'
+  refId: string
+  message: string
+  hint?: string
 }
 
 export const ALLOWED_FUNCTIONS = [
