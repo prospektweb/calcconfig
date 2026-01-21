@@ -121,7 +121,6 @@ export function OutputsTab({
                   <SelectValue placeholder="Не выбрано" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Не выбрано</SelectItem>
                   {varOptions.map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
@@ -141,7 +140,6 @@ export function OutputsTab({
                   <SelectValue placeholder="Не выбрано" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Не выбрано</SelectItem>
                   {varOptions.map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
@@ -161,7 +159,6 @@ export function OutputsTab({
                   <SelectValue placeholder="Не выбрано" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Не выбрано</SelectItem>
                   {varOptions.map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
@@ -181,7 +178,6 @@ export function OutputsTab({
                   <SelectValue placeholder="Не выбрано" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Не выбрано</SelectItem>
                   {varOptions.map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
@@ -201,7 +197,6 @@ export function OutputsTab({
                   <SelectValue placeholder="Не выбрано" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Не выбрано</SelectItem>
                   {varOptions.map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
@@ -326,7 +321,6 @@ export function OutputsTab({
                               <SelectValue placeholder="Выберите переменную" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Не выбрано</SelectItem>
                               {varOptions.map(opt => (
                                 <SelectItem key={opt.value} value={opt.value}>
                                   {opt.label}
@@ -343,7 +337,6 @@ export function OutputsTab({
                               <SelectValue placeholder="Выберите параметр" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Не выбрано</SelectItem>
                               {inputOptions.map(opt => (
                                 <SelectItem key={opt.value} value={opt.value}>
                                   {opt.label}
