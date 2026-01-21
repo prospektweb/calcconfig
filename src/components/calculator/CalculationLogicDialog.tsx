@@ -48,23 +48,34 @@ function buildLogicContext(initPayload: InitPayload | null | undefined): any {
   if (iblock?.properties) {
     for (const prop of iblock.properties) {
       if (prop.CODE) {
-        // Create property descriptor with __leaf marker
-        offerProperties[prop.CODE] = {
-          CODE: prop.CODE,
-          NAME: prop.NAME,
-          PROPERTY_TYPE: prop.PROPERTY_TYPE,
-          ...(prop.ENUMS ? { ENUMS: prop.ENUMS } : {}),
-          // Marker for JsonTree to treat this as a clickable leaf
-          __leaf: true,
-          __sourcePath: `offer.properties.${prop.CODE}`,
-          __sourceType: 'property'
+        // Create property descriptor with META and template fields
+        const propertyDescriptor: Record<string, any> = {
+          META: {
+            ID: prop.ID,
+            CODE: prop.CODE,
+            NAME: prop.NAME,
+            PROPERTY_TYPE: prop.PROPERTY_TYPE,
+            ...(prop.ENUMS ? { ENUMS: prop.ENUMS } : {})
+          },
+          VALUE: null
         }
+
+        // For list properties (PROPERTY_TYPE === "L"), add full template fields
+        if (prop.PROPERTY_TYPE === 'L') {
+          propertyDescriptor.VALUE_ENUM = null
+          propertyDescriptor.VALUE_ENUM_ID = null
+          propertyDescriptor.VALUE_XML_ID = null
+          propertyDescriptor.VALUE_SORT = null
+          propertyDescriptor.XML_ID = null
+          propertyDescriptor.ENUM_ID = null
+          propertyDescriptor.SORT = null
+          propertyDescriptor.NAME = null
+        }
+
+        offerProperties[prop.CODE] = propertyDescriptor
       }
     }
   }
-
-  // Get first offer for reference data
-  const firstOffer = initPayload.selectedOffers?.[0]
 
   // Construct logic context
   const logicContext: any = {
@@ -87,13 +98,14 @@ function buildLogicContext(initPayload: InitPayload | null | undefined): any {
   }
 
   // Add offer object (single instance, not array)
+  // DO NOT use any data from selectedOffers
   logicContext.offer = {
-    id: 0, // placeholder
+    id: 0,
     name: '',
-    code: firstOffer?.name || '',
-    measure: '',
+    code: '',
+    measure: null,
     measureRatio: 1,
-    prices: initPayload.priceTypes || firstOffer?.prices || [],
+    prices: [],  // Empty array, not from selectedOffers
     properties: offerProperties
   }
 
