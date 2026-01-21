@@ -12,7 +12,7 @@ import { JsonTree } from './logic/JsonTree'
 import { InputsTab } from './logic/InputsTab'
 import { FormulasTab } from './logic/FormulasTab'
 import { OutputsTab } from './logic/OutputsTab'
-import { InputParam, FormulaVar, StageOutputs, OfferPlanItem, StageLogic, ValidationIssue, ValueType } from './logic/types'
+import { InputParam, FormulaVar, StageOutputs, OfferPlanItem, StageLogic, ValidationIssue, ValueType, ResultsHL, WritePlanItem } from './logic/types'
 import { saveLogic, loadLogic } from './logic/storage'
 import { validateAll, inferType, inferTypeFromSourcePath } from './logic/validator'
 
@@ -109,6 +109,22 @@ function buildLogicContext(initPayload: InitPayload | null | undefined): any {
   return logicContext
 }
 
+// Helper to get session draft key
+const getSessionDraftKey = (settingsId: number, stageId: number) => 
+  `calcconfig_session_draft_${settingsId}_${stageId}`
+
+// Helper to create empty ResultsHL
+function createEmptyResultsHL(): ResultsHL {
+  return {
+    width: { sourceKind: null, sourceRef: '' },
+    length: { sourceKind: null, sourceRef: '' },
+    height: { sourceKind: null, sourceRef: '' },
+    weight: { sourceKind: null, sourceRef: '' },
+    purchasingPrice: { sourceKind: null, sourceRef: '' },
+    basePrice: { sourceKind: null, sourceRef: '' },
+  }
+}
+
 interface CalculationLogicDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -142,27 +158,70 @@ export function CalculationLogicDialog({
   const [vars, setVars] = useState<FormulaVar[]>([])
   const [outputs, setOutputs] = useState<StageOutputs>({})
   const [offerPlan, setOfferPlan] = useState<OfferPlanItem[]>([])
+  const [resultsHL, setResultsHL] = useState<ResultsHL>(createEmptyResultsHL())
+  const [writePlan, setWritePlan] = useState<WritePlanItem[]>([])
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
 
-  // Load saved logic when dialog opens
+  // Load saved logic when dialog opens (with session draft support)
   useEffect(() => {
     if (open && currentSettingsId !== null && currentSettingsId !== undefined && 
         currentStageId !== null && currentStageId !== undefined) {
+      const sessionKey = getSessionDraftKey(currentSettingsId, currentStageId)
+      
+      // Try session draft first
+      const sessionDraft = sessionStorage.getItem(sessionKey)
+      if (sessionDraft) {
+        try {
+          const parsed = JSON.parse(sessionDraft)
+          setInputs(parsed.inputs || [])
+          setVars(parsed.vars || [])
+          setOutputs(parsed.outputs || {})
+          setOfferPlan(parsed.offerPlan || [])
+          setResultsHL(parsed.resultsHL || createEmptyResultsHL())
+          setWritePlan(parsed.writePlan || [])
+          return
+        } catch (e) {
+          console.warn('Failed to parse session draft', e)
+        }
+      }
+      
+      // Fall back to localStorage (saved)
       const saved = loadLogic(currentSettingsId, currentStageId)
       if (saved) {
         setInputs(saved.inputs)
         setVars(saved.vars)
         setOutputs(saved.outputs)
         setOfferPlan(saved.offerPlan)
+        setResultsHL(saved.resultsHL || createEmptyResultsHL())
+        setWritePlan(saved.writePlan || [])
       } else {
         // Reset to empty state
         setInputs([])
         setVars([])
         setOutputs({})
         setOfferPlan([])
+        setResultsHL(createEmptyResultsHL())
+        setWritePlan([])
       }
     }
   }, [open, currentSettingsId, currentStageId])
+
+  // Save to session draft on any change
+  useEffect(() => {
+    if (open && currentSettingsId !== null && currentSettingsId !== undefined && 
+        currentStageId !== null && currentStageId !== undefined) {
+      const sessionKey = getSessionDraftKey(currentSettingsId, currentStageId)
+      const draft = {
+        inputs,
+        vars,
+        outputs,
+        offerPlan,
+        resultsHL,
+        writePlan
+      }
+      sessionStorage.setItem(sessionKey, JSON.stringify(draft))
+    }
+  }, [inputs, vars, outputs, offerPlan, resultsHL, writePlan, open, currentSettingsId, currentStageId])
 
   // Show current and previous stages only
   const visibleStages = allStages.slice(0, stageIndex + 1)
@@ -214,7 +273,7 @@ export function CalculationLogicDialog({
   }
 
   const handleValidate = () => {
-    const result = validateAll(inputs, vars, stageIndex, offerPlan)
+    const result = validateAll(inputs, vars, stageIndex, offerPlan, resultsHL, writePlan)
     setValidationIssues(result.issues)
     
     // Also update vars with inferred types
@@ -265,11 +324,18 @@ export function CalculationLogicDialog({
       inputs,
       vars,
       outputs,
-      offerPlan
+      offerPlan,
+      resultsHL,
+      writePlan
     }
 
     try {
       saveLogic(currentSettingsId, currentStageId, logic)
+      
+      // Clear session draft after successful save
+      const sessionKey = getSessionDraftKey(currentSettingsId, currentStageId)
+      sessionStorage.removeItem(sessionKey)
+      
       toast.success('Логика сохранена (локально)')
       onOpenChange(false)
     } catch (error) {
@@ -418,8 +484,12 @@ export function CalculationLogicDialog({
                       inputs={inputs}
                       outputs={outputs}
                       offerPlan={offerPlan}
+                      resultsHL={resultsHL}
+                      writePlan={writePlan}
                       onOutputsChange={setOutputs}
                       onOfferPlanChange={setOfferPlan}
+                      onResultsHLChange={setResultsHL}
+                      onWritePlanChange={setWritePlan}
                       issues={validationIssues}
                       offerModel={logicContext?.offer}
                     />
