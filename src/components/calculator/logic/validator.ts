@@ -27,28 +27,62 @@ export function extractIdentifiers(formula: string): string[] {
 
 /**
  * Infer type from sourcePath based on patterns
+ * Returns both the type and the reason for the inference
  */
-export function inferTypeFromSourcePath(sourcePath: string): ValueType {
-  const path = sourcePath.toLowerCase()
+export function inferTypeFromSourcePath(sourcePath: string): { type: ValueType; reason: string } {
+  // Extract last segment from path
+  const segments = sourcePath.split('.')
+  const lastSegment = segments[segments.length - 1]
+  const lastSegmentUpper = lastSegment.toUpperCase()
   
   // String patterns
-  if (path.includes('.value_xml_id') || path.includes('.xml_id') || path.includes('.description')) {
-    return 'string'
+  const stringPatterns = ['VALUE_XML_ID', 'XML_ID', 'DESCRIPTION', 'NAME', 'CODE', 'SYMBOL', 'CURRENCY']
+  if (stringPatterns.includes(lastSegmentUpper)) {
+    return { 
+      type: 'string', 
+      reason: `*.${lastSegmentUpper} → string` 
+    }
   }
   
   // Number patterns
-  if (path.includes('.value_enum_id') || path.includes('.enum_id') || 
-      path.includes('.id') || path.includes('.sort') || path.includes('.multiple_cnt')) {
-    return 'number'
+  const numberPatterns = ['ID', 'ENUM_ID', 'VALUE_ENUM_ID', 'SORT', 'MULTIPLE_CNT']
+  const numberPatternLower = ['measureRatio', 'quantityFrom', 'quantityTo', 'price']
+  
+  if (numberPatterns.includes(lastSegmentUpper)) {
+    return { 
+      type: 'number', 
+      reason: `*.${lastSegmentUpper} → number` 
+    }
+  }
+  
+  if (numberPatternLower.includes(lastSegment)) {
+    return { 
+      type: 'number', 
+      reason: `*.${lastSegment} → number` 
+    }
   }
   
   // Boolean patterns
-  if (path.includes('.active') || path.includes('.is_required') || 
-      path.includes('.multiple') || path.includes('.filtrable') || path.includes('.searchable')) {
-    return 'bool'
+  const boolPatterns = ['ACTIVE', 'IS_REQUIRED', 'MULTIPLE', 'FILTRABLE', 'SEARCHABLE']
+  if (boolPatterns.includes(lastSegmentUpper)) {
+    return { 
+      type: 'bool', 
+      reason: `*.${lastSegmentUpper} → bool` 
+    }
   }
   
-  return 'unknown'
+  // Special case for VALUE - always unknown
+  if (lastSegmentUpper === 'VALUE') {
+    return { 
+      type: 'unknown', 
+      reason: '*.VALUE → unknown' 
+    }
+  }
+  
+  return { 
+    type: 'unknown', 
+    reason: 'тип не удалось определить автоматически' 
+  }
 }
 
 // Validate formula syntax and references
@@ -241,18 +275,20 @@ export function validateAll(
       }
     }
     
-    // Type validation for inputs
-    if (input.valueType && input.valueType !== 'any' && input.valueType !== 'unknown') {
-      const inferredType = inferTypeFromSourcePath(input.sourcePath)
+    // Type validation for inputs - check for conflicts with manual types
+    if (input.typeSource === 'manual' && input.valueType && input.valueType !== 'any' && input.valueType !== 'unknown') {
+      const inferred = inferTypeFromSourcePath(input.sourcePath)
       
-      // Warn if there's a conflict between explicit type and inferred type
-      if (inferredType !== 'unknown' && inferredType !== input.valueType) {
+      // Warn if there's a conflict between manual type and inferred type
+      if (inferred.type !== 'unknown' && inferred.type !== input.valueType) {
+        // Extract last segment for better error message
+        const lastSegment = input.sourcePath.split('.').pop() || input.sourcePath
         issues.push({
           severity: 'warning',
           scope: 'input',
           refId: input.id,
-          message: `Тип ${input.valueType} может конфликтовать с путём (ожидается ${inferredType})`,
-          hint: `Проверьте соответствие типа пути ${input.sourcePath}`
+          message: `Тип входного параметра (${input.valueType}) не соответствует источнику ${lastSegment} (${inferred.type})`,
+          hint: 'Проверьте, действительно ли это ожидаемое поведение'
         })
       }
     }
@@ -263,7 +299,8 @@ export function validateAll(
   
   // Add inputs to symbol table
   for (const input of inputs) {
-    const type = input.valueType || inferTypeFromSourcePath(input.sourcePath)
+    const inferred = inferTypeFromSourcePath(input.sourcePath)
+    const type = input.valueType || inferred.type
     symbols[input.name] = {
       kind: 'input',
       name: input.name,

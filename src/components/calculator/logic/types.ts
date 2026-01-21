@@ -6,6 +6,8 @@ export interface InputParam {
   sourcePath: string
   sourceType: 'string' | 'number' | 'boolean' | 'null' | 'object' | 'array'
   valueType?: ValueType
+  typeSource?: 'auto' | 'manual'
+  autoTypeReason?: string
 }
 
 export interface FormulaVar {

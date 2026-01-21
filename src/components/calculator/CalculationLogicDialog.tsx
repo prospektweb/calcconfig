@@ -185,14 +185,16 @@ export function CalculationLogicDialog({
     }
 
     // Infer type from path
-    const inferredType = inferTypeFromSourcePath(path)
+    const inferred = inferTypeFromSourcePath(path)
 
     const newInput: InputParam = {
       id,
       name,
       sourcePath: path,
       sourceType: type as any,
-      valueType: inferredType !== 'unknown' ? inferredType : undefined
+      valueType: inferred.type !== 'unknown' ? inferred.type : undefined,
+      typeSource: 'auto',
+      autoTypeReason: inferred.reason
     }
 
     setInputs([...inputs, newInput])
@@ -220,7 +222,8 @@ export function CalculationLogicDialog({
     
     // Add inputs to symbol table
     for (const input of inputs) {
-      const type = input.valueType || inferTypeFromSourcePath(input.sourcePath)
+      const inferred = inferTypeFromSourcePath(input.sourcePath)
+      const type = input.valueType || inferred.type
       symbolTable.set(input.name, type)
     }
     
@@ -465,6 +468,29 @@ export function CalculationLogicDialog({
                             <li>Переменные выполняются сверху вниз</li>
                             <li>Нельзя ссылаться на переменные ниже</li>
                             <li>Нельзя ссылаться на данные будущих этапов</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="types">
+                    <AccordionTrigger className="text-sm">Типы данных</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <h4 className="font-medium">Типы значений</h4>
+                          <ul className="list-disc list-inside text-muted-foreground">
+                            <li><strong>number</strong> — числа, арифметика, round/ceil/floor</li>
+                            <li><strong>string</strong> — строки, lower/upper/contains</li>
+                            <li><strong>bool</strong> — логика, if/and/or</li>
+                            <li><strong>unknown</strong> — тип не определён</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="font-medium mt-2">Как определяется тип</h4>
+                          <ul className="list-disc list-inside text-muted-foreground">
+                            <li>Автоматически по sourcePath (при добавлении из контекста)</li>
+                            <li>Или вручную администратором</li>
                           </ul>
                         </div>
                       </div>
