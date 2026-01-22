@@ -6,7 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { CaretLeft, CaretRight, ArrowsOut, ArrowsIn } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
-import { InitPayload } from '@/lib/postmessage-bridge'
+import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { toast } from 'sonner'
 import { JsonTree } from './logic/JsonTree'
 import { InputsTab } from './logic/InputsTab'
@@ -15,6 +15,7 @@ import { OutputsTab } from './logic/OutputsTab'
 import { InputParam, FormulaVar, StageLogic, ValidationIssue, ValueType, ResultsHL, WritePlanItem } from './logic/types'
 import { saveLogic, loadLogic } from './logic/storage'
 import { validateAll, inferType, inferTypeFromSourcePath } from './logic/validator'
+import { getDraftKey } from '@/lib/stage-utils'
 
 /**
  * Recursively nullify all values in an object/array, preserving structure
@@ -109,10 +110,6 @@ function buildLogicContext(initPayload: InitPayload | null | undefined): any {
   return logicContext
 }
 
-// Helper to get session draft key
-const getSessionDraftKey = (settingsId: number, stageId: number) => 
-  `calcconfig_session_draft_${settingsId}_${stageId}`
-
 // Helper to create empty ResultsHL
 function createEmptyResultsHL(): ResultsHL {
   return {
@@ -160,58 +157,108 @@ export function CalculationLogicDialog({
   const [writePlan, setWritePlan] = useState<WritePlanItem[]>([])
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
 
-  // Load saved logic when dialog opens (with session draft support)
+  // State for save/draft management
+  const [savedJson, setSavedJson] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Load savedJson from INIT using ~VALUE
+  useEffect(() => {
+    if (open && initPayload?.elementsStore?.CALC_STAGES && currentStageId) {
+      const stageElement = initPayload.elementsStore.CALC_STAGES.find(
+        s => s.id === currentStageId
+      )
+      
+      // ВАЖНО: использовать ~VALUE, не VALUE
+      const logicJsonRaw = stageElement?.properties?.LOGIC_JSON?.['~VALUE']
+      setSavedJson(typeof logicJsonRaw === 'string' ? logicJsonRaw : null)
+    }
+  }, [open, initPayload, currentStageId])
+
+  // Load saved logic when dialog opens (with draft support)
   useEffect(() => {
     if (open && currentSettingsId !== null && currentSettingsId !== undefined && 
         currentStageId !== null && currentStageId !== undefined) {
-      const sessionKey = getSessionDraftKey(currentSettingsId, currentStageId)
+      const draftKey = getDraftKey(currentSettingsId, currentStageId)
       
-      // Try session draft first
-      const sessionDraft = sessionStorage.getItem(sessionKey)
-      if (sessionDraft) {
+      // Try localStorage draft first
+      const draftJson = localStorage.getItem(draftKey)
+      if (draftJson) {
         try {
-          const parsed = JSON.parse(sessionDraft)
+          const parsed = JSON.parse(draftJson)
           setInputs(parsed.inputs || [])
           setVars(parsed.vars || [])
           setResultsHL(parsed.resultsHL || createEmptyResultsHL())
           setWritePlan(parsed.writePlan || [])
           return
         } catch (e) {
-          console.warn('Failed to parse session draft', e)
+          console.warn('Failed to parse draft', e)
         }
       }
       
-      // Fall back to localStorage (saved)
-      const saved = loadLogic(currentSettingsId, currentStageId)
-      if (saved) {
-        setInputs(saved.inputs)
-        setVars(saved.vars)
-        setResultsHL(saved.resultsHL || createEmptyResultsHL())
-        setWritePlan(saved.writePlan || [])
-      } else {
-        // Reset to empty state
-        setInputs([])
-        setVars([])
-        setResultsHL(createEmptyResultsHL())
-        setWritePlan([])
+      // Fall back to savedJson from INIT
+      if (savedJson) {
+        try {
+          const saved = JSON.parse(savedJson)
+          setInputs(saved.inputs || [])
+          setVars(saved.vars || [])
+          setResultsHL(saved.resultsHL || createEmptyResultsHL())
+          setWritePlan(saved.writePlan || [])
+          return
+        } catch (e) {
+          console.warn('Failed to parse saved logic', e)
+        }
       }
+      
+      // Reset to empty state
+      setInputs([])
+      setVars([])
+      setResultsHL(createEmptyResultsHL())
+      setWritePlan([])
     }
-  }, [open, currentSettingsId, currentStageId])
+  }, [open, currentSettingsId, currentStageId, savedJson])
 
-  // Save to session draft on any change
+  // Save to draft on any change
   useEffect(() => {
     if (open && currentSettingsId !== null && currentSettingsId !== undefined && 
         currentStageId !== null && currentStageId !== undefined) {
-      const sessionKey = getSessionDraftKey(currentSettingsId, currentStageId)
+      const draftKey = getDraftKey(currentSettingsId, currentStageId)
       const draft = {
+        version: 1,
+        stageIndex,
         inputs,
         vars,
         resultsHL,
         writePlan
       }
-      sessionStorage.setItem(sessionKey, JSON.stringify(draft))
+      localStorage.setItem(draftKey, JSON.stringify(draft))
     }
-  }, [inputs, vars, resultsHL, writePlan, open, currentSettingsId, currentStageId])
+  }, [inputs, vars, resultsHL, writePlan, open, currentSettingsId, currentStageId, stageIndex])
+
+  // Computed values for dirty state
+  const currentJson = JSON.stringify({
+    version: 1,
+    stageIndex,
+    inputs,
+    vars,
+    resultsHL,
+    writePlan
+  })
+
+  const draftKey = currentSettingsId !== null && currentStageId !== null 
+    ? getDraftKey(currentSettingsId, currentStageId) 
+    : null
+  const hasDraft = draftKey !== null && localStorage.getItem(draftKey) !== null
+  
+  // Helper to check if there's any content
+  const hasAnyContent = (): boolean => {
+    return inputs.length > 0 || 
+           vars.length > 0 || 
+           writePlan.length > 0 ||
+           Object.values(resultsHL).some(m => m.sourceRef)
+  }
+  
+  const isDirty = hasDraft || (savedJson === null && hasAnyContent())
+  const hasErrors = validationIssues.some(i => i.severity === 'error')
 
   // Show current and previous stages only
   const visibleStages = allStages.slice(0, stageIndex + 1)
@@ -301,36 +348,71 @@ export function CalculationLogicDialog({
     }
   }
 
-  const handleSave = () => {
-    if (currentSettingsId === null || currentSettingsId === undefined ||
-        currentStageId === null || currentStageId === undefined) {
-      toast.error('Невозможно сохранить: отсутствует ID этапа или настроек')
+  const handleSave = async () => {
+    // Финальная проверка
+    const result = validateAll(inputs, vars, stageIndex, resultsHL, writePlan)
+    setValidationIssues(result.issues)
+    
+    if (!result.valid) {
+      toast.error('Исправьте ошибки перед сохранением')
+      return
+    }
+    
+    if (!currentStageId) {
+      toast.error('Не указан ID этапа')
+      return
+    }
+    
+    setIsSaving(true)
+    
+    try {
+      postMessageBridge.sendSaveLogicJsonRequest({
+        stageId: currentStageId,
+        json: currentJson
+      })
+      // Popup закроется после получения нового INIT
+      // Draft будет очищен в App.tsx при обработке нового INIT
+    } catch (error) {
+      toast.error('Ошибка сохранения')
+      setIsSaving(false)
+    }
+  }
+
+  const handleReset = () => {
+    if (!currentSettingsId || !currentStageId) {
       return
     }
 
-    const logic: StageLogic = {
-      version: 1,
-      stageIndex,
-      inputs,
-      vars,
-      outputs: {},  // deprecated, keep for backward compatibility
-      offerPlan: [],  // deprecated, keep for backward compatibility
-      resultsHL,
-      writePlan
+    // Удалить draft из localStorage
+    const draftKey = getDraftKey(currentSettingsId, currentStageId)
+    localStorage.removeItem(draftKey)
+    
+    // Восстановить из savedJson или пустой шаблон
+    if (savedJson) {
+      try {
+        const saved = JSON.parse(savedJson)
+        setInputs(saved.inputs || [])
+        setVars(saved.vars || [])
+        setResultsHL(saved.resultsHL || createEmptyResultsHL())
+        setWritePlan(saved.writePlan || [])
+      } catch (e) {
+        console.warn('Failed to parse saved logic', e)
+        setInputs([])
+        setVars([])
+        setResultsHL(createEmptyResultsHL())
+        setWritePlan([])
+      }
+    } else {
+      setInputs([])
+      setVars([])
+      setResultsHL(createEmptyResultsHL())
+      setWritePlan([])
     }
-
-    try {
-      saveLogic(currentSettingsId, currentStageId, logic)
-      
-      // Clear session draft after successful save
-      const sessionKey = getSessionDraftKey(currentSettingsId, currentStageId)
-      sessionStorage.removeItem(sessionKey)
-      
-      toast.success('Логика сохранена (локально)')
-      onOpenChange(false)
-    } catch (error) {
-      toast.error('Ошибка сохранения')
-    }
+    
+    // Очистить ошибки
+    setValidationIssues([])
+    
+    toast.success('Изменения сброшены')
   }
 
   return (
@@ -643,6 +725,17 @@ export function CalculationLogicDialog({
               >
                 Проверить
               </Button>
+              {isDirty && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleReset}
+                  disabled={isSaving}
+                  data-pwcode="logic-btn-reset"
+                >
+                  Сбросить изменения
+                </Button>
+              )}
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
@@ -651,9 +744,10 @@ export function CalculationLogicDialog({
               <Button 
                 size="sm"
                 onClick={handleSave}
+                disabled={isSaving || !isDirty || hasErrors}
                 data-pwcode="logic-btn-save"
               >
-                Сохранить
+                {isSaving ? 'Сохранение...' : 'Сохранить'}
               </Button>
             </div>
           </div>

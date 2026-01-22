@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Select,
   SelectContent,
@@ -28,6 +30,7 @@ import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { getBitrixContext, openBitrixAdmin, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
 import { BitrixProperty } from '@/lib/bitrix-transformers'
+import { getDraftKey, calculateStageReadiness, hasDraftForStage } from '@/lib/stage-utils'
 
 interface StageTabsProps {
   calculators: StageInstance[]
@@ -262,6 +265,33 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   const [optionsDialogOpen, setOptionsDialogOpen] = useState(false)
   const [optionsDialogType, setOptionsDialogType] = useState<'operation' | 'material'>('operation')
   const [optionsDialogStageIndex, setOptionsDialogStageIndex] = useState<number | null>(null)
+
+  // Handle INIT updates - close logic dialog and clear draft after successful save
+  useEffect(() => {
+    if (calculationLogicDialogOpen && calculationLogicStageIndex !== null) {
+      const stage = calculators[calculationLogicStageIndex]
+      if (stage?.stageId && stage?.settingsId) {
+        // Check if there's a saved LOGIC_JSON in the new INIT
+        const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find(
+          s => s.id === stage.stageId
+        )
+        const logicJsonRaw = stageElement?.properties?.LOGIC_JSON?.['~VALUE']
+        
+        // If LOGIC_JSON exists, it means save was successful
+        if (logicJsonRaw) {
+          // Clear draft
+          const draftKey = getDraftKey(stage.settingsId, stage.stageId)
+          const hadDraft = localStorage.getItem(draftKey) !== null
+          
+          if (hadDraft) {
+            localStorage.removeItem(draftKey)
+            setCalculationLogicDialogOpen(false)
+            toast.success('Сохранено')
+          }
+        }
+      }
+    }
+  }, [bitrixMeta, calculationLogicDialogOpen, calculationLogicStageIndex, calculators])
 
   const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material' | 'stage' | 'config') => {
     if (!bitrixMeta) return null
@@ -854,7 +884,44 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                       >
                         <DotsSixVertical className="w-3.5 h-3.5" />
                       </div>
-                      {calc.stageName ? `Этап #${index + 1}: ${calc.stageName}` : `Этап #${index + 1}`}
+                      <span>{calc.stageName ? `Этап #${index + 1}: ${calc.stageName}` : `Этап #${index + 1}`}</span>
+                      {/* Readiness indicator */}
+                      {calc.stageId && calc.settingsId && (() => {
+                        const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find(
+                          s => s.id === calc.stageId
+                        )
+                        const savedJson = stageElement?.properties?.LOGIC_JSON?.['~VALUE']
+                        const hasDraft = hasDraftForStage(calc.settingsId, calc.stageId)
+                        const readiness = calculateStageReadiness(
+                          typeof savedJson === 'string' ? savedJson : null,
+                          hasDraft
+                        )
+                        
+                        return readiness.ready ? (
+                          <Badge 
+                            variant="outline" 
+                            className="ml-1 text-green-600 border-green-600 bg-green-50 dark:bg-green-950"
+                          >
+                            ✓
+                          </Badge>
+                        ) : (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge 
+                                  variant="outline" 
+                                  className="ml-1 text-yellow-600 border-yellow-600 bg-yellow-50 dark:bg-yellow-950"
+                                >
+                                  !
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {readiness.reason}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )
+                      })()}
                     </TabsTrigger>
                     {/* Button to open stage in Bitrix */}
                     {calc.stageId && (
