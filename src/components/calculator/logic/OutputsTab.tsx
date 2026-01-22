@@ -89,7 +89,7 @@ export function OutputsTab({
   // Filter only number sources for HL
   const numberSources = [
     ...vars
-      .filter(v => v.name?.trim() && v.inferredType === 'number')
+      .filter(v => v.name?.trim() && (v.inferredType === 'number' || !v.inferredType))
       .map(v => ({ kind: 'var' as const, ref: v.name, label: `${v.name} (переменная)` })),
     ...inputs
       .filter(i => i.name?.trim() && i.valueType === 'number')
@@ -136,7 +136,7 @@ export function OutputsTab({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-8">
             {/* Левая колонка: Габариты */}
             <div className="space-y-3">
               <h4 className="text-xs font-medium text-muted-foreground">Габариты</h4>

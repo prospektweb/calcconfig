@@ -642,7 +642,10 @@ export function validateAll(
   }
 
   // Validate offer plan items
-  for (const item of offerPlan) {
+  // Normalize offerPlan to array to prevent "i is not iterable" error
+  const safeOfferPlan = Array.isArray(offerPlan) ? offerPlan : []
+  
+  for (const item of safeOfferPlan) {
     const targetPath = item.targetPath || (item.field ? `offer.${item.field}` : '')
     
     if (!targetPath) {

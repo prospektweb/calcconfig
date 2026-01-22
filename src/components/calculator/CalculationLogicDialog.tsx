@@ -350,7 +350,7 @@ export function CalculationLogicDialog({
 
   const handleSave = async () => {
     // Финальная проверка
-    const result = validateAll(inputs, vars, stageIndex, resultsHL, writePlan)
+    const result = validateAll(inputs, vars, stageIndex, [], resultsHL, writePlan)
     setValidationIssues(result.issues)
     
     if (!result.valid) {
