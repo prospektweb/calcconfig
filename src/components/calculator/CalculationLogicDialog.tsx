@@ -182,7 +182,7 @@ export function CalculationLogicDialog({
   // State for save/draft management
   const [savedJson, setSavedJson] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-  const [saveTimeoutId, setSaveTimeoutId] = useState<NodeJS.Timeout | null>(null)
+  const [saveTimeoutId, setSaveTimeoutId] = useState<number | null>(null)
 
   // Clear timeout when dialog closes
   useEffect(() => {
