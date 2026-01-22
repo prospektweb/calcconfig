@@ -107,8 +107,7 @@ export function OutputsTab({
         return {
           kind: 'var' as const, 
           ref: v.name, 
-          label: `${v.name} (переменная${typeLabel})`,
-          type: type || 'unknown'
+          label: `${v.name} (переменная${typeLabel})`
         }
       }),
     ...inputs
@@ -116,8 +115,7 @@ export function OutputsTab({
       .map(i => ({ 
         kind: 'input' as const, 
         ref: i.name, 
-        label: `${i.name} (вход)`,
-        type: 'number' as const
+        label: `${i.name} (вход)`
       })),
   ]
 
