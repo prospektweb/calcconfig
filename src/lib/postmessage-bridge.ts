@@ -73,6 +73,9 @@ export type MessageType =
   | 'DELETE_PRICE_RANGE_REQUEST'
   | 'UPDATE_PRESET_PRICES_REQUEST'  // НОВЫЙ
   | 'CHANGE_PRICE_PRESET_REQUEST'   // НОВЫЙ - единый тип для изменения цен
+  
+  // Логика расчёта этапа
+  | 'SAVE_LOGIC_JSON_REQUEST'         // НОВЫЙ - сохранение логики этапа
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -252,6 +255,13 @@ export interface UpdatePresetPricesRequestPayload {
   prices: PriceRangeItem[]
 }
 
+/**
+ * Payload for SAVE_LOGIC_JSON_REQUEST
+ */
+export interface SaveLogicJsonRequest {
+  stageId: number
+  json: string  // JSON строка
+}
 
 
 /**
@@ -710,6 +720,11 @@ class PostMessageBridge {
     quantityTo: number | null
   }>) {
     return this.sendMessage('CHANGE_PRICE_PRESET_REQUEST', prices)
+  }
+
+  // Stage logic operations
+  sendSaveLogicJsonRequest(payload: SaveLogicJsonRequest) {
+    return this.sendMessage('SAVE_LOGIC_JSON_REQUEST', payload)
   }
 
   on(type: MessageType | '*', callback: (message: PwrtMessage) => void): () => void {
