@@ -349,7 +349,7 @@ export function OutputsTab({
                       {/* Expected type */}
                       <Select
                         value={item.expectedType || NONE_VALUE}
-                        onValueChange={(val) => handleWritePlanUpdate(item.id, { expectedType: val === NONE_VALUE ? 'string' : val as any })}
+                        onValueChange={(val) => handleWritePlanUpdate(item.id, { expectedType: val === NONE_VALUE ? undefined : val as any })}
                       >
                         <SelectTrigger className="h-8 text-xs w-24">
                           <SelectValue placeholder="Тип..." />
