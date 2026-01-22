@@ -152,6 +152,7 @@ interface CalculationLogicDialogProps {
   initPayload?: InitPayload | null
   currentStageId?: number | null
   currentSettingsId?: number | null
+  onSaveRequest?: (settingsId: number, json: string) => void
 }
 
 export function CalculationLogicDialog({
@@ -164,6 +165,7 @@ export function CalculationLogicDialog({
   initPayload,
   currentStageId,
   currentSettingsId,
+  onSaveRequest,
 }: CalculationLogicDialogProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false)
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true)
@@ -395,11 +397,14 @@ export function CalculationLogicDialog({
     
     setIsSaving(true)
     
+    // Notify parent about pending save BEFORE sending request
+    onSaveRequest?.(currentSettingsId, currentJson)
+    
     // Таймаут на случай если ответ не придёт
     const timeout = setTimeout(() => {
       setIsSaving(false)
       toast.error('Таймаут сохранения. Попробуйте ещё раз.')
-    }, 10000)
+    }, 15000) // Increased to 15 seconds as per requirements
     setSaveTimeoutId(timeout)
     
     try {
@@ -412,7 +417,7 @@ export function CalculationLogicDialog({
     } catch (error) {
       clearTimeout(timeout)
       setSaveTimeoutId(null)
-      toast.error('Ошибка сохранения')
+      toast.error('Ошибка отправки запроса')
       setIsSaving(false)
     }
   }
