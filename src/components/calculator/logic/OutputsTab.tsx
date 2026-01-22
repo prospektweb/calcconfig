@@ -87,10 +87,16 @@ export function OutputsTab({
   ]
 
   // Filter only number sources for HL
+  // Показываем все vars (валидация проверит тип при сохранении)
+  // и только number inputs
   const numberSources = [
     ...vars
-      .filter(v => v.name?.trim() && (v.inferredType === 'number' || !v.inferredType))
-      .map(v => ({ kind: 'var' as const, ref: v.name, label: `${v.name} (переменная)` })),
+      .filter(v => v.name?.trim())
+      .map(v => ({ 
+        kind: 'var' as const, 
+        ref: v.name, 
+        label: `${v.name} (переменная${v.inferredType === 'number' ? '' : v.inferredType ? ` [${v.inferredType}]` : ''})` 
+      })),
     ...inputs
       .filter(i => i.name?.trim() && i.valueType === 'number')
       .map(i => ({ kind: 'input' as const, ref: i.name, label: `${i.name} (вход)` })),

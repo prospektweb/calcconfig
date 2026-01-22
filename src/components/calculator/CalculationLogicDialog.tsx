@@ -122,6 +122,26 @@ function createEmptyResultsHL(): ResultsHL {
   }
 }
 
+/**
+ * Normalize parsed logic JSON to ensure all fields are valid arrays/objects
+ * Protects against "i is not iterable" errors
+ */
+function normalizeLogicJson(parsed: any): {
+  inputs: InputParam[]
+  vars: FormulaVar[]
+  resultsHL: ResultsHL
+  writePlan: WritePlanItem[]
+} {
+  return {
+    inputs: Array.isArray(parsed?.inputs) ? parsed.inputs : [],
+    vars: Array.isArray(parsed?.vars) ? parsed.vars : [],
+    resultsHL: parsed?.resultsHL && typeof parsed.resultsHL === 'object' && !Array.isArray(parsed.resultsHL)
+      ? parsed.resultsHL
+      : createEmptyResultsHL(),
+    writePlan: Array.isArray(parsed?.writePlan) ? parsed.writePlan : [],
+  }
+}
+
 interface CalculationLogicDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -160,35 +180,45 @@ export function CalculationLogicDialog({
   // State for save/draft management
   const [savedJson, setSavedJson] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [saveTimeoutId, setSaveTimeoutId] = useState<NodeJS.Timeout | null>(null)
 
-  // Load savedJson from INIT using ~VALUE
+  // Clear timeout when dialog closes
   useEffect(() => {
-    if (open && initPayload?.elementsStore?.CALC_STAGES && currentStageId) {
-      const stageElement = initPayload.elementsStore.CALC_STAGES.find(
-        s => s.id === currentStageId
+    if (!open && saveTimeoutId) {
+      clearTimeout(saveTimeoutId)
+      setSaveTimeoutId(null)
+      setIsSaving(false)
+    }
+  }, [open, saveTimeoutId])
+
+  // Load savedJson from INIT using ~VALUE from CALC_SETTINGS
+  useEffect(() => {
+    if (open && initPayload?.elementsStore?.CALC_SETTINGS && currentSettingsId) {
+      const settingsElement = initPayload.elementsStore.CALC_SETTINGS.find(
+        s => s.id === currentSettingsId
       )
       
       // ВАЖНО: использовать ~VALUE, не VALUE
-      const logicJsonRaw = stageElement?.properties?.LOGIC_JSON?.['~VALUE']
+      const logicJsonRaw = settingsElement?.properties?.LOGIC_JSON?.['~VALUE']
       setSavedJson(typeof logicJsonRaw === 'string' ? logicJsonRaw : null)
     }
-  }, [open, initPayload, currentStageId])
+  }, [open, initPayload, currentSettingsId])
 
   // Load saved logic when dialog opens (with draft support)
   useEffect(() => {
-    if (open && currentSettingsId !== null && currentSettingsId !== undefined && 
-        currentStageId !== null && currentStageId !== undefined) {
-      const draftKey = getDraftKey(currentSettingsId, currentStageId)
+    if (open && currentSettingsId !== null && currentSettingsId !== undefined) {
+      const draftKey = getDraftKey(currentSettingsId)
       
       // Try localStorage draft first
       const draftJson = localStorage.getItem(draftKey)
       if (draftJson) {
         try {
           const parsed = JSON.parse(draftJson)
-          setInputs(parsed.inputs || [])
-          setVars(parsed.vars || [])
-          setResultsHL(parsed.resultsHL || createEmptyResultsHL())
-          setWritePlan(parsed.writePlan || [])
+          const normalized = normalizeLogicJson(parsed)
+          setInputs(normalized.inputs)
+          setVars(normalized.vars)
+          setResultsHL(normalized.resultsHL)
+          setWritePlan(normalized.writePlan)
           return
         } catch (e) {
           console.warn('Failed to parse draft', e)
@@ -199,10 +229,11 @@ export function CalculationLogicDialog({
       if (savedJson) {
         try {
           const saved = JSON.parse(savedJson)
-          setInputs(saved.inputs || [])
-          setVars(saved.vars || [])
-          setResultsHL(saved.resultsHL || createEmptyResultsHL())
-          setWritePlan(saved.writePlan || [])
+          const normalized = normalizeLogicJson(saved)
+          setInputs(normalized.inputs)
+          setVars(normalized.vars)
+          setResultsHL(normalized.resultsHL)
+          setWritePlan(normalized.writePlan)
           return
         } catch (e) {
           console.warn('Failed to parse saved logic', e)
@@ -215,13 +246,12 @@ export function CalculationLogicDialog({
       setResultsHL(createEmptyResultsHL())
       setWritePlan([])
     }
-  }, [open, currentSettingsId, currentStageId, savedJson])
+  }, [open, currentSettingsId, savedJson])
 
   // Save to draft on any change
   useEffect(() => {
-    if (open && currentSettingsId !== null && currentSettingsId !== undefined && 
-        currentStageId !== null && currentStageId !== undefined) {
-      const draftKey = getDraftKey(currentSettingsId, currentStageId)
+    if (open && currentSettingsId !== null && currentSettingsId !== undefined) {
+      const draftKey = getDraftKey(currentSettingsId)
       const draft = {
         version: 1,
         stageIndex,
@@ -232,7 +262,7 @@ export function CalculationLogicDialog({
       }
       localStorage.setItem(draftKey, JSON.stringify(draft))
     }
-  }, [inputs, vars, resultsHL, writePlan, open, currentSettingsId, currentStageId, stageIndex])
+  }, [inputs, vars, resultsHL, writePlan, open, currentSettingsId, stageIndex])
 
   // Computed values for dirty state
   const currentJson = JSON.stringify({
@@ -244,8 +274,8 @@ export function CalculationLogicDialog({
     writePlan
   })
 
-  const draftKey = currentSettingsId !== null && currentStageId !== null 
-    ? getDraftKey(currentSettingsId, currentStageId) 
+  const draftKey = currentSettingsId !== null
+    ? getDraftKey(currentSettingsId) 
     : null
   const hasDraft = draftKey !== null && localStorage.getItem(draftKey) !== null
   
@@ -358,43 +388,53 @@ export function CalculationLogicDialog({
       return
     }
     
-    if (!currentStageId) {
-      toast.error('Не указан ID этапа')
+    if (!currentSettingsId) {
+      toast.error('Не указан ID калькулятора')
       return
     }
     
     setIsSaving(true)
     
+    // Таймаут на случай если ответ не придёт
+    const timeout = setTimeout(() => {
+      setIsSaving(false)
+      toast.error('Таймаут сохранения. Попробуйте ещё раз.')
+    }, 10000)
+    setSaveTimeoutId(timeout)
+    
     try {
       postMessageBridge.sendSaveLogicJsonRequest({
-        stageId: currentStageId,
+        settingsId: currentSettingsId,
         json: currentJson
       })
       // Popup закроется после получения нового INIT
-      // Draft будет очищен в App.tsx при обработке нового INIT
+      // Draft будет очищен в StageTabs.tsx при обработке нового INIT
     } catch (error) {
+      clearTimeout(timeout)
+      setSaveTimeoutId(null)
       toast.error('Ошибка сохранения')
       setIsSaving(false)
     }
   }
 
   const handleReset = () => {
-    if (!currentSettingsId || !currentStageId) {
+    if (!currentSettingsId) {
       return
     }
 
     // Удалить draft из localStorage
-    const draftKey = getDraftKey(currentSettingsId, currentStageId)
+    const draftKey = getDraftKey(currentSettingsId)
     localStorage.removeItem(draftKey)
     
     // Восстановить из savedJson или пустой шаблон
     if (savedJson) {
       try {
         const saved = JSON.parse(savedJson)
-        setInputs(saved.inputs || [])
-        setVars(saved.vars || [])
-        setResultsHL(saved.resultsHL || createEmptyResultsHL())
-        setWritePlan(saved.writePlan || [])
+        const normalized = normalizeLogicJson(saved)
+        setInputs(normalized.inputs)
+        setVars(normalized.vars)
+        setResultsHL(normalized.resultsHL)
+        setWritePlan(normalized.writePlan)
       } catch (e) {
         console.warn('Failed to parse saved logic', e)
         setInputs([])

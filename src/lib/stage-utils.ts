@@ -5,15 +5,15 @@
 /**
  * Get draft key for localStorage
  */
-export function getDraftKey(settingsId: number, stageId: number): string {
-  return `calcconfig.logic.draft:${settingsId}:${stageId}`
+export function getDraftKey(settingsId: number): string {
+  return `calc_logic_draft:${settingsId}`
 }
 
 /**
  * Check if a stage has a draft in localStorage
  */
 export function hasDraftForStage(settingsId: number, stageId: number): boolean {
-  const draftKey = getDraftKey(settingsId, stageId)
+  const draftKey = getDraftKey(settingsId)
   return localStorage.getItem(draftKey) !== null
 }
 
