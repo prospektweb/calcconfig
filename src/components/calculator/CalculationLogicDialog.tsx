@@ -12,7 +12,7 @@ import { JsonTree } from './logic/JsonTree'
 import { InputsTab } from './logic/InputsTab'
 import { FormulasTab } from './logic/FormulasTab'
 import { OutputsTab } from './logic/OutputsTab'
-import { InputParam, FormulaVar, StageOutputs, OfferPlanItem, StageLogic, ValidationIssue, ValueType, ResultsHL, WritePlanItem } from './logic/types'
+import { InputParam, FormulaVar, StageLogic, ValidationIssue, ValueType, ResultsHL, WritePlanItem } from './logic/types'
 import { saveLogic, loadLogic } from './logic/storage'
 import { validateAll, inferType, inferTypeFromSourcePath } from './logic/validator'
 
@@ -156,8 +156,6 @@ export function CalculationLogicDialog({
   // State for logic editing
   const [inputs, setInputs] = useState<InputParam[]>([])
   const [vars, setVars] = useState<FormulaVar[]>([])
-  const [outputs, setOutputs] = useState<StageOutputs>({})
-  const [offerPlan, setOfferPlan] = useState<OfferPlanItem[]>([])
   const [resultsHL, setResultsHL] = useState<ResultsHL>(createEmptyResultsHL())
   const [writePlan, setWritePlan] = useState<WritePlanItem[]>([])
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
@@ -175,8 +173,6 @@ export function CalculationLogicDialog({
           const parsed = JSON.parse(sessionDraft)
           setInputs(parsed.inputs || [])
           setVars(parsed.vars || [])
-          setOutputs(parsed.outputs || {})
-          setOfferPlan(parsed.offerPlan || [])
           setResultsHL(parsed.resultsHL || createEmptyResultsHL())
           setWritePlan(parsed.writePlan || [])
           return
@@ -190,16 +186,12 @@ export function CalculationLogicDialog({
       if (saved) {
         setInputs(saved.inputs)
         setVars(saved.vars)
-        setOutputs(saved.outputs)
-        setOfferPlan(saved.offerPlan)
         setResultsHL(saved.resultsHL || createEmptyResultsHL())
         setWritePlan(saved.writePlan || [])
       } else {
         // Reset to empty state
         setInputs([])
         setVars([])
-        setOutputs({})
-        setOfferPlan([])
         setResultsHL(createEmptyResultsHL())
         setWritePlan([])
       }
@@ -214,14 +206,12 @@ export function CalculationLogicDialog({
       const draft = {
         inputs,
         vars,
-        outputs,
-        offerPlan,
         resultsHL,
         writePlan
       }
       sessionStorage.setItem(sessionKey, JSON.stringify(draft))
     }
-  }, [inputs, vars, outputs, offerPlan, resultsHL, writePlan, open, currentSettingsId, currentStageId])
+  }, [inputs, vars, resultsHL, writePlan, open, currentSettingsId, currentStageId])
 
   // Show current and previous stages only
   const visibleStages = allStages.slice(0, stageIndex + 1)
@@ -273,7 +263,7 @@ export function CalculationLogicDialog({
   }
 
   const handleValidate = () => {
-    const result = validateAll(inputs, vars, stageIndex, offerPlan, resultsHL, writePlan)
+    const result = validateAll(inputs, vars, stageIndex, [], resultsHL, writePlan)
     setValidationIssues(result.issues)
     
     // Also update vars with inferred types
@@ -323,8 +313,8 @@ export function CalculationLogicDialog({
       stageIndex,
       inputs,
       vars,
-      outputs,
-      offerPlan,
+      outputs: {},  // deprecated, keep for backward compatibility
+      offerPlan: [],  // deprecated, keep for backward compatibility
       resultsHL,
       writePlan
     }
@@ -402,8 +392,8 @@ export function CalculationLogicDialog({
         <div className="flex flex-1 overflow-hidden min-h-0">
           {/* Left Panel - Context (Collapsible) */}
           {!leftPanelCollapsed && (
-            <div className="w-80 border-r border-border flex flex-col">
-              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <div className="w-80 border-r border-border flex flex-col overflow-hidden">
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
                 <h3 className="font-medium text-sm">Контекст</h3>
                 <Button
                   variant="ghost"
@@ -482,12 +472,8 @@ export function CalculationLogicDialog({
                     <OutputsTab 
                       vars={vars}
                       inputs={inputs}
-                      outputs={outputs}
-                      offerPlan={offerPlan}
                       resultsHL={resultsHL}
                       writePlan={writePlan}
-                      onOutputsChange={setOutputs}
-                      onOfferPlanChange={setOfferPlan}
                       onResultsHLChange={setResultsHL}
                       onWritePlanChange={setWritePlan}
                       issues={validationIssues}

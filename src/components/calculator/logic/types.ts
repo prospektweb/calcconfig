@@ -18,6 +18,9 @@ export interface FormulaVar {
   inferredType?: ValueType
 }
 
+/**
+ * @deprecated Legacy type - use ResultsHL and WritePlan instead
+ */
 export interface StageOutputs {
   costVar?: string  // переменная для себестоимости этапа
   weightVar?: string  // переменная для веса
@@ -26,6 +29,9 @@ export interface StageOutputs {
   depthVar?: string
 }
 
+/**
+ * @deprecated Legacy type - use WritePlanItem instead
+ */
 export interface OfferPlanItem {
   id: string
   // Old fields (for backward compatibility):
