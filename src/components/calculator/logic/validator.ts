@@ -349,7 +349,7 @@ export function validateResults(
     'offer.previewText',
     'offer.detailText',
   ]
-  const PROPERTY_PATTERN = /^offer\.properties\.[A-Z0-9_]+\.(VALUE|DESCRIPTION)$/
+  const PROPERTY_PATTERN = /^offer\.properties\.[A-Z0-9_]+\.VALUE$/
   
   for (const item of writePlan || []) {
     // Check targetPath
@@ -370,7 +370,7 @@ export function validateResults(
           scope: 'result',
           refId: item.id,
           message: `Запрещённый путь: ${item.targetPath}`,
-          hint: 'Разрешены: offer.name, offer.code, offer.previewText, offer.detailText, offer.properties.<CODE>.VALUE/DESCRIPTION'
+          hint: 'Разрешены: offer.name, offer.code, offer.previewText, offer.detailText, offer.properties.<CODE>.VALUE'
         })
       }
       
