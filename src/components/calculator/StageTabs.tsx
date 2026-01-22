@@ -266,21 +266,25 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   const [optionsDialogType, setOptionsDialogType] = useState<'operation' | 'material'>('operation')
   const [optionsDialogStageIndex, setOptionsDialogStageIndex] = useState<number | null>(null)
 
+  // Track previous LOGIC_JSON value to detect changes
+  const prevSettingsLogicJsonRef = useRef<string | null>(null)
+
   // Handle INIT updates - close logic dialog and clear draft after successful save
   useEffect(() => {
     if (calculationLogicDialogOpen && calculationLogicStageIndex !== null) {
       const stage = calculators[calculationLogicStageIndex]
-      if (stage?.stageId && stage?.settingsId) {
-        // Check if there's a saved LOGIC_JSON in the new INIT
-        const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find(
-          s => s.id === stage.stageId
+      if (stage?.settingsId) {
+        // Check if there's a saved LOGIC_JSON in the new INIT from CALC_SETTINGS
+        const settingsElement = bitrixMeta?.elementsStore?.CALC_SETTINGS?.find(
+          s => s.id === stage.settingsId
         )
-        const logicJsonRaw = stageElement?.properties?.LOGIC_JSON?.['~VALUE']
+        const currentLogicJson = settingsElement?.properties?.LOGIC_JSON?.['~VALUE'] ?? null
+        const prevLogicJson = prevSettingsLogicJsonRef.current
         
-        // If LOGIC_JSON exists, it means save was successful
-        if (logicJsonRaw) {
-          // Clear draft
-          const draftKey = getDraftKey(stage.settingsId, stage.stageId)
+        // Успех сохранения: LOGIC_JSON изменился (был null/другой → стал непустой)
+        // ИЛИ был draft и LOGIC_JSON теперь есть
+        if (currentLogicJson && currentLogicJson !== prevLogicJson) {
+          const draftKey = getDraftKey(stage.settingsId)
           const hadDraft = localStorage.getItem(draftKey) !== null
           
           if (hadDraft) {
@@ -289,9 +293,18 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
             toast.success('Сохранено')
           }
         }
+        
+        prevSettingsLogicJsonRef.current = currentLogicJson
       }
     }
   }, [bitrixMeta, calculationLogicDialogOpen, calculationLogicStageIndex, calculators])
+
+  // Reset ref when dialog closes
+  useEffect(() => {
+    if (!calculationLogicDialogOpen) {
+      prevSettingsLogicJsonRef.current = null
+    }
+  }, [calculationLogicDialogOpen])
 
   const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material' | 'stage' | 'config') => {
     if (!bitrixMeta) return null

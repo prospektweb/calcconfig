@@ -259,7 +259,7 @@ export interface UpdatePresetPricesRequestPayload {
  * Payload for SAVE_LOGIC_JSON_REQUEST
  */
 export interface SaveLogicJsonRequest {
-  stageId: number
+  settingsId: number
   json: string  // JSON строка
 }
 

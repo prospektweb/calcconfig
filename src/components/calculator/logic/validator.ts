@@ -332,12 +332,22 @@ export function validateResults(
       continue
     }
     
-    if (source.type !== 'number') {
+    // Ошибка только если тип ТОЧНО не number (не unknown)
+    if (source.type !== 'number' && source.type !== 'unknown') {
       issues.push({
         severity: 'error',
         scope: 'result',
         refId: `hl_${field}`,
         message: `Поле HL ${field} требует number, выбран ${source.type} (${source.kind} ${mapping.sourceRef})`
+      })
+    } else if (source.type === 'unknown') {
+      // Предупреждение если тип неизвестен
+      issues.push({
+        severity: 'warning',
+        scope: 'result',
+        refId: `hl_${field}`,
+        message: `Тип источника "${mapping.sourceRef}" не определён`,
+        hint: 'Проверьте формулы для определения типа'
       })
     }
   }
