@@ -87,19 +87,36 @@ export function OutputsTab({
   ]
 
   // Filter only number sources for HL
-  // Показываем все vars (валидация проверит тип при сохранении)
-  // и только number inputs
+  // Show vars with number type OR unknown type (validation will check at save)
+  // and only number inputs
   const numberSources = [
     ...vars
-      .filter(v => v.name?.trim())
-      .map(v => ({ 
-        kind: 'var' as const, 
-        ref: v.name, 
-        label: `${v.name} (переменная${v.inferredType === 'number' ? '' : v.inferredType ? ` [${v.inferredType}]` : ''})` 
-      })),
+      .filter(v => {
+        if (!v.name?.trim()) return false
+        const type = v.inferredType || v.declaredType
+        // Include number types and unknown/undefined types
+        return type === 'number' || !type || type === 'unknown'
+      })
+      .map(v => { 
+        const type = v.inferredType || v.declaredType
+        const typeLabel = type === 'number' 
+          ? '' 
+          : type 
+            ? ` [${type}]` 
+            : ' [unknown]'
+        return {
+          kind: 'var' as const, 
+          ref: v.name, 
+          label: `${v.name} (переменная${typeLabel})`
+        }
+      }),
     ...inputs
       .filter(i => i.name?.trim() && i.valueType === 'number')
-      .map(i => ({ kind: 'input' as const, ref: i.name, label: `${i.name} (вход)` })),
+      .map(i => ({ 
+        kind: 'input' as const, 
+        ref: i.name, 
+        label: `${i.name} (вход)`
+      })),
   ]
 
   // All sources for WritePlan

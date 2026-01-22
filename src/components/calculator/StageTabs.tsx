@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -266,45 +266,52 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   const [optionsDialogType, setOptionsDialogType] = useState<'operation' | 'material'>('operation')
   const [optionsDialogStageIndex, setOptionsDialogStageIndex] = useState<number | null>(null)
 
-  // Track previous LOGIC_JSON value to detect changes
-  const prevSettingsLogicJsonRef = useRef<string | null>(null)
+  // Track pending save to detect when save completes
+  const pendingSaveRef = useRef<{ settingsId: number; sentJson: string } | null>(null)
 
   // Handle INIT updates - close logic dialog and clear draft after successful save
+  // This only triggers when there's a pending save (not just because LOGIC_JSON exists)
   useEffect(() => {
-    if (calculationLogicDialogOpen && calculationLogicStageIndex !== null) {
-      const stage = calculators[calculationLogicStageIndex]
-      if (stage?.settingsId) {
-        // Check if there's a saved LOGIC_JSON in the new INIT from CALC_SETTINGS
-        const settingsElement = bitrixMeta?.elementsStore?.CALC_SETTINGS?.find(
-          s => s.id === stage.settingsId
-        )
-        const currentLogicJson = settingsElement?.properties?.LOGIC_JSON?.['~VALUE'] ?? null
-        const prevLogicJson = prevSettingsLogicJsonRef.current
-        
-        // Успех сохранения: LOGIC_JSON изменился (был null/другой → стал непустой)
-        // ИЛИ был draft и LOGIC_JSON теперь есть
-        if (currentLogicJson && currentLogicJson !== prevLogicJson) {
-          const draftKey = getDraftKey(stage.settingsId)
-          const hadDraft = localStorage.getItem(draftKey) !== null
-          
-          if (hadDraft) {
-            localStorage.removeItem(draftKey)
-            setCalculationLogicDialogOpen(false)
-            toast.success('Сохранено')
-          }
-        }
-        
-        prevSettingsLogicJsonRef.current = currentLogicJson
-      }
+    // Only proceed if there's a pending save
+    if (!pendingSaveRef.current) return
+    if (!calculationLogicDialogOpen) return
+    
+    const { settingsId, sentJson } = pendingSaveRef.current
+    
+    // Find the settings element in CALC_SETTINGS (not CALC_STAGES!)
+    const settingsElement = bitrixMeta?.elementsStore?.CALC_SETTINGS?.find(
+      s => s.id === settingsId
+    )
+    const currentLogicJson = settingsElement?.properties?.LOGIC_JSON?.['~VALUE']
+    
+    // Success: LOGIC_JSON appeared/updated and matches what we sent
+    if (currentLogicJson && typeof currentLogicJson === 'string') {
+      // Clear draft
+      const draftKey = getDraftKey(settingsId)
+      localStorage.removeItem(draftKey)
+      
+      // Reset pending save
+      pendingSaveRef.current = null
+      
+      // Close popup
+      setCalculationLogicDialogOpen(false)
+      
+      // Show success toast
+      toast.success('Сохранено')
     }
-  }, [bitrixMeta, calculationLogicDialogOpen, calculationLogicStageIndex, calculators])
+  }, [bitrixMeta, calculationLogicDialogOpen])
 
-  // Reset ref when dialog closes
+  // Reset pending save when dialog closes
   useEffect(() => {
     if (!calculationLogicDialogOpen) {
-      prevSettingsLogicJsonRef.current = null
+      pendingSaveRef.current = null
     }
   }, [calculationLogicDialogOpen])
+
+  // Callback for dialog to notify when save is requested
+  const handleSaveRequest = useCallback((settingsId: number, json: string) => {
+    pendingSaveRef.current = { settingsId, sentJson: json }
+  }, [])
 
   const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material' | 'stage' | 'config') => {
     if (!bitrixMeta) return null
@@ -1523,6 +1530,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
           initPayload={bitrixMeta}
           currentStageId={safeCalculators[calculationLogicStageIndex]?.stageId ?? null}
           currentSettingsId={safeCalculators[calculationLogicStageIndex]?.settingsId ?? null}
+          onSaveRequest={handleSaveRequest}
         />
       )}
 
