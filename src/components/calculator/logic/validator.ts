@@ -404,7 +404,7 @@ export function validateAll(
   stageIndex: number,
   offerPlan: OfferPlanItem[] = [],
   resultsHL?: ResultsHL,
-  writePlan?: WritePlanItem[],
+  writePlan?: WritePlanItem[],  // deprecated, kept for backward compatibility
   additionalResults?: AdditionalResult[]
 ): { valid: boolean; issues: ValidationIssue[] } {
   const issues: ValidationIssue[] = []
@@ -412,6 +412,16 @@ export function validateAll(
   
   // Validate input parameters
   for (const input of inputs) {
+    // Check that param has type (required in new protocol)
+    if (!input.valueType || input.valueType === 'unknown') {
+      issues.push({
+        severity: 'error',
+        scope: 'input',
+        refId: input.id,
+        message: `Параметр "${input.name}" не имеет типа. Укажите тип явно.`
+      })
+    }
+    
     // Check for selectedOffers reference
     if (input.sourcePath.includes('selectedOffers')) {
       issues.push({
