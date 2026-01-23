@@ -6,7 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { CaretLeft, CaretRight, ArrowsOut, ArrowsIn } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
-import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
+import { InitPayload, postMessageBridge, SaveCalcLogicRequestPayload } from '@/lib/postmessage-bridge'
 import { toast } from 'sonner'
 import { JsonTree } from './logic/JsonTree'
 import { InputsTab } from './logic/InputsTab'
@@ -123,25 +123,98 @@ function createEmptyResultsHL(): ResultsHL {
 }
 
 /**
- * Normalize parsed logic JSON to ensure all fields are valid arrays/objects
- * Protects against "i is not iterable" errors
+ * Build inputs from CALC_SETTINGS.PARAMS and CALC_STAGES.INPUTS
+ * Following new protocol spec section 3.1
  */
-function normalizeLogicJson(parsed: any): {
-  inputs: InputParam[]
-  vars: FormulaVar[]
-  resultsHL: ResultsHL
-  writePlan: WritePlanItem[]
-  additionalResults: AdditionalResult[]
-} {
-  return {
-    inputs: Array.isArray(parsed?.inputs) ? parsed.inputs : [],
-    vars: Array.isArray(parsed?.vars) ? parsed.vars : [],
-    resultsHL: parsed?.resultsHL && typeof parsed.resultsHL === 'object' && !Array.isArray(parsed.resultsHL)
-      ? parsed.resultsHL
-      : createEmptyResultsHL(),
-    writePlan: Array.isArray(parsed?.writePlan) ? parsed.writePlan : [],
-    additionalResults: Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : [],
+function buildInputsFromInit(
+  paramsValue: string[] | undefined,
+  paramsDesc: string[] | undefined,
+  inputsValue: string[] | undefined,
+  inputsDesc: string[] | undefined
+): InputParam[] {
+  if (!paramsValue || !Array.isArray(paramsValue)) {
+    return []
   }
+  
+  // Build wiring map: paramName -> initPath
+  const wiringMap = new Map<string, string>()
+  if (inputsValue && Array.isArray(inputsValue)) {
+    inputsValue.forEach((paramName, i) => {
+      wiringMap.set(paramName, inputsDesc?.[i] || '')
+    })
+  }
+  
+  // Create InputParam[] for UI
+  return paramsValue.map((name, i) => ({
+    id: `input_${name}`,
+    name,
+    valueType: (paramsDesc?.[i] || 'unknown') as ValueType,
+    sourcePath: wiringMap.get(name) || '',
+    sourceType: 'string',  // default, will be inferred
+    typeSource: 'auto'
+  }))
+}
+
+/**
+ * Build vars from CALC_SETTINGS.LOGIC_JSON (only vars field)
+ * Following new protocol spec section 3.2
+ */
+function buildVarsFromInit(logicJsonRaw: string | undefined | null): FormulaVar[] {
+  if (!logicJsonRaw) {
+    return []
+  }
+  
+  try {
+    const parsed = JSON.parse(logicJsonRaw)
+    return Array.isArray(parsed?.vars) ? parsed.vars : []
+  } catch (e) {
+    console.warn('Failed to parse LOGIC_JSON', e)
+    return []
+  }
+}
+
+/**
+ * Build resultsHL and additionalResults from CALC_STAGES.OUTPUTS
+ * Following new protocol spec section 3.3
+ */
+function buildResultsFromInit(
+  outputsValue: string[] | undefined,
+  outputsDesc: string[] | undefined
+): { resultsHL: ResultsHL; additionalResults: AdditionalResult[] } {
+  const REQUIRED_KEYS = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
+  const resultsHL: ResultsHL = createEmptyResultsHL()
+  const additionalResults: AdditionalResult[] = []
+  
+  if (!outputsValue || !Array.isArray(outputsValue)) {
+    return { resultsHL, additionalResults }
+  }
+  
+  outputsValue.forEach((keyValue, i) => {
+    const varName = outputsDesc?.[i] || ''
+    
+    if (REQUIRED_KEYS.includes(keyValue)) {
+      // Обязательный результат
+      resultsHL[keyValue as keyof ResultsHL] = {
+        sourceKind: 'var',
+        sourceRef: varName
+      }
+    } else if (keyValue.includes('|')) {
+      // Дополнительный результат: "slug|title"
+      const [slug, title] = keyValue.split('|', 2)
+      additionalResults.push({
+        id: `additional_${slug}`,
+        key: slug,
+        title: title || '',
+        sourceKind: 'var',
+        sourceRef: varName
+      })
+    } else {
+      // Устаревшее/неизвестное правило
+      console.warn(`Unknown output key: ${keyValue}`)
+    }
+  })
+  
+  return { resultsHL, additionalResults }
 }
 
 interface CalculationLogicDialogProps {
@@ -211,55 +284,73 @@ export function CalculationLogicDialog({
 
   // Load saved logic when dialog opens (with draft support)
   useEffect(() => {
-    if (open && currentStageId !== null && currentStageId !== undefined) {
-      const draftKey = getDraftKey(currentStageId)
+    if (open && currentStageId !== null && currentStageId !== undefined && 
+        currentSettingsId !== null && currentSettingsId !== undefined) {
+      const draftKey = getDraftKey(currentStageId, currentSettingsId)
       
       // Try localStorage draft first
       const draftJson = localStorage.getItem(draftKey)
       if (draftJson) {
         try {
           const parsed = JSON.parse(draftJson)
-          const normalized = normalizeLogicJson(parsed)
-          setInputs(normalized.inputs)
-          setVars(normalized.vars)
-          setResultsHL(normalized.resultsHL)
-          setWritePlan(normalized.writePlan)
-          setAdditionalResults(normalized.additionalResults)
+          setInputs(Array.isArray(parsed?.inputs) ? parsed.inputs : [])
+          setVars(Array.isArray(parsed?.vars) ? parsed.vars : [])
+          setResultsHL(parsed?.resultsHL || createEmptyResultsHL())
+          setWritePlan(Array.isArray(parsed?.writePlan) ? parsed.writePlan : [])
+          setAdditionalResults(Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : [])
           return
         } catch (e) {
           console.warn('Failed to parse draft', e)
         }
       }
       
-      // Fall back to savedJson from INIT
-      if (savedJson) {
-        try {
-          const saved = JSON.parse(savedJson)
-          const normalized = normalizeLogicJson(saved)
-          setInputs(normalized.inputs)
-          setVars(normalized.vars)
-          setResultsHL(normalized.resultsHL)
-          setWritePlan(normalized.writePlan)
-          setAdditionalResults(normalized.additionalResults)
-          return
-        } catch (e) {
-          console.warn('Failed to parse saved logic', e)
-        }
+      // Fall back to loading from INIT using new protocol
+      const settingsElement = initPayload?.elementsStore?.CALC_SETTINGS?.find(
+        s => s.id === currentSettingsId
+      )
+      const stageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
+        s => s.id === currentStageId
+      )
+      
+      if (settingsElement || stageElement) {
+        // Build inputs from PARAMS + INPUTS
+        const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
+        const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
+        const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
+        const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+        const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
+        
+        // Build vars from LOGIC_JSON
+        const logicJsonRaw = settingsElement?.properties?.LOGIC_JSON?.['~VALUE']
+        const vars = buildVarsFromInit(logicJsonRaw)
+        
+        // Build results from OUTPUTS
+        const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
+        const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
+        const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
+        
+        setInputs(inputs)
+        setVars(vars)
+        setResultsHL(resultsHL)
+        setAdditionalResults(additionalResults)
+        setWritePlan([])  // writePlan deprecated
+        return
       }
       
-      // Reset to empty state
+      // Reset to empty state if no data
       setInputs([])
       setVars([])
       setResultsHL(createEmptyResultsHL())
       setWritePlan([])
       setAdditionalResults([])
     }
-  }, [open, currentStageId, savedJson])
+  }, [open, currentStageId, currentSettingsId, initPayload])
 
   // Save to draft on any change
   useEffect(() => {
-    if (open && currentStageId !== null && currentStageId !== undefined) {
-      const draftKey = getDraftKey(currentStageId)
+    if (open && currentStageId !== null && currentStageId !== undefined &&
+        currentSettingsId !== null && currentSettingsId !== undefined) {
+      const draftKey = getDraftKey(currentStageId, currentSettingsId)
       const draft = {
         version: 1,
         stageIndex,
@@ -271,7 +362,7 @@ export function CalculationLogicDialog({
       }
       localStorage.setItem(draftKey, JSON.stringify(draft))
     }
-  }, [inputs, vars, resultsHL, writePlan, additionalResults, open, currentStageId, stageIndex])
+  }, [inputs, vars, resultsHL, writePlan, additionalResults, open, currentStageId, currentSettingsId, stageIndex])
 
   // Computed values for dirty state
   const currentJson = JSON.stringify({
@@ -284,8 +375,9 @@ export function CalculationLogicDialog({
     additionalResults
   })
 
-  const draftKey = currentStageId !== null
-    ? getDraftKey(currentStageId) 
+  const draftKey = (currentStageId !== null && currentStageId !== undefined && 
+                    currentSettingsId !== null && currentSettingsId !== undefined)
+    ? getDraftKey(currentStageId, currentSettingsId) 
     : null
   const hasDraft = draftKey !== null && localStorage.getItem(draftKey) !== null
   
@@ -410,21 +502,71 @@ export function CalculationLogicDialog({
     
     setIsSaving(true)
     
-    // Notify parent about pending save BEFORE sending request
-    onSaveRequest?.(currentSettingsId, currentStageId, currentJson)
+    // Build params array from inputs
+    const params = inputs.map(inp => ({
+      name: inp.name,
+      type: inp.valueType || 'unknown'
+    }))
+    
+    // Build logicJson (vars only, no inputs/resultsHL/writePlan/additionalResults)
+    const logicJson = JSON.stringify({
+      version: 1,
+      vars: vars
+    })
+    
+    // Build inputs wiring array
+    const inputsWiring = inputs.map(inp => ({
+      name: inp.name,
+      path: inp.sourcePath
+    }))
+    
+    // Build outputs array
+    const outputs: Array<{ key: string; var: string }> = []
+    
+    // Add required results (6 fixed keys)
+    const requiredKeys: Array<keyof ResultsHL> = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
+    for (const key of requiredKeys) {
+      const mapping = resultsHL[key]
+      outputs.push({
+        key,
+        var: mapping.sourceRef || ''
+      })
+    }
+    
+    // Add additional results (key format: "slug|title")
+    for (const additional of additionalResults) {
+      outputs.push({
+        key: `${additional.key}|${additional.title}`,
+        var: additional.sourceRef || ''
+      })
+    }
+    
+    // Construct new payload format
+    const payload: SaveCalcLogicRequestPayload = {
+      settingsId: currentSettingsId,
+      stageId: currentStageId,
+      calcSettings: {
+        params,
+        logicJson
+      },
+      stageWiring: {
+        inputs: inputsWiring,
+        outputs
+      }
+    }
+    
+    // Notify parent about pending save with payload data for hash comparison
+    onSaveRequest?.(currentSettingsId, currentStageId, JSON.stringify(payload))
     
     // Таймаут на случай если ответ не придёт
     const timeout = setTimeout(() => {
       setIsSaving(false)
       toast.error('Таймаут сохранения. Попробуйте ещё раз.')
-    }, 15000) // Increased to 15 seconds as per requirements
+    }, 15000)
     setSaveTimeoutId(timeout)
     
     try {
-      postMessageBridge.sendSaveLogicJsonRequest({
-        settingsId: currentSettingsId,
-        json: currentJson
-      })
+      postMessageBridge.sendSaveCalcLogicRequest(payload)
       // Popup закроется после получения нового INIT
       // Draft будет очищен в StageTabs.tsx при обработке нового INIT
     } catch (error) {
@@ -436,33 +578,46 @@ export function CalculationLogicDialog({
   }
 
   const handleReset = () => {
-    if (!currentStageId) {
+    if (!currentStageId || !currentSettingsId) {
       return
     }
 
     // Удалить draft из localStorage
-    const draftKey = getDraftKey(currentStageId)
+    const draftKey = getDraftKey(currentStageId, currentSettingsId)
     localStorage.removeItem(draftKey)
     
-    // Восстановить из savedJson или пустой шаблон
-    if (savedJson) {
-      try {
-        const saved = JSON.parse(savedJson)
-        const normalized = normalizeLogicJson(saved)
-        setInputs(normalized.inputs)
-        setVars(normalized.vars)
-        setResultsHL(normalized.resultsHL)
-        setWritePlan(normalized.writePlan)
-        setAdditionalResults(normalized.additionalResults)
-      } catch (e) {
-        console.warn('Failed to parse saved logic', e)
-        setInputs([])
-        setVars([])
-        setResultsHL(createEmptyResultsHL())
-        setWritePlan([])
-        setAdditionalResults([])
-      }
+    // Восстановить из INIT используя новый протокол
+    const settingsElement = initPayload?.elementsStore?.CALC_SETTINGS?.find(
+      s => s.id === currentSettingsId
+    )
+    const stageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
+      s => s.id === currentStageId
+    )
+    
+    if (settingsElement || stageElement) {
+      // Build inputs from PARAMS + INPUTS
+      const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
+      const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
+      const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
+      const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+      const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
+      
+      // Build vars from LOGIC_JSON
+      const logicJsonRaw = settingsElement?.properties?.LOGIC_JSON?.['~VALUE']
+      const vars = buildVarsFromInit(logicJsonRaw)
+      
+      // Build results from OUTPUTS
+      const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
+      const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
+      const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
+      
+      setInputs(inputs)
+      setVars(vars)
+      setResultsHL(resultsHL)
+      setAdditionalResults(additionalResults)
+      setWritePlan([])  // deprecated
     } else {
+      // Reset to empty
       setInputs([])
       setVars([])
       setResultsHL(createEmptyResultsHL())
