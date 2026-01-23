@@ -771,10 +771,8 @@ export function CalculationLogicDialog({
                       vars={vars}
                       inputs={inputs}
                       resultsHL={resultsHL}
-                      writePlan={writePlan}
                       additionalResults={additionalResults}
                       onResultsHLChange={setResultsHL}
-                      onWritePlanChange={setWritePlan}
                       onAdditionalResultsChange={setAdditionalResults}
                       issues={validationIssues}
                       offerModel={logicContext?.offer}
