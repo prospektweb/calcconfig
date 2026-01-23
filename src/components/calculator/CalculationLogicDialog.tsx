@@ -469,7 +469,6 @@ export function CalculationLogicDialog({
       setWritePlan([])
       setAdditionalResults([])
     }
-    }
     
     // Очистить ошибки
     setValidationIssues([])
