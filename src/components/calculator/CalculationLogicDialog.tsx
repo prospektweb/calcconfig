@@ -144,15 +144,25 @@ function buildInputsFromInit(
     })
   }
   
+  // Valid ValueTypes
+  const VALID_VALUE_TYPES: ValueType[] = ['number', 'string', 'bool', 'array', 'any', 'unknown']
+  
   // Create InputParam[] for UI
-  return paramsValue.map((name, i) => ({
-    id: `input_${name}`,
-    name,
-    valueType: (paramsDesc?.[i] || 'unknown') as ValueType,
-    sourcePath: wiringMap.get(name) || '',
-    sourceType: 'string',  // default, will be inferred
-    typeSource: 'auto'
-  }))
+  return paramsValue.map((name, i) => {
+    const typeStr = paramsDesc?.[i] || 'unknown'
+    const valueType = VALID_VALUE_TYPES.includes(typeStr as ValueType) 
+      ? (typeStr as ValueType) 
+      : 'unknown'
+    
+    return {
+      id: `input_${name}`,
+      name,
+      valueType,
+      sourcePath: wiringMap.get(name) || '',
+      sourceType: 'string',  // default, will be inferred
+      typeSource: 'auto'
+    }
+  })
 }
 
 /**
@@ -181,7 +191,7 @@ function buildResultsFromInit(
   outputsValue: string[] | undefined,
   outputsDesc: string[] | undefined
 ): { resultsHL: ResultsHL; additionalResults: AdditionalResult[] } {
-  const REQUIRED_KEYS = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
+  const REQUIRED_KEYS: Array<keyof ResultsHL> = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
   const resultsHL: ResultsHL = createEmptyResultsHL()
   const additionalResults: AdditionalResult[] = []
   
@@ -189,12 +199,17 @@ function buildResultsFromInit(
     return { resultsHL, additionalResults }
   }
   
+  // Type guard for ResultsHL keys
+  const isResultsHLKey = (key: string): key is keyof ResultsHL => {
+    return REQUIRED_KEYS.includes(key as keyof ResultsHL)
+  }
+  
   outputsValue.forEach((keyValue, i) => {
     const varName = outputsDesc?.[i] || ''
     
-    if (REQUIRED_KEYS.includes(keyValue)) {
+    if (isResultsHLKey(keyValue)) {
       // Обязательный результат
-      resultsHL[keyValue as keyof ResultsHL] = {
+      resultsHL[keyValue] = {
         sourceKind: 'var',
         sourceRef: varName
       }
