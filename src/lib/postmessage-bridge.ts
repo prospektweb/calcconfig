@@ -75,7 +75,7 @@ export type MessageType =
   | 'CHANGE_PRICE_PRESET_REQUEST'   // НОВЫЙ - единый тип для изменения цен
   
   // Логика расчёта этапа
-  | 'SAVE_LOGIC_JSON_REQUEST'         // НОВЫЙ - сохранение логики этапа
+  | 'SAVE_CALC_LOGIC_REQUEST'         // НОВЫЙ - атомарное сохранение CALC_SETTINGS + CALC_STAGES
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -256,11 +256,24 @@ export interface UpdatePresetPricesRequestPayload {
 }
 
 /**
- * Payload for SAVE_LOGIC_JSON_REQUEST
+ * Payload for SAVE_CALC_LOGIC_REQUEST
+ * Атомарно обновляет CALC_SETTINGS (params + logicJson) и CALC_STAGES (inputs + outputs)
  */
-export interface SaveLogicJsonRequest {
-  settingsId: number
-  json: string  // JSON строка
+export interface SaveCalcLogicRequestPayload {
+  settingsId: number    // CALC_SETTINGS ID
+  stageId: number       // CALC_STAGES ID
+
+  calcSettings: {
+    params: Array<{ name: string; type: string }>
+    logicJson: string   // stringified JSON с { version: 1, vars: [...] }
+  }
+
+  stageWiring: {
+    inputs: Array<{ name: string; path: string }>
+    outputs: Array<{ key: string; var: string }>
+    // key для обязательных: "width", "length", etc.
+    // key для дополнительных: "${slug}|${title}"
+  }
 }
 
 
@@ -723,8 +736,8 @@ class PostMessageBridge {
   }
 
   // Stage logic operations
-  sendSaveLogicJsonRequest(payload: SaveLogicJsonRequest) {
-    return this.sendMessage('SAVE_LOGIC_JSON_REQUEST', payload)
+  sendSaveCalcLogicRequest(payload: SaveCalcLogicRequestPayload): string | undefined {
+    return this.sendMessage('SAVE_CALC_LOGIC_REQUEST', payload)
   }
 
   on(type: MessageType | '*', callback: (message: PwrtMessage) => void): () => void {

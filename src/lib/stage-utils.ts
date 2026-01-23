@@ -4,17 +4,18 @@
 
 /**
  * Get draft key for localStorage
- * IMPORTANT: Uses stageId to ensure drafts are scoped per stage, not per calculator
+ * IMPORTANT: Uses both stageId and settingsId to ensure drafts are isolated per calculator+stage pair
+ * This prevents logic leakage when switching calculators on the same stage
  */
-export function getDraftKey(stageId: number): string {
-  return `calc_logic_draft_stage:${stageId}`
+export function getDraftKey(stageId: number, settingsId: number): string {
+  return `calc_logic_draft:${stageId}:${settingsId}`
 }
 
 /**
- * Check if a stage has a draft in localStorage
+ * Check if a stage has a draft in localStorage for a specific calculator
  */
-export function hasDraftForStage(stageId: number): boolean {
-  const draftKey = getDraftKey(stageId)
+export function hasDraftForStage(stageId: number, settingsId: number): boolean {
+  const draftKey = getDraftKey(stageId, settingsId)
   return localStorage.getItem(draftKey) !== null
 }
 
@@ -48,48 +49,34 @@ export function slugify(title: string): string {
 }
 
 /**
- * Calculate stage readiness based on saved JSON and draft status
- * @param savedJson - The saved LOGIC_JSON value from Bitrix (~VALUE)
+ * Calculate stage readiness based on outputs and draft status
+ * @param outputsValue - The OUTPUTS.VALUE array from CALC_STAGES
  * @param hasDraft - Whether there's an unsaved draft
  * @returns Readiness status with reason if not ready
  */
 export function calculateStageReadiness(
-  savedJson: string | null,
+  outputsValue: string[] | null | undefined,
   hasDraft: boolean
 ): { ready: boolean; reason?: string } {
-  // Нет сохранённой логики
-  if (!savedJson) {
-    return { ready: false, reason: 'Логика не сохранена' }
-  }
-  
   // Есть несохранённые изменения
   if (hasDraft) {
     return { ready: false, reason: 'Есть несохранённые изменения' }
   }
   
-  try {
-    const logic = JSON.parse(savedJson)
-    
-    // Проверяем HL заполненность
-    const hlFields: Array<keyof typeof logic.resultsHL> = [
-      'width',
-      'length',
-      'height',
-      'weight',
-      'purchasingPrice',
-      'basePrice'
-    ]
-    
-    for (const field of hlFields) {
-      const mapping = logic.resultsHL?.[field]
-      if (!mapping?.sourceRef) {
-        return { ready: false, reason: `HL поле ${field} не заполнено` }
-      }
-    }
-    
-    // Все проверки пройдены
-    return { ready: true }
-  } catch (e) {
-    return { ready: false, reason: 'Ошибка парсинга логики' }
+  // Проверяем HL заполненность - все 6 обязательных полей должны быть в outputs
+  const requiredKeys = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
+  
+  if (!outputsValue || !Array.isArray(outputsValue)) {
+    return { ready: false, reason: 'Логика не сохранена' }
   }
+  
+  // Проверяем что все обязательные ключи присутствуют
+  for (const key of requiredKeys) {
+    if (!outputsValue.includes(key)) {
+      return { ready: false, reason: `HL поле ${key} не заполнено` }
+    }
+  }
+  
+  // Все проверки пройдены
+  return { ready: true }
 }
