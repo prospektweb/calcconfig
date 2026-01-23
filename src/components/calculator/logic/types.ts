@@ -67,6 +67,15 @@ export interface WritePlanItem {
   expectedType: 'string' | 'number' | 'bool'
 }
 
+// Дополнительный результат этапа
+export interface AdditionalResult {
+  id: string
+  title: string  // пользовательское название
+  key: string    // slug(title) — автогенерируется
+  sourceKind: 'var' | 'input'
+  sourceRef: string
+}
+
 export interface StageLogic {
   version: 1
   stageIndex: number
@@ -76,7 +85,8 @@ export interface StageLogic {
   offerPlan: OfferPlanItem[]  // deprecated
   // НОВЫЕ поля:
   resultsHL?: ResultsHL
-  writePlan?: WritePlanItem[]
+  writePlan?: WritePlanItem[]  // deprecated - для обратной совместимости при парсинге
+  additionalResults?: AdditionalResult[]
 }
 
 export interface ValidationIssue {

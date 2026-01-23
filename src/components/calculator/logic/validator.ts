@@ -1,4 +1,4 @@
-import { InputParam, FormulaVar, ALLOWED_FUNCTIONS, ValueType, ValidationIssue, OfferPlanItem, ResultsHL, WritePlanItem } from './types'
+import { InputParam, FormulaVar, ALLOWED_FUNCTIONS, ValueType, ValidationIssue, OfferPlanItem, ResultsHL, WritePlanItem, AdditionalResult } from './types'
 import { inferExprType, SymbolTable, SymbolInfo } from './type-checker'
 
 // Extract identifiers from formula (simplified, doesn't handle strings/complex cases)
@@ -274,11 +274,11 @@ function createEmptyResultsHL(): ResultsHL {
 }
 
 /**
- * Validate results (HL mappings and WritePlan)
+ * Validate results (HL mappings and AdditionalResults)
  */
 export function validateResults(
   resultsHL: ResultsHL,
-  writePlan: WritePlanItem[],
+  additionalResults: AdditionalResult[],
   inputs: InputParam[],
   vars: FormulaVar[]
 ): ValidationIssue[] {
@@ -352,65 +352,16 @@ export function validateResults(
     }
   }
   
-  // Validate writePlan
-  const ALLOWED_TARGETS = [
-    'offer.code',
-    'offer.name',
-    'offer.previewText',
-    'offer.detailText',
-  ]
-  const PROPERTY_PATTERN = /^offer\.properties\.[A-Z0-9_]+\.VALUE$/
-  
-  for (const item of writePlan || []) {
-    // Check targetPath
-    if (!item.targetPath) {
+  // Validate additionalResults
+  for (const item of additionalResults || []) {
+    // Check title
+    if (!item.title || !item.title.trim()) {
       issues.push({
         severity: 'error',
         scope: 'result',
         refId: item.id,
-        message: 'Не указан путь назначения (куда)'
+        message: 'Не указано название результата'
       })
-    } else {
-      const isAllowed = ALLOWED_TARGETS.includes(item.targetPath) || 
-                        PROPERTY_PATTERN.test(item.targetPath)
-      
-      if (!isAllowed) {
-        issues.push({
-          severity: 'error',
-          scope: 'result',
-          refId: item.id,
-          message: `Запрещённый путь: ${item.targetPath}`,
-          hint: 'Разрешены: offer.name, offer.code, offer.previewText, offer.detailText, offer.properties.<CODE>.VALUE'
-        })
-      }
-      
-      // Check for forbidden patterns
-      if (item.targetPath.includes('selectedOffers')) {
-        issues.push({
-          severity: 'error',
-          scope: 'result',
-          refId: item.id,
-          message: 'Запрещённый путь: selectedOffers'
-        })
-      }
-      
-      if (/\[\d+\]/.test(item.targetPath)) {
-        issues.push({
-          severity: 'error',
-          scope: 'result',
-          refId: item.id,
-          message: 'Запрещены индексы в путях [0], [1] и т.п.'
-        })
-      }
-      
-      if (item.targetPath.includes('offer.prices')) {
-        issues.push({
-          severity: 'error',
-          scope: 'result',
-          refId: item.id,
-          message: 'Запись в offer.prices запрещена'
-        })
-      }
     }
     
     // Check source
@@ -430,46 +381,15 @@ export function validateResults(
           refId: item.id,
           message: `Источник "${item.sourceRef}" не найден`
         })
-      }
-    }
-    
-    // Check expectedType
-    if (!item.expectedType) {
-      issues.push({
-        severity: 'error',
-        scope: 'result',
-        refId: item.id,
-        message: 'Не указан ожидаемый тип'
-      })
-    } else if (item.sourceRef) {
-      const source = symbols[item.sourceRef]
-      if (source) {
-        if (source.type === 'unknown') {
-          issues.push({
-            severity: 'warning',
-            scope: 'result',
-            refId: item.id,
-            message: `Тип источника "${item.sourceRef}" не определён`,
-            hint: 'Задайте тип входного параметра или уточните формулу'
-          })
-        } else if (source.type !== item.expectedType) {
-          if (item.expectedType === 'number' && (source.type === 'string' || source.type === 'bool')) {
-            issues.push({
-              severity: 'error',
-              scope: 'result',
-              refId: item.id,
-              message: `Несовместимые типы: ожидается ${item.expectedType}, источник даёт ${source.type}`,
-              hint: 'Используйте toNumber() для преобразования'
-            })
-          } else {
-            issues.push({
-              severity: 'warning',
-              scope: 'result',
-              refId: item.id,
-              message: `Типы могут не совпадать: ожидается ${item.expectedType}, источник даёт ${source.type}`
-            })
-          }
-        }
+      } else if (source.type === 'unknown') {
+        // Warning for unknown types
+        issues.push({
+          severity: 'warning',
+          scope: 'result',
+          refId: item.id,
+          message: `Тип источника "${item.sourceRef}" не определён`,
+          hint: 'Задайте тип входного параметра или уточните формулу'
+        })
       }
     }
   }
@@ -484,7 +404,8 @@ export function validateAll(
   stageIndex: number,
   offerPlan: OfferPlanItem[] = [],
   resultsHL?: ResultsHL,
-  writePlan?: WritePlanItem[]
+  writePlan?: WritePlanItem[],
+  additionalResults?: AdditionalResult[]
 ): { valid: boolean; issues: ValidationIssue[] } {
   const issues: ValidationIssue[] = []
   const inputNames = inputs.map(inp => inp.name)
@@ -747,10 +668,10 @@ export function validateAll(
   }
 
   // Add results validation
-  if (resultsHL || writePlan) {
+  if (resultsHL || additionalResults) {
     const resultIssues = validateResults(
       resultsHL || createEmptyResultsHL(),
-      writePlan || [],
+      additionalResults || [],
       inputs,
       vars
     )

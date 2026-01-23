@@ -2,17 +2,21 @@ import { Plus, Trash2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
-import { FormulaVar, ValidationIssue, InputParam, ResultsHL, WritePlanItem } from './types'
+import { FormulaVar, ValidationIssue, InputParam, ResultsHL, WritePlanItem, AdditionalResult } from './types'
 import { cn } from '@/lib/utils'
+import { slugify } from '@/lib/stage-utils'
 
 interface OutputsTabProps {
   vars: FormulaVar[]
   inputs?: InputParam[]
   resultsHL?: ResultsHL
   writePlan?: WritePlanItem[]
+  additionalResults?: AdditionalResult[]
   onResultsHLChange?: (resultsHL: ResultsHL) => void
   onWritePlanChange?: (writePlan: WritePlanItem[]) => void
+  onAdditionalResultsChange?: (additionalResults: AdditionalResult[]) => void
   issues?: ValidationIssue[]
   offerModel?: any
 }
@@ -24,8 +28,10 @@ export function OutputsTab({
   inputs = [],
   resultsHL,
   writePlan = [],
+  additionalResults = [],
   onResultsHLChange,
   onWritePlanChange,
+  onAdditionalResultsChange,
   issues = [],
   offerModel
 }: OutputsTabProps) {
@@ -38,6 +44,39 @@ export function OutputsTab({
     weight: { sourceKind: null, sourceRef: '' },
     purchasingPrice: { sourceKind: null, sourceRef: '' },
     basePrice: { sourceKind: null, sourceRef: '' },
+  }
+  
+  // Handlers for AdditionalResults
+  const handleAddAdditionalResult = () => {
+    if (!onAdditionalResultsChange) return
+    const newResult: AdditionalResult = {
+      id: `additional_${Date.now()}`,
+      title: '',
+      key: '',
+      sourceKind: 'var',
+      sourceRef: ''
+    }
+    onAdditionalResultsChange([...additionalResults, newResult])
+  }
+
+  const handleRemoveAdditionalResult = (id: string) => {
+    if (!onAdditionalResultsChange) return
+    onAdditionalResultsChange(additionalResults.filter(item => item.id !== id))
+  }
+
+  const handleAdditionalResultUpdate = (id: string, updates: Partial<AdditionalResult>) => {
+    if (!onAdditionalResultsChange) return
+    onAdditionalResultsChange(additionalResults.map(item => {
+      if (item.id === id) {
+        const updated = { ...item, ...updates }
+        // Auto-generate key from title if title changed
+        if (updates.title !== undefined) {
+          updated.key = slugify(updates.title)
+        }
+        return updated
+      }
+      return item
+    }))
   }
   
   // Handlers for WritePlan
@@ -149,11 +188,11 @@ export function OutputsTab({
 
   return (
     <div className="p-4 space-y-6" data-pwcode="logic-outputs">
-      {/* HL Section - Required Parameters */}
+      {/* HL Section - Required Results */}
       {onResultsHLChange && (
         <div className="space-y-4">
           <div>
-            <h3 className="text-sm font-medium mb-3">Итоги этапа: Обязательные параметры</h3>
+            <h3 className="text-sm font-medium mb-3">Итоги этапа: Обязательные результаты</h3>
             <p className="text-xs text-muted-foreground mb-4">
               Сопоставьте 6 обязательных полей этапа с числовыми источниками
             </p>
@@ -275,40 +314,24 @@ export function OutputsTab({
         </div>
       )}
 
-      {/* WritePlan Section */}
-      {onWritePlanChange && (
+      {/* AdditionalResults Section */}
+      {onAdditionalResultsChange && (
         <div className="space-y-4 pt-4 border-t border-border">
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium">План записи в ТП</h3>
-              {(resultErrorCount > 0 || resultWarningCount > 0) && (
-                <div className="flex items-center gap-2 text-xs">
-                  {resultErrorCount > 0 && (
-                    <span className="text-destructive">
-                      {resultErrorCount} {resultErrorCount === 1 ? 'ошибка' : resultErrorCount < 5 ? 'ошибки' : 'ошибок'}
-                    </span>
-                  )}
-                  {resultWarningCount > 0 && (
-                    <span className="text-yellow-600 dark:text-yellow-500">
-                      {resultWarningCount} {resultWarningCount === 1 ? 'предупреждение' : resultWarningCount < 5 ? 'предупреждения' : 'предупреждений'}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
+            <h3 className="text-sm font-medium mb-3">Дополнительные результаты</h3>
             <p className="text-xs text-muted-foreground mb-4">
-              Декларативные правила записи в торговое предложение (whitelist путей)
+              Сохраните дополнительные рассчитанные значения этапа для дальнейшего использования
             </p>
           </div>
 
-          {writePlan.length === 0 ? (
+          {additionalResults.length === 0 ? (
             <div className="text-center py-6 text-sm text-muted-foreground border border-dashed rounded-md">
-              Правила пока не добавлены
+              Дополнительные результаты пока не добавлены
             </div>
           ) : (
             <TooltipProvider>
               <div className="space-y-2">
-                {writePlan.map(item => {
+                {additionalResults.map(item => {
                   const itemIssues = resultIssues.filter(i => i.refId === item.id)
                   const hasError = itemIssues.some(i => i.severity === 'error')
                   const hasWarning = itemIssues.some(i => i.severity === 'warning')
@@ -317,47 +340,46 @@ export function OutputsTab({
                     <div 
                       key={item.id}
                       className={cn(
-                        "flex items-center gap-2 p-2 rounded-md",
-                        hasError && "bg-destructive/10 border border-destructive/30",
-                        hasWarning && !hasError && "bg-yellow-500/10 border border-yellow-500/30"
+                        "flex items-center gap-2 p-2 rounded-md border",
+                        hasError && "bg-destructive/10 border-destructive/30",
+                        hasWarning && !hasError && "bg-yellow-500/10 border-yellow-500/30",
+                        !hasError && !hasWarning && "border-border"
                       )}
                     >
-                      {/* Target path */}
-                      <Select
-                        value={item.targetPath || NONE_VALUE}
-                        onValueChange={(val) => handleWritePlanUpdate(item.id, { targetPath: val === NONE_VALUE ? '' : val })}
-                      >
-                        <SelectTrigger className="h-8 text-xs w-48">
-                          <SelectValue placeholder="Куда..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
-                          {allTargetPaths.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {/* Title input */}
+                      <div className="flex-1 min-w-0">
+                        <Input
+                          value={item.title}
+                          onChange={(e) => handleAdditionalResultUpdate(item.id, { title: e.target.value })}
+                          placeholder="Название результата"
+                          className="h-8 text-xs"
+                        />
+                        {item.key && (
+                          <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                            key: {item.key}
+                          </div>
+                        )}
+                      </div>
                       
-                      <span className="text-muted-foreground">=</span>
-                      
-                      {/* Source */}
+                      {/* Source selector */}
                       <Select
                         value={item.sourceKind && item.sourceRef 
                           ? `${item.sourceKind}:${item.sourceRef}` 
                           : NONE_VALUE}
                         onValueChange={(val) => {
                           if (val === NONE_VALUE) {
-                            handleWritePlanUpdate(item.id, { sourceKind: 'var', sourceRef: '' })
+                            handleAdditionalResultUpdate(item.id, { sourceKind: 'var', sourceRef: '' })
                           } else {
                             const [kind, ref] = val.split(':')
-                            handleWritePlanUpdate(item.id, { sourceKind: kind as 'var' | 'input', sourceRef: ref })
+                            handleAdditionalResultUpdate(item.id, { 
+                              sourceKind: kind as 'var' | 'input', 
+                              sourceRef: ref 
+                            })
                           }
                         }}
                       >
-                        <SelectTrigger className="h-8 text-xs flex-1">
-                          <SelectValue placeholder="Источник..." />
+                        <SelectTrigger className="h-8 text-xs w-56">
+                          <SelectValue placeholder="Выберите источник..." />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
@@ -369,28 +391,12 @@ export function OutputsTab({
                         </SelectContent>
                       </Select>
                       
-                      {/* Expected type */}
-                      <Select
-                        value={item.expectedType || NONE_VALUE}
-                        onValueChange={(val) => handleWritePlanUpdate(item.id, { expectedType: val === NONE_VALUE ? undefined : val as any })}
-                      >
-                        <SelectTrigger className="h-8 text-xs w-24">
-                          <SelectValue placeholder="Тип..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
-                          <SelectItem value="string">string</SelectItem>
-                          <SelectItem value="number">number</SelectItem>
-                          <SelectItem value="bool">bool</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      
                       {/* Error/Warning indicator */}
                       {(hasError || hasWarning) && (
                         <Tooltip>
                           <TooltipTrigger>
                             <AlertCircle className={cn(
-                              "w-4 h-4",
+                              "w-4 h-4 flex-shrink-0",
                               hasError ? "text-destructive" : "text-yellow-500"
                             )} />
                           </TooltipTrigger>
@@ -405,12 +411,12 @@ export function OutputsTab({
                         </Tooltip>
                       )}
                       
-                      {/* Delete */}
+                      {/* Delete button */}
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 w-7 p-0 text-destructive"
-                        onClick={() => handleRemoveWritePlanItem(item.id)}
+                        className="h-7 w-7 p-0 text-destructive flex-shrink-0"
+                        onClick={() => handleRemoveAdditionalResult(item.id)}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
@@ -422,13 +428,13 @@ export function OutputsTab({
           )}
 
           <Button
-            onClick={handleAddWritePlanItem}
+            onClick={handleAddAdditionalResult}
             size="sm"
             variant="outline"
             className="gap-2"
           >
             <Plus className="w-4 h-4" />
-            Добавить правило
+            Добавить результат
           </Button>
         </div>
       )}

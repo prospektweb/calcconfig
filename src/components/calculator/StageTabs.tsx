@@ -267,7 +267,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   const [optionsDialogStageIndex, setOptionsDialogStageIndex] = useState<number | null>(null)
 
   // Track pending save to detect when save completes
-  const pendingSaveRef = useRef<{ settingsId: number; sentJson: string } | null>(null)
+  const pendingSaveRef = useRef<{ settingsId: number; stageId: number; sentJson: string } | null>(null)
 
   // Handle INIT updates - close logic dialog and clear draft after successful save
   // This only triggers when there's a pending save (not just because LOGIC_JSON exists)
@@ -276,7 +276,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
     if (!pendingSaveRef.current) return
     if (!calculationLogicDialogOpen) return
     
-    const { settingsId, sentJson } = pendingSaveRef.current
+    const { settingsId, stageId, sentJson } = pendingSaveRef.current
     
     // Find the settings element in CALC_SETTINGS (not CALC_STAGES!)
     const settingsElement = bitrixMeta?.elementsStore?.CALC_SETTINGS?.find(
@@ -286,8 +286,8 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
     
     // Success: LOGIC_JSON appeared/updated and matches what we sent
     if (currentLogicJson && typeof currentLogicJson === 'string') {
-      // Clear draft
-      const draftKey = getDraftKey(settingsId)
+      // Clear draft using stageId
+      const draftKey = getDraftKey(stageId)
       localStorage.removeItem(draftKey)
       
       // Reset pending save
@@ -309,8 +309,8 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   }, [calculationLogicDialogOpen])
 
   // Callback for dialog to notify when save is requested
-  const handleSaveRequest = useCallback((settingsId: number, json: string) => {
-    pendingSaveRef.current = { settingsId, sentJson: json }
+  const handleSaveRequest = useCallback((settingsId: number, stageId: number, json: string) => {
+    pendingSaveRef.current = { settingsId, stageId, sentJson: json }
   }, [])
 
   const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material' | 'stage' | 'config') => {
@@ -911,7 +911,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                           s => s.id === calc.stageId
                         )
                         const savedJson = stageElement?.properties?.LOGIC_JSON?.['~VALUE']
-                        const hasDraft = hasDraftForStage(calc.settingsId, calc.stageId)
+                        const hasDraft = hasDraftForStage(calc.stageId)
                         const readiness = calculateStageReadiness(
                           typeof savedJson === 'string' ? savedJson : null,
                           hasDraft
