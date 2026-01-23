@@ -266,8 +266,19 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   const [optionsDialogType, setOptionsDialogType] = useState<'operation' | 'material'>('operation')
   const [optionsDialogStageIndex, setOptionsDialogStageIndex] = useState<number | null>(null)
 
-  // Track pending save to detect when save completes
-  const pendingSaveRef = useRef<{ settingsId: number; stageId: number; sentJson: string } | null>(null)
+  // Track pending save to detect when save completes using hash comparison
+  const pendingSaveRef = useRef<{
+    settingsId: number
+    stageId: number
+    sentParamsHash: string
+    sentLogicJsonHash: string
+    sentInputsHash: string
+    sentOutputsHash: string
+  } | null>(null)
+
+  // Simple hash functions for comparing data
+  const hashString = (str: string): string => str
+  const hashArray = (arr: string[]): string => JSON.stringify(arr)
 
   // Handle INIT updates - close logic dialog and clear draft after successful save
   // This only triggers when there's a pending save (not just because LOGIC_JSON exists)
@@ -276,28 +287,53 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
     if (!pendingSaveRef.current) return
     if (!calculationLogicDialogOpen) return
     
-    const { settingsId, stageId, sentJson } = pendingSaveRef.current
+    const { settingsId, stageId, sentParamsHash, sentLogicJsonHash, sentInputsHash, sentOutputsHash } = pendingSaveRef.current
     
-    // Find the settings element in CALC_SETTINGS (not CALC_STAGES!)
+    // Find the elements in CALC_SETTINGS and CALC_STAGES
     const settingsElement = bitrixMeta?.elementsStore?.CALC_SETTINGS?.find(
       s => s.id === settingsId
     )
-    const currentLogicJson = settingsElement?.properties?.LOGIC_JSON?.['~VALUE']
+    const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find(
+      s => s.id === stageId
+    )
     
-    // Success: LOGIC_JSON appeared/updated and matches what we sent
-    if (currentLogicJson && typeof currentLogicJson === 'string') {
-      // Clear draft using stageId
-      const draftKey = getDraftKey(stageId)
-      localStorage.removeItem(draftKey)
-      
-      // Reset pending save
+    if (!settingsElement || !stageElement) return
+    
+    // Compare hashes
+    const currentParamsValue = settingsElement.properties?.PARAMS?.VALUE
+    const currentParamsHash = hashArray(Array.isArray(currentParamsValue) ? currentParamsValue : [])
+    
+    const currentLogicJson = settingsElement.properties?.LOGIC_JSON?.['~VALUE']
+    const currentLogicJsonHash = hashString(typeof currentLogicJson === 'string' ? currentLogicJson : '')
+    
+    const currentInputsValue = stageElement.properties?.INPUTS?.VALUE
+    const currentInputsHash = hashArray(Array.isArray(currentInputsValue) ? currentInputsValue : [])
+    
+    const currentOutputsValue = stageElement.properties?.OUTPUTS?.VALUE
+    const currentOutputsHash = hashArray(Array.isArray(currentOutputsValue) ? currentOutputsValue : [])
+    
+    const allMatch = 
+      sentParamsHash === currentParamsHash &&
+      sentLogicJsonHash === currentLogicJsonHash &&
+      sentInputsHash === currentInputsHash &&
+      sentOutputsHash === currentOutputsHash
+    
+    if (allMatch) {
+      // SUCCESS
       pendingSaveRef.current = null
+      
+      // Clear draft using both stageId and settingsId
+      const draftKey = getDraftKey(stageId, settingsId)
+      localStorage.removeItem(draftKey)
       
       // Close popup
       setCalculationLogicDialogOpen(false)
       
       // Show success toast
       toast.success('Сохранено')
+    } else if (currentLogicJson) {
+      // INIT обновился, но данные не совпали - не закрываем popup
+      // Оставляем pendingSaveRef.current, чтобы продолжить проверку
     }
   }, [bitrixMeta, calculationLogicDialogOpen])
 
@@ -309,8 +345,31 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   }, [calculationLogicDialogOpen])
 
   // Callback for dialog to notify when save is requested
-  const handleSaveRequest = useCallback((settingsId: number, stageId: number, json: string) => {
-    pendingSaveRef.current = { settingsId, stageId, sentJson: json }
+  const handleSaveRequest = useCallback((settingsId: number, stageId: number, payloadJson: string) => {
+    try {
+      // Parse payload to extract data for hashing
+      const payload = JSON.parse(payloadJson)
+      
+      // Extract params names for hash
+      const paramsNames = payload.calcSettings.params.map((p: any) => p.name)
+      
+      // Extract inputs names for hash
+      const inputsNames = payload.stageWiring.inputs.map((i: any) => i.name)
+      
+      // Extract outputs keys for hash
+      const outputsKeys = payload.stageWiring.outputs.map((o: any) => o.key)
+      
+      pendingSaveRef.current = {
+        settingsId,
+        stageId,
+        sentParamsHash: hashArray(paramsNames),
+        sentLogicJsonHash: hashString(payload.calcSettings.logicJson),
+        sentInputsHash: hashArray(inputsNames),
+        sentOutputsHash: hashArray(outputsKeys)
+      }
+    } catch (e) {
+      console.error('Failed to parse payload for hash comparison', e)
+    }
   }, [])
 
   const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material' | 'stage' | 'config') => {
@@ -910,10 +969,10 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                         const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find(
                           s => s.id === calc.stageId
                         )
-                        const savedJson = stageElement?.properties?.LOGIC_JSON?.['~VALUE']
-                        const hasDraft = hasDraftForStage(calc.stageId)
+                        const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
+                        const hasDraft = hasDraftForStage(calc.stageId, calc.settingsId)
                         const readiness = calculateStageReadiness(
-                          typeof savedJson === 'string' ? savedJson : null,
+                          outputsValue,
                           hasDraft
                         )
                         
