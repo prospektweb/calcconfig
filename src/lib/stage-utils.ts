@@ -4,17 +4,33 @@
 
 /**
  * Get draft key for localStorage
+ * IMPORTANT: Uses stageId to ensure drafts are scoped per stage, not per calculator
  */
-export function getDraftKey(settingsId: number): string {
-  return `calc_logic_draft:${settingsId}`
+export function getDraftKey(stageId: number): string {
+  return `calc_logic_draft_stage:${stageId}`
 }
 
 /**
  * Check if a stage has a draft in localStorage
  */
-export function hasDraftForStage(settingsId: number, stageId: number): boolean {
-  const draftKey = getDraftKey(settingsId)
+export function hasDraftForStage(stageId: number): boolean {
+  const draftKey = getDraftKey(stageId)
   return localStorage.getItem(draftKey) !== null
+}
+
+/**
+ * Generate a slug from a title for use as a key
+ * - Converts to lowercase
+ * - Replaces non-alphanumeric characters with underscores
+ * - Collapses multiple underscores into one
+ * - Trims leading/trailing underscores
+ */
+export function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')  // Replace non-alphanumeric with underscore
+    .replace(/_+/g, '_')           // Collapse multiple underscores
+    .replace(/^_|_$/g, '')         // Trim leading/trailing underscores
 }
 
 /**

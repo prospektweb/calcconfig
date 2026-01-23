@@ -12,7 +12,7 @@ import { JsonTree } from './logic/JsonTree'
 import { InputsTab } from './logic/InputsTab'
 import { FormulasTab } from './logic/FormulasTab'
 import { OutputsTab } from './logic/OutputsTab'
-import { InputParam, FormulaVar, StageLogic, ValidationIssue, ValueType, ResultsHL, WritePlanItem } from './logic/types'
+import { InputParam, FormulaVar, StageLogic, ValidationIssue, ValueType, ResultsHL, WritePlanItem, AdditionalResult } from './logic/types'
 import { saveLogic, loadLogic } from './logic/storage'
 import { validateAll, inferType, inferTypeFromSourcePath } from './logic/validator'
 import { getDraftKey } from '@/lib/stage-utils'
@@ -131,6 +131,7 @@ function normalizeLogicJson(parsed: any): {
   vars: FormulaVar[]
   resultsHL: ResultsHL
   writePlan: WritePlanItem[]
+  additionalResults: AdditionalResult[]
 } {
   return {
     inputs: Array.isArray(parsed?.inputs) ? parsed.inputs : [],
@@ -139,6 +140,7 @@ function normalizeLogicJson(parsed: any): {
       ? parsed.resultsHL
       : createEmptyResultsHL(),
     writePlan: Array.isArray(parsed?.writePlan) ? parsed.writePlan : [],
+    additionalResults: Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : [],
   }
 }
 
@@ -152,7 +154,7 @@ interface CalculationLogicDialogProps {
   initPayload?: InitPayload | null
   currentStageId?: number | null
   currentSettingsId?: number | null
-  onSaveRequest?: (settingsId: number, json: string) => void
+  onSaveRequest?: (settingsId: number, stageId: number, json: string) => void
 }
 
 export function CalculationLogicDialog({
@@ -177,6 +179,7 @@ export function CalculationLogicDialog({
   const [vars, setVars] = useState<FormulaVar[]>([])
   const [resultsHL, setResultsHL] = useState<ResultsHL>(createEmptyResultsHL())
   const [writePlan, setWritePlan] = useState<WritePlanItem[]>([])
+  const [additionalResults, setAdditionalResults] = useState<AdditionalResult[]>([])
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
 
   // State for save/draft management
@@ -208,8 +211,8 @@ export function CalculationLogicDialog({
 
   // Load saved logic when dialog opens (with draft support)
   useEffect(() => {
-    if (open && currentSettingsId !== null && currentSettingsId !== undefined) {
-      const draftKey = getDraftKey(currentSettingsId)
+    if (open && currentStageId !== null && currentStageId !== undefined) {
+      const draftKey = getDraftKey(currentStageId)
       
       // Try localStorage draft first
       const draftJson = localStorage.getItem(draftKey)
@@ -221,6 +224,7 @@ export function CalculationLogicDialog({
           setVars(normalized.vars)
           setResultsHL(normalized.resultsHL)
           setWritePlan(normalized.writePlan)
+          setAdditionalResults(normalized.additionalResults)
           return
         } catch (e) {
           console.warn('Failed to parse draft', e)
@@ -236,6 +240,7 @@ export function CalculationLogicDialog({
           setVars(normalized.vars)
           setResultsHL(normalized.resultsHL)
           setWritePlan(normalized.writePlan)
+          setAdditionalResults(normalized.additionalResults)
           return
         } catch (e) {
           console.warn('Failed to parse saved logic', e)
@@ -247,24 +252,26 @@ export function CalculationLogicDialog({
       setVars([])
       setResultsHL(createEmptyResultsHL())
       setWritePlan([])
+      setAdditionalResults([])
     }
-  }, [open, currentSettingsId, savedJson])
+  }, [open, currentStageId, savedJson])
 
   // Save to draft on any change
   useEffect(() => {
-    if (open && currentSettingsId !== null && currentSettingsId !== undefined) {
-      const draftKey = getDraftKey(currentSettingsId)
+    if (open && currentStageId !== null && currentStageId !== undefined) {
+      const draftKey = getDraftKey(currentStageId)
       const draft = {
         version: 1,
         stageIndex,
         inputs,
         vars,
         resultsHL,
-        writePlan
+        writePlan,
+        additionalResults
       }
       localStorage.setItem(draftKey, JSON.stringify(draft))
     }
-  }, [inputs, vars, resultsHL, writePlan, open, currentSettingsId, stageIndex])
+  }, [inputs, vars, resultsHL, writePlan, additionalResults, open, currentStageId, stageIndex])
 
   // Computed values for dirty state
   const currentJson = JSON.stringify({
@@ -273,11 +280,12 @@ export function CalculationLogicDialog({
     inputs,
     vars,
     resultsHL,
-    writePlan
+    writePlan,
+    additionalResults
   })
 
-  const draftKey = currentSettingsId !== null
-    ? getDraftKey(currentSettingsId) 
+  const draftKey = currentStageId !== null
+    ? getDraftKey(currentStageId) 
     : null
   const hasDraft = draftKey !== null && localStorage.getItem(draftKey) !== null
   
@@ -342,7 +350,7 @@ export function CalculationLogicDialog({
   }
 
   const handleValidate = () => {
-    const result = validateAll(inputs, vars, stageIndex, [], resultsHL, writePlan)
+    const result = validateAll(inputs, vars, stageIndex, [], resultsHL, writePlan, additionalResults)
     setValidationIssues(result.issues)
     
     // Also update vars with inferred types
@@ -382,7 +390,7 @@ export function CalculationLogicDialog({
 
   const handleSave = async () => {
     // Финальная проверка
-    const result = validateAll(inputs, vars, stageIndex, [], resultsHL, writePlan)
+    const result = validateAll(inputs, vars, stageIndex, [], resultsHL, writePlan, additionalResults)
     setValidationIssues(result.issues)
     
     if (!result.valid) {
@@ -395,10 +403,15 @@ export function CalculationLogicDialog({
       return
     }
     
+    if (!currentStageId) {
+      toast.error('Не указан ID этапа')
+      return
+    }
+    
     setIsSaving(true)
     
     // Notify parent about pending save BEFORE sending request
-    onSaveRequest?.(currentSettingsId, currentJson)
+    onSaveRequest?.(currentSettingsId, currentStageId, currentJson)
     
     // Таймаут на случай если ответ не придёт
     const timeout = setTimeout(() => {
@@ -423,12 +436,12 @@ export function CalculationLogicDialog({
   }
 
   const handleReset = () => {
-    if (!currentSettingsId) {
+    if (!currentStageId) {
       return
     }
 
     // Удалить draft из localStorage
-    const draftKey = getDraftKey(currentSettingsId)
+    const draftKey = getDraftKey(currentStageId)
     localStorage.removeItem(draftKey)
     
     // Восстановить из savedJson или пустой шаблон
@@ -440,18 +453,22 @@ export function CalculationLogicDialog({
         setVars(normalized.vars)
         setResultsHL(normalized.resultsHL)
         setWritePlan(normalized.writePlan)
+        setAdditionalResults(normalized.additionalResults)
       } catch (e) {
         console.warn('Failed to parse saved logic', e)
         setInputs([])
         setVars([])
         setResultsHL(createEmptyResultsHL())
         setWritePlan([])
+        setAdditionalResults([])
       }
     } else {
       setInputs([])
       setVars([])
       setResultsHL(createEmptyResultsHL())
       setWritePlan([])
+      setAdditionalResults([])
+    }
     }
     
     // Очистить ошибки
@@ -601,8 +618,10 @@ export function CalculationLogicDialog({
                       inputs={inputs}
                       resultsHL={resultsHL}
                       writePlan={writePlan}
+                      additionalResults={additionalResults}
                       onResultsHLChange={setResultsHL}
                       onWritePlanChange={setWritePlan}
+                      onAdditionalResultsChange={setAdditionalResults}
                       issues={validationIssues}
                       offerModel={logicContext?.offer}
                     />
