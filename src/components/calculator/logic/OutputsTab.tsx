@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
-import { FormulaVar, ValidationIssue, InputParam, ResultsHL, WritePlanItem, AdditionalResult } from './types'
+import { FormulaVar, ValidationIssue, InputParam, ResultsHL, AdditionalResult } from './types'
 import { cn } from '@/lib/utils'
 import { slugify } from '@/lib/stage-utils'
 
@@ -12,10 +12,8 @@ interface OutputsTabProps {
   vars: FormulaVar[]
   inputs?: InputParam[]
   resultsHL?: ResultsHL
-  writePlan?: WritePlanItem[]
   additionalResults?: AdditionalResult[]
   onResultsHLChange?: (resultsHL: ResultsHL) => void
-  onWritePlanChange?: (writePlan: WritePlanItem[]) => void
   onAdditionalResultsChange?: (additionalResults: AdditionalResult[]) => void
   issues?: ValidationIssue[]
   offerModel?: any
@@ -27,10 +25,8 @@ export function OutputsTab({
   vars,
   inputs = [],
   resultsHL,
-  writePlan = [],
   additionalResults = [],
   onResultsHLChange,
-  onWritePlanChange,
   onAdditionalResultsChange,
   issues = [],
   offerModel
@@ -79,31 +75,6 @@ export function OutputsTab({
     }))
   }
   
-  // Handlers for WritePlan
-  const handleAddWritePlanItem = () => {
-    if (!onWritePlanChange) return
-    const newItem: WritePlanItem = {
-      id: `writeplan_${Date.now()}`,
-      targetPath: '',
-      sourceKind: 'var',
-      sourceRef: '',
-      expectedType: 'string'
-    }
-    onWritePlanChange([...writePlan, newItem])
-  }
-
-  const handleRemoveWritePlanItem = (id: string) => {
-    if (!onWritePlanChange) return
-    onWritePlanChange(writePlan.filter(item => item.id !== id))
-  }
-
-  const handleWritePlanUpdate = (id: string, updates: Partial<WritePlanItem>) => {
-    if (!onWritePlanChange) return
-    onWritePlanChange(writePlan.map(item =>
-      item.id === id ? { ...item, ...updates } : item
-    ))
-  }
-
   const hasVars = vars.length > 0
   const hasInputs = inputs.length > 0
   
@@ -158,7 +129,7 @@ export function OutputsTab({
       })),
   ]
 
-  // All sources for WritePlan
+  // Sources for AdditionalResults (vars + inputs)
   const allSources = [
     ...vars
       .filter(v => v.name?.trim())
@@ -167,24 +138,6 @@ export function OutputsTab({
       .filter(i => i.name?.trim())
       .map(i => ({ kind: 'input' as const, ref: i.name, label: `${i.name} (вход)`, type: i.valueType })),
   ]
-
-  // Target paths for WritePlan
-  const TARGET_PATH_OPTIONS = [
-    { value: 'offer.code', label: 'offer.code (Код)' },
-    { value: 'offer.name', label: 'offer.name (Название)' },
-    { value: 'offer.previewText', label: 'offer.previewText (Анонс)' },
-    { value: 'offer.detailText', label: 'offer.detailText (Описание)' },
-  ]
-
-  // Add properties from offerModel (only VALUE, not DESCRIPTION)
-  const propertyPaths = offerModel?.properties 
-    ? Object.keys(offerModel.properties).map(code => ({
-        value: `offer.properties.${code}.VALUE`, 
-        label: `${code}.VALUE`
-      }))
-    : []
-
-  const allTargetPaths = [...TARGET_PATH_OPTIONS, ...propertyPaths]
 
   return (
     <div className="p-4 space-y-6" data-pwcode="logic-outputs">
