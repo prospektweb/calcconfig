@@ -563,7 +563,7 @@ export function ContextExplorer({
   }
 
   return (
-    <div className="h-full overflow-auto p-4">
+    <div className="h-full overflow-auto">
       <Accordion type="multiple" defaultValue={['offer', 'current-stage']} className="space-y-1">
         {/* Trade Offer Section */}
         {selectedOffer && (

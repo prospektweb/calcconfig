@@ -212,9 +212,7 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
                         <p className="text-xs">Копировать имя</p>
                       </TooltipContent>
                     </Tooltip>
-                  </TooltipProvider>
-                  
-                  <TooltipProvider>
+                    
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
