@@ -283,6 +283,11 @@ export function ContextExplorer({
     if (!initPayload?.elementsStore?.CALC_STAGES || !currentStageId) return null
     return initPayload.elementsStore.CALC_STAGES.find(s => s.id === currentStageId) ?? null
   }, [initPayload, currentStageId])
+  
+  const currentStageIndex = useMemo(() => {
+    if (!initPayload?.elementsStore?.CALC_STAGES || !currentStageId) return -1
+    return initPayload.elementsStore.CALC_STAGES.findIndex(s => s.id === currentStageId)
+  }, [initPayload, currentStageId])
 
   const stageElements = useMemo(() => {
     if (!currentStage || !initPayload?.elementsStore) {
@@ -448,7 +453,7 @@ export function ContextExplorer({
                           <AttributeItem
                             name="Количество операций"
                             code="properties.OPERATION_QUANTITY.VALUE"
-                            basePath={`elementsStore.CALC_STAGES`}
+                            basePath={currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}]` : 'elementsStore.CALC_STAGES'}
                             valueType="number"
                             onAddInput={onAddInput}
                           />
@@ -457,7 +462,7 @@ export function ContextExplorer({
                           <AttributeItem
                             name="Количество материалов"
                             code="properties.MATERIAL_QUANTITY.VALUE"
-                            basePath={`elementsStore.CALC_STAGES`}
+                            basePath={currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}]` : 'elementsStore.CALC_STAGES'}
                             valueType="number"
                             onAddInput={onAddInput}
                           />

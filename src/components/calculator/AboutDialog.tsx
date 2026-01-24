@@ -31,10 +31,13 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
 
     // Timeout fallback
     const timeout = setTimeout(() => {
-      if (loading) {
-        setContent('Информация временно недоступна. Попробуйте позже.')
-        setLoading(false)
-      }
+      // Check loading state via setLoading callback to avoid stale closure
+      setLoading(prev => {
+        if (prev) {
+          setContent('Информация временно недоступна. Попробуйте позже.')
+        }
+        return false
+      })
     }, 5000)
 
     return () => {
