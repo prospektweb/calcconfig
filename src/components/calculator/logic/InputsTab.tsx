@@ -25,9 +25,11 @@ interface InputsTabProps {
   inputs: InputParam[]
   onChange: (inputs: InputParam[]) => void
   issues?: ValidationIssue[]
+  activeInputId?: string | null
+  onInputSelect?: (id: string | null) => void
 }
 
-export function InputsTab({ inputs, onChange, issues = [] }: InputsTabProps) {
+export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInputSelect }: InputsTabProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
 
@@ -120,15 +122,25 @@ export function InputsTab({ inputs, onChange, issues = [] }: InputsTabProps) {
                 : 'Тип не удалось определить автоматически → unknown'
             }
             
+            const isActive = activeInputId === input.id
+            
             return (
               <div 
                 key={input.id}
                 className={cn(
-                  "flex flex-col gap-2 p-2 border rounded-md bg-card",
+                  "flex flex-col gap-2 p-2 border rounded-md bg-card cursor-pointer transition-colors",
                   hasError && "border-destructive",
-                  hasWarning && !hasError && "border-yellow-500"
+                  hasWarning && !hasError && "border-yellow-500",
+                  isActive && "border-primary bg-primary/5 shadow-md",
+                  !isActive && !hasError && !hasWarning && "hover:border-accent"
                 )}
+                onClick={() => onInputSelect?.(isActive ? null : input.id)}
               >
+                {isActive && (
+                  <div className="text-xs text-primary font-medium">
+                    📍 Укажите новый путь в Контексте
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <div className="flex-1 flex items-center gap-2">
                     {editingId === input.id ? (
@@ -141,6 +153,7 @@ export function InputsTab({ inputs, onChange, issues = [] }: InputsTabProps) {
                           autoFocus
                           className="h-7 text-sm flex-1 max-w-xs"
                           placeholder="Имя параметра"
+                          onClick={(e) => e.stopPropagation()}
                         />
                         <span className="text-sm text-muted-foreground">=</span>
                       </div>
@@ -151,7 +164,10 @@ export function InputsTab({ inputs, onChange, issues = [] }: InputsTabProps) {
                           variant="ghost"
                           size="sm"
                           className="h-6 w-6 p-0"
-                          onClick={() => handleStartEdit(input)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleStartEdit(input)
+                          }}
                         >
                           <Pencil className="w-3 h-3" />
                         </Button>
@@ -171,7 +187,10 @@ export function InputsTab({ inputs, onChange, issues = [] }: InputsTabProps) {
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(input.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDelete(input.id)
+                    }}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>

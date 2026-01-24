@@ -432,36 +432,8 @@ export function validateAll(
       })
     }
     
-    // Check for forbidden array indices (except stages[N])
-    const arrayIndexPattern = /\[(\d+)\]/g
-    const arrayIndexMatches = input.sourcePath.match(arrayIndexPattern)
-    
-    if (arrayIndexMatches) {
-      // Check if path starts with stages[
-      if (input.sourcePath.startsWith('stages[')) {
-        // Extract stage index and validate it's not in the future
-        const stageMatch = input.sourcePath.match(/^stages\[(\d+)\]/)
-        if (stageMatch) {
-          const stageNum = parseInt(stageMatch[1])
-          if (stageNum > stageIndex) {
-            issues.push({
-              severity: 'error',
-              scope: 'input',
-              refId: input.id,
-              message: `Данные следующего этапа недоступны`
-            })
-          }
-        }
-      } else {
-        // For all other paths, array indices are forbidden
-        issues.push({
-          severity: 'error',
-          scope: 'input',
-          refId: input.id,
-          message: `Запрещены индексы в путях. Нельзя использовать [0], [1] и т.п.`
-        })
-      }
-    }
+    // NOTE: Array indices are ALLOWED for input parameters (e.g., elementsStore.CALC_MATERIALS_VARIANTS[0].attributes.weight)
+    // No validation for array indices on inputs
     
     // Type validation for inputs - check for conflicts with manual types
     if (input.typeSource === 'manual' && input.valueType && input.valueType !== 'any' && input.valueType !== 'unknown') {

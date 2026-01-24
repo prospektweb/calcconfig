@@ -283,7 +283,13 @@ export function OutputsTab({
             </div>
           ) : (
             <TooltipProvider>
-              <div className="space-y-2">
+              <div className="space-y-3">
+                {/* Column headers */}
+                <div className="grid grid-cols-2 gap-8 px-2">
+                  <Label className="text-xs font-medium text-muted-foreground">Наименование результата</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">Значение</Label>
+                </div>
+                
                 {additionalResults.map(item => {
                   const itemIssues = resultIssues.filter(i => i.refId === item.id)
                   const hasError = itemIssues.some(i => i.severity === 'error')
@@ -293,14 +299,14 @@ export function OutputsTab({
                     <div 
                       key={item.id}
                       className={cn(
-                        "flex items-center gap-2 p-2 rounded-md border",
+                        "grid grid-cols-2 gap-8 items-start p-2 rounded-md border",
                         hasError && "bg-destructive/10 border-destructive/30",
                         hasWarning && !hasError && "bg-yellow-500/10 border-yellow-500/30",
                         !hasError && !hasWarning && "border-border"
                       )}
                     >
-                      {/* Title input */}
-                      <div className="flex-1 min-w-0">
+                      {/* Left column: Title input */}
+                      <div className="flex flex-col gap-1">
                         <Input
                           value={item.title}
                           onChange={(e) => handleAdditionalResultUpdate(item.id, { title: e.target.value })}
@@ -308,71 +314,73 @@ export function OutputsTab({
                           className="h-8 text-xs"
                         />
                         {item.key && (
-                          <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          <div className="text-xs text-muted-foreground truncate">
                             key: {item.key}
                           </div>
                         )}
                       </div>
                       
-                      {/* Source selector */}
-                      <Select
-                        value={item.sourceKind && item.sourceRef 
-                          ? `${item.sourceKind}:${item.sourceRef}` 
-                          : NONE_VALUE}
-                        onValueChange={(val) => {
-                          if (val === NONE_VALUE) {
-                            handleAdditionalResultUpdate(item.id, { sourceKind: 'var', sourceRef: '' })
-                          } else {
-                            const [kind, ref] = val.split(':')
-                            handleAdditionalResultUpdate(item.id, { 
-                              sourceKind: kind as 'var' | 'input', 
-                              sourceRef: ref 
-                            })
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="h-8 text-xs w-56">
-                          <SelectValue placeholder="Выберите источник..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
-                          {allSources.map(src => (
-                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                              {src.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      
-                      {/* Error/Warning indicator */}
-                      {(hasError || hasWarning) && (
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <AlertCircle className={cn(
-                              "w-4 h-4 flex-shrink-0",
-                              hasError ? "text-destructive" : "text-yellow-500"
-                            )} />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {itemIssues.map((issue, idx) => (
-                              <div key={idx}>
-                                <p>{issue.message}</p>
-                                {issue.hint && <p className="text-xs text-muted-foreground">{issue.hint}</p>}
-                              </div>
+                      {/* Right column: Source selector + actions */}
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={item.sourceKind && item.sourceRef 
+                            ? `${item.sourceKind}:${item.sourceRef}` 
+                            : NONE_VALUE}
+                          onValueChange={(val) => {
+                            if (val === NONE_VALUE) {
+                              handleAdditionalResultUpdate(item.id, { sourceKind: 'var', sourceRef: '' })
+                            } else {
+                              const [kind, ref] = val.split(':')
+                              handleAdditionalResultUpdate(item.id, { 
+                                sourceKind: kind as 'var' | 'input', 
+                                sourceRef: ref 
+                              })
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs flex-1">
+                            <SelectValue placeholder="Выберите источник..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
+                            {allSources.map(src => (
+                              <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                                {src.label}
+                              </SelectItem>
                             ))}
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                      
-                      {/* Delete button */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-destructive flex-shrink-0"
-                        onClick={() => handleRemoveAdditionalResult(item.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                          </SelectContent>
+                        </Select>
+                        
+                        {/* Error/Warning indicator */}
+                        {(hasError || hasWarning) && (
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <AlertCircle className={cn(
+                                "w-4 h-4 flex-shrink-0",
+                                hasError ? "text-destructive" : "text-yellow-500"
+                              )} />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {itemIssues.map((issue, idx) => (
+                                <div key={idx}>
+                                  <p>{issue.message}</p>
+                                  {issue.hint && <p className="text-xs text-muted-foreground">{issue.hint}</p>}
+                                </div>
+                              ))}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        
+                        {/* Delete button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-destructive flex-shrink-0"
+                          onClick={() => handleRemoveAdditionalResult(item.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   )
                 })}

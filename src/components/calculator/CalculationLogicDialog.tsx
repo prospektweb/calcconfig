@@ -12,10 +12,11 @@ import { JsonTree } from './logic/JsonTree'
 import { InputsTab } from './logic/InputsTab'
 import { FormulasTab } from './logic/FormulasTab'
 import { OutputsTab } from './logic/OutputsTab'
+import { HelpDetailDialog } from './logic/HelpDetailDialog'
 import { InputParam, FormulaVar, StageLogic, ValidationIssue, ValueType, ResultsHL, WritePlanItem, AdditionalResult } from './logic/types'
 import { saveLogic, loadLogic } from './logic/storage'
 import { validateAll, inferType, inferTypeFromSourcePath } from './logic/validator'
-import { getDraftKey } from '@/lib/stage-utils'
+import { getDraftKey, extractLogicJsonString } from '@/lib/stage-utils'
 
 /**
  * Recursively nullify all values in an object/array, preserving structure
@@ -61,33 +62,16 @@ function deepNullifyShape(obj: any): any {
 
 /**
  * Build logic context for the context tree panel
- * Uses selectedOffers[0] structure but with all values nullified
- * Removes selectedOffers from context and excludes offer.prices
+ * Shows full INIT payload except:
+ * - selectedOffers is transformed to offer (first element with nullified values, prices removed)
  */
 function buildLogicContext(initPayload: InitPayload | null | undefined): any {
   if (!initPayload) return null
 
-  // Construct logic context
-  const logicContext: any = {
-    context: initPayload.context,
-  }
+  // Copy entire initPayload
+  const logicContext: any = { ...initPayload }
 
-  // Add preset if exists
-  if (initPayload.preset) {
-    logicContext.preset = initPayload.preset
-  }
-
-  // Add elementsStore if exists
-  if (initPayload.elementsStore) {
-    logicContext.elementsStore = initPayload.elementsStore
-  }
-
-  // Add stages if available
-  if (initPayload.preset?.properties?.CALC_STAGES || initPayload.elementsStore?.CALC_STAGES) {
-    logicContext.stages = initPayload.preset?.properties?.CALC_STAGES || initPayload.elementsStore?.CALC_STAGES
-  }
-
-  // Build offer model from selectedOffers[0] if available
+  // Transform selectedOffers[0] → offer
   if (initPayload.selectedOffers?.[0]) {
     const offer0 = initPayload.selectedOffers[0]
     const offerModel = deepNullifyShape(offer0)
@@ -98,14 +82,10 @@ function buildLogicContext(initPayload: InitPayload | null | undefined): any {
     }
     
     logicContext.offer = offerModel
-  } else {
-    // Fallback: create minimal offer structure
-    logicContext.offer = {
-      id: null,
-      name: null,
-      properties: {}
-    }
   }
+
+  // Remove selectedOffers from context (replaced by offer)
+  delete logicContext.selectedOffers
 
   return logicContext
 }
@@ -168,8 +148,11 @@ function buildInputsFromInit(
 /**
  * Build vars from CALC_SETTINGS.LOGIC_JSON (only vars field)
  * Following new protocol spec section 3.2
+ * Uses extractLogicJsonString to handle various LOGIC_JSON formats
  */
-function buildVarsFromInit(logicJsonRaw: string | undefined | null): FormulaVar[] {
+function buildVarsFromInit(logicJsonProp: any): FormulaVar[] {
+  const logicJsonRaw = extractLogicJsonString(logicJsonProp)
+  
   if (!logicJsonRaw) {
     return []
   }
@@ -262,6 +245,14 @@ export function CalculationLogicDialog({
   const [activeTab, setActiveTab] = useState('inputs')
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  // State for help dialog
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false)
+  const [helpPlaceCode, setHelpPlaceCode] = useState('')
+  const [helpTitle, setHelpTitle] = useState('')
+
+  // State for active input selection (for path editing)
+  const [activeInputId, setActiveInputId] = useState<string | null>(null)
+
   // State for logic editing
   const [inputs, setInputs] = useState<InputParam[]>([])
   const [vars, setVars] = useState<FormulaVar[]>([])
@@ -299,66 +290,73 @@ export function CalculationLogicDialog({
 
   // Load saved logic when dialog opens (with draft support)
   useEffect(() => {
-    if (open && currentStageId !== null && currentStageId !== undefined && 
-        currentSettingsId !== null && currentSettingsId !== undefined) {
-      const draftKey = getDraftKey(currentStageId, currentSettingsId)
-      
-      // Try localStorage draft first
-      const draftJson = localStorage.getItem(draftKey)
-      if (draftJson) {
-        try {
-          const parsed = JSON.parse(draftJson)
-          setInputs(Array.isArray(parsed?.inputs) ? parsed.inputs : [])
-          setVars(Array.isArray(parsed?.vars) ? parsed.vars : [])
-          setResultsHL(parsed?.resultsHL || createEmptyResultsHL())
-          setWritePlan(Array.isArray(parsed?.writePlan) ? parsed.writePlan : [])
-          setAdditionalResults(Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : [])
-          return
-        } catch (e) {
-          console.warn('Failed to parse draft', e)
-        }
-      }
-      
-      // Fall back to loading from INIT using new protocol
-      const settingsElement = initPayload?.elementsStore?.CALC_SETTINGS?.find(
-        s => s.id === currentSettingsId
-      )
-      const stageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
-        s => s.id === currentStageId
-      )
-      
-      if (settingsElement || stageElement) {
-        // Build inputs from PARAMS + INPUTS
-        const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
-        const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
-        const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
-        const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
-        const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
-        
-        // Build vars from LOGIC_JSON
-        const logicJsonRaw = settingsElement?.properties?.LOGIC_JSON?.['~VALUE']
-        const vars = buildVarsFromInit(logicJsonRaw)
-        
-        // Build results from OUTPUTS
-        const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
-        const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-        const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
-        
-        setInputs(inputs)
-        setVars(vars)
-        setResultsHL(resultsHL)
-        setAdditionalResults(additionalResults)
-        setWritePlan([])  // writePlan deprecated
-        return
-      }
-      
-      // Reset to empty state if no data
+    // If no settingsId or stageId, clear all data
+    if (!open || !currentSettingsId || !currentStageId) {
       setInputs([])
       setVars([])
       setResultsHL(createEmptyResultsHL())
       setWritePlan([])
       setAdditionalResults([])
+      return
     }
+    
+    const draftKey = getDraftKey(currentStageId, currentSettingsId)
+    
+    // Try localStorage draft first
+    const draftJson = localStorage.getItem(draftKey)
+    if (draftJson) {
+      try {
+        const parsed = JSON.parse(draftJson)
+        setInputs(Array.isArray(parsed?.inputs) ? parsed.inputs : [])
+        setVars(Array.isArray(parsed?.vars) ? parsed.vars : [])
+        setResultsHL(parsed?.resultsHL || createEmptyResultsHL())
+        setWritePlan(Array.isArray(parsed?.writePlan) ? parsed.writePlan : [])
+        setAdditionalResults(Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : [])
+        return
+      } catch (e) {
+        console.warn('Failed to parse draft', e)
+      }
+    }
+    
+    // Fall back to loading from INIT using new protocol
+    const settingsElement = initPayload?.elementsStore?.CALC_SETTINGS?.find(
+      s => s.id === currentSettingsId
+    )
+    const stageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
+      s => s.id === currentStageId
+    )
+    
+    if (settingsElement || stageElement) {
+      // Build inputs from PARAMS + INPUTS
+      const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
+      const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
+      const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
+      const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+      const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
+      
+      // Build vars from LOGIC_JSON (pass entire property object for proper parsing)
+      const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
+      const vars = buildVarsFromInit(logicJsonProp)
+      
+      // Build results from OUTPUTS
+      const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
+      const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
+      const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
+      
+      setInputs(inputs)
+      setVars(vars)
+      setResultsHL(resultsHL)
+      setAdditionalResults(additionalResults)
+      setWritePlan([])  // writePlan deprecated
+      return
+    }
+    
+    // Reset to empty state if no data
+    setInputs([])
+    setVars([])
+    setResultsHL(createEmptyResultsHL())
+    setWritePlan([])
+    setAdditionalResults([])
   }, [open, currentStageId, currentSettingsId, initPayload])
 
   // Save to draft on any change
@@ -414,6 +412,28 @@ export function CalculationLogicDialog({
   const logicContext = useMemo(() => buildLogicContext(initPayload), [initPayload])
 
   const handleLeafClick = (path: string, value: any, type: string) => {
+    // If there's an active input, update its path
+    if (activeInputId) {
+      setInputs(inputs.map(inp => {
+        if (inp.id === activeInputId) {
+          // Infer type from new path
+          const inferred = inferTypeFromSourcePath(path)
+          return {
+            ...inp,
+            sourcePath: path,
+            sourceType: type as any,
+            valueType: inferred.type !== 'unknown' ? inferred.type : inp.valueType,
+            typeSource: 'auto',
+            autoTypeReason: inferred.reason
+          }
+        }
+        return inp
+      }))
+      setActiveInputId(null)
+      toast.success('Путь параметра обновлён')
+      return
+    }
+
     // Generate unique ID and name
     const id = `input_${Date.now()}`
     let baseName = path.split('.').pop()?.replace(/\[(\d+)\]$/, '_$1') || 'param'
@@ -454,6 +474,12 @@ export function CalculationLogicDialog({
       return stageNum > stageIndex
     }
     return false
+  }
+
+  const handleOpenHelp = (placeCode: string, title: string) => {
+    setHelpPlaceCode(placeCode)
+    setHelpTitle(title)
+    setHelpDialogOpen(true)
   }
 
   const handleValidate = () => {
@@ -717,15 +743,17 @@ export function CalculationLogicDialog({
                   <CaretLeft className="w-4 h-4" />
                 </Button>
               </div>
-              <div className="flex-1 p-4 overflow-hidden">
+              <div className="flex-1 overflow-hidden">
                 {logicContext ? (
-                  <JsonTree
-                    data={logicContext}
-                    onLeafClick={handleLeafClick}
-                    isPathDisabled={isPathDisabled}
-                  />
+                  <div className="h-full">
+                    <JsonTree
+                      data={logicContext}
+                      onLeafClick={handleLeafClick}
+                      isPathDisabled={isPathDisabled}
+                    />
+                  </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-muted-foreground p-4">
                     Нет данных контекста
                   </div>
                 )}
@@ -766,7 +794,13 @@ export function CalculationLogicDialog({
               <div className="flex-1 overflow-hidden">
                 <TabsContent value="inputs" className="h-full m-0 p-0">
                   <ScrollArea className="h-full">
-                    <InputsTab inputs={inputs} onChange={setInputs} issues={validationIssues} />
+                    <InputsTab 
+                      inputs={inputs} 
+                      onChange={setInputs} 
+                      issues={validationIssues}
+                      activeInputId={activeInputId}
+                      onInputSelect={setActiveInputId}
+                    />
                   </ScrollArea>
                 </TabsContent>
                 <TabsContent value="formulas" className="h-full m-0 p-0">
@@ -813,118 +847,82 @@ export function CalculationLogicDialog({
                 </Button>
               </div>
               <ScrollArea className="flex-1 p-4">
-                <Accordion type="single" collapsible defaultValue="syntax">
-                  <AccordionItem value="syntax">
-                    <AccordionTrigger className="text-sm">Синтаксис</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-3 text-xs">
-                        <div>
-                          <h4 className="font-medium mb-1">Типы данных</h4>
-                          <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
-                            <li>number (число)</li>
-                            <li>string (строка)</li>
-                            <li>boolean (true/false)</li>
-                          </ul>
-                        </div>
-                        <div>
-                          <h4 className="font-medium mb-1">Операторы</h4>
-                          <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
-                            <li>Арифметика: + - * / ( )</li>
-                            <li>Сравнение: == != &gt; &lt; &gt;= &lt;=</li>
-                            <li>Логика: and or not</li>
-                          </ul>
-                        </div>
-                        <div>
-                          <h4 className="font-medium mb-1">Правила</h4>
-                          <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
-                            <li>Переменные выполняются сверху вниз</li>
-                            <li>Нельзя ссылаться на переменные ниже</li>
-                            <li>Нельзя ссылаться на данные будущих этапов</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="types">
-                    <AccordionTrigger className="text-sm">Типы данных</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-2 text-xs">
-                        <div>
-                          <h4 className="font-medium">Типы значений</h4>
-                          <ul className="list-disc list-inside text-muted-foreground">
-                            <li><strong>number</strong> — числа, арифметика, round/ceil/floor</li>
-                            <li><strong>string</strong> — строки, lower/upper/contains</li>
-                            <li><strong>bool</strong> — логика, if/and/or</li>
-                            <li><strong>unknown</strong> — тип не определён</li>
-                          </ul>
-                        </div>
-                        <div>
-                          <h4 className="font-medium mt-2">Как определяется тип</h4>
-                          <ul className="list-disc list-inside text-muted-foreground">
-                            <li>Автоматически по sourcePath (при добавлении из контекста)</li>
-                            <li>Или вручную администратором</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="functions">
-                    <AccordionTrigger className="text-sm">Функции</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-3 text-xs">
-                        <div>
-                          <h4 className="font-medium">if(condition, a, b)</h4>
-                          <p className="text-muted-foreground">Условный оператор</p>
-                        </div>
-                        <div>
-                          <h4 className="font-medium">Математика</h4>
-                          <p className="text-muted-foreground">round, ceil, floor, min, max, abs</p>
-                        </div>
-                        <div>
-                          <h4 className="font-medium">Строки</h4>
-                          <p className="text-muted-foreground">
-                            trim, lower, upper, len, contains, replace
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="font-medium">Преобразование</h4>
-                          <p className="text-muted-foreground">toNumber, toString</p>
-                        </div>
-                        <div>
-                          <h4 className="font-medium">Массивы</h4>
-                          <p className="text-muted-foreground">split, join, get</p>
-                        </div>
-                        <div>
-                          <h4 className="font-medium">Регулярные выражения</h4>
-                          <p className="text-muted-foreground">regexMatch, regexExtract</p>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="errors">
-                    <AccordionTrigger className="text-sm">Ошибки</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-2 text-xs text-muted-foreground">
-                        <div>
-                          <p className="font-medium text-foreground">Неизвестная переменная: X</p>
-                          <p>Переменная не определена в входных параметрах или формулах</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">Ссылка на переменную ниже по списку: Y</p>
-                          <p>Нельзя использовать переменные, определённые ниже текущей</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">Данные следующего этапа недоступны</p>
-                          <p>Нельзя ссылаться на данные этапов с большим индексом</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">Несовпадение типов</p>
-                          <p>Операция требует другой тип данных</p>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                <div className="space-y-2">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-sm font-normal"
+                    onClick={() => handleOpenHelp('help_syntax', 'Синтаксис')}
+                  >
+                    Синтаксис
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-sm font-normal"
+                    onClick={() => handleOpenHelp('help_types', 'Типы данных')}
+                  >
+                    Типы данных
+                  </Button>
+                  <div className="pl-2 space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground px-2 py-1">Функции</p>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-xs font-normal"
+                      onClick={() => handleOpenHelp('help_functions_conditional', 'Функция if(condition, a, b)')}
+                    >
+                      if(condition, a, b)
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-xs font-normal"
+                      onClick={() => handleOpenHelp('help_functions_arithmetic', 'Арифметические функции')}
+                    >
+                      Арифметические
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-xs font-normal"
+                      onClick={() => handleOpenHelp('help_functions_string', 'Строковые функции')}
+                    >
+                      Строки
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-xs font-normal"
+                      onClick={() => handleOpenHelp('help_functions_conversion', 'Функции преобразования')}
+                    >
+                      Преобразование
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-xs font-normal"
+                      onClick={() => handleOpenHelp('help_functions_array', 'Функции для массивов')}
+                    >
+                      Массивы
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-xs font-normal"
+                      onClick={() => handleOpenHelp('help_functions_regex', 'Регулярные выражения')}
+                    >
+                      Регулярные выражения
+                    </Button>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-sm font-normal"
+                    onClick={() => handleOpenHelp('help_errors', 'Ошибки')}
+                  >
+                    Ошибки
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-sm font-normal"
+                    onClick={() => handleOpenHelp('about', 'О программе')}
+                    data-pwcode="btn-about"
+                  >
+                    О программе
+                  </Button>
+                </div>
               </ScrollArea>
             </div>
           )}
@@ -984,6 +982,14 @@ export function CalculationLogicDialog({
           </div>
         </DialogFooter>
       </DialogContent>
+
+      {/* Help Detail Dialog */}
+      <HelpDetailDialog
+        isOpen={helpDialogOpen}
+        onClose={() => setHelpDialogOpen(false)}
+        placeCode={helpPlaceCode}
+        title={helpTitle}
+      />
     </Dialog>
   )
 }
