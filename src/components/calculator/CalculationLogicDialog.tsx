@@ -19,75 +19,14 @@ import { validateAll, inferType, inferTypeFromSourcePath } from './logic/validat
 import { getDraftKey, extractLogicJsonString } from '@/lib/stage-utils'
 
 /**
- * Recursively nullify all values in an object/array, preserving structure
- * - Primitives (string/number/bool) => null
- * - null/undefined => null
- * - Arrays: empty => [], non-empty => [deepNullifyShape(first element)]
- * - Objects: recursively nullify all values
- */
-function deepNullifyShape(obj: any): any {
-  // Handle null/undefined
-  if (obj === null || obj === undefined) {
-    return null
-  }
-
-  // Handle primitives
-  if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') {
-    return null
-  }
-
-  // Handle arrays
-  if (Array.isArray(obj)) {
-    if (obj.length === 0) {
-      return []
-    }
-    // Return array with single nullified template element
-    return [deepNullifyShape(obj[0])]
-  }
-
-  // Handle objects
-  if (typeof obj === 'object') {
-    const result: Record<string, any> = {}
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        result[key] = deepNullifyShape(obj[key])
-      }
-    }
-    return result
-  }
-
-  // Fallback
-  return null
-}
-
-/**
  * Build logic context for the context tree panel
- * Shows full INIT payload except:
- * - selectedOffers is transformed to offer (first element with nullified values, prices removed)
+ * Shows full INIT payload as-is without modifications
  */
 function buildLogicContext(initPayload: InitPayload | null | undefined): any {
   if (!initPayload) return null
-
-  // Copy entire initPayload
-  const logicContext: any = { ...initPayload }
-
-  // Transform selectedOffers[0] → offer
-  if (initPayload.selectedOffers?.[0]) {
-    const offer0 = initPayload.selectedOffers[0]
-    const offerModel = deepNullifyShape(offer0)
-    
-    // Remove prices from offer model
-    if (offerModel && typeof offerModel === 'object') {
-      delete offerModel.prices
-    }
-    
-    logicContext.offer = offerModel
-  }
-
-  // Remove selectedOffers from context (replaced by offer)
-  delete logicContext.selectedOffers
-
-  return logicContext
+  
+  // Return initPayload as-is
+  return initPayload
 }
 
 // Helper to create empty ResultsHL
@@ -302,23 +241,7 @@ export function CalculationLogicDialog({
     
     const draftKey = getDraftKey(currentStageId, currentSettingsId)
     
-    // Try localStorage draft first
-    const draftJson = localStorage.getItem(draftKey)
-    if (draftJson) {
-      try {
-        const parsed = JSON.parse(draftJson)
-        setInputs(Array.isArray(parsed?.inputs) ? parsed.inputs : [])
-        setVars(Array.isArray(parsed?.vars) ? parsed.vars : [])
-        setResultsHL(parsed?.resultsHL || createEmptyResultsHL())
-        setWritePlan(Array.isArray(parsed?.writePlan) ? parsed.writePlan : [])
-        setAdditionalResults(Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : [])
-        return
-      } catch (e) {
-        console.warn('Failed to parse draft', e)
-      }
-    }
-    
-    // Fall back to loading from INIT using new protocol
+    // Load data from INIT first
     const settingsElement = initPayload?.elementsStore?.CALC_SETTINGS?.find(
       s => s.id === currentSettingsId
     )
@@ -326,37 +249,84 @@ export function CalculationLogicDialog({
       s => s.id === currentStageId
     )
     
+    let savedInputs: InputParam[] = []
+    let savedVars: FormulaVar[] = []
+    let savedResultsHL: ResultsHL = createEmptyResultsHL()
+    let savedAdditionalResults: AdditionalResult[] = []
+    
     if (settingsElement || stageElement) {
       // Build inputs from PARAMS + INPUTS
       const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
       const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
       const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
       const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
-      const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
+      savedInputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
       
       // Build vars from LOGIC_JSON (pass entire property object for proper parsing)
       const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
-      const vars = buildVarsFromInit(logicJsonProp)
+      savedVars = buildVarsFromInit(logicJsonProp)
       
       // Build results from OUTPUTS
       const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
       const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-      const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
-      
-      setInputs(inputs)
-      setVars(vars)
-      setResultsHL(resultsHL)
-      setAdditionalResults(additionalResults)
-      setWritePlan([])  // writePlan deprecated
-      return
+      const results = buildResultsFromInit(outputsValue, outputsDesc)
+      savedResultsHL = results.resultsHL
+      savedAdditionalResults = results.additionalResults
     }
     
-    // Reset to empty state if no data
-    setInputs([])
-    setVars([])
-    setResultsHL(createEmptyResultsHL())
-    setWritePlan([])
-    setAdditionalResults([])
+    // Try localStorage draft
+    const draftJson = localStorage.getItem(draftKey)
+    if (draftJson) {
+      try {
+        const parsed = JSON.parse(draftJson)
+        const draftInputs = Array.isArray(parsed?.inputs) ? parsed.inputs : []
+        const draftVars = Array.isArray(parsed?.vars) ? parsed.vars : []
+        const draftResultsHL = parsed?.resultsHL || createEmptyResultsHL()
+        const draftAdditionalResults = Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : []
+        
+        // Compare draft with saved data from INIT
+        const draftStateJson = JSON.stringify({
+          inputs: draftInputs,
+          vars: draftVars,
+          resultsHL: draftResultsHL,
+          additionalResults: draftAdditionalResults
+        })
+        const savedStateJson = JSON.stringify({
+          inputs: savedInputs,
+          vars: savedVars,
+          resultsHL: savedResultsHL,
+          additionalResults: savedAdditionalResults
+        })
+        
+        if (draftStateJson === savedStateJson) {
+          // Draft matches INIT data, remove it
+          localStorage.removeItem(draftKey)
+          setInputs(savedInputs)
+          setVars(savedVars)
+          setResultsHL(savedResultsHL)
+          setAdditionalResults(savedAdditionalResults)
+          setWritePlan([])
+        } else {
+          // Draft has changes, use it
+          setInputs(draftInputs)
+          setVars(draftVars)
+          setResultsHL(draftResultsHL)
+          setWritePlan(Array.isArray(parsed?.writePlan) ? parsed.writePlan : [])
+          setAdditionalResults(draftAdditionalResults)
+        }
+        return
+      } catch (e) {
+        console.warn('Failed to parse draft', e)
+        localStorage.removeItem(draftKey)
+      }
+    }
+    
+    // Use data from INIT
+    setInputs(savedInputs)
+    setVars(savedVars)
+    setResultsHL(savedResultsHL)
+    setAdditionalResults(savedAdditionalResults)
+    setWritePlan([])  // writePlan deprecated
   }, [open, currentStageId, currentSettingsId, initPayload])
 
   // Save to draft on any change
@@ -378,31 +348,59 @@ export function CalculationLogicDialog({
   }, [inputs, vars, resultsHL, writePlan, additionalResults, open, currentStageId, currentSettingsId, stageIndex])
 
   // Computed values for dirty state
-  const currentJson = JSON.stringify({
+  // Current state as JSON
+  const currentStateJson = JSON.stringify({
     version: 1,
-    stageIndex,
     inputs,
     vars,
     resultsHL,
-    writePlan,
     additionalResults
   })
 
-  const draftKey = (currentStageId !== null && currentStageId !== undefined && 
-                    currentSettingsId !== null && currentSettingsId !== undefined)
-    ? getDraftKey(currentStageId, currentSettingsId) 
-    : null
-  const hasDraft = draftKey !== null && localStorage.getItem(draftKey) !== null
-  
-  // Helper to check if there's any content
-  const hasAnyContent = (): boolean => {
-    return inputs.length > 0 || 
-           vars.length > 0 || 
-           writePlan.length > 0 ||
-           Object.values(resultsHL).some(m => m.sourceRef)
+  // Saved state from INIT as JSON (for comparison)
+  const getSavedStateJson = (): string => {
+    if (!currentSettingsId || !currentStageId || !initPayload) {
+      return JSON.stringify({
+        version: 1,
+        inputs: [],
+        vars: [],
+        resultsHL: createEmptyResultsHL(),
+        additionalResults: []
+      })
+    }
+    
+    const settingsElement = initPayload.elementsStore?.CALC_SETTINGS?.find(
+      s => s.id === currentSettingsId
+    )
+    const stageElement = initPayload.elementsStore?.CALC_STAGES?.find(
+      s => s.id === currentStageId
+    )
+    
+    // Build saved state from INIT
+    const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
+    const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
+    const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
+    const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+    const savedInputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
+    
+    const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
+    const savedVars = buildVarsFromInit(logicJsonProp)
+    
+    const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
+    const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
+    const { resultsHL: savedResultsHL, additionalResults: savedAdditionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
+    
+    return JSON.stringify({
+      version: 1,
+      inputs: savedInputs,
+      vars: savedVars,
+      resultsHL: savedResultsHL,
+      additionalResults: savedAdditionalResults
+    })
   }
   
-  const isDirty = hasDraft || (savedJson === null && hasAnyContent())
+  // Compare current state with saved state from INIT
+  const isDirty = currentStateJson !== getSavedStateJson()
   const hasErrors = validationIssues.some(i => i.severity === 'error')
 
   // Show current and previous stages only
@@ -743,20 +741,22 @@ export function CalculationLogicDialog({
                   <CaretLeft className="w-4 h-4" />
                 </Button>
               </div>
-              <div className="flex-1 overflow-hidden">
-                {logicContext ? (
-                  <div className="h-full">
-                    <JsonTree
-                      data={logicContext}
-                      onLeafClick={handleLeafClick}
-                      isPathDisabled={isPathDisabled}
-                    />
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground p-4">
-                    Нет данных контекста
-                  </div>
-                )}
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <ScrollArea className="h-full">
+                  {logicContext ? (
+                    <div className="p-4">
+                      <JsonTree
+                        data={logicContext}
+                        onLeafClick={handleLeafClick}
+                        isPathDisabled={isPathDisabled}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground p-4">
+                      Нет данных контекста
+                    </div>
+                  )}
+                </ScrollArea>
               </div>
             </div>
           )}
