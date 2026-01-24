@@ -247,6 +247,9 @@ export function CalculationLogicDialog({
   const [helpPlaceCode, setHelpPlaceCode] = useState('')
   const [helpTitle, setHelpTitle] = useState('')
 
+  // State for active input selection (for path editing)
+  const [activeInputId, setActiveInputId] = useState<string | null>(null)
+
   // State for logic editing
   const [inputs, setInputs] = useState<InputParam[]>([])
   const [vars, setVars] = useState<FormulaVar[]>([])
@@ -406,6 +409,28 @@ export function CalculationLogicDialog({
   const logicContext = useMemo(() => buildLogicContext(initPayload), [initPayload])
 
   const handleLeafClick = (path: string, value: any, type: string) => {
+    // If there's an active input, update its path
+    if (activeInputId) {
+      setInputs(inputs.map(inp => {
+        if (inp.id === activeInputId) {
+          // Infer type from new path
+          const inferred = inferTypeFromSourcePath(path)
+          return {
+            ...inp,
+            sourcePath: path,
+            sourceType: type as any,
+            valueType: inferred.type !== 'unknown' ? inferred.type : inp.valueType,
+            typeSource: 'auto',
+            autoTypeReason: inferred.reason
+          }
+        }
+        return inp
+      }))
+      setActiveInputId(null)
+      toast.success('Путь параметра обновлён')
+      return
+    }
+
     // Generate unique ID and name
     const id = `input_${Date.now()}`
     let baseName = path.split('.').pop()?.replace(/\[(\d+)\]$/, '_$1') || 'param'
@@ -766,7 +791,13 @@ export function CalculationLogicDialog({
               <div className="flex-1 overflow-hidden">
                 <TabsContent value="inputs" className="h-full m-0 p-0">
                   <ScrollArea className="h-full">
-                    <InputsTab inputs={inputs} onChange={setInputs} issues={validationIssues} />
+                    <InputsTab 
+                      inputs={inputs} 
+                      onChange={setInputs} 
+                      issues={validationIssues}
+                      activeInputId={activeInputId}
+                      onInputSelect={setActiveInputId}
+                    />
                   </ScrollArea>
                 </TabsContent>
                 <TabsContent value="formulas" className="h-full m-0 p-0">
