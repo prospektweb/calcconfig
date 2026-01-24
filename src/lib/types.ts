@@ -84,6 +84,34 @@ export interface Preset {
   }
 }
 
+// Product interface - товар (similar to SelectedOffer but for product data)
+export interface Product {
+  id: number
+  iblockId: number
+  code: string | null
+  productId: number | null
+  name: string
+  attributes: {
+    width: number | null
+    height: number | null
+    length: number | null
+    weight: number | null
+  }
+  measure: {
+    code: string
+    name: string
+  } | null
+  measureRatio: number | null
+  purchasingPrice: number | null
+  purchasingCurrency: string | null
+  prices: Array<{
+    typeId: number
+    price: number
+    currency: string
+  }>
+  properties: Record<string, BitrixPropertyValue>
+}
+
 // ElementsStore type for the new data model
 // Keys are iblock codes (e.g., 'CALC_DETAILS', 'CALC_STAGES'), values are arrays of elements
 export type ElementsStore = Record<string, ElementsStoreItem[]>

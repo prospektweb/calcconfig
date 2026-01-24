@@ -453,7 +453,154 @@ export function ContextExplorer({
         )}
 
         {/* Product Section */}
-        {/* Product data is not available in InitPayload - would need to be added to the type */}
+        {initPayload?.product && (
+          <AccordionItem value="product">
+            <AccordionTrigger className="text-sm font-medium">
+              Товар
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-1 pl-2">
+                {/* Basic attributes */}
+                <div className="text-xs font-medium text-muted-foreground mb-1">Атрибуты</div>
+                <AttributeItem
+                  name="Название"
+                  code="name"
+                  basePath="product"
+                  valueType="string"
+                  onAddInput={onAddInput}
+                />
+                <AttributeItem
+                  name="Код"
+                  code="code"
+                  basePath="product"
+                  valueType="string"
+                  onAddInput={onAddInput}
+                />
+                
+                {/* Dimensions */}
+                {(initPayload.product?.attributes?.width !== undefined || 
+                  initPayload.product?.attributes?.length !== undefined || 
+                  initPayload.product?.attributes?.height !== undefined || 
+                  initPayload.product?.attributes?.weight !== undefined) && (
+                  <>
+                    <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Размеры</div>
+                    {initPayload.product?.attributes?.width !== undefined && (
+                      <AttributeItem
+                        name="Ширина"
+                        code="attributes.width"
+                        basePath="product"
+                        valueType="number"
+                        onAddInput={onAddInput}
+                      />
+                    )}
+                    {initPayload.product?.attributes?.length !== undefined && (
+                      <AttributeItem
+                        name="Длина"
+                        code="attributes.length"
+                        basePath="product"
+                        valueType="number"
+                        onAddInput={onAddInput}
+                      />
+                    )}
+                    {initPayload.product?.attributes?.height !== undefined && (
+                      <AttributeItem
+                        name="Высота"
+                        code="attributes.height"
+                        basePath="product"
+                        valueType="number"
+                        onAddInput={onAddInput}
+                      />
+                    )}
+                    {initPayload.product?.attributes?.weight !== undefined && (
+                      <AttributeItem
+                        name="Вес"
+                        code="attributes.weight"
+                        basePath="product"
+                        valueType="number"
+                        onAddInput={onAddInput}
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* Measure */}
+                {initPayload.product?.measure && (
+                  <>
+                    <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Единица измерения</div>
+                    <AttributeItem
+                      name="Код единицы"
+                      code="measure.code"
+                      basePath="product"
+                      valueType="string"
+                      onAddInput={onAddInput}
+                    />
+                    <AttributeItem
+                      name="Название единицы"
+                      code="measure.name"
+                      basePath="product"
+                      valueType="string"
+                      onAddInput={onAddInput}
+                    />
+                  </>
+                )}
+                
+                {initPayload.product?.measureRatio !== undefined && initPayload.product?.measureRatio !== null && (
+                  <AttributeItem
+                    name="Коэффициент единицы"
+                    code="measureRatio"
+                    basePath="product"
+                    valueType="number"
+                    onAddInput={onAddInput}
+                  />
+                )}
+
+                {/* Prices */}
+                {(initPayload.product?.purchasingPrice !== undefined || initPayload.product?.prices?.length > 0) && (
+                  <>
+                    <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Цены</div>
+                    {initPayload.product?.purchasingPrice !== undefined && initPayload.product?.purchasingPrice !== null && (
+                      <>
+                        <AttributeItem
+                          name="Закупочная цена"
+                          code="purchasingPrice"
+                          basePath="product"
+                          valueType="number"
+                          onAddInput={onAddInput}
+                        />
+                        {initPayload.product?.purchasingCurrency && (
+                          <AttributeItem
+                            name="Валюта закупки"
+                            code="purchasingCurrency"
+                            basePath="product"
+                            valueType="string"
+                            onAddInput={onAddInput}
+                          />
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+
+                {/* Properties */}
+                {initPayload.product?.properties && Object.keys(initPayload.product.properties).length > 0 && (
+                  <>
+                    <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Свойства</div>
+                    {Object.entries(initPayload.product.properties).map(([code, prop]) => (
+                      <PropertyItem
+                        key={code}
+                        name={prop.NAME}
+                        code={code}
+                        property={prop}
+                        basePath="product"
+                        onAddInput={onAddInput}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
 
         {/* Current Stage Section */}
         {currentStage && (
