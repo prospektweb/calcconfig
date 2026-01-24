@@ -976,14 +976,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                           hasDraft
                         )
                         
-                        return readiness.ready ? (
-                          <Badge 
-                            variant="outline" 
-                            className="ml-1 text-green-600 border-green-600 bg-green-50 dark:bg-green-950"
-                          >
-                            ✓
-                          </Badge>
-                        ) : (
+                        return readiness.ready ? null : (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
