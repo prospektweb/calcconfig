@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { InitPayload, postMessageBridge, SaveCalcLogicRequestPayload } from '@/lib/postmessage-bridge'
 import { toast } from 'sonner'
 import { JsonTree } from './logic/JsonTree'
+import { ContextExplorer } from './logic/ContextExplorer'
 import { InputsTab } from './logic/InputsTab'
 import { FormulasTab } from './logic/FormulasTab'
 import { OutputsTab } from './logic/OutputsTab'
@@ -185,6 +186,7 @@ export function CalculationLogicDialog({
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true)
   const [activeTab, setActiveTab] = useState('inputs')
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [showJsonTree, setShowJsonTree] = useState(false) // false = ContextExplorer, true = JsonTree
 
   // State for help dialog
   const [helpDialogOpen, setHelpDialogOpen] = useState(false)
@@ -516,6 +518,50 @@ export function CalculationLogicDialog({
     }
     return false
   }
+  
+  const handleContextExplorerAddInput = (path: string, name: string, valueType: ValueType) => {
+    // If there's an active input, update its path
+    if (activeInputId) {
+      setInputs(inputs.map(inp => {
+        if (inp.id === activeInputId) {
+          return {
+            ...inp,
+            sourcePath: path,
+            sourceType: 'context' as any,
+            valueType: valueType !== 'unknown' ? valueType : inp.valueType,
+            typeSource: 'auto',
+            autoTypeReason: 'From ContextExplorer'
+          }
+        }
+        return inp
+      }))
+      setActiveInputId(null)
+      toast.success('Путь параметра обновлён')
+      return
+    }
+    
+    // Ensure name is unique
+    let uniqueName = name
+    let counter = 1
+    while (inputs.some(inp => inp.name === uniqueName)) {
+      uniqueName = `${name}_${counter}`
+      counter++
+    }
+    
+    const newInput: InputParam = {
+      id: `input_${Date.now()}`,
+      name: uniqueName,
+      sourcePath: path,
+      sourceType: 'context' as any,
+      valueType: valueType !== 'unknown' ? valueType : undefined,
+      typeSource: 'auto',
+      autoTypeReason: 'From ContextExplorer'
+    }
+    
+    setInputs([...inputs, newInput])
+    setActiveTab('inputs')
+    toast.success(`Параметр "${uniqueName}" добавлен`)
+  }
 
   const handleOpenHelp = (placeCode: string, title: string) => {
     setHelpPlaceCode(placeCode)
@@ -784,19 +830,40 @@ export function CalculationLogicDialog({
                   <CaretLeft className="w-4 h-4" />
                 </Button>
               </div>
+              <div className="px-4 py-2 border-b border-border flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => setShowJsonTree(!showJsonTree)}
+                >
+                  {showJsonTree ? 'Скрыть дополнительные данные' : 'Показать дополнительные данные'}
+                </Button>
+              </div>
               <div className="flex-1 min-h-0 overflow-hidden">
                 <ScrollArea className="h-full">
-                  {logicContext ? (
-                    <div className="p-4">
-                      <JsonTree
-                        data={logicContext}
-                        onLeafClick={handleLeafClick}
-                        isPathDisabled={isPathDisabled}
-                      />
-                    </div>
+                  {showJsonTree ? (
+                    logicContext ? (
+                      <div className="p-4">
+                        <JsonTree
+                          data={logicContext}
+                          onLeafClick={handleLeafClick}
+                          isPathDisabled={isPathDisabled}
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground p-4">
+                        Нет данных контекста
+                      </div>
+                    )
                   ) : (
-                    <div className="text-sm text-muted-foreground p-4">
-                      Нет данных контекста
+                    <div className="p-4">
+                      <ContextExplorer
+                        initPayload={initPayload}
+                        currentStageId={currentStageId}
+                        currentDetailId={currentDetailId}
+                        onAddInput={handleContextExplorerAddInput}
+                      />
                     </div>
                   )}
                 </ScrollArea>
