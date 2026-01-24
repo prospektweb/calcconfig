@@ -79,11 +79,11 @@ function PropertyItem({ name, code, property, basePath, onAddInput }: PropertyIt
       variant="ghost"
       size="sm"
       onClick={handleClick}
-      className="w-full justify-start text-left h-auto py-1.5 px-2"
+      className="w-full justify-start text-left h-auto py-1 px-2"
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        <span className="text-sm truncate">{name}</span>
-        <Badge variant="outline" className="shrink-0">
+        <span className="text-xs truncate">{name}</span>
+        <Badge variant="outline" className="shrink-0 text-xs">
           {type}
         </Badge>
         {property.MULTIPLE === 'Y' && (
@@ -116,11 +116,11 @@ function AttributeItem({ name, code, basePath, valueType, onAddInput }: Attribut
       variant="ghost"
       size="sm"
       onClick={handleClick}
-      className="w-full justify-start text-left h-auto py-1.5 px-2"
+      className="w-full justify-start text-left h-auto py-1 px-2"
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        <span className="text-sm truncate">{name}</span>
-        <Badge variant="outline" className="shrink-0">
+        <span className="text-xs truncate">{name}</span>
+        <Badge variant="outline" className="shrink-0 text-xs">
           {valueType}
         </Badge>
       </div>
@@ -147,7 +147,7 @@ function ElementSection({ title, element, elementType, index, onAddInput }: Elem
 
   return (
     <AccordionItem value={`${elementType}-${index ?? 0}`}>
-      <AccordionTrigger className="text-sm">
+      <AccordionTrigger className="text-xs">
         {title}: {element.name}
       </AccordionTrigger>
       <AccordionContent>
@@ -168,41 +168,49 @@ function ElementSection({ title, element, elementType, index, onAddInput }: Elem
             valueType="string"
             onAddInput={onAddInput}
           />
-          {element.fields?.width !== undefined && (
-            <AttributeItem
-              name="Ширина"
-              code="fields.width"
-              basePath={basePath}
-              valueType="number"
-              onAddInput={onAddInput}
-            />
-          )}
-          {element.fields?.length !== undefined && (
-            <AttributeItem
-              name="Длина"
-              code="fields.length"
-              basePath={basePath}
-              valueType="number"
-              onAddInput={onAddInput}
-            />
-          )}
-          {element.fields?.height !== undefined && (
-            <AttributeItem
-              name="Высота"
-              code="fields.height"
-              basePath={basePath}
-              valueType="number"
-              onAddInput={onAddInput}
-            />
-          )}
-          {element.fields?.weight !== undefined && (
-            <AttributeItem
-              name="Вес"
-              code="fields.weight"
-              basePath={basePath}
-              valueType="number"
-              onAddInput={onAddInput}
-            />
+          
+          {/* Dimensions */}
+          {(element.fields?.width !== undefined || element.fields?.length !== undefined || 
+            element.fields?.height !== undefined || element.fields?.weight !== undefined) && (
+            <>
+              <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Размеры</div>
+              {element.fields?.width !== undefined && (
+                <AttributeItem
+                  name="Ширина"
+                  code="fields.width"
+                  basePath={basePath}
+                  valueType="number"
+                  onAddInput={onAddInput}
+                />
+              )}
+              {element.fields?.length !== undefined && (
+                <AttributeItem
+                  name="Длина"
+                  code="fields.length"
+                  basePath={basePath}
+                  valueType="number"
+                  onAddInput={onAddInput}
+                />
+              )}
+              {element.fields?.height !== undefined && (
+                <AttributeItem
+                  name="Высота"
+                  code="fields.height"
+                  basePath={basePath}
+                  valueType="number"
+                  onAddInput={onAddInput}
+                />
+              )}
+              {element.fields?.weight !== undefined && (
+                <AttributeItem
+                  name="Вес"
+                  code="fields.weight"
+                  basePath={basePath}
+                  valueType="number"
+                  onAddInput={onAddInput}
+                />
+              )}
+            </>
           )}
 
           {/* Measure */}
@@ -229,24 +237,28 @@ function ElementSection({ title, element, elementType, index, onAddInput }: Elem
           )}
 
           {/* Prices */}
-          {element.purchasingPrice !== undefined && (
+          {(element.purchasingPrice !== undefined || element.prices?.length > 0) && (
             <>
               <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Цены</div>
-              <AttributeItem
-                name="Закупочная цена"
-                code="purchasingPrice"
-                basePath={basePath}
-                valueType="number"
-                onAddInput={onAddInput}
-              />
-              {element.purchasingCurrency && (
-                <AttributeItem
-                  name="Валюта закупки"
-                  code="purchasingCurrency"
-                  basePath={basePath}
-                  valueType="string"
-                  onAddInput={onAddInput}
-                />
+              {element.purchasingPrice !== undefined && (
+                <>
+                  <AttributeItem
+                    name="Закупочная цена"
+                    code="purchasingPrice"
+                    basePath={basePath}
+                    valueType="number"
+                    onAddInput={onAddInput}
+                  />
+                  {element.purchasingCurrency && (
+                    <AttributeItem
+                      name="Валюта закупки"
+                      code="purchasingCurrency"
+                      basePath={basePath}
+                      valueType="string"
+                      onAddInput={onAddInput}
+                    />
+                  )}
+                </>
               )}
             </>
           )}
@@ -352,7 +364,7 @@ export function ContextExplorer({
 
   return (
     <div className="h-full overflow-auto">
-      <Accordion type="multiple" defaultValue={['offer', 'current-stage']}>
+      <Accordion type="multiple" defaultValue={['offer', 'product', 'current-stage']}>
         {/* Trade Offer Section */}
         {selectedOffer && (
           <AccordionItem value="offer">
@@ -377,7 +389,27 @@ export function ContextExplorer({
         )}
 
         {/* Product Section */}
-        {/* Note: Product data is not directly available in InitPayload based on the types */}
+        {initPayload?.product?.properties && Object.keys(initPayload.product.properties).length > 0 && (
+          <AccordionItem value="product">
+            <AccordionTrigger className="text-sm font-medium">
+              Товар
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-1 pl-2">
+                {Object.entries(initPayload.product.properties).map(([code, prop]) => (
+                  <PropertyItem
+                    key={code}
+                    name={prop.NAME}
+                    code={code}
+                    property={prop}
+                    basePath="product"
+                    onAddInput={onAddInput}
+                  />
+                ))}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
 
         {/* Current Stage Section */}
         {currentStage && (
@@ -444,7 +476,7 @@ export function ContextExplorer({
                 {/* Additional stage parameters */}
                 {currentStage.properties && (
                   <AccordionItem value="stage-params">
-                    <AccordionTrigger className="text-sm">
+                    <AccordionTrigger className="text-xs">
                       Дополнительные параметры этапа
                     </AccordionTrigger>
                     <AccordionContent>
@@ -476,9 +508,8 @@ export function ContextExplorer({
           </AccordionItem>
         )}
 
-        {/* Previous Stages Section */}
-        {/* This would require complex tree traversal logic to find previous stages */}
-        {/* Placeholder for now */}
+        {/* Previous Stages Section - Placeholder for now */}
+        {/* TODO: Implement recursive detail traversal */}
       </Accordion>
     </div>
   )
