@@ -187,7 +187,7 @@ export function JsonTree({ data, onLeafClick, isPathDisabled }: JsonTreeProps) {
   }
 
   return (
-    <div className="space-y-2 h-full flex flex-col" data-pwcode="logic-context-tree">
+    <div className="space-y-2 h-full flex flex-col p-4" data-pwcode="logic-context-tree">
       <Input
         placeholder="Поиск по ключам..."
         value={searchTerm}
