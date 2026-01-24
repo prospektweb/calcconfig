@@ -2,8 +2,6 @@ import { useMemo } from 'react'
 import { InitPayload } from '@/lib/postmessage-bridge'
 import { ValueType } from './types'
 import { ElementsStoreItem, BitrixPropertyValue, CalcDetailElement } from '@/lib/types'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Accordion,
   AccordionContent,
@@ -19,6 +17,24 @@ interface ContextExplorerProps {
 }
 
 type PropertyTypeCode = 'S' | 'N' | 'L' | 'E' | 'F'
+
+// Field labels for human-readable display
+const FIELD_LABELS: Record<string, string> = {
+  width: 'Ширина',
+  length: 'Длина',
+  height: 'Высота',
+  weight: 'Вес',
+  measureCode: 'Код единицы',
+  measureRatio: 'Коэффициент',
+  measureSymbol: 'Символ единицы',
+  measureTitle: 'Название единицы',
+  purchasingPrice: 'Закупочная цена',
+  purchasingCurrency: 'Валюта закупки',
+  basePrice: 'Базовая цена',
+  baseCurrency: 'Валюта базовой цены',
+  name: 'Название',
+  code: 'Код'
+}
 
 // Helper to find previous stages
 interface StageHierarchyItem {
@@ -36,7 +52,6 @@ function findPreviousStages(
     return []
   }
 
-  // Find the current detail
   const currentDetail = elementsStore.CALC_DETAILS.find(
     (detail: CalcDetailElement) => detail.id === currentDetailId
   )
@@ -45,24 +60,20 @@ function findPreviousStages(
     return []
   }
 
-  // Get stage IDs from the detail
   const detailStageIds = currentDetail.properties?.CALC_STAGES?.VALUE
   if (!Array.isArray(detailStageIds)) {
     return []
   }
 
-  // Find all stages before current stage in this detail
   const previousStages: StageHierarchyItem[] = []
   
   for (let i = 0; i < detailStageIds.length; i++) {
     const stageId = Number(detailStageIds[i])
     
-    // Stop when we reach the current stage
     if (stageId === currentStageId) {
       break
     }
 
-    // Find the stage element
     const stage = elementsStore.CALC_STAGES.find((s: any) => s.id === stageId)
     if (stage) {
       previousStages.push({
@@ -114,73 +125,32 @@ function buildPropertyPath(
   return { path, type: valueType }
 }
 
-interface PropertyItemProps {
-  name: string
+// Tag item for rendering elements as tags
+interface TagItem {
   code: string
-  property: BitrixPropertyValue
-  basePath: string
+  label: string
+  path: string
+  type: ValueType
+}
+
+interface TagCloudProps {
+  items: TagItem[]
   onAddInput: (path: string, name: string, valueType: ValueType) => void
 }
 
-function PropertyItem({ name, code, property, basePath, onAddInput }: PropertyItemProps) {
-  const { path, type } = buildPropertyPath(basePath, code, property)
-  const propType = property.PROPERTY_TYPE as PropertyTypeCode
-
-  const handleClick = () => {
-    onAddInput(path, code, type)
-  }
-
+function TagCloud({ items, onAddInput }: TagCloudProps) {
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={handleClick}
-      className="w-full justify-start text-left h-auto py-1 px-2"
-    >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <span className="text-xs truncate">{name}</span>
-        <Badge variant="outline" className="shrink-0 text-xs">
-          {type}
-        </Badge>
-        {property.MULTIPLE === 'Y' && (
-          <Badge variant="secondary" className="shrink-0 text-xs">
-            []
-          </Badge>
-        )}
-      </div>
-    </Button>
-  )
-}
-
-interface AttributeItemProps {
-  name: string
-  code: string
-  basePath: string
-  valueType: ValueType
-  onAddInput: (path: string, name: string, valueType: ValueType) => void
-}
-
-function AttributeItem({ name, code, basePath, valueType, onAddInput }: AttributeItemProps) {
-  const path = `${basePath}.${code}`
-
-  const handleClick = () => {
-    onAddInput(path, code, valueType)
-  }
-
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={handleClick}
-      className="w-full justify-start text-left h-auto py-1 px-2"
-    >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <span className="text-xs truncate">{name}</span>
-        <Badge variant="outline" className="shrink-0 text-xs">
-          {valueType}
-        </Badge>
-      </div>
-    </Button>
+    <div className="flex flex-wrap gap-1.5">
+      {items.map(item => (
+        <button 
+          key={item.code}
+          onClick={() => onAddInput(item.path, item.code, item.type)}
+          className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent whitespace-nowrap cursor-pointer"
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -189,152 +159,155 @@ interface ElementSectionProps {
   element: ElementsStoreItem | null
   elementType: string
   index?: number
+  basePath?: string
+  initPayload: InitPayload
   onAddInput: (path: string, name: string, valueType: ValueType) => void
 }
 
-function ElementSection({ title, element, elementType, index, onAddInput }: ElementSectionProps) {
+function ElementSection({ title, element, elementType, index, basePath: customBasePath, initPayload, onAddInput }: ElementSectionProps) {
   if (!element) {
     return null
   }
 
-  const basePath = index !== undefined
+  const basePath = customBasePath || (index !== undefined
     ? `elementsStore.${elementType}[${index}]`
-    : `elementsStore.${elementType}`
+    : `elementsStore.${elementType}`)
+
+  // Collect all items to display as tags
+  const tagItems: TagItem[] = []
+
+  // Basic attributes
+  tagItems.push({
+    code: 'name',
+    label: FIELD_LABELS.name,
+    path: `${basePath}.name`,
+    type: 'string'
+  })
+  
+  tagItems.push({
+    code: 'code',
+    label: FIELD_LABELS.code,
+    path: `${basePath}.code`,
+    type: 'string'
+  })
+
+  // Dimensions - always show even if null
+  tagItems.push({
+    code: 'width',
+    label: FIELD_LABELS.width,
+    path: `${basePath}.fields.width`,
+    type: 'number'
+  })
+  
+  tagItems.push({
+    code: 'length',
+    label: FIELD_LABELS.length,
+    path: `${basePath}.fields.length`,
+    type: 'number'
+  })
+  
+  tagItems.push({
+    code: 'height',
+    label: FIELD_LABELS.height,
+    path: `${basePath}.fields.height`,
+    type: 'number'
+  })
+  
+  tagItems.push({
+    code: 'weight',
+    label: FIELD_LABELS.weight,
+    path: `${basePath}.fields.weight`,
+    type: 'number'
+  })
+
+  // Measure fields - always show even if null
+  tagItems.push({
+    code: 'measureCode',
+    label: FIELD_LABELS.measureCode,
+    path: `${basePath}.measure`,
+    type: 'string'
+  })
+  
+  tagItems.push({
+    code: 'measureRatio',
+    label: FIELD_LABELS.measureRatio,
+    path: `${basePath}.measureRatio`,
+    type: 'number'
+  })
+  
+  tagItems.push({
+    code: 'measureSymbol',
+    label: FIELD_LABELS.measureSymbol,
+    path: `${basePath}.measureSymbol`,
+    type: 'string'
+  })
+  
+  tagItems.push({
+    code: 'measureTitle',
+    label: FIELD_LABELS.measureTitle,
+    path: `${basePath}.measureTitle`,
+    type: 'string'
+  })
+
+  // Prices - always show even if null
+  tagItems.push({
+    code: 'purchasingPrice',
+    label: FIELD_LABELS.purchasingPrice,
+    path: `${basePath}.purchasingPrice`,
+    type: 'number'
+  })
+  
+  tagItems.push({
+    code: 'purchasingCurrency',
+    label: FIELD_LABELS.purchasingCurrency,
+    path: `${basePath}.purchasingCurrency`,
+    type: 'string'
+  })
+
+  // Base price - find from priceTypes
+  const basePriceType = initPayload.priceTypes?.find(pt => pt.base === true)
+  if (basePriceType && element.prices) {
+    const basePrice = element.prices.find(p => p.typeId === basePriceType.id)
+    if (basePrice) {
+      tagItems.push({
+        code: 'baseCurrency',
+        label: FIELD_LABELS.baseCurrency,
+        path: `${basePath}.prices[${element.prices.indexOf(basePrice)}].currency`,
+        type: 'string'
+      })
+      
+      tagItems.push({
+        code: 'basePrice',
+        label: FIELD_LABELS.basePrice,
+        path: `${basePath}.prices[${element.prices.indexOf(basePrice)}].price`,
+        type: 'number'
+      })
+    }
+  }
+
+  // Properties - exclude CML2_LINK
+  if (element.properties) {
+    Object.entries(element.properties).forEach(([code, prop]) => {
+      if (code === 'CML2_LINK') return // Ignore CML2_LINK
+      
+      const { path, type } = buildPropertyPath(basePath, code, prop)
+      tagItems.push({
+        code,
+        label: prop.NAME,
+        path,
+        type
+      })
+    })
+  }
 
   return (
-    <AccordionItem value={`${elementType}-${index ?? 0}`}>
-      <AccordionTrigger className="text-xs">
-        {title}: {element.name}
+    <AccordionItem value={`${elementType}-${index ?? 0}`} className="border-none">
+      <AccordionTrigger className="text-xs hover:no-underline py-2 [&[data-state=open]>svg]:rotate-90">
+        {title}
       </AccordionTrigger>
-      <AccordionContent>
-        <div className="space-y-1 pl-2">
-          {/* Basic attributes */}
-          <div className="text-xs font-medium text-muted-foreground mb-1">Атрибуты</div>
-          <AttributeItem
-            name="Название"
-            code="name"
-            basePath={basePath}
-            valueType="string"
-            onAddInput={onAddInput}
-          />
-          <AttributeItem
-            name="Код"
-            code="code"
-            basePath={basePath}
-            valueType="string"
-            onAddInput={onAddInput}
-          />
-          
-          {/* Dimensions */}
-          {(element.fields?.width !== undefined || element.fields?.length !== undefined || 
-            element.fields?.height !== undefined || element.fields?.weight !== undefined) && (
-            <>
-              <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Размеры</div>
-              {element.fields?.width !== undefined && (
-                <AttributeItem
-                  name="Ширина"
-                  code="fields.width"
-                  basePath={basePath}
-                  valueType="number"
-                  onAddInput={onAddInput}
-                />
-              )}
-              {element.fields?.length !== undefined && (
-                <AttributeItem
-                  name="Длина"
-                  code="fields.length"
-                  basePath={basePath}
-                  valueType="number"
-                  onAddInput={onAddInput}
-                />
-              )}
-              {element.fields?.height !== undefined && (
-                <AttributeItem
-                  name="Высота"
-                  code="fields.height"
-                  basePath={basePath}
-                  valueType="number"
-                  onAddInput={onAddInput}
-                />
-              )}
-              {element.fields?.weight !== undefined && (
-                <AttributeItem
-                  name="Вес"
-                  code="fields.weight"
-                  basePath={basePath}
-                  valueType="number"
-                  onAddInput={onAddInput}
-                />
-              )}
-            </>
-          )}
-
-          {/* Measure */}
-          {element.measure && (
-            <>
-              <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Единица измерения</div>
-              <AttributeItem
-                name="Код единицы"
-                code="measure"
-                basePath={basePath}
-                valueType="string"
-                onAddInput={onAddInput}
-              />
-              {element.measureRatio !== undefined && (
-                <AttributeItem
-                  name="Коэффициент единицы"
-                  code="measureRatio"
-                  basePath={basePath}
-                  valueType="number"
-                  onAddInput={onAddInput}
-                />
-              )}
-            </>
-          )}
-
-          {/* Prices */}
-          {(element.purchasingPrice !== undefined || element.prices?.length > 0) && (
-            <>
-              <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Цены</div>
-              {element.purchasingPrice !== undefined && (
-                <>
-                  <AttributeItem
-                    name="Закупочная цена"
-                    code="purchasingPrice"
-                    basePath={basePath}
-                    valueType="number"
-                    onAddInput={onAddInput}
-                  />
-                  {element.purchasingCurrency && (
-                    <AttributeItem
-                      name="Валюта закупки"
-                      code="purchasingCurrency"
-                      basePath={basePath}
-                      valueType="string"
-                      onAddInput={onAddInput}
-                    />
-                  )}
-                </>
-              )}
-            </>
-          )}
-
-          {/* Properties */}
-          {element.properties && Object.keys(element.properties).length > 0 && (
-            <>
-              <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Свойства</div>
-              {Object.entries(element.properties).map(([code, prop]) => (
-                <PropertyItem
-                  key={code}
-                  name={prop.NAME}
-                  code={code}
-                  property={prop}
-                  basePath={basePath}
-                  onAddInput={onAddInput}
-                />
-              ))}
-            </>
-          )}
+      <AccordionContent className="pb-2">
+        <div className="pl-2.5">
+          <TagCloud items={tagItems} onAddInput={onAddInput} />
         </div>
       </AccordionContent>
     </AccordionItem>
@@ -426,27 +399,181 @@ export function ContextExplorer({
     )
   }
 
+  // Build tag items for offer properties
+  const offerTagItems: TagItem[] = []
+  if (selectedOffer?.properties) {
+    Object.entries(selectedOffer.properties).forEach(([code, prop]) => {
+      if (code === 'CML2_LINK') return // Ignore CML2_LINK
+      
+      const { path: originalPath, type } = buildPropertyPath('selectedOffers[0]', code, prop)
+      // Replace selectedOffers[0] with offer
+      const path = originalPath.replace('selectedOffers[0]', 'offer')
+      
+      offerTagItems.push({
+        code,
+        label: prop.NAME,
+        path,
+        type
+      })
+    })
+  }
+
+  // Build tag items for product
+  const productTagItems: TagItem[] = []
+  if (initPayload.product) {
+    // Basic attributes
+    productTagItems.push({
+      code: 'name',
+      label: FIELD_LABELS.name,
+      path: 'product.name',
+      type: 'string'
+    })
+    
+    productTagItems.push({
+      code: 'code',
+      label: FIELD_LABELS.code,
+      path: 'product.code',
+      type: 'string'
+    })
+
+    // Dimensions
+    productTagItems.push({
+      code: 'width',
+      label: FIELD_LABELS.width,
+      path: 'product.attributes.width',
+      type: 'number'
+    })
+    
+    productTagItems.push({
+      code: 'length',
+      label: FIELD_LABELS.length,
+      path: 'product.attributes.length',
+      type: 'number'
+    })
+    
+    productTagItems.push({
+      code: 'height',
+      label: FIELD_LABELS.height,
+      path: 'product.attributes.height',
+      type: 'number'
+    })
+    
+    productTagItems.push({
+      code: 'weight',
+      label: FIELD_LABELS.weight,
+      path: 'product.attributes.weight',
+      type: 'number'
+    })
+
+    // Measure
+    productTagItems.push({
+      code: 'measureCode',
+      label: FIELD_LABELS.measureCode,
+      path: 'product.measure.code',
+      type: 'string'
+    })
+    
+    productTagItems.push({
+      code: 'measureTitle',
+      label: FIELD_LABELS.measureTitle,
+      path: 'product.measure.name',
+      type: 'string'
+    })
+    
+    productTagItems.push({
+      code: 'measureRatio',
+      label: FIELD_LABELS.measureRatio,
+      path: 'product.measureRatio',
+      type: 'number'
+    })
+
+    // Prices
+    productTagItems.push({
+      code: 'purchasingPrice',
+      label: FIELD_LABELS.purchasingPrice,
+      path: 'product.purchasingPrice',
+      type: 'number'
+    })
+    
+    productTagItems.push({
+      code: 'purchasingCurrency',
+      label: FIELD_LABELS.purchasingCurrency,
+      path: 'product.purchasingCurrency',
+      type: 'string'
+    })
+
+    // Base price
+    const basePriceType = initPayload.priceTypes?.find(pt => pt.base === true)
+    if (basePriceType && initPayload.product.prices) {
+      const basePrice = initPayload.product.prices.find(p => p.typeId === basePriceType.id)
+      if (basePrice) {
+        const priceIndex = initPayload.product.prices.indexOf(basePrice)
+        productTagItems.push({
+          code: 'baseCurrency',
+          label: FIELD_LABELS.baseCurrency,
+          path: `product.prices[${priceIndex}].currency`,
+          type: 'string'
+        })
+        
+        productTagItems.push({
+          code: 'basePrice',
+          label: FIELD_LABELS.basePrice,
+          path: `product.prices[${priceIndex}].price`,
+          type: 'number'
+        })
+      }
+    }
+
+    // Properties
+    if (initPayload.product.properties) {
+      Object.entries(initPayload.product.properties).forEach(([code, prop]) => {
+        if (code === 'CML2_LINK') return // Ignore CML2_LINK
+        
+        const { path, type } = buildPropertyPath('product', code, prop)
+        productTagItems.push({
+          code,
+          label: prop.NAME,
+          path,
+          type
+        })
+      })
+    }
+  }
+
+  // Build tag items for settings custom fields (moved from "Дополнительные параметры этапа")
+  const settingsCustomFieldsTagItems: TagItem[] = []
+  if (currentStage?.properties) {
+    if (currentStage.properties.OPERATION_QUANTITY) {
+      settingsCustomFieldsTagItems.push({
+        code: 'OPERATION_QUANTITY',
+        label: 'Количество операций',
+        path: currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}].properties.OPERATION_QUANTITY.VALUE` : 'elementsStore.CALC_STAGES.properties.OPERATION_QUANTITY.VALUE',
+        type: 'number'
+      })
+    }
+    
+    if (currentStage.properties.MATERIAL_QUANTITY) {
+      settingsCustomFieldsTagItems.push({
+        code: 'MATERIAL_QUANTITY',
+        label: 'Количество материалов',
+        path: currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}].properties.MATERIAL_QUANTITY.VALUE` : 'elementsStore.CALC_STAGES.properties.MATERIAL_QUANTITY.VALUE',
+        type: 'number'
+      })
+    }
+  }
+
   return (
     <div className="h-full overflow-auto">
-      <Accordion type="multiple" defaultValue={['offer', 'current-stage']}>
+      <Accordion type="multiple" defaultValue={['offer', 'current-stage']} className="space-y-1">
         {/* Trade Offer Section */}
         {selectedOffer && (
-          <AccordionItem value="offer">
-            <AccordionTrigger className="text-sm font-medium">
+          <AccordionItem value="offer" className="border-none">
+            <AccordionTrigger className="text-sm font-medium hover:no-underline py-2 [&[data-state=open]>svg]:rotate-90">
               Торговое предложение
             </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-1 pl-2">
-                {selectedOffer.properties && Object.entries(selectedOffer.properties).map(([code, prop]) => (
-                  <PropertyItem
-                    key={code}
-                    name={prop.NAME}
-                    code={code}
-                    property={prop}
-                    basePath="selectedOffers[0]"
-                    onAddInput={onAddInput}
-                  />
-                ))}
+            <AccordionContent className="pb-2">
+              <div className="pl-2.5">
+                <TagCloud items={offerTagItems} onAddInput={onAddInput} />
               </div>
             </AccordionContent>
           </AccordionItem>
@@ -454,149 +581,13 @@ export function ContextExplorer({
 
         {/* Product Section */}
         {initPayload?.product && (
-          <AccordionItem value="product">
-            <AccordionTrigger className="text-sm font-medium">
+          <AccordionItem value="product" className="border-none">
+            <AccordionTrigger className="text-sm font-medium hover:no-underline py-2 [&[data-state=open]>svg]:rotate-90">
               Товар
             </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-1 pl-2">
-                {/* Basic attributes */}
-                <div className="text-xs font-medium text-muted-foreground mb-1">Атрибуты</div>
-                <AttributeItem
-                  name="Название"
-                  code="name"
-                  basePath="product"
-                  valueType="string"
-                  onAddInput={onAddInput}
-                />
-                <AttributeItem
-                  name="Код"
-                  code="code"
-                  basePath="product"
-                  valueType="string"
-                  onAddInput={onAddInput}
-                />
-                
-                {/* Dimensions */}
-                {(initPayload.product?.attributes?.width !== undefined || 
-                  initPayload.product?.attributes?.length !== undefined || 
-                  initPayload.product?.attributes?.height !== undefined || 
-                  initPayload.product?.attributes?.weight !== undefined) && (
-                  <>
-                    <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Размеры</div>
-                    {initPayload.product?.attributes?.width !== undefined && (
-                      <AttributeItem
-                        name="Ширина"
-                        code="attributes.width"
-                        basePath="product"
-                        valueType="number"
-                        onAddInput={onAddInput}
-                      />
-                    )}
-                    {initPayload.product?.attributes?.length !== undefined && (
-                      <AttributeItem
-                        name="Длина"
-                        code="attributes.length"
-                        basePath="product"
-                        valueType="number"
-                        onAddInput={onAddInput}
-                      />
-                    )}
-                    {initPayload.product?.attributes?.height !== undefined && (
-                      <AttributeItem
-                        name="Высота"
-                        code="attributes.height"
-                        basePath="product"
-                        valueType="number"
-                        onAddInput={onAddInput}
-                      />
-                    )}
-                    {initPayload.product?.attributes?.weight !== undefined && (
-                      <AttributeItem
-                        name="Вес"
-                        code="attributes.weight"
-                        basePath="product"
-                        valueType="number"
-                        onAddInput={onAddInput}
-                      />
-                    )}
-                  </>
-                )}
-
-                {/* Measure */}
-                {initPayload.product?.measure && (
-                  <>
-                    <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Единица измерения</div>
-                    <AttributeItem
-                      name="Код единицы"
-                      code="measure.code"
-                      basePath="product"
-                      valueType="string"
-                      onAddInput={onAddInput}
-                    />
-                    <AttributeItem
-                      name="Название единицы"
-                      code="measure.name"
-                      basePath="product"
-                      valueType="string"
-                      onAddInput={onAddInput}
-                    />
-                  </>
-                )}
-                
-                {initPayload.product?.measureRatio !== undefined && initPayload.product?.measureRatio !== null && (
-                  <AttributeItem
-                    name="Коэффициент единицы"
-                    code="measureRatio"
-                    basePath="product"
-                    valueType="number"
-                    onAddInput={onAddInput}
-                  />
-                )}
-
-                {/* Prices */}
-                {(initPayload.product?.purchasingPrice !== undefined || initPayload.product?.prices?.length > 0) && (
-                  <>
-                    <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Цены</div>
-                    {initPayload.product?.purchasingPrice !== undefined && initPayload.product?.purchasingPrice !== null && (
-                      <>
-                        <AttributeItem
-                          name="Закупочная цена"
-                          code="purchasingPrice"
-                          basePath="product"
-                          valueType="number"
-                          onAddInput={onAddInput}
-                        />
-                        {initPayload.product?.purchasingCurrency && (
-                          <AttributeItem
-                            name="Валюта закупки"
-                            code="purchasingCurrency"
-                            basePath="product"
-                            valueType="string"
-                            onAddInput={onAddInput}
-                          />
-                        )}
-                      </>
-                    )}
-                  </>
-                )}
-
-                {/* Properties */}
-                {initPayload.product?.properties && Object.keys(initPayload.product.properties).length > 0 && (
-                  <>
-                    <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Свойства</div>
-                    {Object.entries(initPayload.product.properties).map(([code, prop]) => (
-                      <PropertyItem
-                        key={code}
-                        name={prop.NAME}
-                        code={code}
-                        property={prop}
-                        basePath="product"
-                        onAddInput={onAddInput}
-                      />
-                    ))}
-                  </>
-                )}
+            <AccordionContent className="pb-2">
+              <div className="pl-2.5">
+                <TagCloud items={productTagItems} onAddInput={onAddInput} />
               </div>
             </AccordionContent>
           </AccordionItem>
@@ -604,19 +595,27 @@ export function ContextExplorer({
 
         {/* Current Stage Section */}
         {currentStage && (
-          <AccordionItem value="current-stage">
-            <AccordionTrigger className="text-sm font-medium">
+          <AccordionItem value="current-stage" className="border-none">
+            <AccordionTrigger className="text-sm font-medium hover:no-underline py-2 [&[data-state=open]>svg]:rotate-90">
               Текущий этап
             </AccordionTrigger>
-            <AccordionContent>
-              <Accordion type="multiple">
+            <AccordionContent className="pb-2">
+              <Accordion type="multiple" className="pl-2.5 space-y-1">
                 {stageElements.settings && (
                   <ElementSection
                     title="Настройки"
                     element={stageElements.settings}
                     elementType="CALC_SETTINGS"
+                    initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
+                )}
+                
+                {/* Add custom fields to settings section */}
+                {settingsCustomFieldsTagItems.length > 0 && stageElements.settings && (
+                  <div className="pl-2.5 pt-1">
+                    <TagCloud items={settingsCustomFieldsTagItems} onAddInput={onAddInput} />
+                  </div>
                 )}
 
                 {stageElements.operation && (
@@ -624,6 +623,7 @@ export function ContextExplorer({
                     title="Операция"
                     element={stageElements.operation}
                     elementType="CALC_OPERATIONS"
+                    initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
                 )}
@@ -633,6 +633,7 @@ export function ContextExplorer({
                     title="Вариант операции"
                     element={stageElements.operationVariant}
                     elementType="CALC_OPERATIONS_VARIANTS"
+                    initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
                 )}
@@ -642,6 +643,7 @@ export function ContextExplorer({
                     title="Оборудование"
                     element={stageElements.equipment}
                     elementType="CALC_EQUIPMENT"
+                    initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
                 )}
@@ -651,6 +653,7 @@ export function ContextExplorer({
                     title="Материал"
                     element={stageElements.material}
                     elementType="CALC_MATERIALS"
+                    initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
                 )}
@@ -660,39 +663,9 @@ export function ContextExplorer({
                     title="Вариант материала"
                     element={stageElements.materialVariant}
                     elementType="CALC_MATERIALS_VARIANTS"
+                    initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
-                )}
-
-                {/* Additional stage parameters */}
-                {currentStage.properties && (
-                  <AccordionItem value="stage-params">
-                    <AccordionTrigger className="text-xs">
-                      Дополнительные параметры этапа
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-1 pl-2">
-                        {currentStage.properties.OPERATION_QUANTITY && (
-                          <AttributeItem
-                            name="Количество операций"
-                            code="properties.OPERATION_QUANTITY.VALUE"
-                            basePath={currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}]` : 'elementsStore.CALC_STAGES'}
-                            valueType="number"
-                            onAddInput={onAddInput}
-                          />
-                        )}
-                        {currentStage.properties.MATERIAL_QUANTITY && (
-                          <AttributeItem
-                            name="Количество материалов"
-                            code="properties.MATERIAL_QUANTITY.VALUE"
-                            basePath={currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}]` : 'elementsStore.CALC_STAGES'}
-                            valueType="number"
-                            onAddInput={onAddInput}
-                          />
-                        )}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
                 )}
               </Accordion>
             </AccordionContent>
@@ -701,12 +674,12 @@ export function ContextExplorer({
 
         {/* Previous Stages Section */}
         {previousStages.length > 0 && (
-          <AccordionItem value="previous-stages">
-            <AccordionTrigger className="text-sm font-medium">
+          <AccordionItem value="previous-stages" className="border-none">
+            <AccordionTrigger className="text-sm font-medium hover:no-underline py-2 [&[data-state=open]>svg]:rotate-90">
               Предыдущие этапы
             </AccordionTrigger>
-            <AccordionContent>
-              <Accordion type="multiple">
+            <AccordionContent className="pb-2">
+              <Accordion type="multiple" className="pl-2.5 space-y-1">
                 {previousStages.map((prevStage) => {
                   const stage = initPayload.elementsStore?.CALC_STAGES?.find(s => s.id === prevStage.stageId)
                   if (!stage) return null
@@ -741,18 +714,19 @@ export function ContextExplorer({
                     : null
 
                   return (
-                    <AccordionItem key={prevStage.stageId} value={`prev-stage-${prevStage.stageId}`}>
-                      <AccordionTrigger className="text-xs">
+                    <AccordionItem key={prevStage.stageId} value={`prev-stage-${prevStage.stageId}`} className="border-none">
+                      <AccordionTrigger className="text-xs hover:no-underline py-2 [&[data-state=open]>svg]:rotate-90">
                         {prevStage.stageName}
                       </AccordionTrigger>
-                      <AccordionContent>
-                        <Accordion type="multiple">
+                      <AccordionContent className="pb-2">
+                        <Accordion type="multiple" className="pl-2.5 space-y-1">
                           {settings && (
                             <ElementSection
                               title="Настройки"
                               element={settings}
                               elementType="CALC_SETTINGS"
                               index={prevStage.stageIndex}
+                              initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
                           )}
@@ -762,6 +736,7 @@ export function ContextExplorer({
                               element={operation}
                               elementType="CALC_OPERATIONS"
                               index={prevStage.stageIndex}
+                              initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
                           )}
@@ -771,6 +746,7 @@ export function ContextExplorer({
                               element={operationVariant}
                               elementType="CALC_OPERATIONS_VARIANTS"
                               index={prevStage.stageIndex}
+                              initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
                           )}
@@ -780,6 +756,7 @@ export function ContextExplorer({
                               element={equipment}
                               elementType="CALC_EQUIPMENT"
                               index={prevStage.stageIndex}
+                              initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
                           )}
@@ -789,6 +766,7 @@ export function ContextExplorer({
                               element={material}
                               elementType="CALC_MATERIALS"
                               index={prevStage.stageIndex}
+                              initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
                           )}
@@ -798,6 +776,7 @@ export function ContextExplorer({
                               element={materialVariant}
                               elementType="CALC_MATERIALS_VARIANTS"
                               index={prevStage.stageIndex}
+                              initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
                           )}

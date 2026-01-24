@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Trash2, AlertCircle, Info } from 'lucide-react'
+import { Pencil, Trash2, AlertCircle, Info, Copy, FileCode } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -94,6 +94,16 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
     }
   }
 
+  const handleCopyName = (name: string) => {
+    navigator.clipboard.writeText(name)
+    toast.success('Имя параметра скопировано в буфер обмена')
+  }
+
+  const handleCopyPath = (path: string) => {
+    navigator.clipboard.writeText(path)
+    toast.success('Путь скопирован в буфер обмена')
+  }
+
   return (
     <div className="p-4 space-y-4" data-pwcode="logic-inputs">
       {inputs.length === 0 ? (
@@ -182,6 +192,46 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
                       {input.sourceType}
                     </Badge>
                   </div>
+                  
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCopyName(input.name)
+                          }}
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Копировать имя</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCopyPath(input.sourcePath)
+                          }}
+                        >
+                          <FileCode className="w-3.5 h-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Копировать путь</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   
                   <Button
                     variant="ghost"
