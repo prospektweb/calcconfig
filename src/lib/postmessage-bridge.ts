@@ -76,6 +76,10 @@ export type MessageType =
   
   // Логика расчёта этапа
   | 'SAVE_CALC_LOGIC_REQUEST'         // НОВЫЙ - атомарное сохранение CALC_SETTINGS + CALC_STAGES
+  
+  // Информационные тексты (справка)
+  | 'INFOTEXT_REQUEST'                // Запрос информационного текста
+  | 'INFOTEXT_RESPONSE'               // Ответ с информационным текстом
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -738,6 +742,11 @@ class PostMessageBridge {
   // Stage logic operations
   sendSaveCalcLogicRequest(payload: SaveCalcLogicRequestPayload): string | undefined {
     return this.sendMessage('SAVE_CALC_LOGIC_REQUEST', payload)
+  }
+
+  // Info text operations
+  sendInfoTextRequest(payload: { placeCode: string }): string | undefined {
+    return this.sendMessage('INFOTEXT_REQUEST', payload)
   }
 
   on(type: MessageType | '*', callback: (message: PwrtMessage) => void): () => void {
