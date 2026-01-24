@@ -1,4 +1,4 @@
-import { Iblock, Preset, ElementsStore } from './types'
+import { Iblock, Preset, ElementsStore, Product } from './types'
 import { BitrixTreeItem, BitrixProperty } from './bitrix-transformers'
 
 export type MessageType =
@@ -123,6 +123,7 @@ export interface InitPayload {
     properties?: Record<string, any>
   }>
   preset?: Preset
+  product?: Product
   elementsStore?: ElementsStore
   elementsSiblings?: Array<Record<string, any>>
   priceTypes?: Array<{
