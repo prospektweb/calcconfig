@@ -428,7 +428,7 @@ export function ContextExplorer({
 
   return (
     <div className="h-full overflow-auto">
-      <Accordion type="multiple" defaultValue={['offer', 'product', 'current-stage']}>
+      <Accordion type="multiple" defaultValue={['offer', 'current-stage']}>
         {/* Trade Offer Section */}
         {selectedOffer && (
           <AccordionItem value="offer">
@@ -453,27 +453,7 @@ export function ContextExplorer({
         )}
 
         {/* Product Section */}
-        {initPayload?.product?.properties && Object.keys(initPayload.product.properties).length > 0 && (
-          <AccordionItem value="product">
-            <AccordionTrigger className="text-sm font-medium">
-              Товар
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-1 pl-2">
-                {Object.entries(initPayload.product.properties).map(([code, prop]) => (
-                  <PropertyItem
-                    key={code}
-                    name={prop.NAME}
-                    code={code}
-                    property={prop}
-                    basePath="product"
-                    onAddInput={onAddInput}
-                  />
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        )}
+        {/* Product data is not available in InitPayload - would need to be added to the type */}
 
         {/* Current Stage Section */}
         {currentStage && (
