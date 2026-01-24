@@ -30,7 +30,7 @@ import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { getBitrixContext, openBitrixAdmin, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
 import { BitrixProperty } from '@/lib/bitrix-transformers'
-import { getDraftKey, calculateStageReadiness, hasDraftForStage } from '@/lib/stage-utils'
+import { getDraftKey, calculateStageReadiness, hasDraftForStage, extractLogicJsonString } from '@/lib/stage-utils'
 
 interface StageTabsProps {
   calculators: StageInstance[]
@@ -303,8 +303,9 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
     const currentParamsValue = settingsElement.properties?.PARAMS?.VALUE
     const currentParamsHash = hashArray(Array.isArray(currentParamsValue) ? currentParamsValue : [])
     
-    const currentLogicJson = settingsElement.properties?.LOGIC_JSON?.['~VALUE']
-    const currentLogicJsonHash = hashString(typeof currentLogicJson === 'string' ? currentLogicJson : '')
+    const currentLogicJsonProp = settingsElement.properties?.LOGIC_JSON
+    const currentLogicJson = extractLogicJsonString(currentLogicJsonProp)
+    const currentLogicJsonHash = hashString(currentLogicJson || '')
     
     const currentInputsValue = stageElement.properties?.INPUTS?.VALUE
     const currentInputsHash = hashArray(Array.isArray(currentInputsValue) ? currentInputsValue : [])

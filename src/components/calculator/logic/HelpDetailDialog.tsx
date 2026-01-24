@@ -58,10 +58,9 @@ export function HelpDetailDialog({ isOpen, onClose, placeCode, title }: HelpDeta
               Загрузка...
             </div>
           ) : (
-            <div 
-              className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: content }}
-            />
+            <div className="text-sm leading-relaxed whitespace-pre-wrap">
+              {content}
+            </div>
           )}
         </ScrollArea>
       </DialogContent>

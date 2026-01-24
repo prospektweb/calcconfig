@@ -16,7 +16,7 @@ import { HelpDetailDialog } from './logic/HelpDetailDialog'
 import { InputParam, FormulaVar, StageLogic, ValidationIssue, ValueType, ResultsHL, WritePlanItem, AdditionalResult } from './logic/types'
 import { saveLogic, loadLogic } from './logic/storage'
 import { validateAll, inferType, inferTypeFromSourcePath } from './logic/validator'
-import { getDraftKey } from '@/lib/stage-utils'
+import { getDraftKey, extractLogicJsonString } from '@/lib/stage-utils'
 
 /**
  * Recursively nullify all values in an object/array, preserving structure
@@ -148,8 +148,11 @@ function buildInputsFromInit(
 /**
  * Build vars from CALC_SETTINGS.LOGIC_JSON (only vars field)
  * Following new protocol spec section 3.2
+ * Uses extractLogicJsonString to handle various LOGIC_JSON formats
  */
-function buildVarsFromInit(logicJsonRaw: string | undefined | null): FormulaVar[] {
+function buildVarsFromInit(logicJsonProp: any): FormulaVar[] {
+  const logicJsonRaw = extractLogicJsonString(logicJsonProp)
+  
   if (!logicJsonRaw) {
     return []
   }
@@ -331,9 +334,9 @@ export function CalculationLogicDialog({
       const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
       const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
       
-      // Build vars from LOGIC_JSON
-      const logicJsonRaw = settingsElement?.properties?.LOGIC_JSON?.['~VALUE']
-      const vars = buildVarsFromInit(logicJsonRaw)
+      // Build vars from LOGIC_JSON (pass entire property object for proper parsing)
+      const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
+      const vars = buildVarsFromInit(logicJsonProp)
       
       // Build results from OUTPUTS
       const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
