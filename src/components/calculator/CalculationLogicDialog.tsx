@@ -164,6 +164,7 @@ interface CalculationLogicDialogProps {
   initPayload?: InitPayload | null
   currentStageId?: number | null
   currentSettingsId?: number | null
+  currentDetailId?: number | null
   onSaveRequest?: (settingsId: number, stageId: number, json: string) => void
 }
 
@@ -177,6 +178,7 @@ export function CalculationLogicDialog({
   initPayload,
   currentStageId,
   currentSettingsId,
+  currentDetailId,
   onSaveRequest,
 }: CalculationLogicDialogProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false)
@@ -346,6 +348,47 @@ export function CalculationLogicDialog({
       localStorage.setItem(draftKey, JSON.stringify(draft))
     }
   }, [inputs, vars, resultsHL, writePlan, additionalResults, open, currentStageId, currentSettingsId, stageIndex])
+
+  // Auto-update inferred types for vars when inputs or formulas change
+  useEffect(() => {
+    if (!open) return
+    
+    // Build symbol table from inputs
+    const symbolTable = new Map<string, ValueType>()
+    for (const input of inputs) {
+      const inferred = inferTypeFromSourcePath(input.sourcePath)
+      const type = input.valueType || inferred.type
+      symbolTable.set(input.name, type)
+    }
+    
+    // Update vars with inferred types
+    let hasChanges = false
+    const varsWithTypes = vars.map(v => {
+      if (v.formula.trim()) {
+        const typeResult = inferType(v.formula, symbolTable)
+        symbolTable.set(v.name, typeResult.type)
+        
+        // Check if type changed
+        if (v.inferredType !== typeResult.type) {
+          hasChanges = true
+          return { ...v, inferredType: typeResult.type }
+        }
+        return v
+      }
+      
+      // Check if unknown type needs to be set
+      if (v.inferredType !== 'unknown') {
+        hasChanges = true
+      }
+      symbolTable.set(v.name, 'unknown')
+      return { ...v, inferredType: 'unknown' as ValueType }
+    })
+    
+    // Only update state if there were actual changes
+    if (hasChanges) {
+      setVars(varsWithTypes)
+    }
+  }, [inputs, vars, open])
 
   // Computed values for dirty state
   // Current state as JSON
