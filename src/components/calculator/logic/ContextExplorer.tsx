@@ -478,13 +478,13 @@ export function ContextExplorer({
                 />
                 
                 {/* Dimensions */}
-                {(initPayload.product.attributes?.width !== undefined || 
-                  initPayload.product.attributes?.length !== undefined || 
-                  initPayload.product.attributes?.height !== undefined || 
-                  initPayload.product.attributes?.weight !== undefined) && (
+                {(initPayload.product?.attributes?.width !== undefined || 
+                  initPayload.product?.attributes?.length !== undefined || 
+                  initPayload.product?.attributes?.height !== undefined || 
+                  initPayload.product?.attributes?.weight !== undefined) && (
                   <>
                     <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Размеры</div>
-                    {initPayload.product.attributes?.width !== undefined && (
+                    {initPayload.product?.attributes?.width !== undefined && (
                       <AttributeItem
                         name="Ширина"
                         code="attributes.width"
@@ -493,7 +493,7 @@ export function ContextExplorer({
                         onAddInput={onAddInput}
                       />
                     )}
-                    {initPayload.product.attributes?.length !== undefined && (
+                    {initPayload.product?.attributes?.length !== undefined && (
                       <AttributeItem
                         name="Длина"
                         code="attributes.length"
@@ -502,7 +502,7 @@ export function ContextExplorer({
                         onAddInput={onAddInput}
                       />
                     )}
-                    {initPayload.product.attributes?.height !== undefined && (
+                    {initPayload.product?.attributes?.height !== undefined && (
                       <AttributeItem
                         name="Высота"
                         code="attributes.height"
@@ -511,7 +511,7 @@ export function ContextExplorer({
                         onAddInput={onAddInput}
                       />
                     )}
-                    {initPayload.product.attributes?.weight !== undefined && (
+                    {initPayload.product?.attributes?.weight !== undefined && (
                       <AttributeItem
                         name="Вес"
                         code="attributes.weight"
@@ -524,7 +524,7 @@ export function ContextExplorer({
                 )}
 
                 {/* Measure */}
-                {initPayload.product.measure && (
+                {initPayload.product?.measure && (
                   <>
                     <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Единица измерения</div>
                     <AttributeItem
@@ -544,7 +544,7 @@ export function ContextExplorer({
                   </>
                 )}
                 
-                {initPayload.product.measureRatio !== undefined && initPayload.product.measureRatio !== null && (
+                {initPayload.product?.measureRatio !== undefined && initPayload.product?.measureRatio !== null && (
                   <AttributeItem
                     name="Коэффициент единицы"
                     code="measureRatio"
@@ -555,10 +555,10 @@ export function ContextExplorer({
                 )}
 
                 {/* Prices */}
-                {(initPayload.product.purchasingPrice !== undefined || initPayload.product.prices?.length > 0) && (
+                {(initPayload.product?.purchasingPrice !== undefined || initPayload.product?.prices?.length > 0) && (
                   <>
                     <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Цены</div>
-                    {initPayload.product.purchasingPrice !== undefined && initPayload.product.purchasingPrice !== null && (
+                    {initPayload.product?.purchasingPrice !== undefined && initPayload.product?.purchasingPrice !== null && (
                       <>
                         <AttributeItem
                           name="Закупочная цена"
@@ -567,7 +567,7 @@ export function ContextExplorer({
                           valueType="number"
                           onAddInput={onAddInput}
                         />
-                        {initPayload.product.purchasingCurrency && (
+                        {initPayload.product?.purchasingCurrency && (
                           <AttributeItem
                             name="Валюта закупки"
                             code="purchasingCurrency"
@@ -582,7 +582,7 @@ export function ContextExplorer({
                 )}
 
                 {/* Properties */}
-                {initPayload.product.properties && Object.keys(initPayload.product.properties).length > 0 && (
+                {initPayload.product?.properties && Object.keys(initPayload.product.properties).length > 0 && (
                   <>
                     <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Свойства</div>
                     {Object.entries(initPayload.product.properties).map(([code, prop]) => (
