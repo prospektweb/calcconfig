@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { InitPayload, postMessageBridge, SaveCalcLogicRequestPayload } from '@/lib/postmessage-bridge'
 import { toast } from 'sonner'
 import { JsonTree } from './logic/JsonTree'
+import { ContextExplorer } from './logic/ContextExplorer'
 import { InputsTab } from './logic/InputsTab'
 import { FormulasTab } from './logic/FormulasTab'
 import { OutputsTab } from './logic/OutputsTab'
@@ -19,75 +20,14 @@ import { validateAll, inferType, inferTypeFromSourcePath } from './logic/validat
 import { getDraftKey, extractLogicJsonString } from '@/lib/stage-utils'
 
 /**
- * Recursively nullify all values in an object/array, preserving structure
- * - Primitives (string/number/bool) => null
- * - null/undefined => null
- * - Arrays: empty => [], non-empty => [deepNullifyShape(first element)]
- * - Objects: recursively nullify all values
- */
-function deepNullifyShape(obj: any): any {
-  // Handle null/undefined
-  if (obj === null || obj === undefined) {
-    return null
-  }
-
-  // Handle primitives
-  if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') {
-    return null
-  }
-
-  // Handle arrays
-  if (Array.isArray(obj)) {
-    if (obj.length === 0) {
-      return []
-    }
-    // Return array with single nullified template element
-    return [deepNullifyShape(obj[0])]
-  }
-
-  // Handle objects
-  if (typeof obj === 'object') {
-    const result: Record<string, any> = {}
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        result[key] = deepNullifyShape(obj[key])
-      }
-    }
-    return result
-  }
-
-  // Fallback
-  return null
-}
-
-/**
  * Build logic context for the context tree panel
- * Shows full INIT payload except:
- * - selectedOffers is transformed to offer (first element with nullified values, prices removed)
+ * Shows full INIT payload as-is without modifications
  */
 function buildLogicContext(initPayload: InitPayload | null | undefined): any {
   if (!initPayload) return null
-
-  // Copy entire initPayload
-  const logicContext: any = { ...initPayload }
-
-  // Transform selectedOffers[0] → offer
-  if (initPayload.selectedOffers?.[0]) {
-    const offer0 = initPayload.selectedOffers[0]
-    const offerModel = deepNullifyShape(offer0)
-    
-    // Remove prices from offer model
-    if (offerModel && typeof offerModel === 'object') {
-      delete offerModel.prices
-    }
-    
-    logicContext.offer = offerModel
-  }
-
-  // Remove selectedOffers from context (replaced by offer)
-  delete logicContext.selectedOffers
-
-  return logicContext
+  
+  // Return initPayload as-is
+  return initPayload
 }
 
 // Helper to create empty ResultsHL
@@ -225,6 +165,7 @@ interface CalculationLogicDialogProps {
   initPayload?: InitPayload | null
   currentStageId?: number | null
   currentSettingsId?: number | null
+  currentDetailId?: number | null
   onSaveRequest?: (settingsId: number, stageId: number, json: string) => void
 }
 
@@ -238,12 +179,14 @@ export function CalculationLogicDialog({
   initPayload,
   currentStageId,
   currentSettingsId,
+  currentDetailId,
   onSaveRequest,
 }: CalculationLogicDialogProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false)
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true)
   const [activeTab, setActiveTab] = useState('inputs')
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [showJsonTree, setShowJsonTree] = useState(false) // false = ContextExplorer, true = JsonTree
 
   // State for help dialog
   const [helpDialogOpen, setHelpDialogOpen] = useState(false)
@@ -302,23 +245,7 @@ export function CalculationLogicDialog({
     
     const draftKey = getDraftKey(currentStageId, currentSettingsId)
     
-    // Try localStorage draft first
-    const draftJson = localStorage.getItem(draftKey)
-    if (draftJson) {
-      try {
-        const parsed = JSON.parse(draftJson)
-        setInputs(Array.isArray(parsed?.inputs) ? parsed.inputs : [])
-        setVars(Array.isArray(parsed?.vars) ? parsed.vars : [])
-        setResultsHL(parsed?.resultsHL || createEmptyResultsHL())
-        setWritePlan(Array.isArray(parsed?.writePlan) ? parsed.writePlan : [])
-        setAdditionalResults(Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : [])
-        return
-      } catch (e) {
-        console.warn('Failed to parse draft', e)
-      }
-    }
-    
-    // Fall back to loading from INIT using new protocol
+    // Load data from INIT first
     const settingsElement = initPayload?.elementsStore?.CALC_SETTINGS?.find(
       s => s.id === currentSettingsId
     )
@@ -326,37 +253,84 @@ export function CalculationLogicDialog({
       s => s.id === currentStageId
     )
     
+    let savedInputs: InputParam[] = []
+    let savedVars: FormulaVar[] = []
+    let savedResultsHL: ResultsHL = createEmptyResultsHL()
+    let savedAdditionalResults: AdditionalResult[] = []
+    
     if (settingsElement || stageElement) {
       // Build inputs from PARAMS + INPUTS
       const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
       const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
       const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
       const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
-      const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
+      savedInputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
       
       // Build vars from LOGIC_JSON (pass entire property object for proper parsing)
       const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
-      const vars = buildVarsFromInit(logicJsonProp)
+      savedVars = buildVarsFromInit(logicJsonProp)
       
       // Build results from OUTPUTS
       const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
       const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-      const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
-      
-      setInputs(inputs)
-      setVars(vars)
-      setResultsHL(resultsHL)
-      setAdditionalResults(additionalResults)
-      setWritePlan([])  // writePlan deprecated
-      return
+      const results = buildResultsFromInit(outputsValue, outputsDesc)
+      savedResultsHL = results.resultsHL
+      savedAdditionalResults = results.additionalResults
     }
     
-    // Reset to empty state if no data
-    setInputs([])
-    setVars([])
-    setResultsHL(createEmptyResultsHL())
-    setWritePlan([])
-    setAdditionalResults([])
+    // Try localStorage draft
+    const draftJson = localStorage.getItem(draftKey)
+    if (draftJson) {
+      try {
+        const parsed = JSON.parse(draftJson)
+        const draftInputs = Array.isArray(parsed?.inputs) ? parsed.inputs : []
+        const draftVars = Array.isArray(parsed?.vars) ? parsed.vars : []
+        const draftResultsHL = parsed?.resultsHL || createEmptyResultsHL()
+        const draftAdditionalResults = Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : []
+        
+        // Compare draft with saved data from INIT
+        const draftStateJson = JSON.stringify({
+          inputs: draftInputs,
+          vars: draftVars,
+          resultsHL: draftResultsHL,
+          additionalResults: draftAdditionalResults
+        })
+        const savedStateJson = JSON.stringify({
+          inputs: savedInputs,
+          vars: savedVars,
+          resultsHL: savedResultsHL,
+          additionalResults: savedAdditionalResults
+        })
+        
+        if (draftStateJson === savedStateJson) {
+          // Draft matches INIT data, remove it
+          localStorage.removeItem(draftKey)
+          setInputs(savedInputs)
+          setVars(savedVars)
+          setResultsHL(savedResultsHL)
+          setAdditionalResults(savedAdditionalResults)
+          setWritePlan([])
+        } else {
+          // Draft has changes, use it
+          setInputs(draftInputs)
+          setVars(draftVars)
+          setResultsHL(draftResultsHL)
+          setWritePlan(Array.isArray(parsed?.writePlan) ? parsed.writePlan : [])
+          setAdditionalResults(draftAdditionalResults)
+        }
+        return
+      } catch (e) {
+        console.warn('Failed to parse draft', e)
+        localStorage.removeItem(draftKey)
+      }
+    }
+    
+    // Use data from INIT
+    setInputs(savedInputs)
+    setVars(savedVars)
+    setResultsHL(savedResultsHL)
+    setAdditionalResults(savedAdditionalResults)
+    setWritePlan([])  // writePlan deprecated
   }, [open, currentStageId, currentSettingsId, initPayload])
 
   // Save to draft on any change
@@ -377,32 +351,101 @@ export function CalculationLogicDialog({
     }
   }, [inputs, vars, resultsHL, writePlan, additionalResults, open, currentStageId, currentSettingsId, stageIndex])
 
+  // Auto-update inferred types for vars when inputs or formulas change
+  useEffect(() => {
+    if (!open) return
+    
+    // Build symbol table from inputs
+    const symbolTable = new Map<string, ValueType>()
+    for (const input of inputs) {
+      const inferred = inferTypeFromSourcePath(input.sourcePath)
+      const type = input.valueType || inferred.type
+      symbolTable.set(input.name, type)
+    }
+    
+    // Update vars with inferred types
+    let hasChanges = false
+    const varsWithTypes = vars.map(v => {
+      if (v.formula.trim()) {
+        const typeResult = inferType(v.formula, symbolTable)
+        symbolTable.set(v.name, typeResult.type)
+        
+        // Check if type changed
+        if (v.inferredType !== typeResult.type) {
+          hasChanges = true
+          return { ...v, inferredType: typeResult.type }
+        }
+        return v
+      }
+      
+      // Check if unknown type needs to be set
+      if (v.inferredType !== 'unknown') {
+        hasChanges = true
+      }
+      symbolTable.set(v.name, 'unknown')
+      return { ...v, inferredType: 'unknown' as ValueType }
+    })
+    
+    // Only update state if there were actual changes
+    if (hasChanges) {
+      setVars(varsWithTypes)
+    }
+  }, [inputs, vars, open])
+
   // Computed values for dirty state
-  const currentJson = JSON.stringify({
+  // Current state as JSON
+  const currentStateJson = JSON.stringify({
     version: 1,
-    stageIndex,
     inputs,
     vars,
     resultsHL,
-    writePlan,
     additionalResults
   })
 
-  const draftKey = (currentStageId !== null && currentStageId !== undefined && 
-                    currentSettingsId !== null && currentSettingsId !== undefined)
-    ? getDraftKey(currentStageId, currentSettingsId) 
-    : null
-  const hasDraft = draftKey !== null && localStorage.getItem(draftKey) !== null
-  
-  // Helper to check if there's any content
-  const hasAnyContent = (): boolean => {
-    return inputs.length > 0 || 
-           vars.length > 0 || 
-           writePlan.length > 0 ||
-           Object.values(resultsHL).some(m => m.sourceRef)
+  // Saved state from INIT as JSON (for comparison)
+  const getSavedStateJson = (): string => {
+    if (!currentSettingsId || !currentStageId || !initPayload) {
+      return JSON.stringify({
+        version: 1,
+        inputs: [],
+        vars: [],
+        resultsHL: createEmptyResultsHL(),
+        additionalResults: []
+      })
+    }
+    
+    const settingsElement = initPayload.elementsStore?.CALC_SETTINGS?.find(
+      s => s.id === currentSettingsId
+    )
+    const stageElement = initPayload.elementsStore?.CALC_STAGES?.find(
+      s => s.id === currentStageId
+    )
+    
+    // Build saved state from INIT
+    const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
+    const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
+    const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
+    const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+    const savedInputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
+    
+    const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
+    const savedVars = buildVarsFromInit(logicJsonProp)
+    
+    const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
+    const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
+    const { resultsHL: savedResultsHL, additionalResults: savedAdditionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
+    
+    return JSON.stringify({
+      version: 1,
+      inputs: savedInputs,
+      vars: savedVars,
+      resultsHL: savedResultsHL,
+      additionalResults: savedAdditionalResults
+    })
   }
   
-  const isDirty = hasDraft || (savedJson === null && hasAnyContent())
+  // Compare current state with saved state from INIT
+  const isDirty = currentStateJson !== getSavedStateJson()
   const hasErrors = validationIssues.some(i => i.severity === 'error')
 
   // Show current and previous stages only
@@ -474,6 +517,50 @@ export function CalculationLogicDialog({
       return stageNum > stageIndex
     }
     return false
+  }
+  
+  const handleContextExplorerAddInput = (path: string, name: string, valueType: ValueType) => {
+    // If there's an active input, update its path
+    if (activeInputId) {
+      setInputs(inputs.map(inp => {
+        if (inp.id === activeInputId) {
+          return {
+            ...inp,
+            sourcePath: path,
+            sourceType: 'context' as any,
+            valueType: valueType !== 'unknown' ? valueType : inp.valueType,
+            typeSource: 'auto',
+            autoTypeReason: 'From ContextExplorer'
+          }
+        }
+        return inp
+      }))
+      setActiveInputId(null)
+      toast.success('Путь параметра обновлён')
+      return
+    }
+    
+    // Ensure name is unique
+    let uniqueName = name
+    let counter = 1
+    while (inputs.some(inp => inp.name === uniqueName)) {
+      uniqueName = `${name}_${counter}`
+      counter++
+    }
+    
+    const newInput: InputParam = {
+      id: `input_${Date.now()}`,
+      name: uniqueName,
+      sourcePath: path,
+      sourceType: 'context' as any,
+      valueType: valueType !== 'unknown' ? valueType : undefined,
+      typeSource: 'auto',
+      autoTypeReason: 'From ContextExplorer'
+    }
+    
+    setInputs([...inputs, newInput])
+    setActiveTab('inputs')
+    toast.success(`Параметр "${uniqueName}" добавлен`)
   }
 
   const handleOpenHelp = (placeCode: string, title: string) => {
@@ -743,20 +830,43 @@ export function CalculationLogicDialog({
                   <CaretLeft className="w-4 h-4" />
                 </Button>
               </div>
-              <div className="flex-1 overflow-hidden">
-                {logicContext ? (
-                  <div className="h-full">
-                    <JsonTree
-                      data={logicContext}
-                      onLeafClick={handleLeafClick}
-                      isPathDisabled={isPathDisabled}
-                    />
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground p-4">
-                    Нет данных контекста
-                  </div>
-                )}
+              <div className="px-4 py-2 border-b border-border flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => setShowJsonTree(!showJsonTree)}
+                >
+                  {showJsonTree ? 'Скрыть дополнительные данные' : 'Показать дополнительные данные'}
+                </Button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <ScrollArea className="h-full">
+                  {showJsonTree ? (
+                    logicContext ? (
+                      <div className="p-4">
+                        <JsonTree
+                          data={logicContext}
+                          onLeafClick={handleLeafClick}
+                          isPathDisabled={isPathDisabled}
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground p-4">
+                        Нет данных контекста
+                      </div>
+                    )
+                  ) : (
+                    <div className="p-4">
+                      <ContextExplorer
+                        initPayload={initPayload}
+                        currentStageId={currentStageId}
+                        currentDetailId={currentDetailId}
+                        onAddInput={handleContextExplorerAddInput}
+                      />
+                    </div>
+                  )}
+                </ScrollArea>
               </div>
             </div>
           )}
@@ -848,80 +958,117 @@ export function CalculationLogicDialog({
               </div>
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-2">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-sm font-normal"
-                    onClick={() => handleOpenHelp('help_syntax', 'Синтаксис')}
-                  >
-                    Синтаксис
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-sm font-normal"
-                    onClick={() => handleOpenHelp('help_types', 'Типы данных')}
-                  >
-                    Типы данных
-                  </Button>
+                  <div>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-sm font-normal"
+                      onClick={() => handleOpenHelp('help_syntax', 'Синтаксис')}
+                    >
+                      Синтаксис
+                    </Button>
+                    <p className="text-xs text-muted-foreground px-4 py-1">
+                      Типы данных, операторы, правила выполнения переменных
+                    </p>
+                  </div>
+                  <div>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-sm font-normal"
+                      onClick={() => handleOpenHelp('help_types', 'Типы данных')}
+                    >
+                      Типы данных
+                    </Button>
+                    <p className="text-xs text-muted-foreground px-4 py-1">
+                      number, string, bool, array, unknown
+                    </p>
+                  </div>
                   <div className="pl-2 space-y-1">
                     <p className="text-xs font-medium text-muted-foreground px-2 py-1">Функции</p>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-xs font-normal"
-                      onClick={() => handleOpenHelp('help_functions_conditional', 'Функция if(condition, a, b)')}
-                    >
-                      if(condition, a, b)
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-xs font-normal"
-                      onClick={() => handleOpenHelp('help_functions_arithmetic', 'Арифметические функции')}
-                    >
-                      Арифметические
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-xs font-normal"
-                      onClick={() => handleOpenHelp('help_functions_string', 'Строковые функции')}
-                    >
-                      Строки
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-xs font-normal"
-                      onClick={() => handleOpenHelp('help_functions_conversion', 'Функции преобразования')}
-                    >
-                      Преобразование
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-xs font-normal"
-                      onClick={() => handleOpenHelp('help_functions_array', 'Функции для массивов')}
-                    >
-                      Массивы
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-xs font-normal"
-                      onClick={() => handleOpenHelp('help_functions_regex', 'Регулярные выражения')}
-                    >
-                      Регулярные выражения
-                    </Button>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs font-normal"
+                        onClick={() => handleOpenHelp('help_functions_conditional', 'Функция if(condition, a, b)')}
+                      >
+                        if(condition, a, b)
+                      </Button>
+                      <p className="text-xs text-muted-foreground px-4 py-1">
+                        Условный оператор
+                      </p>
+                    </div>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs font-normal"
+                        onClick={() => handleOpenHelp('help_functions_arithmetic', 'Арифметические функции')}
+                      >
+                        Арифметические
+                      </Button>
+                      <p className="text-xs text-muted-foreground px-4 py-1">
+                        round, ceil, floor, min, max, abs
+                      </p>
+                    </div>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs font-normal"
+                        onClick={() => handleOpenHelp('help_functions_string', 'Строковые функции')}
+                      >
+                        Строки
+                      </Button>
+                      <p className="text-xs text-muted-foreground px-4 py-1">
+                        trim, lower, upper, len, contains, replace
+                      </p>
+                    </div>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs font-normal"
+                        onClick={() => handleOpenHelp('help_functions_conversion', 'Функции преобразования')}
+                      >
+                        Преобразование
+                      </Button>
+                      <p className="text-xs text-muted-foreground px-4 py-1">
+                        toNumber, toString
+                      </p>
+                    </div>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs font-normal"
+                        onClick={() => handleOpenHelp('help_functions_array', 'Функции для массивов')}
+                      >
+                        Массивы
+                      </Button>
+                      <p className="text-xs text-muted-foreground px-4 py-1">
+                        split, join, get
+                      </p>
+                    </div>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs font-normal"
+                        onClick={() => handleOpenHelp('help_functions_regex', 'Регулярные выражения')}
+                      >
+                        Регулярные выражения
+                      </Button>
+                      <p className="text-xs text-muted-foreground px-4 py-1">
+                        regexMatch, regexExtract
+                      </p>
+                    </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-sm font-normal"
-                    onClick={() => handleOpenHelp('help_errors', 'Ошибки')}
-                  >
-                    Ошибки
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-sm font-normal"
-                    onClick={() => handleOpenHelp('about', 'О программе')}
-                    data-pwcode="btn-about"
-                  >
-                    О программе
-                  </Button>
+                  <div>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-sm font-normal"
+                      onClick={() => handleOpenHelp('help_errors', 'Ошибки')}
+                    >
+                      Ошибки
+                    </Button>
+                    <p className="text-xs text-muted-foreground px-4 py-1">
+                      Неизвестная переменная, ссылка на переменную ниже, несовпадение типов
+                    </p>
+                  </div>
                 </div>
               </ScrollArea>
             </div>
