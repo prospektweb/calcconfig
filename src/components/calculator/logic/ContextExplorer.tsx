@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { InitPayload } from '@/lib/postmessage-bridge'
 import { ValueType } from './types'
-import { ElementsStoreItem, BitrixPropertyValue } from '@/lib/types'
+import { ElementsStoreItem, BitrixPropertyValue, CalcDetailElement } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -19,6 +19,62 @@ interface ContextExplorerProps {
 }
 
 type PropertyTypeCode = 'S' | 'N' | 'L' | 'E' | 'F'
+
+// Helper to find previous stages
+interface StageHierarchyItem {
+  stageId: number
+  stageName: string
+  stageIndex: number
+}
+
+function findPreviousStages(
+  currentStageId: number,
+  currentDetailId: number | null | undefined,
+  elementsStore: any
+): StageHierarchyItem[] {
+  if (!elementsStore?.CALC_DETAILS || !elementsStore?.CALC_STAGES || !currentDetailId) {
+    return []
+  }
+
+  // Find the current detail
+  const currentDetail = elementsStore.CALC_DETAILS.find(
+    (detail: CalcDetailElement) => detail.id === currentDetailId
+  )
+
+  if (!currentDetail) {
+    return []
+  }
+
+  // Get stage IDs from the detail
+  const detailStageIds = currentDetail.properties?.CALC_STAGES?.VALUE
+  if (!Array.isArray(detailStageIds)) {
+    return []
+  }
+
+  // Find all stages before current stage in this detail
+  const previousStages: StageHierarchyItem[] = []
+  
+  for (let i = 0; i < detailStageIds.length; i++) {
+    const stageId = Number(detailStageIds[i])
+    
+    // Stop when we reach the current stage
+    if (stageId === currentStageId) {
+      break
+    }
+
+    // Find the stage element
+    const stage = elementsStore.CALC_STAGES.find((s: any) => s.id === stageId)
+    if (stage) {
+      previousStages.push({
+        stageId,
+        stageName: stage.name,
+        stageIndex: elementsStore.CALC_STAGES.findIndex((s: any) => s.id === stageId)
+      })
+    }
+  }
+
+  return previousStages
+}
 
 function getValueTypeFromPropertyType(propType: PropertyTypeCode): ValueType {
   switch (propType) {
@@ -79,11 +135,11 @@ function PropertyItem({ name, code, property, basePath, onAddInput }: PropertyIt
       variant="ghost"
       size="sm"
       onClick={handleClick}
-      className="w-full justify-start text-left h-auto py-1.5 px-2"
+      className="w-full justify-start text-left h-auto py-1 px-2"
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        <span className="text-sm truncate">{name}</span>
-        <Badge variant="outline" className="shrink-0">
+        <span className="text-xs truncate">{name}</span>
+        <Badge variant="outline" className="shrink-0 text-xs">
           {type}
         </Badge>
         {property.MULTIPLE === 'Y' && (
@@ -116,11 +172,11 @@ function AttributeItem({ name, code, basePath, valueType, onAddInput }: Attribut
       variant="ghost"
       size="sm"
       onClick={handleClick}
-      className="w-full justify-start text-left h-auto py-1.5 px-2"
+      className="w-full justify-start text-left h-auto py-1 px-2"
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        <span className="text-sm truncate">{name}</span>
-        <Badge variant="outline" className="shrink-0">
+        <span className="text-xs truncate">{name}</span>
+        <Badge variant="outline" className="shrink-0 text-xs">
           {valueType}
         </Badge>
       </div>
@@ -147,7 +203,7 @@ function ElementSection({ title, element, elementType, index, onAddInput }: Elem
 
   return (
     <AccordionItem value={`${elementType}-${index ?? 0}`}>
-      <AccordionTrigger className="text-sm">
+      <AccordionTrigger className="text-xs">
         {title}: {element.name}
       </AccordionTrigger>
       <AccordionContent>
@@ -168,41 +224,49 @@ function ElementSection({ title, element, elementType, index, onAddInput }: Elem
             valueType="string"
             onAddInput={onAddInput}
           />
-          {element.fields?.width !== undefined && (
-            <AttributeItem
-              name="Ширина"
-              code="fields.width"
-              basePath={basePath}
-              valueType="number"
-              onAddInput={onAddInput}
-            />
-          )}
-          {element.fields?.length !== undefined && (
-            <AttributeItem
-              name="Длина"
-              code="fields.length"
-              basePath={basePath}
-              valueType="number"
-              onAddInput={onAddInput}
-            />
-          )}
-          {element.fields?.height !== undefined && (
-            <AttributeItem
-              name="Высота"
-              code="fields.height"
-              basePath={basePath}
-              valueType="number"
-              onAddInput={onAddInput}
-            />
-          )}
-          {element.fields?.weight !== undefined && (
-            <AttributeItem
-              name="Вес"
-              code="fields.weight"
-              basePath={basePath}
-              valueType="number"
-              onAddInput={onAddInput}
-            />
+          
+          {/* Dimensions */}
+          {(element.fields?.width !== undefined || element.fields?.length !== undefined || 
+            element.fields?.height !== undefined || element.fields?.weight !== undefined) && (
+            <>
+              <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Размеры</div>
+              {element.fields?.width !== undefined && (
+                <AttributeItem
+                  name="Ширина"
+                  code="fields.width"
+                  basePath={basePath}
+                  valueType="number"
+                  onAddInput={onAddInput}
+                />
+              )}
+              {element.fields?.length !== undefined && (
+                <AttributeItem
+                  name="Длина"
+                  code="fields.length"
+                  basePath={basePath}
+                  valueType="number"
+                  onAddInput={onAddInput}
+                />
+              )}
+              {element.fields?.height !== undefined && (
+                <AttributeItem
+                  name="Высота"
+                  code="fields.height"
+                  basePath={basePath}
+                  valueType="number"
+                  onAddInput={onAddInput}
+                />
+              )}
+              {element.fields?.weight !== undefined && (
+                <AttributeItem
+                  name="Вес"
+                  code="fields.weight"
+                  basePath={basePath}
+                  valueType="number"
+                  onAddInput={onAddInput}
+                />
+              )}
+            </>
           )}
 
           {/* Measure */}
@@ -229,24 +293,28 @@ function ElementSection({ title, element, elementType, index, onAddInput }: Elem
           )}
 
           {/* Prices */}
-          {element.purchasingPrice !== undefined && (
+          {(element.purchasingPrice !== undefined || element.prices?.length > 0) && (
             <>
               <div className="text-xs font-medium text-muted-foreground mt-2 mb-1">Цены</div>
-              <AttributeItem
-                name="Закупочная цена"
-                code="purchasingPrice"
-                basePath={basePath}
-                valueType="number"
-                onAddInput={onAddInput}
-              />
-              {element.purchasingCurrency && (
-                <AttributeItem
-                  name="Валюта закупки"
-                  code="purchasingCurrency"
-                  basePath={basePath}
-                  valueType="string"
-                  onAddInput={onAddInput}
-                />
+              {element.purchasingPrice !== undefined && (
+                <>
+                  <AttributeItem
+                    name="Закупочная цена"
+                    code="purchasingPrice"
+                    basePath={basePath}
+                    valueType="number"
+                    onAddInput={onAddInput}
+                  />
+                  {element.purchasingCurrency && (
+                    <AttributeItem
+                      name="Валюта закупки"
+                      code="purchasingCurrency"
+                      basePath={basePath}
+                      valueType="string"
+                      onAddInput={onAddInput}
+                    />
+                  )}
+                </>
               )}
             </>
           )}
@@ -340,6 +408,14 @@ export function ContextExplorer({
     }
   }, [currentStage, initPayload])
 
+  // Find previous stages
+  const previousStages = useMemo(() => {
+    if (!currentStageId || !currentDetailId || !initPayload?.elementsStore) {
+      return []
+    }
+    return findPreviousStages(currentStageId, currentDetailId, initPayload.elementsStore)
+  }, [currentStageId, currentDetailId, initPayload])
+
   const selectedOffer = initPayload?.selectedOffers?.[0]
 
   if (!initPayload) {
@@ -377,7 +453,7 @@ export function ContextExplorer({
         )}
 
         {/* Product Section */}
-        {/* Note: Product data is not directly available in InitPayload based on the types */}
+        {/* Product data is not available in InitPayload - would need to be added to the type */}
 
         {/* Current Stage Section */}
         {currentStage && (
@@ -444,7 +520,7 @@ export function ContextExplorer({
                 {/* Additional stage parameters */}
                 {currentStage.properties && (
                   <AccordionItem value="stage-params">
-                    <AccordionTrigger className="text-sm">
+                    <AccordionTrigger className="text-xs">
                       Дополнительные параметры этапа
                     </AccordionTrigger>
                     <AccordionContent>
@@ -477,8 +553,116 @@ export function ContextExplorer({
         )}
 
         {/* Previous Stages Section */}
-        {/* This would require complex tree traversal logic to find previous stages */}
-        {/* Placeholder for now */}
+        {previousStages.length > 0 && (
+          <AccordionItem value="previous-stages">
+            <AccordionTrigger className="text-sm font-medium">
+              Предыдущие этапы
+            </AccordionTrigger>
+            <AccordionContent>
+              <Accordion type="multiple">
+                {previousStages.map((prevStage) => {
+                  const stage = initPayload.elementsStore?.CALC_STAGES?.find(s => s.id === prevStage.stageId)
+                  if (!stage) return null
+
+                  const settingsId = stage.properties?.CALC_SETTINGS?.VALUE
+                  const operationVariantId = stage.properties?.OPERATION_VARIANT?.VALUE
+                  const equipmentId = stage.properties?.EQUIPMENT?.VALUE
+                  const materialVariantId = stage.properties?.MATERIAL_VARIANT?.VALUE
+
+                  const settings = settingsId
+                    ? initPayload.elementsStore?.CALC_SETTINGS?.find(e => e.id === Number(settingsId)) ?? null
+                    : null
+
+                  const operationVariant = operationVariantId
+                    ? initPayload.elementsStore?.CALC_OPERATIONS_VARIANTS?.find(e => e.id === Number(operationVariantId)) ?? null
+                    : null
+
+                  const operation = operationVariant?.productId
+                    ? initPayload.elementsStore?.CALC_OPERATIONS?.find(e => e.id === operationVariant.productId) ?? null
+                    : null
+
+                  const equipment = equipmentId
+                    ? initPayload.elementsStore?.CALC_EQUIPMENT?.find(e => e.id === Number(equipmentId)) ?? null
+                    : null
+
+                  const materialVariant = materialVariantId
+                    ? initPayload.elementsStore?.CALC_MATERIALS_VARIANTS?.find(e => e.id === Number(materialVariantId)) ?? null
+                    : null
+
+                  const material = materialVariant?.productId
+                    ? initPayload.elementsStore?.CALC_MATERIALS?.find(e => e.id === materialVariant.productId) ?? null
+                    : null
+
+                  return (
+                    <AccordionItem key={prevStage.stageId} value={`prev-stage-${prevStage.stageId}`}>
+                      <AccordionTrigger className="text-xs">
+                        {prevStage.stageName}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <Accordion type="multiple">
+                          {settings && (
+                            <ElementSection
+                              title="Настройки"
+                              element={settings}
+                              elementType="CALC_SETTINGS"
+                              index={prevStage.stageIndex}
+                              onAddInput={onAddInput}
+                            />
+                          )}
+                          {operation && (
+                            <ElementSection
+                              title="Операция"
+                              element={operation}
+                              elementType="CALC_OPERATIONS"
+                              index={prevStage.stageIndex}
+                              onAddInput={onAddInput}
+                            />
+                          )}
+                          {operationVariant && (
+                            <ElementSection
+                              title="Вариант операции"
+                              element={operationVariant}
+                              elementType="CALC_OPERATIONS_VARIANTS"
+                              index={prevStage.stageIndex}
+                              onAddInput={onAddInput}
+                            />
+                          )}
+                          {equipment && (
+                            <ElementSection
+                              title="Оборудование"
+                              element={equipment}
+                              elementType="CALC_EQUIPMENT"
+                              index={prevStage.stageIndex}
+                              onAddInput={onAddInput}
+                            />
+                          )}
+                          {material && (
+                            <ElementSection
+                              title="Материал"
+                              element={material}
+                              elementType="CALC_MATERIALS"
+                              index={prevStage.stageIndex}
+                              onAddInput={onAddInput}
+                            />
+                          )}
+                          {materialVariant && (
+                            <ElementSection
+                              title="Вариант материала"
+                              element={materialVariant}
+                              elementType="CALC_MATERIALS_VARIANTS"
+                              index={prevStage.stageIndex}
+                              onAddInput={onAddInput}
+                            />
+                          )}
+                        </Accordion>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )
+                })}
+              </Accordion>
+            </AccordionContent>
+          </AccordionItem>
+        )}
       </Accordion>
     </div>
   )

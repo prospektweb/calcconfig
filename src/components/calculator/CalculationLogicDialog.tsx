@@ -818,7 +818,7 @@ export function CalculationLogicDialog({
         <div className="flex flex-1 overflow-hidden min-h-0">
           {/* Left Panel - Context (Collapsible) */}
           {!leftPanelCollapsed && (
-            <div className="w-80 border-r border-border flex flex-col overflow-hidden">
+            <div className="w-80 border-r border-border flex flex-col overflow-hidden h-full">
               <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
                 <h3 className="font-medium text-sm">Контекст</h3>
                 <Button
@@ -830,18 +830,8 @@ export function CalculationLogicDialog({
                   <CaretLeft className="w-4 h-4" />
                 </Button>
               </div>
-              <div className="px-4 py-2 border-b border-border flex-shrink-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-xs"
-                  onClick={() => setShowJsonTree(!showJsonTree)}
-                >
-                  {showJsonTree ? 'Скрыть дополнительные данные' : 'Показать дополнительные данные'}
-                </Button>
-              </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <ScrollArea className="h-full">
+              <div className="flex-1 min-h-0 overflow-hidden relative flex flex-col">
+                <ScrollArea className="flex-1">
                   {showJsonTree ? (
                     logicContext ? (
                       <div className="p-4">
@@ -867,6 +857,16 @@ export function CalculationLogicDialog({
                     </div>
                   )}
                 </ScrollArea>
+                <div className="sticky bottom-0 p-2 bg-background border-t">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => setShowJsonTree(!showJsonTree)}
+                  >
+                    {showJsonTree ? 'Скрыть дополнительные данные' : 'Показать дополнительные данные'}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -886,9 +886,9 @@ export function CalculationLogicDialog({
           )}
 
           {/* Center Panel - Editor (Main, Not Collapsible) */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-              <div className="px-4 py-3 border-b border-border">
+              <div className="px-4 py-3 border-b border-border flex-shrink-0">
                 <TabsList className="w-full justify-start">
                   <TabsTrigger value="inputs" className="flex-1">
                     Входные параметры
@@ -901,7 +901,7 @@ export function CalculationLogicDialog({
                   </TabsTrigger>
                 </TabsList>
               </div>
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 <TabsContent value="inputs" className="h-full m-0 p-0">
                   <ScrollArea className="h-full">
                     <InputsTab 
@@ -944,8 +944,8 @@ export function CalculationLogicDialog({
 
           {/* Right Panel - Help (Collapsible, Collapsed by Default) */}
           {!rightPanelCollapsed && (
-            <div className="w-80 border-l border-border flex flex-col">
-              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <div className="w-80 border-l border-border flex flex-col overflow-hidden h-full">
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
                 <h3 className="font-medium text-sm">Справка</h3>
                 <Button
                   variant="ghost"
@@ -956,121 +956,98 @@ export function CalculationLogicDialog({
                   <CaretRight className="w-4 h-4" />
                 </Button>
               </div>
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-2">
-                  <div>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-sm font-normal"
-                      onClick={() => handleOpenHelp('help_syntax', 'Синтаксис')}
-                    >
-                      Синтаксис
-                    </Button>
-                    <p className="text-xs text-muted-foreground px-4 py-1">
-                      Типы данных, операторы, правила выполнения переменных
-                    </p>
-                  </div>
-                  <div>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-sm font-normal"
-                      onClick={() => handleOpenHelp('help_types', 'Типы данных')}
-                    >
-                      Типы данных
-                    </Button>
-                    <p className="text-xs text-muted-foreground px-4 py-1">
-                      number, string, bool, array, unknown
-                    </p>
-                  </div>
-                  <div className="pl-2 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground px-2 py-1">Функции</p>
-                    <div>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start text-xs font-normal"
-                        onClick={() => handleOpenHelp('help_functions_conditional', 'Функция if(condition, a, b)')}
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <ScrollArea className="h-full">
+                  <div className="p-4">
+                    <Accordion type="multiple" defaultValue={['syntax', 'functions']}>
+                      {/* Syntax Section */}
+                      <AccordionItem value="syntax">
+                        <AccordionTrigger className="text-sm font-medium">Синтаксис</AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-2">
+                            <button 
+                              onClick={() => handleOpenHelp('help_types', 'Типы данных')}
+                              className="w-full text-left hover:bg-muted p-2 rounded-md"
+                            >
+                              <div className="text-sm font-medium">Типы данных</div>
+                              <div className="text-xs text-muted-foreground">number, string, boolean</div>
+                            </button>
+                            <button 
+                              onClick={() => handleOpenHelp('help_operators', 'Операторы')}
+                              className="w-full text-left hover:bg-muted p-2 rounded-md"
+                            >
+                              <div className="text-sm font-medium">Операторы</div>
+                              <div className="text-xs text-muted-foreground">+ - * / == != &gt; &lt; &gt;= &lt;= and or not</div>
+                            </button>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      {/* Functions Section */}
+                      <AccordionItem value="functions">
+                        <AccordionTrigger className="text-sm font-medium">Функции</AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-2">
+                            <button 
+                              onClick={() => handleOpenHelp('help_functions_conditional', 'Функция if(condition, a, b)')}
+                              className="w-full text-left hover:bg-muted p-2 rounded-md"
+                            >
+                              <div className="text-sm font-medium">if(condition, a, b)</div>
+                              <div className="text-xs text-muted-foreground">Условный оператор</div>
+                            </button>
+                            <button 
+                              onClick={() => handleOpenHelp('help_functions_arithmetic', 'Арифметические функции')}
+                              className="w-full text-left hover:bg-muted p-2 rounded-md"
+                            >
+                              <div className="text-sm font-medium">Арифметические</div>
+                              <div className="text-xs text-muted-foreground">round, ceil, floor, min, max, abs</div>
+                            </button>
+                            <button 
+                              onClick={() => handleOpenHelp('help_functions_string', 'Строковые функции')}
+                              className="w-full text-left hover:bg-muted p-2 rounded-md"
+                            >
+                              <div className="text-sm font-medium">Строки</div>
+                              <div className="text-xs text-muted-foreground">trim, lower, upper, len, contains, replace</div>
+                            </button>
+                            <button 
+                              onClick={() => handleOpenHelp('help_functions_conversion', 'Функции преобразования')}
+                              className="w-full text-left hover:bg-muted p-2 rounded-md"
+                            >
+                              <div className="text-sm font-medium">Преобразование</div>
+                              <div className="text-xs text-muted-foreground">toNumber, toString</div>
+                            </button>
+                            <button 
+                              onClick={() => handleOpenHelp('help_functions_array', 'Функции для массивов')}
+                              className="w-full text-left hover:bg-muted p-2 rounded-md"
+                            >
+                              <div className="text-sm font-medium">Массивы</div>
+                              <div className="text-xs text-muted-foreground">split, join, get</div>
+                            </button>
+                            <button 
+                              onClick={() => handleOpenHelp('help_functions_regex', 'Регулярные выражения')}
+                              className="w-full text-left hover:bg-muted p-2 rounded-md"
+                            >
+                              <div className="text-sm font-medium">Регулярные выражения</div>
+                              <div className="text-xs text-muted-foreground">regexMatch, regexExtract</div>
+                            </button>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+
+                    {/* Errors Section - No Accordion */}
+                    <div className="mt-4">
+                      <button 
+                        onClick={() => handleOpenHelp('help_errors', 'Ошибки')}
+                        className="w-full text-left hover:bg-muted p-2 rounded-md"
                       >
-                        if(condition, a, b)
-                      </Button>
-                      <p className="text-xs text-muted-foreground px-4 py-1">
-                        Условный оператор
-                      </p>
-                    </div>
-                    <div>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start text-xs font-normal"
-                        onClick={() => handleOpenHelp('help_functions_arithmetic', 'Арифметические функции')}
-                      >
-                        Арифметические
-                      </Button>
-                      <p className="text-xs text-muted-foreground px-4 py-1">
-                        round, ceil, floor, min, max, abs
-                      </p>
-                    </div>
-                    <div>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start text-xs font-normal"
-                        onClick={() => handleOpenHelp('help_functions_string', 'Строковые функции')}
-                      >
-                        Строки
-                      </Button>
-                      <p className="text-xs text-muted-foreground px-4 py-1">
-                        trim, lower, upper, len, contains, replace
-                      </p>
-                    </div>
-                    <div>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start text-xs font-normal"
-                        onClick={() => handleOpenHelp('help_functions_conversion', 'Функции преобразования')}
-                      >
-                        Преобразование
-                      </Button>
-                      <p className="text-xs text-muted-foreground px-4 py-1">
-                        toNumber, toString
-                      </p>
-                    </div>
-                    <div>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start text-xs font-normal"
-                        onClick={() => handleOpenHelp('help_functions_array', 'Функции для массивов')}
-                      >
-                        Массивы
-                      </Button>
-                      <p className="text-xs text-muted-foreground px-4 py-1">
-                        split, join, get
-                      </p>
-                    </div>
-                    <div>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start text-xs font-normal"
-                        onClick={() => handleOpenHelp('help_functions_regex', 'Регулярные выражения')}
-                      >
-                        Регулярные выражения
-                      </Button>
-                      <p className="text-xs text-muted-foreground px-4 py-1">
-                        regexMatch, regexExtract
-                      </p>
+                        <div className="text-sm font-medium">Ошибки</div>
+                        <div className="text-xs text-muted-foreground">Неизвестная переменная, ссылка на переменную ниже, несовпадение типов</div>
+                      </button>
                     </div>
                   </div>
-                  <div>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-sm font-normal"
-                      onClick={() => handleOpenHelp('help_errors', 'Ошибки')}
-                    >
-                      Ошибки
-                    </Button>
-                    <p className="text-xs text-muted-foreground px-4 py-1">
-                      Неизвестная переменная, ссылка на переменную ниже, несовпадение типов
-                    </p>
-                  </div>
-                </div>
-              </ScrollArea>
+                </ScrollArea>
+              </div>
             </div>
           )}
 
