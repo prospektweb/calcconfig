@@ -62,33 +62,16 @@ function deepNullifyShape(obj: any): any {
 
 /**
  * Build logic context for the context tree panel
- * Uses selectedOffers[0] structure but with all values nullified
- * Removes selectedOffers from context and excludes offer.prices
+ * Shows full INIT payload except:
+ * - selectedOffers is transformed to offer (first element with nullified values, prices removed)
  */
 function buildLogicContext(initPayload: InitPayload | null | undefined): any {
   if (!initPayload) return null
 
-  // Construct logic context
-  const logicContext: any = {
-    context: initPayload.context,
-  }
+  // Copy entire initPayload
+  const logicContext: any = { ...initPayload }
 
-  // Add preset if exists
-  if (initPayload.preset) {
-    logicContext.preset = initPayload.preset
-  }
-
-  // Add elementsStore if exists
-  if (initPayload.elementsStore) {
-    logicContext.elementsStore = initPayload.elementsStore
-  }
-
-  // Add stages if available
-  if (initPayload.preset?.properties?.CALC_STAGES || initPayload.elementsStore?.CALC_STAGES) {
-    logicContext.stages = initPayload.preset?.properties?.CALC_STAGES || initPayload.elementsStore?.CALC_STAGES
-  }
-
-  // Build offer model from selectedOffers[0] if available
+  // Transform selectedOffers[0] → offer
   if (initPayload.selectedOffers?.[0]) {
     const offer0 = initPayload.selectedOffers[0]
     const offerModel = deepNullifyShape(offer0)
@@ -99,14 +82,10 @@ function buildLogicContext(initPayload: InitPayload | null | undefined): any {
     }
     
     logicContext.offer = offerModel
-  } else {
-    // Fallback: create minimal offer structure
-    logicContext.offer = {
-      id: null,
-      name: null,
-      properties: {}
-    }
   }
+
+  // Remove selectedOffers from context (replaced by offer)
+  delete logicContext.selectedOffers
 
   return logicContext
 }
@@ -305,66 +284,73 @@ export function CalculationLogicDialog({
 
   // Load saved logic when dialog opens (with draft support)
   useEffect(() => {
-    if (open && currentStageId !== null && currentStageId !== undefined && 
-        currentSettingsId !== null && currentSettingsId !== undefined) {
-      const draftKey = getDraftKey(currentStageId, currentSettingsId)
-      
-      // Try localStorage draft first
-      const draftJson = localStorage.getItem(draftKey)
-      if (draftJson) {
-        try {
-          const parsed = JSON.parse(draftJson)
-          setInputs(Array.isArray(parsed?.inputs) ? parsed.inputs : [])
-          setVars(Array.isArray(parsed?.vars) ? parsed.vars : [])
-          setResultsHL(parsed?.resultsHL || createEmptyResultsHL())
-          setWritePlan(Array.isArray(parsed?.writePlan) ? parsed.writePlan : [])
-          setAdditionalResults(Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : [])
-          return
-        } catch (e) {
-          console.warn('Failed to parse draft', e)
-        }
-      }
-      
-      // Fall back to loading from INIT using new protocol
-      const settingsElement = initPayload?.elementsStore?.CALC_SETTINGS?.find(
-        s => s.id === currentSettingsId
-      )
-      const stageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
-        s => s.id === currentStageId
-      )
-      
-      if (settingsElement || stageElement) {
-        // Build inputs from PARAMS + INPUTS
-        const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
-        const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
-        const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
-        const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
-        const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
-        
-        // Build vars from LOGIC_JSON
-        const logicJsonRaw = settingsElement?.properties?.LOGIC_JSON?.['~VALUE']
-        const vars = buildVarsFromInit(logicJsonRaw)
-        
-        // Build results from OUTPUTS
-        const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
-        const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-        const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
-        
-        setInputs(inputs)
-        setVars(vars)
-        setResultsHL(resultsHL)
-        setAdditionalResults(additionalResults)
-        setWritePlan([])  // writePlan deprecated
-        return
-      }
-      
-      // Reset to empty state if no data
+    // If no settingsId or stageId, clear all data
+    if (!open || !currentSettingsId || !currentStageId) {
       setInputs([])
       setVars([])
       setResultsHL(createEmptyResultsHL())
       setWritePlan([])
       setAdditionalResults([])
+      return
     }
+    
+    const draftKey = getDraftKey(currentStageId, currentSettingsId)
+    
+    // Try localStorage draft first
+    const draftJson = localStorage.getItem(draftKey)
+    if (draftJson) {
+      try {
+        const parsed = JSON.parse(draftJson)
+        setInputs(Array.isArray(parsed?.inputs) ? parsed.inputs : [])
+        setVars(Array.isArray(parsed?.vars) ? parsed.vars : [])
+        setResultsHL(parsed?.resultsHL || createEmptyResultsHL())
+        setWritePlan(Array.isArray(parsed?.writePlan) ? parsed.writePlan : [])
+        setAdditionalResults(Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : [])
+        return
+      } catch (e) {
+        console.warn('Failed to parse draft', e)
+      }
+    }
+    
+    // Fall back to loading from INIT using new protocol
+    const settingsElement = initPayload?.elementsStore?.CALC_SETTINGS?.find(
+      s => s.id === currentSettingsId
+    )
+    const stageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
+      s => s.id === currentStageId
+    )
+    
+    if (settingsElement || stageElement) {
+      // Build inputs from PARAMS + INPUTS
+      const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
+      const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
+      const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
+      const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+      const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
+      
+      // Build vars from LOGIC_JSON
+      const logicJsonRaw = settingsElement?.properties?.LOGIC_JSON?.['~VALUE']
+      const vars = buildVarsFromInit(logicJsonRaw)
+      
+      // Build results from OUTPUTS
+      const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
+      const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
+      const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
+      
+      setInputs(inputs)
+      setVars(vars)
+      setResultsHL(resultsHL)
+      setAdditionalResults(additionalResults)
+      setWritePlan([])  // writePlan deprecated
+      return
+    }
+    
+    // Reset to empty state if no data
+    setInputs([])
+    setVars([])
+    setResultsHL(createEmptyResultsHL())
+    setWritePlan([])
+    setAdditionalResults([])
   }, [open, currentStageId, currentSettingsId, initPayload])
 
   // Save to draft on any change
