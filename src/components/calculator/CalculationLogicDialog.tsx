@@ -333,23 +333,81 @@ export function CalculationLogicDialog({
     setWritePlan([])  // writePlan deprecated
   }, [open, currentStageId, currentSettingsId, initPayload])
 
-  // Save to draft on any change
+  // Save to draft on any change - only if isDirty
   useEffect(() => {
     if (open && currentStageId !== null && currentStageId !== undefined &&
         currentSettingsId !== null && currentSettingsId !== undefined) {
       const draftKey = getDraftKey(currentStageId, currentSettingsId)
-      const draft = {
+      
+      // Check if there are actual changes before saving draft
+      const currentState = JSON.stringify({
         version: 1,
-        stageIndex,
         inputs,
         vars,
         resultsHL,
-        writePlan,
         additionalResults
+      })
+      
+      const getSavedState = () => {
+        if (!initPayload?.elementsStore) {
+          return JSON.stringify({
+            version: 1,
+            inputs: [],
+            vars: [],
+            resultsHL: createEmptyResultsHL(),
+            additionalResults: []
+          })
+        }
+        
+        const settingsElement = initPayload.elementsStore?.CALC_SETTINGS?.find(
+          s => s.id === currentSettingsId
+        )
+        const stageElement = initPayload.elementsStore?.CALC_STAGES?.find(
+          s => s.id === currentStageId
+        )
+        
+        const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
+        const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
+        const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
+        const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+        const savedInputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
+        
+        const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
+        const savedVars = buildVarsFromInit(logicJsonProp)
+        
+        const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
+        const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
+        const { resultsHL: savedResultsHL, additionalResults: savedAdditionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
+        
+        return JSON.stringify({
+          version: 1,
+          inputs: savedInputs,
+          vars: savedVars,
+          resultsHL: savedResultsHL,
+          additionalResults: savedAdditionalResults
+        })
       }
-      localStorage.setItem(draftKey, JSON.stringify(draft))
+      
+      const savedState = getSavedState()
+      
+      // Only save draft if there are actual changes
+      if (currentState !== savedState) {
+        const draft = {
+          version: 1,
+          stageIndex,
+          inputs,
+          vars,
+          resultsHL,
+          writePlan,
+          additionalResults
+        }
+        localStorage.setItem(draftKey, JSON.stringify(draft))
+      } else {
+        // Remove draft if no changes
+        localStorage.removeItem(draftKey)
+      }
     }
-  }, [inputs, vars, resultsHL, writePlan, additionalResults, open, currentStageId, currentSettingsId, stageIndex])
+  }, [inputs, vars, resultsHL, writePlan, additionalResults, open, currentStageId, currentSettingsId, stageIndex, initPayload])
 
   // Auto-update inferred types for vars when inputs or formulas change
   useEffect(() => {
@@ -847,7 +905,7 @@ export function CalculationLogicDialog({
                       </div>
                     )
                   ) : (
-                    <div className="p-4">
+                    <div data-pwcode="logic-context-tree">
                       <ContextExplorer
                         initPayload={initPayload}
                         currentStageId={currentStageId}
@@ -1038,11 +1096,36 @@ export function CalculationLogicDialog({
                     {/* Errors Section - No Accordion */}
                     <div className="mt-4">
                       <button 
-                        onClick={() => handleOpenHelp('help_errors', 'Ошибки')}
+                        onClick={() => {
+                          if (validationIssues.length > 0) {
+                            // Find the first error
+                            const firstError = validationIssues[0]
+                            if (firstError.scope === 'input') {
+                              setActiveTab('inputs')
+                            } else if (firstError.scope === 'var') {
+                              setActiveTab('formulas')
+                            } else if (firstError.scope === 'result') {
+                              setActiveTab('outputs')
+                            }
+                          } else {
+                            handleOpenHelp('help_errors', 'Ошибки')
+                          }
+                        }}
                         className="w-full text-left hover:bg-muted p-2 rounded-md"
                       >
-                        <div className="text-sm font-medium">Ошибки</div>
-                        <div className="text-xs text-muted-foreground">Неизвестная переменная, ссылка на переменную ниже, несовпадение типов</div>
+                        <div className="text-sm font-medium flex items-center gap-2">
+                          Ошибки
+                          {validationIssues.length > 0 && (
+                            <span className="text-xs bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded">
+                              {validationIssues.length}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {validationIssues.length > 0 
+                            ? 'Кликните, чтобы перейти к первой ошибке' 
+                            : 'Ошибок не обнаружено'}
+                        </div>
                       </button>
                     </div>
                   </div>
