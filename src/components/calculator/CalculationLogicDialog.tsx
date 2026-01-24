@@ -848,80 +848,117 @@ export function CalculationLogicDialog({
               </div>
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-2">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-sm font-normal"
-                    onClick={() => handleOpenHelp('help_syntax', 'Синтаксис')}
-                  >
-                    Синтаксис
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-sm font-normal"
-                    onClick={() => handleOpenHelp('help_types', 'Типы данных')}
-                  >
-                    Типы данных
-                  </Button>
+                  <div>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-sm font-normal"
+                      onClick={() => handleOpenHelp('help_syntax', 'Синтаксис')}
+                    >
+                      Синтаксис
+                    </Button>
+                    <p className="text-xs text-muted-foreground px-4 py-1">
+                      Типы данных, операторы, правила выполнения переменных
+                    </p>
+                  </div>
+                  <div>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-sm font-normal"
+                      onClick={() => handleOpenHelp('help_types', 'Типы данных')}
+                    >
+                      Типы данных
+                    </Button>
+                    <p className="text-xs text-muted-foreground px-4 py-1">
+                      number, string, bool, array, unknown
+                    </p>
+                  </div>
                   <div className="pl-2 space-y-1">
                     <p className="text-xs font-medium text-muted-foreground px-2 py-1">Функции</p>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-xs font-normal"
-                      onClick={() => handleOpenHelp('help_functions_conditional', 'Функция if(condition, a, b)')}
-                    >
-                      if(condition, a, b)
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-xs font-normal"
-                      onClick={() => handleOpenHelp('help_functions_arithmetic', 'Арифметические функции')}
-                    >
-                      Арифметические
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-xs font-normal"
-                      onClick={() => handleOpenHelp('help_functions_string', 'Строковые функции')}
-                    >
-                      Строки
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-xs font-normal"
-                      onClick={() => handleOpenHelp('help_functions_conversion', 'Функции преобразования')}
-                    >
-                      Преобразование
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-xs font-normal"
-                      onClick={() => handleOpenHelp('help_functions_array', 'Функции для массивов')}
-                    >
-                      Массивы
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-xs font-normal"
-                      onClick={() => handleOpenHelp('help_functions_regex', 'Регулярные выражения')}
-                    >
-                      Регулярные выражения
-                    </Button>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs font-normal"
+                        onClick={() => handleOpenHelp('help_functions_conditional', 'Функция if(condition, a, b)')}
+                      >
+                        if(condition, a, b)
+                      </Button>
+                      <p className="text-xs text-muted-foreground px-4 py-1">
+                        Условный оператор
+                      </p>
+                    </div>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs font-normal"
+                        onClick={() => handleOpenHelp('help_functions_arithmetic', 'Арифметические функции')}
+                      >
+                        Арифметические
+                      </Button>
+                      <p className="text-xs text-muted-foreground px-4 py-1">
+                        round, ceil, floor, min, max, abs
+                      </p>
+                    </div>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs font-normal"
+                        onClick={() => handleOpenHelp('help_functions_string', 'Строковые функции')}
+                      >
+                        Строки
+                      </Button>
+                      <p className="text-xs text-muted-foreground px-4 py-1">
+                        trim, lower, upper, len, contains, replace
+                      </p>
+                    </div>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs font-normal"
+                        onClick={() => handleOpenHelp('help_functions_conversion', 'Функции преобразования')}
+                      >
+                        Преобразование
+                      </Button>
+                      <p className="text-xs text-muted-foreground px-4 py-1">
+                        toNumber, toString
+                      </p>
+                    </div>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs font-normal"
+                        onClick={() => handleOpenHelp('help_functions_array', 'Функции для массивов')}
+                      >
+                        Массивы
+                      </Button>
+                      <p className="text-xs text-muted-foreground px-4 py-1">
+                        split, join, get
+                      </p>
+                    </div>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs font-normal"
+                        onClick={() => handleOpenHelp('help_functions_regex', 'Регулярные выражения')}
+                      >
+                        Регулярные выражения
+                      </Button>
+                      <p className="text-xs text-muted-foreground px-4 py-1">
+                        regexMatch, regexExtract
+                      </p>
+                    </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-sm font-normal"
-                    onClick={() => handleOpenHelp('help_errors', 'Ошибки')}
-                  >
-                    Ошибки
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-sm font-normal"
-                    onClick={() => handleOpenHelp('about', 'О программе')}
-                    data-pwcode="btn-about"
-                  >
-                    О программе
-                  </Button>
+                  <div>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-sm font-normal"
+                      onClick={() => handleOpenHelp('help_errors', 'Ошибки')}
+                    >
+                      Ошибки
+                    </Button>
+                    <p className="text-xs text-muted-foreground px-4 py-1">
+                      Неизвестная переменная, ссылка на переменную ниже, несовпадение типов
+                    </p>
+                  </div>
                 </div>
               </ScrollArea>
             </div>
