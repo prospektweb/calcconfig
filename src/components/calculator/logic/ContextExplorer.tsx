@@ -18,6 +18,18 @@ interface ContextExplorerProps {
 
 type PropertyTypeCode = 'S' | 'N' | 'L' | 'E' | 'F'
 
+// Helper function to generate parameter name based on section/subsection/code
+// Format: {Section}{Subsection}{Code}
+function generateParamName(section: string, subsection: string | null, code: string): string {
+  // Capitalize first letter of code
+  const capitalizedCode = code.charAt(0).toUpperCase() + code.slice(1)
+  
+  if (subsection) {
+    return `${section}${subsection}${capitalizedCode}`
+  }
+  return `${section}${capitalizedCode}`
+}
+
 // Field labels for human-readable display
 const FIELD_LABELS: Record<string, string> = {
   width: 'Ширина',
@@ -129,6 +141,7 @@ function buildPropertyPath(
 interface TagItem {
   code: string
   label: string
+  name: string  // Generated parameter name (e.g., offerWidth, stageOperationWidth)
   path: string
   type: ValueType
 }
@@ -144,7 +157,7 @@ function TagCloud({ items, onAddInput }: TagCloudProps) {
       {items.map(item => (
         <button 
           key={item.code}
-          onClick={() => onAddInput(item.path, item.code, item.type)}
+          onClick={() => onAddInput(item.path, item.name, item.type)}
           className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent whitespace-nowrap cursor-pointer"
         >
           {item.label}
@@ -158,13 +171,15 @@ interface ElementSectionProps {
   title: string
   element: ElementsStoreItem | null
   elementType: string
+  section: string  // e.g., "stage", "prevStage"
+  subsection: string  // e.g., "Settings", "Operation", "Operationvariant"
   index?: number
   basePath?: string
   initPayload: InitPayload
   onAddInput: (path: string, name: string, valueType: ValueType) => void
 }
 
-function ElementSection({ title, element, elementType, index, basePath: customBasePath, initPayload, onAddInput }: ElementSectionProps) {
+function ElementSection({ title, element, elementType, section, subsection, index, basePath: customBasePath, initPayload, onAddInput }: ElementSectionProps) {
   if (!element) {
     return null
   }
@@ -180,6 +195,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'name',
     label: FIELD_LABELS.name,
+    name: generateParamName(section, subsection, 'name'),
     path: `${basePath}.name`,
     type: 'string'
   })
@@ -187,6 +203,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'code',
     label: FIELD_LABELS.code,
+    name: generateParamName(section, subsection, 'code'),
     path: `${basePath}.code`,
     type: 'string'
   })
@@ -195,6 +212,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'width',
     label: FIELD_LABELS.width,
+    name: generateParamName(section, subsection, 'width'),
     path: `${basePath}.attributes.width`,
     type: 'number'
   })
@@ -202,6 +220,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'length',
     label: FIELD_LABELS.length,
+    name: generateParamName(section, subsection, 'length'),
     path: `${basePath}.attributes.length`,
     type: 'number'
   })
@@ -209,6 +228,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'height',
     label: FIELD_LABELS.height,
+    name: generateParamName(section, subsection, 'height'),
     path: `${basePath}.attributes.height`,
     type: 'number'
   })
@@ -216,6 +236,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'weight',
     label: FIELD_LABELS.weight,
+    name: generateParamName(section, subsection, 'weight'),
     path: `${basePath}.attributes.weight`,
     type: 'number'
   })
@@ -224,6 +245,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'measureCode',
     label: FIELD_LABELS.measureCode,
+    name: generateParamName(section, subsection, 'measureCode'),
     path: `${basePath}.measure`,
     type: 'string'
   })
@@ -231,6 +253,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'measureRatio',
     label: FIELD_LABELS.measureRatio,
+    name: generateParamName(section, subsection, 'measureRatio'),
     path: `${basePath}.measureRatio`,
     type: 'number'
   })
@@ -238,6 +261,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'measureSymbol',
     label: FIELD_LABELS.measureSymbol,
+    name: generateParamName(section, subsection, 'measureSymbol'),
     path: `${basePath}.measureSymbol`,
     type: 'string'
   })
@@ -245,6 +269,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'measureTitle',
     label: FIELD_LABELS.measureTitle,
+    name: generateParamName(section, subsection, 'measureTitle'),
     path: `${basePath}.measureTitle`,
     type: 'string'
   })
@@ -253,6 +278,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'purchasingPrice',
     label: FIELD_LABELS.purchasingPrice,
+    name: generateParamName(section, subsection, 'purchasingPrice'),
     path: `${basePath}.purchasingPrice`,
     type: 'number'
   })
@@ -260,6 +286,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'purchasingCurrency',
     label: FIELD_LABELS.purchasingCurrency,
+    name: generateParamName(section, subsection, 'purchasingCurrency'),
     path: `${basePath}.purchasingCurrency`,
     type: 'string'
   })
@@ -272,6 +299,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
       tagItems.push({
         code: 'baseCurrency',
         label: FIELD_LABELS.baseCurrency,
+        name: generateParamName(section, subsection, 'baseCurrency'),
         path: `${basePath}.prices[${element.prices.indexOf(basePrice)}].currency`,
         type: 'string'
       })
@@ -279,6 +307,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
       tagItems.push({
         code: 'basePrice',
         label: FIELD_LABELS.basePrice,
+        name: generateParamName(section, subsection, 'basePrice'),
         path: `${basePath}.prices[${element.prices.indexOf(basePrice)}].price`,
         type: 'number'
       })
@@ -294,6 +323,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
       tagItems.push({
         code,
         label: prop.NAME,
+        name: generateParamName(section, subsection, code),
         path,
         type
       })
@@ -448,6 +478,7 @@ export function ContextExplorer({
       offerTagItems.push({
         code,
         label: prop.NAME,
+        name: generateParamName('offer', null, code),
         path,
         type
       })
@@ -466,6 +497,7 @@ export function ContextExplorer({
         productTagItems.push({
           code,
           label: prop.NAME,
+          name: generateParamName('product', null, code),
           path,
           type
         })
@@ -480,6 +512,7 @@ export function ContextExplorer({
       settingsCustomFieldsTagItems.push({
         code: 'OPERATION_QUANTITY',
         label: 'Количество операций',
+        name: generateParamName('stage', 'Settings', 'OPERATION_QUANTITY'),
         path: currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}].properties.OPERATION_QUANTITY.VALUE` : 'elementsStore.CALC_STAGES.properties.OPERATION_QUANTITY.VALUE',
         type: 'number'
       })
@@ -489,6 +522,7 @@ export function ContextExplorer({
       settingsCustomFieldsTagItems.push({
         code: 'MATERIAL_QUANTITY',
         label: 'Количество материалов',
+        name: generateParamName('stage', 'Settings', 'MATERIAL_QUANTITY'),
         path: currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}].properties.MATERIAL_QUANTITY.VALUE` : 'elementsStore.CALC_STAGES.properties.MATERIAL_QUANTITY.VALUE',
         type: 'number'
       })
@@ -539,6 +573,8 @@ export function ContextExplorer({
                     title="Настройки"
                     element={stageElements.settings}
                     elementType="CALC_SETTINGS"
+                    section="stage"
+                    subsection="Settings"
                     index={stageElements.settingsIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
@@ -557,6 +593,8 @@ export function ContextExplorer({
                     title="Операция"
                     element={stageElements.operation}
                     elementType="CALC_OPERATIONS"
+                    section="stage"
+                    subsection="Operation"
                     index={stageElements.operationIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
@@ -568,6 +606,8 @@ export function ContextExplorer({
                     title="Вариант операции"
                     element={stageElements.operationVariant}
                     elementType="CALC_OPERATIONS_VARIANTS"
+                    section="stage"
+                    subsection="Operationvariant"
                     index={stageElements.operationVariantIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
@@ -579,6 +619,8 @@ export function ContextExplorer({
                     title="Оборудование"
                     element={stageElements.equipment}
                     elementType="CALC_EQUIPMENT"
+                    section="stage"
+                    subsection="Equipment"
                     index={stageElements.equipmentIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
@@ -590,6 +632,8 @@ export function ContextExplorer({
                     title="Материал"
                     element={stageElements.material}
                     elementType="CALC_MATERIALS"
+                    section="stage"
+                    subsection="Material"
                     index={stageElements.materialIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
@@ -601,6 +645,8 @@ export function ContextExplorer({
                     title="Вариант материала"
                     element={stageElements.materialVariant}
                     elementType="CALC_MATERIALS_VARIANTS"
+                    section="stage"
+                    subsection="Materialvariant"
                     index={stageElements.materialVariantIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
@@ -688,6 +734,8 @@ export function ContextExplorer({
                               title="Настройки"
                               element={settings}
                               elementType="CALC_SETTINGS"
+                              section="prevStage"
+                              subsection="Settings"
                               index={settingsIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
@@ -698,6 +746,8 @@ export function ContextExplorer({
                               title="Операция"
                               element={operation}
                               elementType="CALC_OPERATIONS"
+                              section="prevStage"
+                              subsection="Operation"
                               index={operationIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
@@ -708,6 +758,8 @@ export function ContextExplorer({
                               title="Вариант операции"
                               element={operationVariant}
                               elementType="CALC_OPERATIONS_VARIANTS"
+                              section="prevStage"
+                              subsection="Operationvariant"
                               index={operationVariantIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
@@ -718,6 +770,8 @@ export function ContextExplorer({
                               title="Оборудование"
                               element={equipment}
                               elementType="CALC_EQUIPMENT"
+                              section="prevStage"
+                              subsection="Equipment"
                               index={equipmentIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
@@ -728,6 +782,8 @@ export function ContextExplorer({
                               title="Материал"
                               element={material}
                               elementType="CALC_MATERIALS"
+                              section="prevStage"
+                              subsection="Material"
                               index={materialIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
@@ -738,6 +794,8 @@ export function ContextExplorer({
                               title="Вариант материала"
                               element={materialVariant}
                               elementType="CALC_MATERIALS_VARIANTS"
+                              section="prevStage"
+                              subsection="Materialvariant"
                               index={materialVariantIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
