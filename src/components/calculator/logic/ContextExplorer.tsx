@@ -18,6 +18,18 @@ interface ContextExplorerProps {
 
 type PropertyTypeCode = 'S' | 'N' | 'L' | 'E' | 'F'
 
+// Helper function to generate parameter name based on section/subsection/code
+// Format: {Section}{Subsection}{Code}
+function generateParamName(section: string, subsection: string | null, code: string): string {
+  // Capitalize first letter of code
+  const capitalizedCode = code.charAt(0).toUpperCase() + code.slice(1)
+  
+  if (subsection) {
+    return `${section}${subsection}${capitalizedCode}`
+  }
+  return `${section}${capitalizedCode}`
+}
+
 // Field labels for human-readable display
 const FIELD_LABELS: Record<string, string> = {
   width: 'Ширина',
@@ -34,6 +46,16 @@ const FIELD_LABELS: Record<string, string> = {
   baseCurrency: 'Валюта базовой цены',
   name: 'Название',
   code: 'Код'
+}
+
+// Standard result slugs to Russian labels mapping
+const RESULT_LABELS: Record<string, string> = {
+  width: 'Ширина',
+  length: 'Длина',
+  height: 'Высота',
+  weight: 'Вес',
+  purchasingPrice: 'Закупочная цена',
+  basePrice: 'Базовая цена'
 }
 
 // Helper to find previous stages
@@ -129,6 +151,7 @@ function buildPropertyPath(
 interface TagItem {
   code: string
   label: string
+  name: string  // Generated parameter name (e.g., offerWidth, stageOperationWidth)
   path: string
   type: ValueType
 }
@@ -144,7 +167,7 @@ function TagCloud({ items, onAddInput }: TagCloudProps) {
       {items.map(item => (
         <button 
           key={item.code}
-          onClick={() => onAddInput(item.path, item.code, item.type)}
+          onClick={() => onAddInput(item.path, item.name, item.type)}
           className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent whitespace-nowrap cursor-pointer"
         >
           {item.label}
@@ -158,18 +181,20 @@ interface ElementSectionProps {
   title: string
   element: ElementsStoreItem | null
   elementType: string
+  section: string  // e.g., "stage", "prevStage"
+  subsection: string  // e.g., "Settings", "Operation", "Operationvariant"
   index?: number
   basePath?: string
   initPayload: InitPayload
   onAddInput: (path: string, name: string, valueType: ValueType) => void
 }
 
-function ElementSection({ title, element, elementType, index, basePath: customBasePath, initPayload, onAddInput }: ElementSectionProps) {
+function ElementSection({ title, element, elementType, section, subsection, index, basePath: customBasePath, initPayload, onAddInput }: ElementSectionProps) {
   if (!element) {
     return null
   }
 
-  const basePath = customBasePath || (index !== undefined
+  const basePath = customBasePath || (index !== undefined && index >= 0
     ? `elementsStore.${elementType}[${index}]`
     : `elementsStore.${elementType}`)
 
@@ -180,6 +205,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'name',
     label: FIELD_LABELS.name,
+    name: generateParamName(section, subsection, 'name'),
     path: `${basePath}.name`,
     type: 'string'
   })
@@ -187,36 +213,41 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'code',
     label: FIELD_LABELS.code,
+    name: generateParamName(section, subsection, 'code'),
     path: `${basePath}.code`,
     type: 'string'
   })
 
-  // Dimensions - always show even if null
+  // Dimensions - use 'attributes' instead of 'fields'
   tagItems.push({
     code: 'width',
     label: FIELD_LABELS.width,
-    path: `${basePath}.fields.width`,
+    name: generateParamName(section, subsection, 'width'),
+    path: `${basePath}.attributes.width`,
     type: 'number'
   })
   
   tagItems.push({
     code: 'length',
     label: FIELD_LABELS.length,
-    path: `${basePath}.fields.length`,
+    name: generateParamName(section, subsection, 'length'),
+    path: `${basePath}.attributes.length`,
     type: 'number'
   })
   
   tagItems.push({
     code: 'height',
     label: FIELD_LABELS.height,
-    path: `${basePath}.fields.height`,
+    name: generateParamName(section, subsection, 'height'),
+    path: `${basePath}.attributes.height`,
     type: 'number'
   })
   
   tagItems.push({
     code: 'weight',
     label: FIELD_LABELS.weight,
-    path: `${basePath}.fields.weight`,
+    name: generateParamName(section, subsection, 'weight'),
+    path: `${basePath}.attributes.weight`,
     type: 'number'
   })
 
@@ -224,6 +255,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'measureCode',
     label: FIELD_LABELS.measureCode,
+    name: generateParamName(section, subsection, 'measureCode'),
     path: `${basePath}.measure`,
     type: 'string'
   })
@@ -231,6 +263,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'measureRatio',
     label: FIELD_LABELS.measureRatio,
+    name: generateParamName(section, subsection, 'measureRatio'),
     path: `${basePath}.measureRatio`,
     type: 'number'
   })
@@ -238,6 +271,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'measureSymbol',
     label: FIELD_LABELS.measureSymbol,
+    name: generateParamName(section, subsection, 'measureSymbol'),
     path: `${basePath}.measureSymbol`,
     type: 'string'
   })
@@ -245,6 +279,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'measureTitle',
     label: FIELD_LABELS.measureTitle,
+    name: generateParamName(section, subsection, 'measureTitle'),
     path: `${basePath}.measureTitle`,
     type: 'string'
   })
@@ -253,6 +288,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'purchasingPrice',
     label: FIELD_LABELS.purchasingPrice,
+    name: generateParamName(section, subsection, 'purchasingPrice'),
     path: `${basePath}.purchasingPrice`,
     type: 'number'
   })
@@ -260,6 +296,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
   tagItems.push({
     code: 'purchasingCurrency',
     label: FIELD_LABELS.purchasingCurrency,
+    name: generateParamName(section, subsection, 'purchasingCurrency'),
     path: `${basePath}.purchasingCurrency`,
     type: 'string'
   })
@@ -272,6 +309,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
       tagItems.push({
         code: 'baseCurrency',
         label: FIELD_LABELS.baseCurrency,
+        name: generateParamName(section, subsection, 'baseCurrency'),
         path: `${basePath}.prices[${element.prices.indexOf(basePrice)}].currency`,
         type: 'string'
       })
@@ -279,6 +317,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
       tagItems.push({
         code: 'basePrice',
         label: FIELD_LABELS.basePrice,
+        name: generateParamName(section, subsection, 'basePrice'),
         path: `${basePath}.prices[${element.prices.indexOf(basePrice)}].price`,
         type: 'number'
       })
@@ -294,6 +333,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
       tagItems.push({
         code,
         label: prop.NAME,
+        name: generateParamName(section, subsection, code),
         path,
         type
       })
@@ -306,7 +346,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
         {title}
       </AccordionTrigger>
       <AccordionContent className="pb-2">
-        <div className="pl-2.5">
+        <div>
           <TagCloud items={tagItems} onAddInput={onAddInput} />
         </div>
       </AccordionContent>
@@ -334,11 +374,17 @@ export function ContextExplorer({
     if (!currentStage || !initPayload?.elementsStore) {
       return {
         settings: null,
+        settingsIndex: -1,
         operation: null,
+        operationIndex: -1,
         operationVariant: null,
+        operationVariantIndex: -1,
         equipment: null,
+        equipmentIndex: -1,
         material: null,
+        materialIndex: -1,
         materialVariant: null,
+        materialVariantIndex: -1,
       }
     }
 
@@ -350,34 +396,64 @@ export function ContextExplorer({
     const settings = settingsId
       ? initPayload.elementsStore.CALC_SETTINGS?.find(e => e.id === Number(settingsId)) ?? null
       : null
+    
+    const settingsIndex = settings && initPayload.elementsStore.CALC_SETTINGS
+      ? initPayload.elementsStore.CALC_SETTINGS.findIndex(e => e.id === settings.id)
+      : -1
 
     const operationVariant = operationVariantId
       ? initPayload.elementsStore.CALC_OPERATIONS_VARIANTS?.find(e => e.id === Number(operationVariantId)) ?? null
       : null
+    
+    const operationVariantIndex = operationVariant && initPayload.elementsStore.CALC_OPERATIONS_VARIANTS
+      ? initPayload.elementsStore.CALC_OPERATIONS_VARIANTS.findIndex(e => e.id === operationVariant.id)
+      : -1
 
     const operation = operationVariant?.productId
       ? initPayload.elementsStore.CALC_OPERATIONS?.find(e => e.id === operationVariant.productId) ?? null
       : null
+    
+    const operationIndex = operation && initPayload.elementsStore.CALC_OPERATIONS
+      ? initPayload.elementsStore.CALC_OPERATIONS.findIndex(e => e.id === operation.id)
+      : -1
 
     const equipment = equipmentId
       ? initPayload.elementsStore.CALC_EQUIPMENT?.find(e => e.id === Number(equipmentId)) ?? null
       : null
+    
+    const equipmentIndex = equipment && initPayload.elementsStore.CALC_EQUIPMENT
+      ? initPayload.elementsStore.CALC_EQUIPMENT.findIndex(e => e.id === equipment.id)
+      : -1
 
     const materialVariant = materialVariantId
       ? initPayload.elementsStore.CALC_MATERIALS_VARIANTS?.find(e => e.id === Number(materialVariantId)) ?? null
       : null
+    
+    const materialVariantIndex = materialVariant && initPayload.elementsStore.CALC_MATERIALS_VARIANTS
+      ? initPayload.elementsStore.CALC_MATERIALS_VARIANTS.findIndex(e => e.id === materialVariant.id)
+      : -1
 
     const material = materialVariant?.productId
       ? initPayload.elementsStore.CALC_MATERIALS?.find(e => e.id === materialVariant.productId) ?? null
       : null
+    
+    const materialIndex = material && initPayload.elementsStore.CALC_MATERIALS
+      ? initPayload.elementsStore.CALC_MATERIALS.findIndex(e => e.id === material.id)
+      : -1
 
     return {
       settings,
+      settingsIndex,
       operation,
+      operationIndex,
       operationVariant,
+      operationVariantIndex,
       equipment,
+      equipmentIndex,
       material,
+      materialIndex,
       materialVariant,
+      materialVariantIndex,
     }
   }, [currentStage, initPayload])
 
@@ -412,6 +488,7 @@ export function ContextExplorer({
       offerTagItems.push({
         code,
         label: prop.NAME,
+        name: generateParamName('offer', null, code),
         path,
         type
       })
@@ -421,110 +498,7 @@ export function ContextExplorer({
   // Build tag items for product
   const productTagItems: TagItem[] = []
   if (initPayload.product) {
-    // Basic attributes
-    productTagItems.push({
-      code: 'name',
-      label: FIELD_LABELS.name,
-      path: 'product.name',
-      type: 'string'
-    })
-    
-    productTagItems.push({
-      code: 'code',
-      label: FIELD_LABELS.code,
-      path: 'product.code',
-      type: 'string'
-    })
-
-    // Dimensions
-    productTagItems.push({
-      code: 'width',
-      label: FIELD_LABELS.width,
-      path: 'product.attributes.width',
-      type: 'number'
-    })
-    
-    productTagItems.push({
-      code: 'length',
-      label: FIELD_LABELS.length,
-      path: 'product.attributes.length',
-      type: 'number'
-    })
-    
-    productTagItems.push({
-      code: 'height',
-      label: FIELD_LABELS.height,
-      path: 'product.attributes.height',
-      type: 'number'
-    })
-    
-    productTagItems.push({
-      code: 'weight',
-      label: FIELD_LABELS.weight,
-      path: 'product.attributes.weight',
-      type: 'number'
-    })
-
-    // Measure
-    productTagItems.push({
-      code: 'measureCode',
-      label: FIELD_LABELS.measureCode,
-      path: 'product.measure.code',
-      type: 'string'
-    })
-    
-    productTagItems.push({
-      code: 'measureTitle',
-      label: FIELD_LABELS.measureTitle,
-      path: 'product.measure.name',
-      type: 'string'
-    })
-    
-    productTagItems.push({
-      code: 'measureRatio',
-      label: FIELD_LABELS.measureRatio,
-      path: 'product.measureRatio',
-      type: 'number'
-    })
-
-    // Prices
-    productTagItems.push({
-      code: 'purchasingPrice',
-      label: FIELD_LABELS.purchasingPrice,
-      path: 'product.purchasingPrice',
-      type: 'number'
-    })
-    
-    productTagItems.push({
-      code: 'purchasingCurrency',
-      label: FIELD_LABELS.purchasingCurrency,
-      path: 'product.purchasingCurrency',
-      type: 'string'
-    })
-
-    // Base price
-    const basePriceType = initPayload.priceTypes?.find(pt => pt.base === true)
-    if (basePriceType && initPayload.product.prices) {
-      const basePrice = initPayload.product.prices.find(p => p.typeId === basePriceType.id)
-      if (basePrice) {
-        const priceIndex = initPayload.product.prices.indexOf(basePrice)
-        productTagItems.push({
-          code: 'baseCurrency',
-          label: FIELD_LABELS.baseCurrency,
-          path: `product.prices[${priceIndex}].currency`,
-          type: 'string'
-        })
-        
-        productTagItems.push({
-          code: 'basePrice',
-          label: FIELD_LABELS.basePrice,
-          path: `product.prices[${priceIndex}].price`,
-          type: 'number'
-        })
-      }
-    }
-
-    // Properties
+    // Properties only
     if (initPayload.product.properties) {
       Object.entries(initPayload.product.properties).forEach(([code, prop]) => {
         if (code === 'CML2_LINK') return // Ignore CML2_LINK
@@ -533,6 +507,7 @@ export function ContextExplorer({
         productTagItems.push({
           code,
           label: prop.NAME,
+          name: generateParamName('product', null, code),
           path,
           type
         })
@@ -547,6 +522,7 @@ export function ContextExplorer({
       settingsCustomFieldsTagItems.push({
         code: 'OPERATION_QUANTITY',
         label: 'Количество операций',
+        name: generateParamName('stage', 'Settings', 'OPERATION_QUANTITY'),
         path: currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}].properties.OPERATION_QUANTITY.VALUE` : 'elementsStore.CALC_STAGES.properties.OPERATION_QUANTITY.VALUE',
         type: 'number'
       })
@@ -556,6 +532,7 @@ export function ContextExplorer({
       settingsCustomFieldsTagItems.push({
         code: 'MATERIAL_QUANTITY',
         label: 'Количество материалов',
+        name: generateParamName('stage', 'Settings', 'MATERIAL_QUANTITY'),
         path: currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}].properties.MATERIAL_QUANTITY.VALUE` : 'elementsStore.CALC_STAGES.properties.MATERIAL_QUANTITY.VALUE',
         type: 'number'
       })
@@ -572,7 +549,7 @@ export function ContextExplorer({
               Торговое предложение
             </AccordionTrigger>
             <AccordionContent className="pb-2">
-              <div className="pl-2.5">
+              <div>
                 <TagCloud items={offerTagItems} onAddInput={onAddInput} />
               </div>
             </AccordionContent>
@@ -586,7 +563,7 @@ export function ContextExplorer({
               Товар
             </AccordionTrigger>
             <AccordionContent className="pb-2">
-              <div className="pl-2.5">
+              <div>
                 <TagCloud items={productTagItems} onAddInput={onAddInput} />
               </div>
             </AccordionContent>
@@ -606,6 +583,9 @@ export function ContextExplorer({
                     title="Настройки"
                     element={stageElements.settings}
                     elementType="CALC_SETTINGS"
+                    section="stage"
+                    subsection="Settings"
+                    index={stageElements.settingsIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -623,6 +603,9 @@ export function ContextExplorer({
                     title="Операция"
                     element={stageElements.operation}
                     elementType="CALC_OPERATIONS"
+                    section="stage"
+                    subsection="Operation"
+                    index={stageElements.operationIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -633,6 +616,9 @@ export function ContextExplorer({
                     title="Вариант операции"
                     element={stageElements.operationVariant}
                     elementType="CALC_OPERATIONS_VARIANTS"
+                    section="stage"
+                    subsection="Operationvariant"
+                    index={stageElements.operationVariantIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -643,6 +629,9 @@ export function ContextExplorer({
                     title="Оборудование"
                     element={stageElements.equipment}
                     elementType="CALC_EQUIPMENT"
+                    section="stage"
+                    subsection="Equipment"
+                    index={stageElements.equipmentIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -653,6 +642,9 @@ export function ContextExplorer({
                     title="Материал"
                     element={stageElements.material}
                     elementType="CALC_MATERIALS"
+                    section="stage"
+                    subsection="Material"
+                    index={stageElements.materialIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -663,6 +655,9 @@ export function ContextExplorer({
                     title="Вариант материала"
                     element={stageElements.materialVariant}
                     elementType="CALC_MATERIALS_VARIANTS"
+                    section="stage"
+                    subsection="Materialvariant"
+                    index={stageElements.materialVariantIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -692,26 +687,50 @@ export function ContextExplorer({
                   const settings = settingsId
                     ? initPayload.elementsStore?.CALC_SETTINGS?.find(e => e.id === Number(settingsId)) ?? null
                     : null
+                  
+                  const settingsIndex = settings && initPayload.elementsStore?.CALC_SETTINGS
+                    ? initPayload.elementsStore.CALC_SETTINGS.findIndex(e => e.id === settings.id)
+                    : -1
 
                   const operationVariant = operationVariantId
                     ? initPayload.elementsStore?.CALC_OPERATIONS_VARIANTS?.find(e => e.id === Number(operationVariantId)) ?? null
                     : null
+                  
+                  const operationVariantIndex = operationVariant && initPayload.elementsStore?.CALC_OPERATIONS_VARIANTS
+                    ? initPayload.elementsStore.CALC_OPERATIONS_VARIANTS.findIndex(e => e.id === operationVariant.id)
+                    : -1
 
                   const operation = operationVariant?.productId
                     ? initPayload.elementsStore?.CALC_OPERATIONS?.find(e => e.id === operationVariant.productId) ?? null
                     : null
+                  
+                  const operationIndex = operation && initPayload.elementsStore?.CALC_OPERATIONS
+                    ? initPayload.elementsStore.CALC_OPERATIONS.findIndex(e => e.id === operation.id)
+                    : -1
 
                   const equipment = equipmentId
                     ? initPayload.elementsStore?.CALC_EQUIPMENT?.find(e => e.id === Number(equipmentId)) ?? null
                     : null
+                  
+                  const equipmentIndex = equipment && initPayload.elementsStore?.CALC_EQUIPMENT
+                    ? initPayload.elementsStore.CALC_EQUIPMENT.findIndex(e => e.id === equipment.id)
+                    : -1
 
                   const materialVariant = materialVariantId
                     ? initPayload.elementsStore?.CALC_MATERIALS_VARIANTS?.find(e => e.id === Number(materialVariantId)) ?? null
                     : null
+                  
+                  const materialVariantIndex = materialVariant && initPayload.elementsStore?.CALC_MATERIALS_VARIANTS
+                    ? initPayload.elementsStore.CALC_MATERIALS_VARIANTS.findIndex(e => e.id === materialVariant.id)
+                    : -1
 
                   const material = materialVariant?.productId
                     ? initPayload.elementsStore?.CALC_MATERIALS?.find(e => e.id === materialVariant.productId) ?? null
                     : null
+                  
+                  const materialIndex = material && initPayload.elementsStore?.CALC_MATERIALS
+                    ? initPayload.elementsStore.CALC_MATERIALS.findIndex(e => e.id === material.id)
+                    : -1
 
                   return (
                     <AccordionItem key={prevStage.stageId} value={`prev-stage-${prevStage.stageId}`} className="border-none">
@@ -725,7 +744,9 @@ export function ContextExplorer({
                               title="Настройки"
                               element={settings}
                               elementType="CALC_SETTINGS"
-                              index={prevStage.stageIndex}
+                              section="prevStage"
+                              subsection="Settings"
+                              index={settingsIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -735,7 +756,9 @@ export function ContextExplorer({
                               title="Операция"
                               element={operation}
                               elementType="CALC_OPERATIONS"
-                              index={prevStage.stageIndex}
+                              section="prevStage"
+                              subsection="Operation"
+                              index={operationIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -745,7 +768,9 @@ export function ContextExplorer({
                               title="Вариант операции"
                               element={operationVariant}
                               elementType="CALC_OPERATIONS_VARIANTS"
-                              index={prevStage.stageIndex}
+                              section="prevStage"
+                              subsection="Operationvariant"
+                              index={operationVariantIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -755,7 +780,9 @@ export function ContextExplorer({
                               title="Оборудование"
                               element={equipment}
                               elementType="CALC_EQUIPMENT"
-                              index={prevStage.stageIndex}
+                              section="prevStage"
+                              subsection="Equipment"
+                              index={equipmentIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -765,7 +792,9 @@ export function ContextExplorer({
                               title="Материал"
                               element={material}
                               elementType="CALC_MATERIALS"
-                              index={prevStage.stageIndex}
+                              section="prevStage"
+                              subsection="Material"
+                              index={materialIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -775,10 +804,58 @@ export function ContextExplorer({
                               title="Вариант материала"
                               element={materialVariant}
                               elementType="CALC_MATERIALS_VARIANTS"
-                              index={prevStage.stageIndex}
+                              section="prevStage"
+                              subsection="Materialvariant"
+                              index={materialVariantIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
+                          )}
+                          
+                          {/* Stage Results Section */}
+                          {stage.properties?.OUTPUTS && (
+                            <AccordionItem value={`prev-stage-${prevStage.stageId}-results`} className="border-none">
+                              <AccordionTrigger className="text-xs hover:no-underline py-2 [&[data-state=open]>svg]:rotate-90">
+                                Итоги этапа
+                              </AccordionTrigger>
+                              <AccordionContent className="pb-2">
+                                <div>
+                                  <TagCloud items={(() => {
+                                    const resultsTagItems: TagItem[] = []
+                                    const outputsValue = stage.properties?.OUTPUTS?.VALUE
+                                    
+                                    if (Array.isArray(outputsValue) && outputsValue.length > 0) {
+                                      // Standard result slugs
+                                      const standardResults = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
+                                      
+                                      outputsValue.forEach((outputStr, outputIndex) => {
+                                        // Parse the output format: either "slug" or "slug|title"
+                                        const parts = String(outputStr).split('|')
+                                        const slug = parts[0]
+                                        const customTitle = parts.length > 1 ? parts[1] : null
+                                        
+                                        // Get label: use customTitle if available, otherwise use RESULT_LABELS for standard, or slug as fallback
+                                        const label = customTitle || RESULT_LABELS[slug] || slug
+                                        
+                                        // Generate parameter name: prevStageResults{CapitalizedSlug}
+                                        const capitalizedSlug = slug.charAt(0).toUpperCase() + slug.slice(1)
+                                        const paramName = `prevStageResults${capitalizedSlug}`
+                                        
+                                        resultsTagItems.push({
+                                          code: slug,
+                                          label: label,
+                                          name: paramName,
+                                          path: `elementsStore.CALC_STAGES[${prevStage.stageIndex}].properties.OUTPUTS[${outputIndex}].VALUE`,
+                                          type: 'unknown' // Results can be any type
+                                        })
+                                      })
+                                    }
+                                    
+                                    return resultsTagItems
+                                  })()} onAddInput={onAddInput} />
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
                           )}
                         </Accordion>
                       </AccordionContent>

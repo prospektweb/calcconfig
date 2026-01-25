@@ -132,11 +132,6 @@ export function validateFormula(
     return { valid: false, error: 'Формула не может быть пустой' }
   }
 
-  // Check for forbidden selectedOffers reference
-  if (formula.includes('selectedOffers')) {
-    return { valid: false, error: 'Запрещённый источник: selectedOffers. Используйте offer.*' }
-  }
-
   // Check for forbidden array indices (except stages[N])
   const arrayIndexPattern = /\[(\d+)\]/g
   const arrayIndexMatches = formula.match(arrayIndexPattern)
@@ -231,10 +226,9 @@ function deduplicateIssues(issues: ValidationIssue[]): ValidationIssue[] {
  */
 function sortIssues(issues: ValidationIssue[]): ValidationIssue[] {
   const priority = (issue: ValidationIssue): number => {
-    // 1. error + forbidden sources (selectedOffers, indices)
+    // 1. error + forbidden array indices
     if (issue.severity === 'error' && 
-        (issue.message.includes('selectedOffers') || 
-         issue.message.includes('Запрещены индексы'))) {
+        issue.message.includes('Запрещены индексы')) {
       return 0
     }
     // 2. error syntax
@@ -422,16 +416,6 @@ export function validateAll(
       })
     }
     
-    // Check for selectedOffers reference
-    if (input.sourcePath.includes('selectedOffers')) {
-      issues.push({
-        severity: 'error',
-        scope: 'input',
-        refId: input.id,
-        message: `Запрещённый источник: selectedOffers. Используйте offer.*`
-      })
-    }
-    
     // NOTE: Array indices are ALLOWED for input parameters (e.g., elementsStore.CALC_MATERIALS_VARIANTS[0].attributes.weight)
     // No validation for array indices on inputs
     
@@ -571,16 +555,7 @@ export function validateAll(
       continue
     }
     
-    // Check for forbidden patterns
-    if (targetPath.includes('selectedOffers')) {
-      issues.push({
-        severity: 'error',
-        scope: 'result',
-        refId: item.id,
-        message: 'Запрещённый путь: selectedOffers. Используйте offer.*'
-      })
-    }
-    
+    // Check for forbidden array indices pattern
     const arrayIndexPattern = /\[(\d+)\]/g
     if (arrayIndexPattern.test(targetPath)) {
       issues.push({
