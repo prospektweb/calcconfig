@@ -169,7 +169,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
     return null
   }
 
-  const basePath = customBasePath || (index !== undefined
+  const basePath = customBasePath || (index !== undefined && index >= 0
     ? `elementsStore.${elementType}[${index}]`
     : `elementsStore.${elementType}`)
 
@@ -191,32 +191,32 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
     type: 'string'
   })
 
-  // Dimensions - always show even if null
+  // Dimensions - use 'attributes' instead of 'fields'
   tagItems.push({
     code: 'width',
     label: FIELD_LABELS.width,
-    path: `${basePath}.fields.width`,
+    path: `${basePath}.attributes.width`,
     type: 'number'
   })
   
   tagItems.push({
     code: 'length',
     label: FIELD_LABELS.length,
-    path: `${basePath}.fields.length`,
+    path: `${basePath}.attributes.length`,
     type: 'number'
   })
   
   tagItems.push({
     code: 'height',
     label: FIELD_LABELS.height,
-    path: `${basePath}.fields.height`,
+    path: `${basePath}.attributes.height`,
     type: 'number'
   })
   
   tagItems.push({
     code: 'weight',
     label: FIELD_LABELS.weight,
-    path: `${basePath}.fields.weight`,
+    path: `${basePath}.attributes.weight`,
     type: 'number'
   })
 
@@ -306,7 +306,7 @@ function ElementSection({ title, element, elementType, index, basePath: customBa
         {title}
       </AccordionTrigger>
       <AccordionContent className="pb-2">
-        <div className="pl-2.5">
+        <div>
           <TagCloud items={tagItems} onAddInput={onAddInput} />
         </div>
       </AccordionContent>
@@ -334,11 +334,17 @@ export function ContextExplorer({
     if (!currentStage || !initPayload?.elementsStore) {
       return {
         settings: null,
+        settingsIndex: -1,
         operation: null,
+        operationIndex: -1,
         operationVariant: null,
+        operationVariantIndex: -1,
         equipment: null,
+        equipmentIndex: -1,
         material: null,
+        materialIndex: -1,
         materialVariant: null,
+        materialVariantIndex: -1,
       }
     }
 
@@ -350,34 +356,64 @@ export function ContextExplorer({
     const settings = settingsId
       ? initPayload.elementsStore.CALC_SETTINGS?.find(e => e.id === Number(settingsId)) ?? null
       : null
+    
+    const settingsIndex = settings && initPayload.elementsStore.CALC_SETTINGS
+      ? initPayload.elementsStore.CALC_SETTINGS.findIndex(e => e.id === settings.id)
+      : -1
 
     const operationVariant = operationVariantId
       ? initPayload.elementsStore.CALC_OPERATIONS_VARIANTS?.find(e => e.id === Number(operationVariantId)) ?? null
       : null
+    
+    const operationVariantIndex = operationVariant && initPayload.elementsStore.CALC_OPERATIONS_VARIANTS
+      ? initPayload.elementsStore.CALC_OPERATIONS_VARIANTS.findIndex(e => e.id === operationVariant.id)
+      : -1
 
     const operation = operationVariant?.productId
       ? initPayload.elementsStore.CALC_OPERATIONS?.find(e => e.id === operationVariant.productId) ?? null
       : null
+    
+    const operationIndex = operation && initPayload.elementsStore.CALC_OPERATIONS
+      ? initPayload.elementsStore.CALC_OPERATIONS.findIndex(e => e.id === operation.id)
+      : -1
 
     const equipment = equipmentId
       ? initPayload.elementsStore.CALC_EQUIPMENT?.find(e => e.id === Number(equipmentId)) ?? null
       : null
+    
+    const equipmentIndex = equipment && initPayload.elementsStore.CALC_EQUIPMENT
+      ? initPayload.elementsStore.CALC_EQUIPMENT.findIndex(e => e.id === equipment.id)
+      : -1
 
     const materialVariant = materialVariantId
       ? initPayload.elementsStore.CALC_MATERIALS_VARIANTS?.find(e => e.id === Number(materialVariantId)) ?? null
       : null
+    
+    const materialVariantIndex = materialVariant && initPayload.elementsStore.CALC_MATERIALS_VARIANTS
+      ? initPayload.elementsStore.CALC_MATERIALS_VARIANTS.findIndex(e => e.id === materialVariant.id)
+      : -1
 
     const material = materialVariant?.productId
       ? initPayload.elementsStore.CALC_MATERIALS?.find(e => e.id === materialVariant.productId) ?? null
       : null
+    
+    const materialIndex = material && initPayload.elementsStore.CALC_MATERIALS
+      ? initPayload.elementsStore.CALC_MATERIALS.findIndex(e => e.id === material.id)
+      : -1
 
     return {
       settings,
+      settingsIndex,
       operation,
+      operationIndex,
       operationVariant,
+      operationVariantIndex,
       equipment,
+      equipmentIndex,
       material,
+      materialIndex,
       materialVariant,
+      materialVariantIndex,
     }
   }, [currentStage, initPayload])
 
@@ -421,110 +457,7 @@ export function ContextExplorer({
   // Build tag items for product
   const productTagItems: TagItem[] = []
   if (initPayload.product) {
-    // Basic attributes
-    productTagItems.push({
-      code: 'name',
-      label: FIELD_LABELS.name,
-      path: 'product.name',
-      type: 'string'
-    })
-    
-    productTagItems.push({
-      code: 'code',
-      label: FIELD_LABELS.code,
-      path: 'product.code',
-      type: 'string'
-    })
-
-    // Dimensions
-    productTagItems.push({
-      code: 'width',
-      label: FIELD_LABELS.width,
-      path: 'product.attributes.width',
-      type: 'number'
-    })
-    
-    productTagItems.push({
-      code: 'length',
-      label: FIELD_LABELS.length,
-      path: 'product.attributes.length',
-      type: 'number'
-    })
-    
-    productTagItems.push({
-      code: 'height',
-      label: FIELD_LABELS.height,
-      path: 'product.attributes.height',
-      type: 'number'
-    })
-    
-    productTagItems.push({
-      code: 'weight',
-      label: FIELD_LABELS.weight,
-      path: 'product.attributes.weight',
-      type: 'number'
-    })
-
-    // Measure
-    productTagItems.push({
-      code: 'measureCode',
-      label: FIELD_LABELS.measureCode,
-      path: 'product.measure.code',
-      type: 'string'
-    })
-    
-    productTagItems.push({
-      code: 'measureTitle',
-      label: FIELD_LABELS.measureTitle,
-      path: 'product.measure.name',
-      type: 'string'
-    })
-    
-    productTagItems.push({
-      code: 'measureRatio',
-      label: FIELD_LABELS.measureRatio,
-      path: 'product.measureRatio',
-      type: 'number'
-    })
-
-    // Prices
-    productTagItems.push({
-      code: 'purchasingPrice',
-      label: FIELD_LABELS.purchasingPrice,
-      path: 'product.purchasingPrice',
-      type: 'number'
-    })
-    
-    productTagItems.push({
-      code: 'purchasingCurrency',
-      label: FIELD_LABELS.purchasingCurrency,
-      path: 'product.purchasingCurrency',
-      type: 'string'
-    })
-
-    // Base price
-    const basePriceType = initPayload.priceTypes?.find(pt => pt.base === true)
-    if (basePriceType && initPayload.product.prices) {
-      const basePrice = initPayload.product.prices.find(p => p.typeId === basePriceType.id)
-      if (basePrice) {
-        const priceIndex = initPayload.product.prices.indexOf(basePrice)
-        productTagItems.push({
-          code: 'baseCurrency',
-          label: FIELD_LABELS.baseCurrency,
-          path: `product.prices[${priceIndex}].currency`,
-          type: 'string'
-        })
-        
-        productTagItems.push({
-          code: 'basePrice',
-          label: FIELD_LABELS.basePrice,
-          path: `product.prices[${priceIndex}].price`,
-          type: 'number'
-        })
-      }
-    }
-
-    // Properties
+    // Properties only
     if (initPayload.product.properties) {
       Object.entries(initPayload.product.properties).forEach(([code, prop]) => {
         if (code === 'CML2_LINK') return // Ignore CML2_LINK
@@ -572,7 +505,7 @@ export function ContextExplorer({
               Торговое предложение
             </AccordionTrigger>
             <AccordionContent className="pb-2">
-              <div className="pl-2.5">
+              <div>
                 <TagCloud items={offerTagItems} onAddInput={onAddInput} />
               </div>
             </AccordionContent>
@@ -586,7 +519,7 @@ export function ContextExplorer({
               Товар
             </AccordionTrigger>
             <AccordionContent className="pb-2">
-              <div className="pl-2.5">
+              <div>
                 <TagCloud items={productTagItems} onAddInput={onAddInput} />
               </div>
             </AccordionContent>
@@ -606,6 +539,7 @@ export function ContextExplorer({
                     title="Настройки"
                     element={stageElements.settings}
                     elementType="CALC_SETTINGS"
+                    index={stageElements.settingsIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -623,6 +557,7 @@ export function ContextExplorer({
                     title="Операция"
                     element={stageElements.operation}
                     elementType="CALC_OPERATIONS"
+                    index={stageElements.operationIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -633,6 +568,7 @@ export function ContextExplorer({
                     title="Вариант операции"
                     element={stageElements.operationVariant}
                     elementType="CALC_OPERATIONS_VARIANTS"
+                    index={stageElements.operationVariantIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -643,6 +579,7 @@ export function ContextExplorer({
                     title="Оборудование"
                     element={stageElements.equipment}
                     elementType="CALC_EQUIPMENT"
+                    index={stageElements.equipmentIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -653,6 +590,7 @@ export function ContextExplorer({
                     title="Материал"
                     element={stageElements.material}
                     elementType="CALC_MATERIALS"
+                    index={stageElements.materialIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -663,6 +601,7 @@ export function ContextExplorer({
                     title="Вариант материала"
                     element={stageElements.materialVariant}
                     elementType="CALC_MATERIALS_VARIANTS"
+                    index={stageElements.materialVariantIndex}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -692,26 +631,50 @@ export function ContextExplorer({
                   const settings = settingsId
                     ? initPayload.elementsStore?.CALC_SETTINGS?.find(e => e.id === Number(settingsId)) ?? null
                     : null
+                  
+                  const settingsIndex = settings && initPayload.elementsStore?.CALC_SETTINGS
+                    ? initPayload.elementsStore.CALC_SETTINGS.findIndex(e => e.id === settings.id)
+                    : -1
 
                   const operationVariant = operationVariantId
                     ? initPayload.elementsStore?.CALC_OPERATIONS_VARIANTS?.find(e => e.id === Number(operationVariantId)) ?? null
                     : null
+                  
+                  const operationVariantIndex = operationVariant && initPayload.elementsStore?.CALC_OPERATIONS_VARIANTS
+                    ? initPayload.elementsStore.CALC_OPERATIONS_VARIANTS.findIndex(e => e.id === operationVariant.id)
+                    : -1
 
                   const operation = operationVariant?.productId
                     ? initPayload.elementsStore?.CALC_OPERATIONS?.find(e => e.id === operationVariant.productId) ?? null
                     : null
+                  
+                  const operationIndex = operation && initPayload.elementsStore?.CALC_OPERATIONS
+                    ? initPayload.elementsStore.CALC_OPERATIONS.findIndex(e => e.id === operation.id)
+                    : -1
 
                   const equipment = equipmentId
                     ? initPayload.elementsStore?.CALC_EQUIPMENT?.find(e => e.id === Number(equipmentId)) ?? null
                     : null
+                  
+                  const equipmentIndex = equipment && initPayload.elementsStore?.CALC_EQUIPMENT
+                    ? initPayload.elementsStore.CALC_EQUIPMENT.findIndex(e => e.id === equipment.id)
+                    : -1
 
                   const materialVariant = materialVariantId
                     ? initPayload.elementsStore?.CALC_MATERIALS_VARIANTS?.find(e => e.id === Number(materialVariantId)) ?? null
                     : null
+                  
+                  const materialVariantIndex = materialVariant && initPayload.elementsStore?.CALC_MATERIALS_VARIANTS
+                    ? initPayload.elementsStore.CALC_MATERIALS_VARIANTS.findIndex(e => e.id === materialVariant.id)
+                    : -1
 
                   const material = materialVariant?.productId
                     ? initPayload.elementsStore?.CALC_MATERIALS?.find(e => e.id === materialVariant.productId) ?? null
                     : null
+                  
+                  const materialIndex = material && initPayload.elementsStore?.CALC_MATERIALS
+                    ? initPayload.elementsStore.CALC_MATERIALS.findIndex(e => e.id === material.id)
+                    : -1
 
                   return (
                     <AccordionItem key={prevStage.stageId} value={`prev-stage-${prevStage.stageId}`} className="border-none">
@@ -725,7 +688,7 @@ export function ContextExplorer({
                               title="Настройки"
                               element={settings}
                               elementType="CALC_SETTINGS"
-                              index={prevStage.stageIndex}
+                              index={settingsIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -735,7 +698,7 @@ export function ContextExplorer({
                               title="Операция"
                               element={operation}
                               elementType="CALC_OPERATIONS"
-                              index={prevStage.stageIndex}
+                              index={operationIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -745,7 +708,7 @@ export function ContextExplorer({
                               title="Вариант операции"
                               element={operationVariant}
                               elementType="CALC_OPERATIONS_VARIANTS"
-                              index={prevStage.stageIndex}
+                              index={operationVariantIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -755,7 +718,7 @@ export function ContextExplorer({
                               title="Оборудование"
                               element={equipment}
                               elementType="CALC_EQUIPMENT"
-                              index={prevStage.stageIndex}
+                              index={equipmentIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -765,7 +728,7 @@ export function ContextExplorer({
                               title="Материал"
                               element={material}
                               elementType="CALC_MATERIALS"
-                              index={prevStage.stageIndex}
+                              index={materialIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -775,7 +738,7 @@ export function ContextExplorer({
                               title="Вариант материала"
                               element={materialVariant}
                               elementType="CALC_MATERIALS_VARIANTS"
-                              index={prevStage.stageIndex}
+                              index={materialVariantIndex}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
