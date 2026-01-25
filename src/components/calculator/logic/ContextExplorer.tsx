@@ -48,6 +48,16 @@ const FIELD_LABELS: Record<string, string> = {
   code: 'Код'
 }
 
+// Standard result slugs to Russian labels mapping
+const RESULT_LABELS: Record<string, string> = {
+  width: 'Ширина',
+  length: 'Длина',
+  height: 'Высота',
+  weight: 'Вес',
+  purchasingPrice: 'Закупочная цена',
+  basePrice: 'Базовая цена'
+}
+
 // Helper to find previous stages
 interface StageHierarchyItem {
   stageId: number
@@ -800,6 +810,52 @@ export function ContextExplorer({
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
+                          )}
+                          
+                          {/* Stage Results Section */}
+                          {stage.properties?.OUTPUTS && (
+                            <AccordionItem value={`prev-stage-${prevStage.stageId}-results`} className="border-none">
+                              <AccordionTrigger className="text-xs hover:no-underline py-2 [&[data-state=open]>svg]:rotate-90">
+                                Итоги этапа
+                              </AccordionTrigger>
+                              <AccordionContent className="pb-2">
+                                <div>
+                                  <TagCloud items={(() => {
+                                    const resultsTagItems: TagItem[] = []
+                                    const outputsValue = stage.properties?.OUTPUTS?.VALUE
+                                    
+                                    if (Array.isArray(outputsValue) && outputsValue.length > 0) {
+                                      // Standard result slugs
+                                      const standardResults = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
+                                      
+                                      outputsValue.forEach((outputStr, outputIndex) => {
+                                        // Parse the output format: either "slug" or "slug|title"
+                                        const parts = String(outputStr).split('|')
+                                        const slug = parts[0]
+                                        const customTitle = parts.length > 1 ? parts[1] : null
+                                        
+                                        // Get label: use customTitle if available, otherwise use RESULT_LABELS for standard, or slug as fallback
+                                        const label = customTitle || RESULT_LABELS[slug] || slug
+                                        
+                                        // Generate parameter name: prevStageResults{CapitalizedSlug}
+                                        const capitalizedSlug = slug.charAt(0).toUpperCase() + slug.slice(1)
+                                        const paramName = `prevStageResults${capitalizedSlug}`
+                                        
+                                        resultsTagItems.push({
+                                          code: slug,
+                                          label: label,
+                                          name: paramName,
+                                          path: `elementsStore.CALC_STAGES[${prevStage.stageIndex}].properties.OUTPUTS[${outputIndex}].VALUE`,
+                                          type: 'unknown' // Results can be any type
+                                        })
+                                      })
+                                    }
+                                    
+                                    return resultsTagItems
+                                  })()} onAddInput={onAddInput} />
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
                           )}
                         </Accordion>
                       </AccordionContent>
