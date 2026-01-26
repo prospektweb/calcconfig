@@ -199,6 +199,9 @@ export function CalculationLogicDialog({
 
   // State for active input selection (for path editing)
   const [activeInputId, setActiveInputId] = useState<string | null>(null)
+  
+  // State for newly added input animation
+  const [newlyAddedInputId, setNewlyAddedInputId] = useState<string | null>(null)
 
   // State for logic editing
   const [inputs, setInputs] = useState<InputParam[]>([])
@@ -624,6 +627,7 @@ export function CalculationLogicDialog({
     
     setInputs([...inputs, newInput])
     setActiveTab('inputs')
+    setNewlyAddedInputId(newInput.id)
     toast.success(`Параметр "${uniqueName}" добавлен`)
   }
 
@@ -975,6 +979,8 @@ export function CalculationLogicDialog({
                       issues={validationIssues}
                       activeInputId={activeInputId}
                       onInputSelect={setActiveInputId}
+                      newlyAddedId={newlyAddedInputId}
+                      onNewlyAddedIdChange={setNewlyAddedInputId}
                     />
                   </ScrollArea>
                 </TabsContent>
