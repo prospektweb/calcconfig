@@ -170,6 +170,7 @@ interface CalculationLogicDialogProps {
   currentStageId?: number | null
   currentSettingsId?: number | null
   currentDetailId?: number | null
+  currentBindingId?: number | null
   onSaveRequest?: (settingsId: number, stageId: number, json: string) => void
 }
 
@@ -184,6 +185,7 @@ export function CalculationLogicDialog({
   currentStageId,
   currentSettingsId,
   currentDetailId,
+  currentBindingId,
   onSaveRequest,
 }: CalculationLogicDialogProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false)
@@ -969,6 +971,7 @@ export function CalculationLogicDialog({
                         initPayload={initPayload}
                         currentStageId={currentStageId}
                         currentDetailId={currentDetailId}
+                        currentBindingId={currentBindingId}
                         onAddInput={handleContextExplorerAddInput}
                       />
                     </div>
