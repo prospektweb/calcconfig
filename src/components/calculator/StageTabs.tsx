@@ -1585,9 +1585,20 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
           currentSettingsId={safeCalculators[calculationLogicStageIndex]?.settingsId ?? null}
           currentDetailId={
             bitrixMeta?.elementsStore?.CALC_DETAILS?.find(
-              detail => detail.properties?.CALC_STAGES?.VALUE?.includes(
-                String(safeCalculators[calculationLogicStageIndex]?.stageId)
-              )
+              detail => 
+                detail.properties?.TYPE?.VALUE_XML_ID === 'DETAIL' &&
+                detail.properties?.CALC_STAGES?.VALUE?.includes(
+                  String(safeCalculators[calculationLogicStageIndex]?.stageId)
+                )
+            )?.id ?? null
+          }
+          currentBindingId={
+            bitrixMeta?.elementsStore?.CALC_DETAILS?.find(
+              detail => 
+                detail.properties?.TYPE?.VALUE_XML_ID === 'BINDING' &&
+                detail.properties?.CALC_STAGES?.VALUE?.includes(
+                  String(safeCalculators[calculationLogicStageIndex]?.stageId)
+                )
             )?.id ?? null
           }
           onSaveRequest={handleSaveRequest}

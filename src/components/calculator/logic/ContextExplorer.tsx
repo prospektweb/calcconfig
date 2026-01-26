@@ -13,6 +13,7 @@ interface ContextExplorerProps {
   initPayload: InitPayload | null | undefined
   currentStageId: number | null | undefined
   currentDetailId: number | null | undefined
+  currentBindingId?: number | null | undefined
   onAddInput: (path: string, name: string, valueType: ValueType) => void
 }
 
@@ -73,10 +74,17 @@ interface StageHierarchyItem {
  * 1. Top-level details (not in any binding)
  * 2. Top-level bindings (not in any parent binding)
  *    - For each binding: nested details → nested bindings → binding's own stages
+ * 
+ * Rules:
+ * - For detail stages: include stages from same detail (before current) + stages from other 
+ *   details in same binding (earlier in list). DO NOT include parent binding stages.
+ * - For binding stages: include ALL stages from ALL nested details/bindings + binding's own 
+ *   stages before current.
  */
 function findPreviousStages(
   currentStageId: number,
   currentDetailId: number | null | undefined,
+  currentBindingId: number | null | undefined,
   elementsStore: any
 ): StageHierarchyItem[] {
   if (!elementsStore?.CALC_STAGES) {
@@ -84,114 +92,158 @@ function findPreviousStages(
   }
 
   const allDetails = elementsStore.CALC_DETAILS || []
-  const allBindings = elementsStore.CALC_BINDINGS || []
   const allStages = elementsStore.CALC_STAGES || []
+  
+  // Note: In the Bitrix structure, bindings are also stored in CALC_DETAILS
+  // with TYPE.VALUE_XML_ID === 'BINDING'
   
   const previousStages: StageHierarchyItem[] = []
   const seenStageIds = new Set<number>()
   
   // Helper to add a stage if it hasn't been seen and isn't the current stage
-  const addStage = (stageId: number, sourceName?: string): boolean => {
-    if (stageId === currentStageId) {
-      return false // Stop when we reach current stage
+  const addStage = (stageId: number, sourceName?: string): void => {
+    if (stageId === currentStageId || seenStageIds.has(stageId)) {
+      return
     }
     
-    if (!seenStageIds.has(stageId)) {
-      seenStageIds.add(stageId)
-      const stage = allStages.find((s: any) => s.id === stageId)
-      if (stage) {
-        previousStages.push({
-          stageId,
-          stageName: sourceName ? `${sourceName} / ${stage.name}` : stage.name,
-          stageIndex: allStages.findIndex((s: any) => s.id === stageId)
-        })
-      }
+    seenStageIds.add(stageId)
+    const stage = allStages.find((s: any) => s.id === stageId)
+    if (stage) {
+      previousStages.push({
+        stageId,
+        stageName: sourceName ? `${sourceName} / ${stage.name}` : stage.name,
+        stageIndex: allStages.findIndex((s: any) => s.id === stageId)
+      })
     }
-    
-    return true // Continue
   }
   
-  // Process detail stages
-  const processDetail = (detail: any, prefix: string = ''): boolean => {
-    const stageIds = detail.properties?.CALC_STAGES?.VALUE
-    if (Array.isArray(stageIds)) {
-      for (const stageIdStr of stageIds) {
-        const stageId = Number(stageIdStr)
-        const detailName = prefix ? `${prefix}${detail.name}` : detail.name
-        if (!addStage(stageId, detailName)) {
-          return false // Stop if we hit current stage
+  // Determine source type: is the current stage from a detail or a binding?
+  // If both IDs are provided, prioritize binding. If neither, default to detail.
+  const sourceType: 'detail' | 'binding' = currentBindingId 
+    ? 'binding' 
+    : 'detail'
+  const sourceId = currentBindingId || currentDetailId
+  
+  // Find the source element (detail or binding that contains the current stage)
+  const sourceElement = allDetails.find((d: any) => d.id === sourceId)
+  
+  if (sourceType === 'detail') {
+    // Current stage belongs to a detail
+    
+    // Find parent binding (if any)
+    const parentBinding = allDetails.find((b: any) => {
+      const typeXmlId = b.properties?.TYPE?.VALUE_XML_ID
+      if (typeXmlId !== 'BINDING') return false
+      
+      const nestedDetailIds = b.properties?.DETAILS?.VALUE
+      if (!Array.isArray(nestedDetailIds)) return false
+      
+      return nestedDetailIds.some((id: string) => Number(id) === sourceId)
+    })
+    
+    if (parentBinding) {
+      // Detail is inside a binding
+      // Collect stages from details in this binding UP TO and INCLUDING current detail
+      
+      const nestedDetailIds = parentBinding.properties?.DETAILS?.VALUE
+      if (Array.isArray(nestedDetailIds)) {
+        for (const detailIdStr of nestedDetailIds) {
+          const detailId = Number(detailIdStr)
+          const detail = allDetails.find((d: any) => d.id === detailId)
+          
+          // Skip non-detail elements (bindings)
+          const detailType = detail?.properties?.TYPE?.VALUE_XML_ID
+          if (!detail || detailType !== 'DETAIL') continue
+          
+          const detailName = detail.name
+          const stageIds = detail.properties?.CALC_STAGES?.VALUE
+          
+          if (detailId === sourceId) {
+            // This is the current detail - add only stages BEFORE current
+            if (Array.isArray(stageIds)) {
+              for (const stageIdStr of stageIds) {
+                const stageId = Number(stageIdStr)
+                if (stageId === currentStageId) break
+                addStage(stageId, detailName)
+              }
+            }
+            break // Stop after processing current detail
+          } else {
+            // Previous detail in the same binding - add ALL its stages
+            if (Array.isArray(stageIds)) {
+              for (const stageIdStr of stageIds) {
+                addStage(Number(stageIdStr), detailName)
+              }
+            }
+          }
+        }
+      }
+      
+      // DO NOT add parent binding stages (they execute AFTER)
+      
+    } else {
+      // Detail is at top level (not in any binding)
+      // For now, just add stages from the same detail before current
+      const stageIds = sourceElement?.properties?.CALC_STAGES?.VALUE
+      if (Array.isArray(stageIds)) {
+        for (const stageIdStr of stageIds) {
+          const stageId = Number(stageIdStr)
+          if (stageId === currentStageId) break
+          addStage(stageId, sourceElement.name)
         }
       }
     }
-    return true
-  }
-  
-  // Process binding stages (recursively handles nested bindings and details)
-  const processBinding = (binding: any, prefix: string = ''): boolean => {
-    const bindingName = prefix ? `${prefix}${binding.name}` : binding.name
     
-    // 1. First process nested details
-    const nestedDetailIds = binding.properties?.CALC_DETAILS?.VALUE
-    if (Array.isArray(nestedDetailIds)) {
+  } else {
+    // Current stage belongs to a binding
+    
+    // Helper function to recursively process a binding's contents
+    const processBindingContents = (binding: any, prefix: string = ''): void => {
+      const nestedDetailIds = binding.properties?.DETAILS?.VALUE
+      if (!Array.isArray(nestedDetailIds)) return
+      
       for (const detailIdStr of nestedDetailIds) {
-        const detail = allDetails.find((d: any) => d.id === Number(detailIdStr))
-        if (detail) {
-          if (!processDetail(detail, `${bindingName} > `)) {
-            return false
+        const detailId = Number(detailIdStr)
+        const detail = allDetails.find((d: any) => d.id === detailId)
+        if (!detail) continue
+        
+        const detailType = detail.properties?.TYPE?.VALUE_XML_ID
+        const detailName = prefix ? `${prefix}${detail.name}` : detail.name
+        
+        if (detailType === 'DETAIL') {
+          // Add all stages from this detail
+          const stageIds = detail.properties?.CALC_STAGES?.VALUE
+          if (Array.isArray(stageIds)) {
+            for (const stageIdStr of stageIds) {
+              addStage(Number(stageIdStr), detailName)
+            }
+          }
+        } else if (detailType === 'BINDING') {
+          // Recursively process nested binding
+          // First process its nested details/bindings
+          processBindingContents(detail, `${detailName} > `)
+          
+          // Then add nested binding's own stages
+          const nestedBindingStageIds = detail.properties?.CALC_STAGES?.VALUE
+          if (Array.isArray(nestedBindingStageIds)) {
+            for (const stageIdStr of nestedBindingStageIds) {
+              addStage(Number(stageIdStr), detailName)
+            }
           }
         }
       }
     }
     
-    // 2. Then process nested bindings
-    const nestedBindingIds = binding.properties?.CALC_BINDINGS?.VALUE
-    if (Array.isArray(nestedBindingIds)) {
-      for (const bindingIdStr of nestedBindingIds) {
-        const nestedBinding = allBindings.find((b: any) => b.id === Number(bindingIdStr))
-        if (nestedBinding) {
-          if (!processBinding(nestedBinding, `${bindingName} > `)) {
-            return false
-          }
-        }
-      }
-    }
+    // First, add ALL stages from ALL nested details and bindings
+    processBindingContents(sourceElement, '')
     
-    // 3. Finally process binding's own stages
-    const stageIds = binding.properties?.CALC_STAGES?.VALUE
-    if (Array.isArray(stageIds)) {
-      for (const stageIdStr of stageIds) {
+    // Finally, add binding's own stages BEFORE current
+    const bindingStageIds = sourceElement?.properties?.CALC_STAGES?.VALUE
+    if (Array.isArray(bindingStageIds)) {
+      for (const stageIdStr of bindingStageIds) {
         const stageId = Number(stageIdStr)
-        if (!addStage(stageId, bindingName)) {
-          return false
-        }
-      }
-    }
-    
-    return true
-  }
-  
-  // Process top-level details (not in any binding)
-  for (const detail of allDetails) {
-    const inBinding = allBindings.some((b: any) => 
-      Array.isArray(b.properties?.CALC_DETAILS?.VALUE) && 
-      b.properties.CALC_DETAILS.VALUE.includes(String(detail.id))
-    )
-    if (!inBinding) {
-      if (!processDetail(detail)) {
-        break
-      }
-    }
-  }
-  
-  // Process top-level bindings (not in any parent binding)
-  for (const binding of allBindings) {
-    const inParentBinding = allBindings.some((b: any) => 
-      Array.isArray(b.properties?.CALC_BINDINGS?.VALUE) && 
-      b.properties.CALC_BINDINGS.VALUE.includes(String(binding.id))
-    )
-    if (!inParentBinding) {
-      if (!processBinding(binding)) {
-        break
+        if (stageId === currentStageId) break
+        addStage(stageId, sourceElement.name)
       }
     }
   }
@@ -540,6 +592,7 @@ export function ContextExplorer({
   initPayload,
   currentStageId,
   currentDetailId,
+  currentBindingId,
   onAddInput,
 }: ContextExplorerProps) {
   const currentStage = useMemo(() => {
@@ -641,11 +694,11 @@ export function ContextExplorer({
 
   // Find previous stages
   const previousStages = useMemo(() => {
-    if (!currentStageId || !currentDetailId || !initPayload?.elementsStore) {
+    if (!currentStageId || !initPayload?.elementsStore) {
       return []
     }
-    return findPreviousStages(currentStageId, currentDetailId, initPayload.elementsStore)
-  }, [currentStageId, currentDetailId, initPayload])
+    return findPreviousStages(currentStageId, currentDetailId, currentBindingId, initPayload.elementsStore)
+  }, [currentStageId, currentDetailId, currentBindingId, initPayload])
 
   const selectedOffer = initPayload?.selectedOffers?.[0]
 
