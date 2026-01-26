@@ -1,6 +1,6 @@
 import { Plus, Trash2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
@@ -186,15 +186,32 @@ export function OutputsTab({
                       }}
                     >
                       <SelectTrigger className="h-8 text-xs flex-1">
-                        <SelectValue placeholder="Не выбрано" />
+                        <SelectValue placeholder="Не выбрано">
+                          {mapping.sourceRef && mapping.sourceKind ? (
+                            <span>{mapping.sourceRef} {mapping.sourceKind === 'var' ? '(переменная)' : '(вход)'}</span>
+                          ) : null}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
-                        {numberSources.map(src => (
-                          <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                            {src.label}
-                          </SelectItem>
-                        ))}
+                        
+                        <SelectGroup>
+                          <SelectLabel>Переменные</SelectLabel>
+                          {numberSources.filter(src => src.kind === 'var').map(src => (
+                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                              {src.ref}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                        
+                        <SelectGroup>
+                          <SelectLabel>Входные параметры</SelectLabel>
+                          {numberSources.filter(src => src.kind === 'input').map(src => (
+                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                              {src.ref}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                     {hasError && (
@@ -239,15 +256,32 @@ export function OutputsTab({
                       }}
                     >
                       <SelectTrigger className="h-8 text-xs flex-1">
-                        <SelectValue placeholder="Не выбрано" />
+                        <SelectValue placeholder="Не выбрано">
+                          {mapping.sourceRef && mapping.sourceKind ? (
+                            <span>{mapping.sourceRef} {mapping.sourceKind === 'var' ? '(переменная)' : '(вход)'}</span>
+                          ) : null}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
-                        {numberSources.map(src => (
-                          <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                            {src.label}
-                          </SelectItem>
-                        ))}
+                        
+                        <SelectGroup>
+                          <SelectLabel>Переменные</SelectLabel>
+                          {numberSources.filter(src => src.kind === 'var').map(src => (
+                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                              {src.ref}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                        
+                        <SelectGroup>
+                          <SelectLabel>Входные параметры</SelectLabel>
+                          {numberSources.filter(src => src.kind === 'input').map(src => (
+                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                              {src.ref}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                     {hasError && (
@@ -339,15 +373,32 @@ export function OutputsTab({
                           }}
                         >
                           <SelectTrigger className="h-8 text-xs flex-1">
-                            <SelectValue placeholder="Выберите источник..." />
+                            <SelectValue placeholder="Выберите источник...">
+                              {item.sourceRef && item.sourceKind ? (
+                                <span>{item.sourceRef} {item.sourceKind === 'var' ? '(переменная)' : '(вход)'}</span>
+                              ) : null}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
-                            {allSources.map(src => (
-                              <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                                {src.label}
-                              </SelectItem>
-                            ))}
+                            
+                            <SelectGroup>
+                              <SelectLabel>Переменные</SelectLabel>
+                              {allSources.filter(src => src.kind === 'var').map(src => (
+                                <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                                  {src.ref}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                            
+                            <SelectGroup>
+                              <SelectLabel>Входные параметры</SelectLabel>
+                              {allSources.filter(src => src.kind === 'input').map(src => (
+                                <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                                  {src.ref}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
                           </SelectContent>
                         </Select>
                         

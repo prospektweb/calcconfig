@@ -418,6 +418,14 @@ export function CalculationLogicDialog({
     }
   }, [inputs, vars, resultsHL, writePlan, additionalResults, open, currentStageId, currentSettingsId, stageIndex, initPayload])
 
+  // Effect to switch panels when switching to "Formulas" tab
+  useEffect(() => {
+    if (activeTab === 'formulas') {
+      setLeftPanelCollapsed(true)
+      setRightPanelCollapsed(false)
+    }
+  }, [activeTab])
+
   // Auto-update inferred types for vars when inputs or formulas change
   useEffect(() => {
     if (!open) return
@@ -1030,7 +1038,7 @@ export function CalculationLogicDialog({
               <div className="flex-1 min-h-0 overflow-hidden">
                 <ScrollArea className="h-full">
                   <div className="p-4">
-                    <Accordion type="multiple" defaultValue={['syntax', 'functions']}>
+                    <Accordion type="multiple" defaultValue={activeTab === 'formulas' ? ['params-vars'] : ['syntax', 'functions']}>
                       {/* Syntax Section */}
                       <AccordionItem value="syntax">
                         <AccordionTrigger className="text-sm font-medium">Синтаксис</AccordionTrigger>
@@ -1101,6 +1109,62 @@ export function CalculationLogicDialog({
                               <div className="text-sm font-medium">Регулярные выражения</div>
                               <div className="text-xs text-muted-foreground">regexMatch, regexExtract</div>
                             </button>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                      
+                      {/* Parameters and Variables Section */}
+                      <AccordionItem value="params-vars">
+                        <AccordionTrigger className="text-sm font-medium">Параметры и переменные</AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-3">
+                            {/* Input Parameters Group */}
+                            <div>
+                              <h4 className="text-xs font-medium text-muted-foreground mb-2">Входные параметры</h4>
+                              <div className="flex flex-wrap gap-1.5">
+                                {inputs.length === 0 ? (
+                                  <div className="text-xs text-muted-foreground italic">Нет параметров</div>
+                                ) : (
+                                  inputs.map(input => (
+                                    <button
+                                      key={input.id}
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(input.name)
+                                        toast.success('Имя параметра скопировано')
+                                      }}
+                                      className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
+                                      title={`Кликните, чтобы скопировать: ${input.name}`}
+                                    >
+                                      {input.name}
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Variables Group */}
+                            <div>
+                              <h4 className="text-xs font-medium text-muted-foreground mb-2">Переменные</h4>
+                              <div className="flex flex-wrap gap-1.5">
+                                {vars.length === 0 ? (
+                                  <div className="text-xs text-muted-foreground italic">Нет переменных</div>
+                                ) : (
+                                  vars.map(v => (
+                                    <button
+                                      key={v.id}
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(v.name)
+                                        toast.success('Имя переменной скопировано')
+                                      }}
+                                      className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
+                                      title={`Кликните, чтобы скопировать: ${v.name}`}
+                                    >
+                                      {v.name}
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </AccordionContent>
                       </AccordionItem>
