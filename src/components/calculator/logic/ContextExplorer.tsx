@@ -360,7 +360,7 @@ interface SettingsSectionProps {
   stage: any  // CALC_STAGES element
   stageIndex: number
   settings: any  // CALC_SETTINGS element
-  customFieldsElements: any[]  // elementsStore.CUSTOM_FIELDS
+  customFieldsElements: any[]  // elementsStore.CALC_CUSTOM_FIELDS
   isPrevStage: boolean
   onAddInput: (path: string, name: string, valueType: ValueType) => void
 }
@@ -607,30 +607,6 @@ export function ContextExplorer({
     }
   }
 
-  // Build tag items for settings custom fields (moved from "Дополнительные параметры этапа")
-  const settingsCustomFieldsTagItems: TagItem[] = []
-  if (currentStage?.properties) {
-    if (currentStage.properties.OPERATION_QUANTITY) {
-      settingsCustomFieldsTagItems.push({
-        code: 'OPERATION_QUANTITY',
-        label: 'Количество операций',
-        name: generateParamName('stage', 'Settings', 'OPERATION_QUANTITY'),
-        path: currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}].properties.OPERATION_QUANTITY.VALUE` : 'elementsStore.CALC_STAGES.properties.OPERATION_QUANTITY.VALUE',
-        type: 'number'
-      })
-    }
-    
-    if (currentStage.properties.MATERIAL_QUANTITY) {
-      settingsCustomFieldsTagItems.push({
-        code: 'MATERIAL_QUANTITY',
-        label: 'Количество материалов',
-        name: generateParamName('stage', 'Settings', 'MATERIAL_QUANTITY'),
-        path: currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}].properties.MATERIAL_QUANTITY.VALUE` : 'elementsStore.CALC_STAGES.properties.MATERIAL_QUANTITY.VALUE',
-        type: 'number'
-      })
-    }
-  }
-
   return (
     <div className="h-full overflow-auto">
       <Accordion type="multiple" defaultValue={['offer', 'current-stage']} className="space-y-1">
@@ -675,17 +651,10 @@ export function ContextExplorer({
                     stage={currentStage}
                     stageIndex={currentStageIndex}
                     settings={stageElements.settings}
-                    customFieldsElements={initPayload?.elementsStore?.CUSTOM_FIELDS || []}
+                    customFieldsElements={initPayload?.elementsStore?.CALC_CUSTOM_FIELDS || []}
                     isPrevStage={false}
                     onAddInput={onAddInput}
                   />
-                )}
-                
-                {/* Add custom fields to settings section */}
-                {settingsCustomFieldsTagItems.length > 0 && stageElements.settings && (
-                  <div className="pl-2.5 pt-1">
-                    <TagCloud items={settingsCustomFieldsTagItems} onAddInput={onAddInput} />
-                  </div>
                 )}
 
                 {stageElements.operation && (
@@ -834,7 +803,7 @@ export function ContextExplorer({
                               stage={stage}
                               stageIndex={prevStage.stageIndex}
                               settings={settings}
-                              customFieldsElements={initPayload?.elementsStore?.CUSTOM_FIELDS || []}
+                              customFieldsElements={initPayload?.elementsStore?.CALC_CUSTOM_FIELDS || []}
                               isPrevStage={true}
                               onAddInput={onAddInput}
                             />
