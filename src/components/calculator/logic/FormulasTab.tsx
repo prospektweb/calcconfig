@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Pencil, Trash2, Copy, AlertCircle, CheckCircle2, MoreVertical } from 'lucide-react'
+import { Plus, Pencil, Trash2, Copy, AlertCircle, CheckCircle2, MoreVertical, ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -26,6 +26,7 @@ interface FormulasTabProps {
 export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }: FormulasTabProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
+  const [collapsedVars, setCollapsedVars] = useState<Set<string>>(new Set())
 
   const generateVarName = (): string => {
     let counter = 1
@@ -124,63 +125,92 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }:
   const getVarIssues = (varId: string) => {
     return issues.filter(i => i.scope === 'var' && i.refId === varId)
   }
+  
+  const toggleCollapse = (varId: string) => {
+    const newCollapsed = new Set(collapsedVars)
+    if (newCollapsed.has(varId)) {
+      newCollapsed.delete(varId)
+    } else {
+      newCollapsed.add(varId)
+    }
+    setCollapsedVars(newCollapsed)
+  }
 
   const errors = vars.filter(v => v.error).map(v => ({ name: v.name, error: v.error! }))
 
   return (
-    <div className="p-4 space-y-4" data-pwcode="logic-formulas">
-      <div>
-        <Button onClick={handleAddVar} size="sm" className="gap-2">
-          <Plus className="w-4 h-4" />
-          Создать переменную
-        </Button>
-      </div>
-
-      {vars.length === 0 ? (
-        <div className="text-center py-8 text-sm text-muted-foreground">
-          <p>Формулы ещё не созданы</p>
-          <p className="mt-2">Нажмите "Создать переменную" чтобы добавить формулу</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {vars.map((v, idx) => {
-            const varIssues = getVarIssues(v.id)
-            const hasError = varIssues.some(i => i.severity === 'error') || !!v.error
-            const hasWarning = varIssues.some(i => i.severity === 'warning')
-            
-            return (
-              <div 
-                key={v.id}
-                className={cn(
-                  "p-3 border rounded-md bg-card space-y-2",
-                  hasError && "border-destructive",
-                  hasWarning && !hasError && "border-yellow-500"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  {editingId === v.id ? (
-                    <Input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, v.id)}
-                      onBlur={() => handleSaveEdit(v.id)}
-                      autoFocus
-                      className="h-7 text-sm max-w-xs"
-                      placeholder="Имя переменной"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{v.name}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => handleStartEdit(v)}
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </Button>
-                    </div>
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3" data-pwcode="logic-formulas">
+        {vars.length === 0 ? (
+          <div className="text-center py-8 text-sm text-muted-foreground">
+            <p>Формулы ещё не созданы</p>
+            <p className="mt-2">Нажмите "Создать переменную" чтобы добавить формулу</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {vars.map((v, idx) => {
+              const varIssues = getVarIssues(v.id)
+              const hasError = varIssues.some(i => i.severity === 'error') || !!v.error
+              const hasWarning = varIssues.some(i => i.severity === 'warning')
+              const isCollapsed = collapsedVars.has(v.id)
+              
+              return (
+                <div 
+                  key={v.id}
+                  className={cn(
+                    "p-3 border rounded-md bg-card space-y-2",
+                    hasError && "border-destructive",
+                    hasWarning && !hasError && "border-yellow-500"
                   )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => toggleCollapse(v.id)}
+                    >
+                      {isCollapsed ? (
+                        <ChevronRight className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </Button>
+                    
+                    {editingId === v.id ? (
+                      <Input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, v.id)}
+                        onBlur={() => handleSaveEdit(v.id)}
+                        autoFocus
+                        className="h-7 text-sm max-w-xs"
+                        placeholder="Имя переменной"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{v.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => handleStartEdit(v)}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => {
+                            navigator.clipboard.writeText(v.name)
+                            toast.success('Название переменной скопировано')
+                          }}
+                        >
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
                   
                   <span className="text-sm text-muted-foreground">=</span>
                   
@@ -231,39 +261,43 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }:
                   </DropdownMenu>
                 </div>
                 
-                <Textarea
-                  value={v.formula}
-                  onChange={(e) => handleFormulaChange(v.id, e.target.value)}
-                  onBlur={(e) => handleFormulaBlur(v.id, e.target.value)}
-                  placeholder="Введите формулу..."
-                  className="min-h-[80px] font-mono text-xs"
-                />
-                
-                {v.error && (
-                  <div className="text-xs text-destructive flex items-start gap-1 p-2 rounded-md bg-destructive/10">
-                    <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                    <span>{v.error}</span>
-                  </div>
-                )}
-                
-                {varIssues.length > 0 && (
-                  <div className="space-y-1">
-                    {varIssues.map((issue, idx) => (
-                      <div 
-                        key={idx}
-                        className={cn(
-                          "text-xs flex items-start gap-1 p-2 rounded-md",
-                          issue.severity === 'error' ? "bg-destructive/10 text-destructive" : "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400"
-                        )}
-                      >
+                {!isCollapsed && (
+                  <>
+                    <Textarea
+                      value={v.formula}
+                      onChange={(e) => handleFormulaChange(v.id, e.target.value)}
+                      onBlur={(e) => handleFormulaBlur(v.id, e.target.value)}
+                      placeholder="Введите формулу..."
+                      className="min-h-[80px] font-mono text-xs"
+                    />
+                    
+                    {v.error && (
+                      <div className="text-xs text-destructive flex items-start gap-1 p-2 rounded-md bg-destructive/10">
                         <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <span>{issue.message}</span>
-                          {issue.hint && <p className="text-xs opacity-80 mt-1">{issue.hint}</p>}
-                        </div>
+                        <span>{v.error}</span>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                    
+                    {varIssues.length > 0 && (
+                      <div className="space-y-1">
+                        {varIssues.map((issue, idx) => (
+                          <div 
+                            key={idx}
+                            className={cn(
+                              "text-xs flex items-start gap-1 p-2 rounded-md",
+                              issue.severity === 'error' ? "bg-destructive/10 text-destructive" : "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400"
+                            )}
+                          >
+                            <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <span>{issue.message}</span>
+                              {issue.hint && <p className="text-xs opacity-80 mt-1">{issue.hint}</p>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )
@@ -283,6 +317,15 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }:
           </ul>
         </div>
       )}
+      </div>
+      
+      {/* Sticky footer - always visible */}
+      <div className="sticky bottom-0 p-4 bg-background border-t flex justify-end" role="contentinfo" aria-label="Formula actions">
+        <Button onClick={handleAddVar} size="sm" className="gap-2">
+          <Plus className="w-4 h-4" />
+          Создать переменную
+        </Button>
+      </div>
     </div>
   )
 }

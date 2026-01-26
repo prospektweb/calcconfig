@@ -168,7 +168,9 @@ function TagCloud({ items, onAddInput }: TagCloudProps) {
         <button 
           key={item.code}
           onClick={() => onAddInput(item.path, item.name, item.type)}
-          className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent whitespace-nowrap cursor-pointer"
+          className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent whitespace-nowrap cursor-pointer overflow-hidden text-ellipsis"
+          style={{ maxWidth: '280px' }}
+          title={item.label}
         >
           {item.label}
         </button>
@@ -823,10 +825,45 @@ export function ContextExplorer({
                                   <TagCloud items={(() => {
                                     const resultsTagItems: TagItem[] = []
                                     const outputsValue = stage.properties?.OUTPUTS?.VALUE
+                                    const outputsDesc = stage.properties?.OUTPUTS?.DESCRIPTION
                                     
                                     if (Array.isArray(outputsValue) && outputsValue.length > 0) {
-                                      // Standard result slugs
-                                      const standardResults = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
+                                      // Get settingsId for this stage to find variable types
+                                      const settingsId = stage.properties?.CALC_SETTINGS?.VALUE
+                                      const stageSettings = settingsId 
+                                        ? initPayload.elementsStore?.CALC_SETTINGS?.find((s: any) => s.id === Number(settingsId))
+                                        : null
+                                      
+                                      // Parse LOGIC_JSON to get variable types
+                                      const logicJsonRaw = stageSettings?.properties?.LOGIC_JSON 
+                                        ? (() => {
+                                            const prop = stageSettings.properties.LOGIC_JSON
+                                            const rawValue = prop?.["~VALUE"]
+                                            if (typeof rawValue === 'object' && rawValue !== null && typeof rawValue.TEXT === 'string') {
+                                              return rawValue.TEXT
+                                            }
+                                            if (typeof rawValue === 'string') {
+                                              return rawValue
+                                            }
+                                            return null
+                                          })()
+                                        : null
+                                      
+                                      let varsMap = new Map<string, ValueType>()
+                                      if (logicJsonRaw) {
+                                        try {
+                                          const parsed = JSON.parse(logicJsonRaw)
+                                          if (Array.isArray(parsed?.vars)) {
+                                            parsed.vars.forEach((v: any) => {
+                                              if (v.name && v.inferredType) {
+                                                varsMap.set(v.name, v.inferredType)
+                                              }
+                                            })
+                                          }
+                                        } catch (e) {
+                                          // Ignore parse errors
+                                        }
+                                      }
                                       
                                       outputsValue.forEach((outputStr, outputIndex) => {
                                         // Parse the output format: either "slug" or "slug|title"
@@ -841,12 +878,18 @@ export function ContextExplorer({
                                         const capitalizedSlug = slug.charAt(0).toUpperCase() + slug.slice(1)
                                         const paramName = `prevStageResults${capitalizedSlug}`
                                         
+                                        // Get variable name from DESCRIPTION
+                                        const varName = Array.isArray(outputsDesc) ? outputsDesc[outputIndex] : ''
+                                        
+                                        // Get type from vars map, default to 'unknown'
+                                        const varType = varName && varsMap.has(varName) ? varsMap.get(varName)! : 'unknown'
+                                        
                                         resultsTagItems.push({
                                           code: slug,
                                           label: label,
                                           name: paramName,
-                                          path: `elementsStore.CALC_STAGES[${prevStage.stageIndex}].properties.OUTPUTS[${outputIndex}].VALUE`,
-                                          type: 'unknown' // Results can be any type
+                                          path: `elementsStore.CALC_STAGES[${prevStage.stageIndex}].properties.OUTPUTS.DESCRIPTION[${outputIndex}]`,
+                                          type: varType
                                         })
                                       })
                                     }

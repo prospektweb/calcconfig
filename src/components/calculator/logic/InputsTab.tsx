@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Pencil, Trash2, AlertCircle, Info, Copy, FileCode } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -27,11 +27,33 @@ interface InputsTabProps {
   issues?: ValidationIssue[]
   activeInputId?: string | null
   onInputSelect?: (id: string | null) => void
+  newlyAddedId?: string | null
+  onNewlyAddedIdChange?: (id: string | null) => void
 }
 
-export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInputSelect }: InputsTabProps) {
+const HIGHLIGHT_DURATION_MS = 2000
+
+export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInputSelect, newlyAddedId, onNewlyAddedIdChange }: InputsTabProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
+  const newlyAddedRef = useRef<HTMLDivElement>(null)
+
+  // Handle scroll and animation for newly added input
+  useEffect(() => {
+    if (newlyAddedId && newlyAddedRef.current) {
+      // Scroll to element
+      newlyAddedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      
+      // Clear the newlyAddedId after the highlight duration
+      const timer = setTimeout(() => {
+        if (onNewlyAddedIdChange) {
+          onNewlyAddedIdChange(null)
+        }
+      }, HIGHLIGHT_DURATION_MS)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [newlyAddedId, onNewlyAddedIdChange])
 
   const handleStartEdit = (input: InputParam) => {
     setEditingId(input.id)
@@ -133,16 +155,19 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
             }
             
             const isActive = activeInputId === input.id
+            const isNewlyAdded = newlyAddedId === input.id
             
             return (
               <div 
                 key={input.id}
+                ref={isNewlyAdded ? newlyAddedRef : null}
                 className={cn(
                   "flex flex-col gap-2 p-2 border rounded-md bg-card cursor-pointer transition-colors",
                   hasError && "border-destructive",
                   hasWarning && !hasError && "border-yellow-500",
                   isActive && "border-primary bg-primary/5 shadow-md",
-                  !isActive && !hasError && !hasWarning && "hover:border-accent"
+                  !isActive && !hasError && !hasWarning && "hover:border-accent",
+                  isNewlyAdded && "animate-highlight-pulse"
                 )}
                 onClick={() => onInputSelect?.(isActive ? null : input.id)}
               >

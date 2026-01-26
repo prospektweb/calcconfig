@@ -112,7 +112,8 @@ function buildVarsFromInit(logicJsonProp: any): FormulaVar[] {
  */
 function buildResultsFromInit(
   outputsValue: string[] | undefined,
-  outputsDesc: string[] | undefined
+  outputsDesc: string[] | undefined,
+  inputNames: string[] = []
 ): { resultsHL: ResultsHL; additionalResults: AdditionalResult[] } {
   const REQUIRED_KEYS: Array<keyof ResultsHL> = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
   const resultsHL: ResultsHL = createEmptyResultsHL()
@@ -130,10 +131,13 @@ function buildResultsFromInit(
   outputsValue.forEach((keyValue, i) => {
     const varName = outputsDesc?.[i] || ''
     
+    // Определяем sourceKind на основе списка inputs
+    const sourceKind = inputNames.includes(varName) ? 'input' : 'var'
+    
     if (isResultsHLKey(keyValue)) {
       // Обязательный результат
       resultsHL[keyValue] = {
-        sourceKind: 'var',
+        sourceKind,
         sourceRef: varName
       }
     } else if (keyValue.includes('|')) {
@@ -143,7 +147,7 @@ function buildResultsFromInit(
         id: `additional_${slug}`,
         key: slug,
         title: title || '',
-        sourceKind: 'var',
+        sourceKind,
         sourceRef: varName
       })
     } else {
@@ -195,6 +199,9 @@ export function CalculationLogicDialog({
 
   // State for active input selection (for path editing)
   const [activeInputId, setActiveInputId] = useState<string | null>(null)
+  
+  // State for newly added input animation
+  const [newlyAddedInputId, setNewlyAddedInputId] = useState<string | null>(null)
 
   // State for logic editing
   const [inputs, setInputs] = useState<InputParam[]>([])
@@ -273,7 +280,8 @@ export function CalculationLogicDialog({
       // Build results from OUTPUTS
       const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
       const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-      const results = buildResultsFromInit(outputsValue, outputsDesc)
+      const inputNames = savedInputs.map(inp => inp.name)
+      const results = buildResultsFromInit(outputsValue, outputsDesc, inputNames)
       savedResultsHL = results.resultsHL
       savedAdditionalResults = results.additionalResults
     }
@@ -377,7 +385,8 @@ export function CalculationLogicDialog({
         
         const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
         const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-        const { resultsHL: savedResultsHL, additionalResults: savedAdditionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
+        const inputNames = savedInputs.map(inp => inp.name)
+        const { resultsHL: savedResultsHL, additionalResults: savedAdditionalResults } = buildResultsFromInit(outputsValue, outputsDesc, inputNames)
         
         return JSON.stringify({
           version: 1,
@@ -408,6 +417,14 @@ export function CalculationLogicDialog({
       }
     }
   }, [inputs, vars, resultsHL, writePlan, additionalResults, open, currentStageId, currentSettingsId, stageIndex, initPayload])
+
+  // Effect to switch panels when switching to "Formulas" tab
+  useEffect(() => {
+    if (activeTab === 'formulas') {
+      setLeftPanelCollapsed(true)
+      setRightPanelCollapsed(false)
+    }
+  }, [activeTab])
 
   // Auto-update inferred types for vars when inputs or formulas change
   useEffect(() => {
@@ -618,6 +635,7 @@ export function CalculationLogicDialog({
     
     setInputs([...inputs, newInput])
     setActiveTab('inputs')
+    setNewlyAddedInputId(newInput.id)
     toast.success(`Параметр "${uniqueName}" добавлен`)
   }
 
@@ -789,13 +807,14 @@ export function CalculationLogicDialog({
       const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
       
       // Build vars from LOGIC_JSON
-      const logicJsonRaw = settingsElement?.properties?.LOGIC_JSON?.['~VALUE']
-      const vars = buildVarsFromInit(logicJsonRaw)
+      const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
+      const vars = buildVarsFromInit(logicJsonProp)
       
       // Build results from OUTPUTS
       const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
       const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-      const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
+      const inputNames = inputs.map(inp => inp.name)
+      const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc, inputNames)
       
       setInputs(inputs)
       setVars(vars)
@@ -892,7 +911,7 @@ export function CalculationLogicDialog({
                 <ScrollArea className="flex-1">
                   {showJsonTree ? (
                     logicContext ? (
-                      <div data-pwcode="logic-context-tree">
+                      <div className="p-4" data-pwcode="logic-context-tree">
                         <JsonTree
                           data={logicContext}
                           onLeafClick={handleLeafClick}
@@ -968,6 +987,8 @@ export function CalculationLogicDialog({
                       issues={validationIssues}
                       activeInputId={activeInputId}
                       onInputSelect={setActiveInputId}
+                      newlyAddedId={newlyAddedInputId}
+                      onNewlyAddedIdChange={setNewlyAddedInputId}
                     />
                   </ScrollArea>
                 </TabsContent>
@@ -1017,7 +1038,7 @@ export function CalculationLogicDialog({
               <div className="flex-1 min-h-0 overflow-hidden">
                 <ScrollArea className="h-full">
                   <div className="p-4">
-                    <Accordion type="multiple" defaultValue={['syntax', 'functions']}>
+                    <Accordion type="multiple" defaultValue={activeTab === 'formulas' ? ['params-vars'] : ['syntax', 'functions']}>
                       {/* Syntax Section */}
                       <AccordionItem value="syntax">
                         <AccordionTrigger className="text-sm font-medium">Синтаксис</AccordionTrigger>
@@ -1088,6 +1109,62 @@ export function CalculationLogicDialog({
                               <div className="text-sm font-medium">Регулярные выражения</div>
                               <div className="text-xs text-muted-foreground">regexMatch, regexExtract</div>
                             </button>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                      
+                      {/* Parameters and Variables Section */}
+                      <AccordionItem value="params-vars">
+                        <AccordionTrigger className="text-sm font-medium">Параметры и переменные</AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-3">
+                            {/* Input Parameters Group */}
+                            <div>
+                              <h4 className="text-xs font-medium text-muted-foreground mb-2">Входные параметры</h4>
+                              <div className="flex flex-wrap gap-1.5">
+                                {inputs.length === 0 ? (
+                                  <div className="text-xs text-muted-foreground italic">Нет параметров</div>
+                                ) : (
+                                  inputs.map(input => (
+                                    <button
+                                      key={input.id}
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(input.name)
+                                        toast.success('Имя параметра скопировано')
+                                      }}
+                                      className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
+                                      title={`Кликните, чтобы скопировать: ${input.name}`}
+                                    >
+                                      {input.name}
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Variables Group */}
+                            <div>
+                              <h4 className="text-xs font-medium text-muted-foreground mb-2">Переменные</h4>
+                              <div className="flex flex-wrap gap-1.5">
+                                {vars.length === 0 ? (
+                                  <div className="text-xs text-muted-foreground italic">Нет переменных</div>
+                                ) : (
+                                  vars.map(v => (
+                                    <button
+                                      key={v.id}
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(v.name)
+                                        toast.success('Имя переменной скопировано')
+                                      }}
+                                      className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
+                                      title={`Кликните, чтобы скопировать: ${v.name}`}
+                                    >
+                                      {v.name}
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </AccordionContent>
                       </AccordionItem>
