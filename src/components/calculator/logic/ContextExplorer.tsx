@@ -193,19 +193,21 @@ function findPreviousStages(
   } else {
     // Current stage belongs to a binding
     
-    // First, add ALL stages from ALL nested details and bindings
-    const nestedDetailIds = sourceElement?.properties?.DETAILS?.VALUE
-    if (Array.isArray(nestedDetailIds)) {
+    // Helper function to recursively process a binding's contents
+    const processBindingContents = (binding: any, prefix: string = ''): void => {
+      const nestedDetailIds = binding.properties?.DETAILS?.VALUE
+      if (!Array.isArray(nestedDetailIds)) return
+      
       for (const detailIdStr of nestedDetailIds) {
         const detailId = Number(detailIdStr)
         const detail = allDetails.find((d: any) => d.id === detailId)
         if (!detail) continue
         
         const detailType = detail.properties?.TYPE?.VALUE_XML_ID
+        const detailName = prefix ? `${prefix}${detail.name}` : detail.name
         
         if (detailType === 'DETAIL') {
           // Add all stages from this detail
-          const detailName = detail.name
           const stageIds = detail.properties?.CALC_STAGES?.VALUE
           if (Array.isArray(stageIds)) {
             for (const stageIdStr of stageIds) {
@@ -214,36 +216,22 @@ function findPreviousStages(
           }
         } else if (detailType === 'BINDING') {
           // Recursively process nested binding
-          // For simplicity, we'll add all its stages here
-          // A more complete implementation would recursively process nested bindings
-          const bindingName = detail.name
-          
-          // Add stages from nested binding's details first
-          const nestedBindingDetailIds = detail.properties?.DETAILS?.VALUE
-          if (Array.isArray(nestedBindingDetailIds)) {
-            for (const nestedDetailIdStr of nestedBindingDetailIds) {
-              const nestedDetail = allDetails.find((d: any) => d.id === Number(nestedDetailIdStr))
-              if (nestedDetail && nestedDetail.properties?.TYPE?.VALUE_XML_ID === 'DETAIL') {
-                const nestedStageIds = nestedDetail.properties?.CALC_STAGES?.VALUE
-                if (Array.isArray(nestedStageIds)) {
-                  for (const stageIdStr of nestedStageIds) {
-                    addStage(Number(stageIdStr), `${bindingName} > ${nestedDetail.name}`)
-                  }
-                }
-              }
-            }
-          }
+          // First process its nested details/bindings
+          processBindingContents(detail, `${detailName} > `)
           
           // Then add nested binding's own stages
           const nestedBindingStageIds = detail.properties?.CALC_STAGES?.VALUE
           if (Array.isArray(nestedBindingStageIds)) {
             for (const stageIdStr of nestedBindingStageIds) {
-              addStage(Number(stageIdStr), bindingName)
+              addStage(Number(stageIdStr), detailName)
             }
           }
         }
       }
     }
+    
+    // First, add ALL stages from ALL nested details and bindings
+    processBindingContents(sourceElement, '')
     
     // Finally, add binding's own stages BEFORE current
     const bindingStageIds = sourceElement?.properties?.CALC_STAGES?.VALUE
