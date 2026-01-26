@@ -390,7 +390,7 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [], o
         onClick={handleAddVar} 
         size="sm" 
         className="absolute bottom-4 right-4 z-10 gap-2 shadow-lg"
-        style="position:sticky;right:16px;float:right;"
+        style={{ position: 'sticky', right: 16, float: 'right' }}
       >
         <Plus className="w-4 h-4" />
         Создать переменную
