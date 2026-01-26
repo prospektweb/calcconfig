@@ -112,7 +112,8 @@ function buildVarsFromInit(logicJsonProp: any): FormulaVar[] {
  */
 function buildResultsFromInit(
   outputsValue: string[] | undefined,
-  outputsDesc: string[] | undefined
+  outputsDesc: string[] | undefined,
+  inputNames: string[] = []
 ): { resultsHL: ResultsHL; additionalResults: AdditionalResult[] } {
   const REQUIRED_KEYS: Array<keyof ResultsHL> = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
   const resultsHL: ResultsHL = createEmptyResultsHL()
@@ -130,10 +131,13 @@ function buildResultsFromInit(
   outputsValue.forEach((keyValue, i) => {
     const varName = outputsDesc?.[i] || ''
     
+    // Определяем sourceKind на основе списка inputs
+    const sourceKind = inputNames.includes(varName) ? 'input' : 'var'
+    
     if (isResultsHLKey(keyValue)) {
       // Обязательный результат
       resultsHL[keyValue] = {
-        sourceKind: 'var',
+        sourceKind,
         sourceRef: varName
       }
     } else if (keyValue.includes('|')) {
@@ -143,7 +147,7 @@ function buildResultsFromInit(
         id: `additional_${slug}`,
         key: slug,
         title: title || '',
-        sourceKind: 'var',
+        sourceKind,
         sourceRef: varName
       })
     } else {
@@ -273,7 +277,8 @@ export function CalculationLogicDialog({
       // Build results from OUTPUTS
       const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
       const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-      const results = buildResultsFromInit(outputsValue, outputsDesc)
+      const inputNames = savedInputs.map(inp => inp.name)
+      const results = buildResultsFromInit(outputsValue, outputsDesc, inputNames)
       savedResultsHL = results.resultsHL
       savedAdditionalResults = results.additionalResults
     }
@@ -377,7 +382,8 @@ export function CalculationLogicDialog({
         
         const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
         const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-        const { resultsHL: savedResultsHL, additionalResults: savedAdditionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
+        const inputNames = savedInputs.map(inp => inp.name)
+        const { resultsHL: savedResultsHL, additionalResults: savedAdditionalResults } = buildResultsFromInit(outputsValue, outputsDesc, inputNames)
         
         return JSON.stringify({
           version: 1,
@@ -789,13 +795,14 @@ export function CalculationLogicDialog({
       const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
       
       // Build vars from LOGIC_JSON
-      const logicJsonRaw = settingsElement?.properties?.LOGIC_JSON?.['~VALUE']
-      const vars = buildVarsFromInit(logicJsonRaw)
+      const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
+      const vars = buildVarsFromInit(logicJsonProp)
       
       // Build results from OUTPUTS
       const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
       const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-      const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc)
+      const inputNames = inputs.map(inp => inp.name)
+      const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc, inputNames)
       
       setInputs(inputs)
       setVars(vars)
