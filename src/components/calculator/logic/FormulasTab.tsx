@@ -1,15 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Plus, Pencil, Trash2, Copy, AlertCircle, CheckCircle2, MoreVertical, ChevronDown, ChevronRight, GripVertical } from 'lucide-react'
+import { Plus, Pencil, Trash2, Copy, AlertCircle, CheckCircle2, ChevronDown, ChevronRight, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { FormulaVar, InputParam, ValidationIssue } from './types'
 import { validateFormula } from './validator'
 import { toast } from 'sonner'
@@ -190,7 +184,7 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [], o
   return (
     <div className="relative h-full">
       {/* Main content with padding for floating button */}
-      <div className="h-full overflow-y-auto p-4 space-y-3 pb-16" data-pwcode="logic-formulas">
+      <div className="h-full overflow-y-auto p-4 space-y-3 pb-20" data-pwcode="logic-formulas">
         {vars.length === 0 ? (
           <div className="text-center py-8 text-sm text-muted-foreground">
             <p>Формулы ещё не созданы</p>
@@ -302,26 +296,26 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [], o
                     </Badge>
                   ) : null}
                   
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleDuplicate(v)}>
-                        <Copy className="w-4 h-4 mr-2" />
-                        Дублировать
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => handleDelete(v.id)}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Удалить
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => handleDuplicate(v)}
+                      title="Дублировать"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      onClick={() => handleDelete(v.id)}
+                      title="Удалить"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
                 
                 {!isCollapsed && (
@@ -395,7 +389,7 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [], o
       <Button 
         onClick={handleAddVar} 
         size="sm" 
-        className="absolute bottom-4 right-4 gap-2 shadow-lg"
+        className="absolute bottom-4 right-4 z-10 gap-2 shadow-lg"
       >
         <Plus className="w-4 h-4" />
         Создать переменную

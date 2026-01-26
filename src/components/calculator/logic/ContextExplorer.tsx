@@ -65,47 +65,137 @@ interface StageHierarchyItem {
   stageIndex: number
 }
 
+/**
+ * Find all previous stages from the entire hierarchy (all details and bindings).
+ * This replaces the old findPreviousStages which only looked at the current detail.
+ * 
+ * The function collects ALL stages that appear before the current stage in the hierarchy order:
+ * 1. Top-level details (not in any binding)
+ * 2. Top-level bindings (not in any parent binding)
+ *    - For each binding: nested details → nested bindings → binding's own stages
+ */
 function findPreviousStages(
   currentStageId: number,
   currentDetailId: number | null | undefined,
   elementsStore: any
 ): StageHierarchyItem[] {
-  if (!elementsStore?.CALC_DETAILS || !elementsStore?.CALC_STAGES || !currentDetailId) {
+  if (!elementsStore?.CALC_STAGES) {
     return []
   }
 
-  const currentDetail = elementsStore.CALC_DETAILS.find(
-    (detail: CalcDetailElement) => detail.id === currentDetailId
-  )
-
-  if (!currentDetail) {
-    return []
-  }
-
-  const detailStageIds = currentDetail.properties?.CALC_STAGES?.VALUE
-  if (!Array.isArray(detailStageIds)) {
-    return []
-  }
-
-  const previousStages: StageHierarchyItem[] = []
+  const allDetails = elementsStore.CALC_DETAILS || []
+  const allBindings = elementsStore.CALC_BINDINGS || []
+  const allStages = elementsStore.CALC_STAGES || []
   
-  for (let i = 0; i < detailStageIds.length; i++) {
-    const stageId = Number(detailStageIds[i])
-    
+  const previousStages: StageHierarchyItem[] = []
+  const seenStageIds = new Set<number>()
+  
+  // Helper to add a stage if it hasn't been seen and isn't the current stage
+  const addStage = (stageId: number, sourceName?: string): boolean => {
     if (stageId === currentStageId) {
-      break
+      return false // Stop when we reach current stage
     }
-
-    const stage = elementsStore.CALC_STAGES.find((s: any) => s.id === stageId)
-    if (stage) {
-      previousStages.push({
-        stageId,
-        stageName: stage.name,
-        stageIndex: elementsStore.CALC_STAGES.findIndex((s: any) => s.id === stageId)
-      })
+    
+    if (!seenStageIds.has(stageId)) {
+      seenStageIds.add(stageId)
+      const stage = allStages.find((s: any) => s.id === stageId)
+      if (stage) {
+        previousStages.push({
+          stageId,
+          stageName: sourceName ? `${sourceName} / ${stage.name}` : stage.name,
+          stageIndex: allStages.findIndex((s: any) => s.id === stageId)
+        })
+      }
+    }
+    
+    return true // Continue
+  }
+  
+  // Process detail stages
+  const processDetail = (detail: any, prefix: string = ''): boolean => {
+    const stageIds = detail.properties?.CALC_STAGES?.VALUE
+    if (Array.isArray(stageIds)) {
+      for (const stageIdStr of stageIds) {
+        const stageId = Number(stageIdStr)
+        const detailName = prefix ? `${prefix}${detail.name}` : detail.name
+        if (!addStage(stageId, detailName)) {
+          return false // Stop if we hit current stage
+        }
+      }
+    }
+    return true
+  }
+  
+  // Process binding stages (recursively handles nested bindings and details)
+  const processBinding = (binding: any, prefix: string = ''): boolean => {
+    const bindingName = prefix ? `${prefix}${binding.name}` : binding.name
+    
+    // 1. First process nested details
+    const nestedDetailIds = binding.properties?.CALC_DETAILS?.VALUE
+    if (Array.isArray(nestedDetailIds)) {
+      for (const detailIdStr of nestedDetailIds) {
+        const detail = allDetails.find((d: any) => d.id === Number(detailIdStr))
+        if (detail) {
+          if (!processDetail(detail, `${bindingName} > `)) {
+            return false
+          }
+        }
+      }
+    }
+    
+    // 2. Then process nested bindings
+    const nestedBindingIds = binding.properties?.CALC_BINDINGS?.VALUE
+    if (Array.isArray(nestedBindingIds)) {
+      for (const bindingIdStr of nestedBindingIds) {
+        const nestedBinding = allBindings.find((b: any) => b.id === Number(bindingIdStr))
+        if (nestedBinding) {
+          if (!processBinding(nestedBinding, `${bindingName} > `)) {
+            return false
+          }
+        }
+      }
+    }
+    
+    // 3. Finally process binding's own stages
+    const stageIds = binding.properties?.CALC_STAGES?.VALUE
+    if (Array.isArray(stageIds)) {
+      for (const stageIdStr of stageIds) {
+        const stageId = Number(stageIdStr)
+        if (!addStage(stageId, bindingName)) {
+          return false
+        }
+      }
+    }
+    
+    return true
+  }
+  
+  // Process top-level details (not in any binding)
+  for (const detail of allDetails) {
+    const inBinding = allBindings.some((b: any) => 
+      Array.isArray(b.properties?.CALC_DETAILS?.VALUE) && 
+      b.properties.CALC_DETAILS.VALUE.includes(String(detail.id))
+    )
+    if (!inBinding) {
+      if (!processDetail(detail)) {
+        break
+      }
     }
   }
-
+  
+  // Process top-level bindings (not in any parent binding)
+  for (const binding of allBindings) {
+    const inParentBinding = allBindings.some((b: any) => 
+      Array.isArray(b.properties?.CALC_BINDINGS?.VALUE) && 
+      b.properties.CALC_BINDINGS.VALUE.includes(String(binding.id))
+    )
+    if (!inParentBinding) {
+      if (!processBinding(binding)) {
+        break
+      }
+    }
+  }
+  
   return previousStages
 }
 
@@ -360,7 +450,7 @@ interface SettingsSectionProps {
   stage: any  // CALC_STAGES element
   stageIndex: number
   settings: any  // CALC_SETTINGS element
-  customFieldsElements: any[]  // elementsStore.CUSTOM_FIELDS
+  customFieldsElements: any[]  // elementsStore.CALC_CUSTOM_FIELDS
   isPrevStage: boolean
   onAddInput: (path: string, name: string, valueType: ValueType) => void
 }
@@ -607,30 +697,6 @@ export function ContextExplorer({
     }
   }
 
-  // Build tag items for settings custom fields (moved from "Дополнительные параметры этапа")
-  const settingsCustomFieldsTagItems: TagItem[] = []
-  if (currentStage?.properties) {
-    if (currentStage.properties.OPERATION_QUANTITY) {
-      settingsCustomFieldsTagItems.push({
-        code: 'OPERATION_QUANTITY',
-        label: 'Количество операций',
-        name: generateParamName('stage', 'Settings', 'OPERATION_QUANTITY'),
-        path: currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}].properties.OPERATION_QUANTITY.VALUE` : 'elementsStore.CALC_STAGES.properties.OPERATION_QUANTITY.VALUE',
-        type: 'number'
-      })
-    }
-    
-    if (currentStage.properties.MATERIAL_QUANTITY) {
-      settingsCustomFieldsTagItems.push({
-        code: 'MATERIAL_QUANTITY',
-        label: 'Количество материалов',
-        name: generateParamName('stage', 'Settings', 'MATERIAL_QUANTITY'),
-        path: currentStageIndex >= 0 ? `elementsStore.CALC_STAGES[${currentStageIndex}].properties.MATERIAL_QUANTITY.VALUE` : 'elementsStore.CALC_STAGES.properties.MATERIAL_QUANTITY.VALUE',
-        type: 'number'
-      })
-    }
-  }
-
   return (
     <div className="h-full overflow-auto">
       <Accordion type="multiple" defaultValue={['offer', 'current-stage']} className="space-y-1">
@@ -675,17 +741,10 @@ export function ContextExplorer({
                     stage={currentStage}
                     stageIndex={currentStageIndex}
                     settings={stageElements.settings}
-                    customFieldsElements={initPayload?.elementsStore?.CUSTOM_FIELDS || []}
+                    customFieldsElements={initPayload?.elementsStore?.CALC_CUSTOM_FIELDS || []}
                     isPrevStage={false}
                     onAddInput={onAddInput}
                   />
-                )}
-                
-                {/* Add custom fields to settings section */}
-                {settingsCustomFieldsTagItems.length > 0 && stageElements.settings && (
-                  <div className="pl-2.5 pt-1">
-                    <TagCloud items={settingsCustomFieldsTagItems} onAddInput={onAddInput} />
-                  </div>
                 )}
 
                 {stageElements.operation && (
@@ -834,7 +893,7 @@ export function ContextExplorer({
                               stage={stage}
                               stageIndex={prevStage.stageIndex}
                               settings={settings}
-                              customFieldsElements={initPayload?.elementsStore?.CUSTOM_FIELDS || []}
+                              customFieldsElements={initPayload?.elementsStore?.CALC_CUSTOM_FIELDS || []}
                               isPrevStage={true}
                               onAddInput={onAddInput}
                             />
