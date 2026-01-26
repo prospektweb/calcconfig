@@ -356,6 +356,96 @@ function ElementSection({ title, element, elementType, section, subsection, inde
   )
 }
 
+interface SettingsSectionProps {
+  stage: any  // CALC_STAGES element
+  stageIndex: number
+  settings: any  // CALC_SETTINGS element
+  customFieldsElements: any[]  // elementsStore.CUSTOM_FIELDS
+  isPrevStage: boolean
+  onAddInput: (path: string, name: string, valueType: ValueType) => void
+}
+
+function SettingsSection({ 
+  stage, 
+  stageIndex, 
+  settings, 
+  customFieldsElements, 
+  isPrevStage,
+  onAddInput 
+}: SettingsSectionProps) {
+  const tagItems: TagItem[] = []
+  
+  const prefix = isPrevStage ? 'prevStage' : 'stage'
+  
+  // 1. Количество операций
+  if (stage.properties?.OPERATION_QUANTITY) {
+    tagItems.push({
+      code: 'OPERATION_QUANTITY',
+      label: 'Количество операций',
+      name: `${prefix}SettingsOPERATION_QUANTITY`,
+      path: `elementsStore.CALC_STAGES[${stageIndex}].properties.OPERATION_QUANTITY.VALUE`,
+      type: 'number'
+    })
+  }
+  
+  // 2. Количество материалов
+  if (stage.properties?.MATERIAL_QUANTITY) {
+    tagItems.push({
+      code: 'MATERIAL_QUANTITY',
+      label: 'Количество материалов',
+      name: `${prefix}SettingsMATERIAL_QUANTITY`,
+      path: `elementsStore.CALC_STAGES[${stageIndex}].properties.MATERIAL_QUANTITY.VALUE`,
+      type: 'number'
+    })
+  }
+  
+  // 3. CUSTOM_FIELDS
+  const customFieldIds = settings?.properties?.CUSTOM_FIELDS?.VALUE
+  if (Array.isArray(customFieldIds) && customFieldsElements) {
+    customFieldIds.forEach(cfId => {
+      const customField = customFieldsElements.find(cf => cf.id === Number(cfId))
+      if (!customField) return
+      
+      const code = customField.code
+      const fieldTypeXmlId = customField.properties?.FIELD_TYPE?.VALUE_XML_ID
+      
+      // Determine type
+      let valueType: ValueType = 'string'
+      if (fieldTypeXmlId === 'number') valueType = 'number'
+      else if (fieldTypeXmlId === 'checkbox') valueType = 'bool'
+      // text, select → string
+      
+      // Find path in CUSTOM_FIELDS_VALUE
+      const cfValues = stage.properties?.CUSTOM_FIELDS_VALUE?.VALUE
+      if (Array.isArray(cfValues)) {
+        const findIndex = cfValues.findIndex(v => v === code)
+        if (findIndex !== -1) {
+          tagItems.push({
+            code: code,
+            label: customField.name || code,
+            name: isPrevStage ? `prevStage${code}` : code,
+            path: `elementsStore.CALC_STAGES[${stageIndex}].properties.CUSTOM_FIELDS_VALUE.DESCRIPTION[${findIndex}]`,
+            type: valueType
+          })
+        }
+      }
+    })
+  }
+  
+  if (tagItems.length === 0) return null
+  
+  return (
+    <AccordionItem value={`settings-${stageIndex}-${isPrevStage ? 'prev' : 'curr'}`} className="border-none">
+      <AccordionTrigger className="text-xs hover:no-underline py-2 [&[data-state=open]>svg]:rotate-90">
+        Настройки
+      </AccordionTrigger>
+      <AccordionContent className="pb-2">
+        <TagCloud items={tagItems} onAddInput={onAddInput} />
+      </AccordionContent>
+    </AccordionItem>
+  )
+}
+
 export function ContextExplorer({
   initPayload,
   currentStageId,
@@ -580,15 +670,13 @@ export function ContextExplorer({
             </AccordionTrigger>
             <AccordionContent className="pb-2">
               <Accordion type="multiple" className="pl-2.5 space-y-1">
-                {stageElements.settings && (
-                  <ElementSection
-                    title="Настройки"
-                    element={stageElements.settings}
-                    elementType="CALC_SETTINGS"
-                    section="stage"
-                    subsection="Settings"
-                    index={stageElements.settingsIndex}
-                    initPayload={initPayload}
+                {stageElements.settings && currentStage && (
+                  <SettingsSection
+                    stage={currentStage}
+                    stageIndex={currentStageIndex}
+                    settings={stageElements.settings}
+                    customFieldsElements={initPayload?.elementsStore?.CUSTOM_FIELDS || []}
+                    isPrevStage={false}
                     onAddInput={onAddInput}
                   />
                 )}
@@ -741,15 +829,13 @@ export function ContextExplorer({
                       </AccordionTrigger>
                       <AccordionContent className="pb-2">
                         <Accordion type="multiple" className="pl-2.5 space-y-1">
-                          {settings && (
-                            <ElementSection
-                              title="Настройки"
-                              element={settings}
-                              elementType="CALC_SETTINGS"
-                              section="prevStage"
-                              subsection="Settings"
-                              index={settingsIndex}
-                              initPayload={initPayload}
+                          {settings && stage && (
+                            <SettingsSection
+                              stage={stage}
+                              stageIndex={prevStage.stageIndex}
+                              settings={settings}
+                              customFieldsElements={initPayload?.elementsStore?.CUSTOM_FIELDS || []}
+                              isPrevStage={true}
                               onAddInput={onAddInput}
                             />
                           )}

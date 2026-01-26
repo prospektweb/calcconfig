@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Pencil, Trash2, Copy, AlertCircle, CheckCircle2, MoreVertical, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, Copy, AlertCircle, CheckCircle2, MoreVertical, ChevronDown, ChevronRight, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -21,12 +21,39 @@ interface FormulasTabProps {
   onChange: (vars: FormulaVar[]) => void
   stageIndex: number
   issues?: ValidationIssue[]
+  onTextareaFocus?: (varId: string, cursorPosition: number) => void
+  onTextareaBlur?: () => void
 }
 
-export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }: FormulasTabProps) {
+export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [], onTextareaFocus, onTextareaBlur }: FormulasTabProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
-  const [collapsedVars, setCollapsedVars] = useState<Set<string>>(new Set())
+  // Initialize with all vars collapsed
+  const [collapsedVars, setCollapsedVars] = useState<Set<string>>(() => 
+    new Set(vars.map(v => v.id))
+  )
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  // Update collapsed vars when vars list changes
+  useEffect(() => {
+    setCollapsedVars(prev => {
+      const newSet = new Set(prev)
+      // Remove IDs that no longer exist
+      Array.from(newSet).forEach(id => {
+        if (!vars.some(v => v.id === id)) {
+          newSet.delete(id)
+        }
+      })
+      // Add new vars as collapsed (except if they were just added - they won't be in prev)
+      vars.forEach(v => {
+        if (!prev.has(v.id)) {
+          newSet.add(v.id)
+        }
+      })
+      return newSet
+    })
+  }, [vars.length])
 
   const generateVarName = (): string => {
     let counter = 1
@@ -44,6 +71,7 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }:
       error: null
     }
     onChange([...vars, newVar])
+    // Do NOT add to collapsedVars so it's expanded
     toast.success('Переменная создана')
   }
 
@@ -135,12 +163,34 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }:
     }
     setCollapsedVars(newCollapsed)
   }
+  
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index)
+  }
+  
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    setDragOverIndex(index)
+  }
+  
+  const handleDragEnd = () => {
+    if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
+      const newVars = [...vars]
+      const [draggedVar] = newVars.splice(draggedIndex, 1)
+      newVars.splice(dragOverIndex, 0, draggedVar)
+      onChange(newVars)
+      toast.success('Порядок переменных изменён')
+    }
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
 
   const errors = vars.filter(v => v.error).map(v => ({ name: v.name, error: v.error! }))
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-3" data-pwcode="logic-formulas">
+    <div className="relative h-full">
+      {/* Main content with padding for floating button */}
+      <div className="h-full overflow-y-auto p-4 space-y-3 pb-16" data-pwcode="logic-formulas">
         {vars.length === 0 ? (
           <div className="text-center py-8 text-sm text-muted-foreground">
             <p>Формулы ещё не созданы</p>
@@ -153,17 +203,30 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }:
               const hasError = varIssues.some(i => i.severity === 'error') || !!v.error
               const hasWarning = varIssues.some(i => i.severity === 'warning')
               const isCollapsed = collapsedVars.has(v.id)
+              const isDragging = draggedIndex === idx
+              const isDragOver = dragOverIndex === idx
               
               return (
                 <div 
                   key={v.id}
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDragEnd={handleDragEnd}
                   className={cn(
-                    "p-3 border rounded-md bg-card space-y-2",
+                    "p-3 border rounded-md bg-card space-y-2 transition-all",
                     hasError && "border-destructive",
-                    hasWarning && !hasError && "border-yellow-500"
+                    hasWarning && !hasError && "border-yellow-500",
+                    isDragging && "opacity-50",
+                    isDragOver && "border-primary border-2"
                   )}
                 >
                   <div className="flex items-center gap-2">
+                    {/* Drag handle */}
+                    <div className="cursor-move text-muted-foreground hover:text-foreground">
+                      <GripVertical className="w-4 h-4" />
+                    </div>
+                    
                     <Button
                       variant="ghost"
                       size="sm"
@@ -266,7 +329,16 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }:
                     <Textarea
                       value={v.formula}
                       onChange={(e) => handleFormulaChange(v.id, e.target.value)}
-                      onBlur={(e) => handleFormulaBlur(v.id, e.target.value)}
+                      onBlur={(e) => {
+                        handleFormulaBlur(v.id, e.target.value)
+                        // Save cursor position on blur
+                        onTextareaFocus?.(v.id, e.target.selectionStart || 0)
+                      }}
+                      onSelect={(e) => {
+                        // Update position on selection change
+                        const target = e.target as HTMLTextAreaElement
+                        onTextareaFocus?.(v.id, target.selectionStart || 0)
+                      }}
                       placeholder="Введите формулу..."
                       className="min-h-[80px] font-mono text-xs"
                     />
@@ -319,13 +391,15 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }:
       )}
       </div>
       
-      {/* Sticky footer - always visible */}
-      <div className="sticky bottom-0 p-4 bg-background border-t flex justify-end" role="contentinfo" aria-label="Formula actions">
-        <Button onClick={handleAddVar} size="sm" className="gap-2">
-          <Plus className="w-4 h-4" />
-          Создать переменную
-        </Button>
-      </div>
+      {/* Floating button - bottom right */}
+      <Button 
+        onClick={handleAddVar} 
+        size="sm" 
+        className="absolute bottom-4 right-4 gap-2 shadow-lg"
+      >
+        <Plus className="w-4 h-4" />
+        Создать переменную
+      </Button>
     </div>
   )
 }

@@ -202,6 +202,12 @@ export function CalculationLogicDialog({
   
   // State for newly added input animation
   const [newlyAddedInputId, setNewlyAddedInputId] = useState<string | null>(null)
+  
+  // State for cursor position tracking (for formula insertion)
+  const [lastTextareaFocus, setLastTextareaFocus] = useState<{
+    varId: string
+    cursorPosition: number
+  } | null>(null)
 
   // State for logic editing
   const [inputs, setInputs] = useState<InputParam[]>([])
@@ -418,13 +424,18 @@ export function CalculationLogicDialog({
     }
   }, [inputs, vars, resultsHL, writePlan, additionalResults, open, currentStageId, currentSettingsId, stageIndex, initPayload])
 
-  // Effect to switch panels when switching to "Formulas" tab
-  useEffect(() => {
-    if (activeTab === 'formulas') {
-      setLeftPanelCollapsed(true)
-      setRightPanelCollapsed(false)
+  // Handler for tab changes with automatic panel switching
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab)
+    
+    if (tab === 'inputs') {
+      setLeftPanelCollapsed(false)  // Open Context
+      setRightPanelCollapsed(true)  // Close Help
+    } else if (tab === 'formulas') {
+      setLeftPanelCollapsed(true)   // Close Context
+      setRightPanelCollapsed(false) // Open Help
     }
-  }, [activeTab])
+  }
 
   // Auto-update inferred types for vars when inputs or formulas change
   useEffect(() => {
@@ -637,6 +648,32 @@ export function CalculationLogicDialog({
     setActiveTab('inputs')
     setNewlyAddedInputId(newInput.id)
     toast.success(`Параметр "${uniqueName}" добавлен`)
+  }
+  
+  const handleInsertIntoFormula = (text: string) => {
+    if (lastTextareaFocus) {
+      // Insert into saved position
+      const { varId, cursorPosition } = lastTextareaFocus
+      
+      setVars(vars.map(v => {
+        if (v.id === varId) {
+          const before = v.formula.slice(0, cursorPosition)
+          const after = v.formula.slice(cursorPosition)
+          // Add spaces around text
+          const insertText = ` ${text} `
+          return { ...v, formula: before + insertText + after }
+        }
+        return v
+      }))
+      
+      // Reset after insertion
+      setLastTextareaFocus(null)
+      toast.success(`"${text}" вставлен в формулу`)
+    } else {
+      // Copy to clipboard without spaces
+      navigator.clipboard.writeText(text)
+      toast.success(`"${text}" скопирован в буфер обмена`)
+    }
   }
 
   const handleOpenHelp = (placeCode: string, title: string) => {
@@ -895,7 +932,7 @@ export function CalculationLogicDialog({
         <div className="flex flex-1 overflow-hidden min-h-0">
           {/* Left Panel - Context (Collapsible) */}
           {!leftPanelCollapsed && (
-            <div className="w-80 border-r border-border flex flex-col overflow-hidden h-full">
+            <div className="w-80 border-r border-border flex flex-col h-full">
               <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
                 <h3 className="font-medium text-sm">Контекст</h3>
                 <Button
@@ -907,8 +944,11 @@ export function CalculationLogicDialog({
                   <CaretLeft className="w-4 h-4" />
                 </Button>
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden relative flex flex-col">
-                <ScrollArea className="flex-1">
+              
+              {/* Container with content - FIXED */}
+              <div className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
+                {/* Main content with scroll */}
+                <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
                   {showJsonTree ? (
                     logicContext ? (
                       <div className="p-4" data-pwcode="logic-context-tree">
@@ -933,8 +973,10 @@ export function CalculationLogicDialog({
                       />
                     </div>
                   )}
-                </ScrollArea>
-                <div className="sticky bottom-0 p-2 bg-background border-t">
+                </div>
+                
+                {/* Toggle button - always at bottom */}
+                <div className="flex-shrink-0 p-2 bg-background border-t">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -964,7 +1006,7 @@ export function CalculationLogicDialog({
 
           {/* Center Panel - Editor (Main, Not Collapsible) */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0">
               <div className="px-4 py-3 border-b border-border flex-shrink-0">
                 <TabsList className="w-full justify-start">
                   <TabsTrigger value="inputs" className="flex-1">
@@ -1000,6 +1042,8 @@ export function CalculationLogicDialog({
                       onChange={setVars}
                       stageIndex={stageIndex}
                       issues={validationIssues}
+                      onTextareaFocus={(varId, cursorPosition) => setLastTextareaFocus({ varId, cursorPosition })}
+                      onTextareaBlur={() => setLastTextareaFocus(null)}
                     />
                   </ScrollArea>
                 </TabsContent>
@@ -1128,12 +1172,9 @@ export function CalculationLogicDialog({
                                   inputs.map(input => (
                                     <button
                                       key={input.id}
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(input.name)
-                                        toast.success('Имя параметра скопировано')
-                                      }}
+                                      onClick={() => handleInsertIntoFormula(input.name)}
                                       className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
-                                      title={`Кликните, чтобы скопировать: ${input.name}`}
+                                      title={`Кликните, чтобы вставить: ${input.name}`}
                                     >
                                       {input.name}
                                     </button>
@@ -1152,12 +1193,9 @@ export function CalculationLogicDialog({
                                   vars.map(v => (
                                     <button
                                       key={v.id}
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(v.name)
-                                        toast.success('Имя переменной скопировано')
-                                      }}
+                                      onClick={() => handleInsertIntoFormula(v.name)}
                                       className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
-                                      title={`Кликните, чтобы скопировать: ${v.name}`}
+                                      title={`Кликните, чтобы вставить: ${v.name}`}
                                     >
                                       {v.name}
                                     </button>
