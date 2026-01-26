@@ -31,6 +31,8 @@ interface InputsTabProps {
   onNewlyAddedIdChange?: (id: string | null) => void
 }
 
+const HIGHLIGHT_DURATION_MS = 2000
+
 export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInputSelect, newlyAddedId, onNewlyAddedIdChange }: InputsTabProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -42,12 +44,12 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
       // Scroll to element
       newlyAddedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
       
-      // Clear the newlyAddedId after 2 seconds
+      // Clear the newlyAddedId after the highlight duration
       const timer = setTimeout(() => {
         if (onNewlyAddedIdChange) {
           onNewlyAddedIdChange(null)
         }
-      }, 2000)
+      }, HIGHLIGHT_DURATION_MS)
       
       return () => clearTimeout(timer)
     }

@@ -139,8 +139,8 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }:
   const errors = vars.filter(v => v.error).map(v => ({ name: v.name, error: v.error! }))
 
   return (
-    <>
-      <div className="p-4 space-y-3" data-pwcode="logic-formulas">
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3" data-pwcode="logic-formulas">
         {vars.length === 0 ? (
           <div className="text-center py-8 text-sm text-muted-foreground">
             <p>Формулы ещё не созданы</p>
@@ -317,15 +317,15 @@ export function FormulasTab({ inputs, vars, onChange, stageIndex, issues = [] }:
           </ul>
         </div>
       )}
+      </div>
+      
+      {/* Sticky footer - always visible */}
+      <div className="sticky bottom-0 p-4 bg-background border-t flex justify-end" role="contentinfo" aria-label="Formula actions">
+        <Button onClick={handleAddVar} size="sm" className="gap-2">
+          <Plus className="w-4 h-4" />
+          Создать переменную
+        </Button>
+      </div>
     </div>
-    
-    {/* Sticky footer - always visible */}
-    <div className="sticky bottom-0 p-4 bg-background border-t flex justify-end">
-      <Button onClick={handleAddVar} size="sm" className="gap-2">
-        <Plus className="w-4 h-4" />
-        Создать переменную
-      </Button>
-    </div>
-  </>
   )
 }
