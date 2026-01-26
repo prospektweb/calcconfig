@@ -899,7 +899,7 @@ export function CalculationLogicDialog({
                 <ScrollArea className="flex-1">
                   {showJsonTree ? (
                     logicContext ? (
-                      <div data-pwcode="logic-context-tree">
+                      <div className="p-4" data-pwcode="logic-context-tree">
                         <JsonTree
                           data={logicContext}
                           onLeafClick={handleLeafClick}
