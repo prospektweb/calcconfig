@@ -94,6 +94,9 @@ function findPreviousStages(
   const allDetails = elementsStore.CALC_DETAILS || []
   const allStages = elementsStore.CALC_STAGES || []
   
+  // Note: In the Bitrix structure, bindings are also stored in CALC_DETAILS
+  // with TYPE.VALUE_XML_ID === 'BINDING'
+  
   const previousStages: StageHierarchyItem[] = []
   const seenStageIds = new Set<number>()
   
@@ -115,9 +118,10 @@ function findPreviousStages(
   }
   
   // Determine source type: is the current stage from a detail or a binding?
+  // If both IDs are provided, prioritize binding. If neither, default to detail.
   const sourceType: 'detail' | 'binding' = currentBindingId 
     ? 'binding' 
-    : (currentDetailId ? 'detail' : 'detail') // Default to detail if both are null
+    : 'detail'
   const sourceId = currentBindingId || currentDetailId
   
   // Find the source element (detail or binding that contains the current stage)
