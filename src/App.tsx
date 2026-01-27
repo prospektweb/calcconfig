@@ -1165,7 +1165,9 @@ function App() {
   const handleCalculation = async () => {
     console.log('[CALC_RUN] Starting calculation', { 
       detailsCount: details?.length || 0,
+      details: details?.map(d => ({ id: d.id, name: d.name, stagesCount: d.stages?.length || 0 })),
       bindingsCount: bindings?.length || 0,
+      bindings: bindings?.map(b => ({ id: b.id, name: b.name, detailIds: b.detailIds, bindingIds: b.bindingIds })),
       selectedOffers: selectedOffers.length
     })
     

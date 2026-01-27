@@ -7,7 +7,7 @@ import {
   AccordionItem, 
   AccordionTrigger 
 } from '@/components/ui/accordion'
-import { Copy, Code } from '@phosphor-icons/react'
+import { Copy, Code, CheckCircle, XCircle } from '@phosphor-icons/react'
 import { InfoMessage } from '@/lib/types'
 import { toast } from 'sonner'
 
@@ -212,15 +212,19 @@ export function CalculationReport({ message }: CalculationReportProps) {
   
   const details = data.children?.filter(child => child.level === 'detail') || []
   
+  // Determine if calculation was successful
+  const hasNonZeroPrices = data.purchasePrice > 0 || data.basePrice > 0
+  const isSuccessful = hasNonZeroPrices && details.length > 0
+  
   return (
     <div className="space-y-2">
       {/* Offer header */}
       <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <h4 className="font-semibold text-sm">
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="font-semibold text-sm flex-1">
             Торговое предложение: {data.offerName} | {message.offerId || ''}
           </h4>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <Button
               variant="ghost"
               size="sm"
@@ -239,6 +243,19 @@ export function CalculationReport({ message }: CalculationReportProps) {
             >
               <Copy className="w-4 h-4" />
             </Button>
+            {isSuccessful ? (
+              <CheckCircle 
+                className="w-5 h-5 text-green-600 dark:text-green-500" 
+                weight="fill"
+                title="Расчёт выполнен успешно"
+              />
+            ) : (
+              <XCircle 
+                className="w-5 h-5 text-red-600 dark:text-red-500" 
+                weight="fill"
+                title="Проблема с расчётом: нулевые значения или отсутствуют детали"
+              />
+            )}
           </div>
         </div>
         
