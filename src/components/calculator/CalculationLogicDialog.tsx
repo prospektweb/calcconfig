@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -218,6 +218,7 @@ export function CalculationLogicDialog({
   const [writePlan, setWritePlan] = useState<WritePlanItem[]>([])
   const [additionalResults, setAdditionalResults] = useState<AdditionalResult[]>([])
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
+  const previousInputsRef = useRef<InputParam[]>([])
 
   // State for save/draft management
   const [savedJson, setSavedJson] = useState<string | null>(null)
@@ -438,6 +439,82 @@ export function CalculationLogicDialog({
       setRightPanelCollapsed(false) // Open Help
     }
   }
+
+  const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  useEffect(() => {
+    const previousInputs = previousInputsRef.current
+
+    if (previousInputs.length === 0) {
+      previousInputsRef.current = inputs
+      return
+    }
+
+    const renames = inputs.reduce<Array<{ from: string; to: string }>>((acc, input) => {
+      const previous = previousInputs.find(prev => prev.id === input.id)
+      if (previous && previous.name !== input.name) {
+        acc.push({ from: previous.name, to: input.name })
+      }
+      return acc
+    }, [])
+
+    if (renames.length === 0) {
+      previousInputsRef.current = inputs
+      return
+    }
+
+    const replaceInFormula = (formula: string) =>
+      renames.reduce((current, rename) => {
+        const regex = new RegExp(`\\b${escapeRegExp(rename.from)}\\b`, 'g')
+        return current.replace(regex, rename.to)
+      }, formula)
+
+    setVars(prevVars => {
+      let hasChanges = false
+      const nextVars = prevVars.map(variable => {
+        const updatedFormula = replaceInFormula(variable.formula)
+        if (updatedFormula !== variable.formula) {
+          hasChanges = true
+          return { ...variable, formula: updatedFormula }
+        }
+        return variable
+      })
+      return hasChanges ? nextVars : prevVars
+    })
+
+    setResultsHL(prevResults => {
+      let hasChanges = false
+      const nextResults = { ...prevResults }
+      ;(Object.keys(nextResults) as Array<keyof ResultsHL>).forEach(key => {
+        const mapping = nextResults[key]
+        if (mapping.sourceKind !== 'input') return
+        const rename = renames.find(item => item.from === mapping.sourceRef)
+        if (rename) {
+          hasChanges = true
+          nextResults[key] = { ...mapping, sourceRef: rename.to }
+        }
+      })
+      return hasChanges ? nextResults : prevResults
+    })
+
+    setAdditionalResults(prevResults => {
+      let hasChanges = false
+      const nextResults = prevResults.map(result => {
+        if (result.sourceKind !== 'input') {
+          return result
+        }
+        const rename = renames.find(item => item.from === result.sourceRef)
+        if (!rename) {
+          return result
+        }
+        hasChanges = true
+        return { ...result, sourceRef: rename.to }
+      })
+      return hasChanges ? nextResults : prevResults
+    })
+
+    previousInputsRef.current = inputs
+  }, [inputs])
 
   // Auto-update inferred types for vars when inputs or formulas change
   useEffect(() => {
