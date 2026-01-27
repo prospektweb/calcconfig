@@ -1173,10 +1173,11 @@ function App() {
     setCalculationProgress(0)
     
     // Import calculation engine
-    const { calculateAllOffers, CalculationOfferResult } = await import('@/services/calculationEngine')
+    const calculationEngine = await import('@/services/calculationEngine')
+    const { calculateAllOffers } = calculationEngine
     
     try {
-      const results: any[] = []
+      const results: calculationEngine.CalculationOfferResult[] = []
       
       // Progress callback
       const progressCallback = (progress: any) => {

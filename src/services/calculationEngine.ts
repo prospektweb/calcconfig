@@ -9,7 +9,6 @@ import { Detail, Binding, StageInstance } from '@/lib/types'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { useOperationVariantStore } from '@/stores/operation-variant-store'
 import { useMaterialVariantStore } from '@/stores/material-variant-store'
-import { useReferencesStore } from '@/stores/references-store'
 
 export interface CalculationStageResult {
   stageId: string
@@ -91,16 +90,9 @@ async function calculateStage(
     const operationVariant = operationVariantStore.getVariant(stage.operationVariantId.toString())
     
     if (operationVariant) {
-      // Get base operation cost
-      const referencesStore = useReferencesStore.getState()
-      const operationId = operationVariant.properties?.CALC_OPERATIONS?.VALUE
-      
-      if (operationId) {
-        const operation = referencesStore.operations[Number(operationId)]
-        if (operation) {
-          operationCost = operation.price * (stage.operationQuantity || 1)
-        }
-      }
+      // Use price from variant if available
+      const price = operationVariant.purchasingPrice || 0
+      operationCost = price * (stage.operationQuantity || 1)
     }
   }
   
@@ -110,16 +102,9 @@ async function calculateStage(
     const materialVariant = materialVariantStore.getVariant(stage.materialVariantId.toString())
     
     if (materialVariant) {
-      // Get base material cost
-      const referencesStore = useReferencesStore.getState()
-      const materialId = materialVariant.properties?.CALC_MATERIALS?.VALUE
-      
-      if (materialId) {
-        const material = referencesStore.materials[Number(materialId)]
-        if (material) {
-          materialCost = material.price * (stage.materialQuantity || 1)
-        }
-      }
+      // Use price from variant if available
+      const price = materialVariant.purchasingPrice || 0
+      materialCost = price * (stage.materialQuantity || 1)
     }
   }
   
