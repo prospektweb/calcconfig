@@ -89,7 +89,7 @@ async function calculateStage(
     stageId: stage.id,
     stageName: stage.stageName,
     detailName: detail.name,
-    detailType: 'detailType' in detail ? 'binding' : 'detail',
+    detailType: 'detailIds' in detail ? 'binding' : 'detail',
   })
   
   // Simulate async operation
