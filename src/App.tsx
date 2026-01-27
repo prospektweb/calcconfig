@@ -1258,6 +1258,7 @@ function App() {
         details || [],
         bindings || [],
         bitrixMeta?.priceTypes || [],
+        bitrixMeta, // Pass initPayload
         progressCallback,
         undefined,
         offerCallback

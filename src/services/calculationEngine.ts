@@ -3,12 +3,22 @@
  * 
  * Performs progressive calculation for trade offers, details, bindings, and stages.
  * Executes calculations asynchronously to maintain UI responsiveness.
+ * Integrates LOGIC_JSON processing for dynamic formula-based calculations.
  */
 
 import { Detail, Binding, StageInstance } from '@/lib/types'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { useOperationVariantStore } from '@/stores/operation-variant-store'
 import { useMaterialVariantStore } from '@/stores/material-variant-store'
+import {
+  extractParams,
+  extractInputs,
+  extractLogicDefinition,
+  extractOutputs,
+  buildCalculationContext,
+  evaluateLogicVars,
+  mapOutputs,
+} from './calculationLogicProcessor'
 
 export interface CalculationStageResult {
   stageId: string
@@ -18,6 +28,10 @@ export interface CalculationStageResult {
   totalCost: number
   currency: string
   details?: string
+  // Enhanced fields for LOGIC_JSON integration
+  logicApplied?: boolean
+  variables?: Record<string, any>
+  outputs?: Record<string, any>
 }
 
 export interface CalculationDetailResult {
@@ -68,6 +82,7 @@ export type StepCallback = (result: CalculationStageResult | CalculationDetailRe
 async function calculateStage(
   stage: StageInstance,
   detail: Detail | Binding,
+  initPayload: any,
   stepCallback?: StepCallback
 ): Promise<CalculationStageResult> {
   // Simulate async operation
@@ -77,34 +92,97 @@ async function calculateStage(
   let materialCost = 0
   const currency = 'RUB'
   
-  // Get calculator settings
-  if (stage.settingsId) {
-    const settingsStore = useCalculatorSettingsStore.getState()
-    const settings = settingsStore.getSettings(stage.settingsId.toString())
-    // Settings contain custom fields and parameters
-  }
+  // Enhanced: Extract logic data from initPayload
+  let logicApplied = false
+  let evaluatedVars: Record<string, any> = {}
+  let outputValues: Record<string, any> = {}
   
-  // Calculate operation cost
-  if (stage.operationVariantId) {
-    const operationVariantStore = useOperationVariantStore.getState()
-    const operationVariant = operationVariantStore.getVariant(stage.operationVariantId.toString())
+  // Get calculator settings element
+  let settingsElement = null
+  let stageElement = null
+  
+  if (initPayload?.elementsStore) {
+    if (stage.settingsId) {
+      settingsElement = initPayload.elementsStore.CALC_SETTINGS?.find(
+        (s: any) => s.id === stage.settingsId
+      )
+    }
     
-    if (operationVariant) {
-      // Use price from variant if available
-      const price = operationVariant.purchasingPrice || 0
-      operationCost = price * (stage.operationQuantity || 1)
+    if (stage.stageId) {
+      stageElement = initPayload.elementsStore.CALC_STAGES?.find(
+        (s: any) => s.id === stage.stageId
+      )
     }
   }
   
-  // Calculate material cost
-  if (stage.materialVariantId) {
-    const materialVariantStore = useMaterialVariantStore.getState()
-    const materialVariant = materialVariantStore.getVariant(stage.materialVariantId.toString())
+  // Process LOGIC_JSON if available
+  if (settingsElement && stageElement && stage.stageId) {
+    try {
+      // Extract logic components
+      const params = extractParams(settingsElement)
+      const inputs = extractInputs(stageElement)
+      const logicDefinition = extractLogicDefinition(settingsElement)
+      const outputs = extractOutputs(stageElement)
+      
+      // Build calculation context with CURRENT_STAGE
+      const context = buildCalculationContext(
+        initPayload,
+        inputs,
+        stage.stageId
+      )
+      
+      // Evaluate LOGIC_JSON variables
+      evaluatedVars = evaluateLogicVars(logicDefinition, context)
+      
+      // Map results to outputs
+      outputValues = mapOutputs(evaluatedVars, outputs)
+      
+      logicApplied = true
+      
+      // Use calculated values if available
+      if (outputValues.purchasingPrice !== undefined) {
+        operationCost = Number(outputValues.purchasingPrice) || 0
+      }
+      
+      if (outputValues.materialCost !== undefined) {
+        materialCost = Number(outputValues.materialCost) || 0
+      }
+    } catch (error) {
+      console.warn('[CALC] Logic processing failed for stage:', stage.id, error)
+    }
+  }
+  
+  // Fallback to basic calculation if logic not applied
+  if (!logicApplied || (operationCost === 0 && materialCost === 0)) {
+    // Get calculator settings
+    if (stage.settingsId) {
+      const settingsStore = useCalculatorSettingsStore.getState()
+      const settings = settingsStore.getSettings(stage.settingsId.toString())
+      // Settings contain custom fields and parameters
+    }
     
-    if (materialVariant) {
-      // Use price from variant if available
-      const price = materialVariant.purchasingPrice || 0
-      materialCost = price * (stage.materialQuantity || 1)
+    // Calculate operation cost
+    if (stage.operationVariantId) {
+      const operationVariantStore = useOperationVariantStore.getState()
+      const operationVariant = operationVariantStore.getVariant(stage.operationVariantId.toString())
+      
+      if (operationVariant) {
+        // Use price from variant if available
+        const price = operationVariant.purchasingPrice || 0
+        operationCost = price * (stage.operationQuantity || 1)
+      }
+    }
+    
+    // Calculate material cost
+    if (stage.materialVariantId) {
+      const materialVariantStore = useMaterialVariantStore.getState()
+      const materialVariant = materialVariantStore.getVariant(stage.materialVariantId.toString())
+      
+      if (materialVariant) {
+        // Use price from variant if available
+        const price = materialVariant.purchasingPrice || 0
+        materialCost = price * (stage.materialQuantity || 1)
+      }
     }
   }
   
@@ -115,6 +193,9 @@ async function calculateStage(
     materialCost,
     totalCost: operationCost + materialCost,
     currency,
+    logicApplied,
+    variables: logicApplied ? evaluatedVars : undefined,
+    outputs: logicApplied ? outputValues : undefined,
   }
   
   if (stepCallback) {
@@ -130,6 +211,7 @@ async function calculateStage(
 async function calculateDetail(
   detail: Detail,
   bindings: Binding[],
+  initPayload: any,
   stepCallback?: StepCallback,
   progressCallback?: ProgressCallback,
   currentStep?: { value: number },
@@ -149,7 +231,7 @@ async function calculateDetail(
       })
     }
     
-    const stageResult = await calculateStage(stage, detail, stepCallback)
+    const stageResult = await calculateStage(stage, detail, initPayload, stepCallback)
     stageResults.push(stageResult)
   }
   
@@ -179,6 +261,7 @@ async function calculateBinding(
   binding: Binding,
   details: Detail[],
   bindings: Binding[],
+  initPayload: any,
   stepCallback?: StepCallback,
   progressCallback?: ProgressCallback,
   currentStep?: { value: number },
@@ -208,7 +291,7 @@ async function calculateBinding(
   for (const detailId of binding.detailIds || []) {
     const childDetail = details.find(d => d.id === detailId)
     if (childDetail) {
-      const childResult = await calculateDetail(childDetail, bindings, stepCallback, progressCallback, currentStep, totalSteps)
+      const childResult = await calculateDetail(childDetail, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps)
       children.push(childResult)
     }
   }
@@ -217,7 +300,7 @@ async function calculateBinding(
   for (const bindingId of binding.bindingIds || []) {
     const childBinding = bindings.find(b => b.id === bindingId)
     if (childBinding) {
-      const childResult = await calculateBinding(childBinding, details, bindings, stepCallback, progressCallback, currentStep, totalSteps, visited)
+      const childResult = await calculateBinding(childBinding, details, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps, visited)
       children.push(childResult)
     }
   }
@@ -234,7 +317,7 @@ async function calculateBinding(
       })
     }
     
-    const stageResult = await calculateStage(stage, binding, stepCallback)
+    const stageResult = await calculateStage(stage, binding, initPayload, stepCallback)
     stageResults.push(stageResult)
   }
   
@@ -434,6 +517,7 @@ export async function calculateOffer(
     base: boolean
     sort: number
   }>,
+  initPayload: any,
   progressCallback?: ProgressCallback,
   stepCallback?: StepCallback
 ): Promise<CalculationOfferResult> {
@@ -454,13 +538,13 @@ export async function calculateOffer(
   
   // Calculate top-level details
   for (const detail of topLevelDetails) {
-    const result = await calculateDetail(detail, bindings, stepCallback, progressCallback, currentStep, totalSteps)
+    const result = await calculateDetail(detail, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps)
     detailResults.push(result)
   }
   
   // Calculate top-level bindings
   for (const binding of topLevelBindings) {
-    const result = await calculateBinding(binding, details, bindings, stepCallback, progressCallback, currentStep, totalSteps)
+    const result = await calculateBinding(binding, details, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps)
     detailResults.push(result)
   }
   
@@ -523,6 +607,7 @@ export async function calculateAllOffers(
     base: boolean
     sort: number
   }>,
+  initPayload: any,
   progressCallback?: ProgressCallback,
   stepCallback?: StepCallback,
   offerCallback?: (result: CalculationOfferResult) => void
@@ -548,6 +633,7 @@ export async function calculateAllOffers(
       details,
       bindings,
       priceTypes,
+      initPayload,
       progressCallback,
       stepCallback
     )
