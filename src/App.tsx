@@ -57,6 +57,7 @@ import { useMaterialSettingsStore } from '@/stores/material-settings-store'
 import { useOperationVariantStore } from '@/stores/operation-variant-store'
 import { useMaterialVariantStore } from '@/stores/material-variant-store'
 import { transformBitrixTreeSelectElement, transformBitrixTreeSelectChild } from '@/lib/bitrix-transformers'
+import { calculateStageReadiness, hasDraftForStage } from '@/lib/stage-utils'
 
 // Helper function to check if targetBinding is a descendant of sourceBinding
 function isDescendant(
@@ -210,6 +211,100 @@ function App() {
       console.log(`[${source}] Calculator settings loaded successfully`)
     }
   }, [])
+
+  /**
+   * Check readiness of all stages across all details and bindings
+   * @returns Object with canCalculate flag and list of blocking stages
+   */
+  const checkAllStagesReadiness = useCallback(() => {
+    if (!bitrixMeta?.elementsStore?.CALC_STAGES) {
+      console.log('[READINESS CHECK] No elementsStore.CALC_STAGES available')
+      return { canCalculate: true, blockingStages: [] }
+    }
+
+    const blockingStages: Array<{
+      detailName: string
+      stageName: string
+      stageId: number
+      settingsId: number
+      reason: string
+    }> = []
+
+    // Check all details
+    details.forEach(detail => {
+      detail.stages.forEach(stage => {
+        if (stage.stageId !== null && stage.settingsId !== null) {
+          // Find stage element in elementsStore
+          const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find(s => s.id === stage.stageId)
+          const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
+          
+          // Check for draft
+          const hasDraft = hasDraftForStage(stage.stageId, stage.settingsId)
+          
+          // Calculate readiness
+          const readiness = calculateStageReadiness(outputsValue, hasDraft)
+          
+          if (!readiness.ready) {
+            blockingStages.push({
+              detailName: detail.name,
+              stageName: stage.stageName || stageElement?.name || `Stage #${stage.stageId}`,
+              stageId: stage.stageId,
+              settingsId: stage.settingsId,
+              reason: readiness.reason || 'Unknown reason'
+            })
+          }
+        }
+      })
+    })
+
+    // Check all bindings
+    bindings.forEach(binding => {
+      binding.stages.forEach(stage => {
+        if (stage.stageId !== null && stage.settingsId !== null) {
+          // Find stage element in elementsStore
+          const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find(s => s.id === stage.stageId)
+          const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
+          
+          // Check for draft
+          const hasDraft = hasDraftForStage(stage.stageId, stage.settingsId)
+          
+          // Calculate readiness
+          const readiness = calculateStageReadiness(outputsValue, hasDraft)
+          
+          if (!readiness.ready) {
+            blockingStages.push({
+              detailName: binding.name,
+              stageName: stage.stageName || stageElement?.name || `Stage #${stage.stageId}`,
+              stageId: stage.stageId,
+              settingsId: stage.settingsId,
+              reason: readiness.reason || 'Unknown reason'
+            })
+          }
+        }
+      })
+    })
+
+    // Log diagnostic information
+    if (blockingStages.length > 0) {
+      console.warn('[READINESS CHECK] Calculate button hidden due to blocking stages:', blockingStages)
+      blockingStages.forEach(stage => {
+        console.warn(`  - [${stage.detailName}] ${stage.stageName} (stageId=${stage.stageId}, settingsId=${stage.settingsId}): ${stage.reason}`)
+      })
+    } else {
+      console.log('[READINESS CHECK] All stages ready - Calculate button visible')
+    }
+
+    return {
+      canCalculate: blockingStages.length === 0,
+      blockingStages
+    }
+  }, [bitrixMeta, details, bindings])
+
+  // Update canCalculate state whenever details, bindings, or bitrixMeta changes
+  useEffect(() => {
+    const { canCalculate: calculable } = checkAllStagesReadiness()
+    setCanCalculate(calculable)
+  }, [details, bindings, bitrixMeta, checkAllStagesReadiness])
 
   // Helper function to send REMOVE_DETAIL_REQUEST
   const sendRemoveDetailRequestHelper = useCallback((detailBitrixId: number, parentId: number | null) => {
@@ -1872,15 +1967,17 @@ function App() {
                   Сохранить расчёты
                 </Button>
               )}
-              <Button 
-                size="sm" 
-                onClick={handleCalculation} 
-                disabled={isCalculating}
-                data-pwcode="btn-calc"
-              >
-                <Calculator className="w-4 h-4 mr-2" />
-                Рассчитать
-              </Button>
+              {canCalculate && (
+                <Button 
+                  size="sm" 
+                  onClick={handleCalculation} 
+                  disabled={isCalculating}
+                  data-pwcode="btn-calc"
+                >
+                  <Calculator className="w-4 h-4 mr-2" />
+                  Рассчитать
+                </Button>
+              )}
               <Button 
                 variant="outline" 
                 size="sm" 
