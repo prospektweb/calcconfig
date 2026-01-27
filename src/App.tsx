@@ -217,8 +217,10 @@ function App() {
    * @returns Object with canCalculate flag and list of blocking stages
    */
   const checkAllStagesReadiness = useCallback(() => {
+    // If there's no CALC_STAGES data, allow calculation to proceed
+    // This handles the case where the system is initializing or no stages exist yet
     if (!bitrixMeta?.elementsStore?.CALC_STAGES) {
-      console.log('[READINESS CHECK] No elementsStore.CALC_STAGES available')
+      console.log('[READINESS CHECK] No elementsStore.CALC_STAGES available - allowing calculation')
       return { canCalculate: true, blockingStages: [] }
     }
 
@@ -230,58 +232,41 @@ function App() {
       reason: string
     }> = []
 
+    /**
+     * Helper to check a single stage's readiness
+     */
+    const checkStage = (stage: typeof details[0]['stages'][0], containerName: string) => {
+      if (stage.stageId !== null && stage.settingsId !== null) {
+        // Find stage element in elementsStore
+        const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find(s => s.id === stage.stageId)
+        const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
+        
+        // Check for draft
+        const hasDraft = hasDraftForStage(stage.stageId, stage.settingsId)
+        
+        // Calculate readiness
+        const readiness = calculateStageReadiness(outputsValue, hasDraft)
+        
+        if (!readiness.ready) {
+          blockingStages.push({
+            detailName: containerName,
+            stageName: stage.stageName || stageElement?.name || `Stage #${stage.stageId}`,
+            stageId: stage.stageId,
+            settingsId: stage.settingsId,
+            reason: readiness.reason || 'Unknown reason'
+          })
+        }
+      }
+    }
+
     // Check all details
     details.forEach(detail => {
-      detail.stages.forEach(stage => {
-        if (stage.stageId !== null && stage.settingsId !== null) {
-          // Find stage element in elementsStore
-          const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find(s => s.id === stage.stageId)
-          const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
-          
-          // Check for draft
-          const hasDraft = hasDraftForStage(stage.stageId, stage.settingsId)
-          
-          // Calculate readiness
-          const readiness = calculateStageReadiness(outputsValue, hasDraft)
-          
-          if (!readiness.ready) {
-            blockingStages.push({
-              detailName: detail.name,
-              stageName: stage.stageName || stageElement?.name || `Stage #${stage.stageId}`,
-              stageId: stage.stageId,
-              settingsId: stage.settingsId,
-              reason: readiness.reason || 'Unknown reason'
-            })
-          }
-        }
-      })
+      detail.stages.forEach(stage => checkStage(stage, detail.name))
     })
 
     // Check all bindings
     bindings.forEach(binding => {
-      binding.stages.forEach(stage => {
-        if (stage.stageId !== null && stage.settingsId !== null) {
-          // Find stage element in elementsStore
-          const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find(s => s.id === stage.stageId)
-          const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
-          
-          // Check for draft
-          const hasDraft = hasDraftForStage(stage.stageId, stage.settingsId)
-          
-          // Calculate readiness
-          const readiness = calculateStageReadiness(outputsValue, hasDraft)
-          
-          if (!readiness.ready) {
-            blockingStages.push({
-              detailName: binding.name,
-              stageName: stage.stageName || stageElement?.name || `Stage #${stage.stageId}`,
-              stageId: stage.stageId,
-              settingsId: stage.settingsId,
-              reason: readiness.reason || 'Unknown reason'
-            })
-          }
-        }
-      })
+      binding.stages.forEach(stage => checkStage(stage, binding.name))
     })
 
     // Log diagnostic information
