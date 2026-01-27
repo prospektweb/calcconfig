@@ -189,12 +189,26 @@ export function buildCalculationContext(
 /**
  * Simple formula evaluator
  * Supports basic arithmetic and variable references
- * For production, consider using a proper expression parser
+ * 
+ * SECURITY NOTE: Uses Function constructor for formula evaluation.
+ * For production, consider using a safe expression parser library like expr-eval
+ * or mathjs to avoid potential code injection risks.
+ * 
+ * Current implementation is safe when formulas are controlled by administrators
+ * via LOGIC_JSON in CALC_SETTINGS (not user input).
  */
-export function evaluateFormula(formula: string, context: Record<string, any>): any {
+export function evaluateFormula(formula: string, context: Record<string, any>): number | string | boolean | undefined {
   if (!formula) return undefined
 
   try {
+    // Basic validation: only allow safe characters
+    // This is a simple check - for production use a proper parser
+    const safePattern = /^[a-zA-Z0-9_\s+\-*/().><=&|!]+$/
+    if (!safePattern.test(formula)) {
+      console.warn('[CALC] Formula contains unsafe characters:', formula)
+      return undefined
+    }
+    
     // Replace variable references with context values
     // This is a simple implementation - for production use a proper parser
     const func = new Function(...Object.keys(context), `return ${formula}`)
@@ -207,6 +221,10 @@ export function evaluateFormula(formula: string, context: Record<string, any>): 
 
 /**
  * Evaluate all variables from LOGIC_JSON in dependency order
+ * 
+ * NOTE: Current implementation processes variables sequentially.
+ * For production with complex dependencies, implement topological sorting
+ * to ensure variables are evaluated in correct dependency order.
  */
 export function evaluateLogicVars(
   logicDefinition: LogicDefinition | null,
@@ -221,13 +239,14 @@ export function evaluateLogicVars(
 
   console.log('[CALC] Evaluating', logicDefinition.vars.length, 'variables')
 
-  // Simple evaluation - process variables in order
-  // For production, implement proper dependency resolution
+  // Process variables in order
+  // Variables can reference previously calculated variables
+  // For complex dependency graphs, implement topological sorting
   for (const varDef of logicDefinition.vars) {
     if (!varDef.name) continue
 
     if (varDef.formula) {
-      // Evaluate formula
+      // Evaluate formula with current results (includes previously calculated vars)
       const value = evaluateFormula(varDef.formula, results)
       results[varDef.name] = value
       console.log('[CALC] Var', varDef.name, '=', value, 'from formula:', varDef.formula)

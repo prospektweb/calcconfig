@@ -148,21 +148,19 @@ async function calculateStage(
         })
         
         // Use calculated values if available
-        // purchasingPrice is typically the total cost for the stage
-        if (outputValues.purchasingPrice !== undefined) {
+        // Priority: specific costs (operationCost/materialCost) > total (purchasingPrice)
+        
+        // 1. Check for specific operation and material costs first
+        if (outputValues.operationCost !== undefined || outputValues.materialCost !== undefined) {
+          operationCost = Number(outputValues.operationCost) || 0
+          materialCost = Number(outputValues.materialCost) || 0
+        }
+        // 2. If only purchasingPrice provided, treat as total operation cost
+        // (common for service-based calculations where material cost is separate or zero)
+        else if (outputValues.purchasingPrice !== undefined) {
           const totalCost = Number(outputValues.purchasingPrice) || 0
-          // Split into operation and material if not specified separately
           operationCost = totalCost
           materialCost = 0
-        }
-        
-        // Override with separate costs if provided
-        if (outputValues.operationCost !== undefined) {
-          operationCost = Number(outputValues.operationCost) || 0
-        }
-        
-        if (outputValues.materialCost !== undefined) {
-          materialCost = Number(outputValues.materialCost) || 0
         }
       } else {
         console.log('[CALC] No logic definition or outputs for stage:', stage.id)
@@ -172,9 +170,15 @@ async function calculateStage(
     }
   }
   
-  // Fallback to basic calculation if logic not applied or no costs calculated
-  if (!logicApplied || (operationCost === 0 && materialCost === 0)) {
-    console.log('[CALC] Using fallback calculation for stage:', stage.id, { logicApplied })
+  // Fallback to basic calculation if logic not applied or produced no output values
+  // Note: Zero costs can be legitimate, so we check if outputs were actually produced
+  const hasOutputValues = logicApplied && Object.keys(outputValues).length > 0
+  
+  if (!hasOutputValues) {
+    console.log('[CALC] Using fallback calculation for stage:', stage.id, { 
+      logicApplied, 
+      outputCount: Object.keys(outputValues).length 
+    })
     
     // Get calculator settings
     if (stage.settingsId) {
