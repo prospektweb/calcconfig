@@ -1174,19 +1174,19 @@ function App() {
     
     // Import calculation engine
     const calculationEngine = await import('@/services/calculationEngine')
-    const { calculateAllOffers } = calculationEngine
+    const { calculateAllOffers, CalculationProgress, CalculationOfferResult, CalculationDetailResult, CalculationStageResult } = calculationEngine
     
     try {
-      const results: calculationEngine.CalculationOfferResult[] = []
+      const results: CalculationOfferResult[] = []
       
       // Progress callback
-      const progressCallback = (progress: any) => {
+      const progressCallback = (progress: CalculationProgress) => {
         setCalculationProgress(progress.percentage)
         console.log('[CALC_PROGRESS]', progress.message, `${progress.percentage}%`)
       }
       
       // Offer callback - add result to info panel
-      const offerCallback = (result: any) => {
+      const offerCallback = (result: CalculationOfferResult) => {
         // Convert calculation result to InfoMessage format
         const offerMessage: InfoMessage = {
           id: `calc_${result.offerId}_${Date.now()}`,
@@ -1206,7 +1206,7 @@ function App() {
             basePrice: result.totalBasePrice,
             currency: result.currency,
             pricesWithMarkup: result.pricesWithMarkup,
-            children: result.details.map((detail: any) => convertDetailToMessage(detail)),
+            children: result.details.map((detail) => convertDetailToMessage(detail)),
           },
         }
         
@@ -1215,7 +1215,7 @@ function App() {
       }
       
       // Helper function to convert detail result to message
-      const convertDetailToMessage = (detail: any): InfoMessage => {
+      const convertDetailToMessage = (detail: CalculationDetailResult): InfoMessage => {
         return {
           id: `detail_${detail.detailId}_${Date.now()}_${Math.random()}`,
           type: 'info',
@@ -1230,8 +1230,8 @@ function App() {
             basePrice: detail.basePrice,
             currency: detail.currency,
             children: [
-              ...(detail.children || []).map((child: any) => convertDetailToMessage(child)),
-              ...(detail.stages || []).map((stage: any) => ({
+              ...(detail.children || []).map((child) => convertDetailToMessage(child)),
+              ...(detail.stages || []).map((stage: CalculationStageResult) => ({
                 id: `stage_${stage.stageId}_${Date.now()}_${Math.random()}`,
                 type: 'info' as const,
                 message: stage.stageName,

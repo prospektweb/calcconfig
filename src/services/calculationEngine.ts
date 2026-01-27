@@ -182,8 +182,25 @@ async function calculateBinding(
   stepCallback?: StepCallback,
   progressCallback?: ProgressCallback,
   currentStep?: { value: number },
-  totalSteps?: number
+  totalSteps?: number,
+  visited: Set<string> = new Set()
 ): Promise<CalculationDetailResult> {
+  // Prevent circular references
+  if (visited.has(binding.id)) {
+    console.warn(`[CALC] Circular reference detected in binding: ${binding.id}`)
+    return {
+      detailId: binding.id,
+      detailName: binding.name,
+      detailType: 'binding',
+      stages: [],
+      purchasePrice: 0,
+      basePrice: 0,
+      currency: 'RUB',
+      children: [],
+    }
+  }
+  visited.add(binding.id)
+  
   const children: CalculationDetailResult[] = []
   const stageResults: CalculationStageResult[] = []
   
@@ -200,7 +217,7 @@ async function calculateBinding(
   for (const bindingId of binding.bindingIds || []) {
     const childBinding = bindings.find(b => b.id === bindingId)
     if (childBinding) {
-      const childResult = await calculateBinding(childBinding, details, bindings, stepCallback, progressCallback, currentStep, totalSteps)
+      const childResult = await calculateBinding(childBinding, details, bindings, stepCallback, progressCallback, currentStep, totalSteps, visited)
       children.push(childResult)
     }
   }
@@ -465,7 +482,7 @@ export async function calculateOffer(
     productName: product?.name || 'Unknown Product',
     presetId: preset?.id,
     presetName: preset?.name,
-    presetModified: undefined, // TODO: Get from preset metadata
+    presetModified: preset?.properties?.DATE_MODIFY ? String(preset.properties.DATE_MODIFY) : undefined,
     details: detailResults,
     totalPurchasePrice,
     totalBasePrice,
