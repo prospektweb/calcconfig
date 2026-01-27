@@ -289,7 +289,7 @@ function App() {
   useEffect(() => {
     const { canCalculate: calculable } = checkAllStagesReadiness()
     setCanCalculate(calculable)
-  }, [details, bindings, bitrixMeta, checkAllStagesReadiness])
+  }, [checkAllStagesReadiness])
 
   // Helper function to send REMOVE_DETAIL_REQUEST
   const sendRemoveDetailRequestHelper = useCallback((detailBitrixId: number, parentId: number | null) => {
