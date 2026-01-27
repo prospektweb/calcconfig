@@ -124,36 +124,58 @@ async function calculateStage(
       const logicDefinition = extractLogicDefinition(settingsElement)
       const outputs = extractOutputs(stageElement)
       
-      // Build calculation context with CURRENT_STAGE
-      const context = buildCalculationContext(
-        initPayload,
-        inputs,
-        stage.stageId
-      )
-      
-      // Evaluate LOGIC_JSON variables
-      evaluatedVars = evaluateLogicVars(logicDefinition, context)
-      
-      // Map results to outputs
-      outputValues = mapOutputs(evaluatedVars, outputs)
-      
-      logicApplied = true
-      
-      // Use calculated values if available
-      if (outputValues.purchasingPrice !== undefined) {
-        operationCost = Number(outputValues.purchasingPrice) || 0
-      }
-      
-      if (outputValues.materialCost !== undefined) {
-        materialCost = Number(outputValues.materialCost) || 0
+      // Only process if we have logic definition and outputs
+      if (logicDefinition && outputs.length > 0) {
+        // Build calculation context with CURRENT_STAGE
+        const context = buildCalculationContext(
+          initPayload,
+          inputs,
+          stage.stageId
+        )
+        
+        // Evaluate LOGIC_JSON variables
+        evaluatedVars = evaluateLogicVars(logicDefinition, context)
+        
+        // Map results to outputs
+        outputValues = mapOutputs(evaluatedVars, outputs)
+        
+        logicApplied = true
+        
+        console.log('[CALC] Logic applied for stage:', stage.id, {
+          varsCount: Object.keys(evaluatedVars).length,
+          outputsCount: Object.keys(outputValues).length,
+          outputs: outputValues
+        })
+        
+        // Use calculated values if available
+        // purchasingPrice is typically the total cost for the stage
+        if (outputValues.purchasingPrice !== undefined) {
+          const totalCost = Number(outputValues.purchasingPrice) || 0
+          // Split into operation and material if not specified separately
+          operationCost = totalCost
+          materialCost = 0
+        }
+        
+        // Override with separate costs if provided
+        if (outputValues.operationCost !== undefined) {
+          operationCost = Number(outputValues.operationCost) || 0
+        }
+        
+        if (outputValues.materialCost !== undefined) {
+          materialCost = Number(outputValues.materialCost) || 0
+        }
+      } else {
+        console.log('[CALC] No logic definition or outputs for stage:', stage.id)
       }
     } catch (error) {
       console.warn('[CALC] Logic processing failed for stage:', stage.id, error)
     }
   }
   
-  // Fallback to basic calculation if logic not applied
+  // Fallback to basic calculation if logic not applied or no costs calculated
   if (!logicApplied || (operationCost === 0 && materialCost === 0)) {
+    console.log('[CALC] Using fallback calculation for stage:', stage.id, { logicApplied })
+    
     // Get calculator settings
     if (stage.settingsId) {
       const settingsStore = useCalculatorSettingsStore.getState()

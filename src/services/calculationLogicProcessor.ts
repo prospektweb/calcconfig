@@ -178,9 +178,11 @@ export function buildCalculationContext(
     if (wiring.sourcePath) {
       const value = getValueByPath(initPayload, wiring.sourcePath)
       context[wiring.paramName] = value
+      console.log('[CALC] Wired input:', wiring.paramName, '=', value, 'from', wiring.sourcePath)
     }
   }
 
+  console.log('[CALC] Built context with', Object.keys(context).length, 'keys')
   return context
 }
 
@@ -211,10 +213,13 @@ export function evaluateLogicVars(
   context: Record<string, any>
 ): Record<string, any> {
   if (!logicDefinition?.vars || !Array.isArray(logicDefinition.vars)) {
+    console.log('[CALC] No vars in logic definition')
     return {}
   }
 
   const results: Record<string, any> = { ...context }
+
+  console.log('[CALC] Evaluating', logicDefinition.vars.length, 'variables')
 
   // Simple evaluation - process variables in order
   // For production, implement proper dependency resolution
@@ -223,10 +228,13 @@ export function evaluateLogicVars(
 
     if (varDef.formula) {
       // Evaluate formula
-      results[varDef.name] = evaluateFormula(varDef.formula, results)
+      const value = evaluateFormula(varDef.formula, results)
+      results[varDef.name] = value
+      console.log('[CALC] Var', varDef.name, '=', value, 'from formula:', varDef.formula)
     } else if (varDef.value !== undefined) {
       // Use static value
       results[varDef.name] = varDef.value
+      console.log('[CALC] Var', varDef.name, '=', varDef.value, '(static)')
     }
   }
 
@@ -235,16 +243,33 @@ export function evaluateLogicVars(
 
 /**
  * Map evaluated variables to outputs using OUTPUTS mapping
+ * Handles both required HL fields and additional custom outputs
  */
 export function mapOutputs(
   evaluatedVars: Record<string, any>,
   outputMappings: OutputMapping[]
 ): Record<string, any> {
   const outputs: Record<string, any> = {}
+  
+  // Required HL output fields
+  const REQUIRED_KEYS = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
 
   for (const mapping of outputMappings) {
-    if (mapping.sourceRef && evaluatedVars[mapping.sourceRef] !== undefined) {
-      outputs[mapping.key] = evaluatedVars[mapping.sourceRef]
+    if (!mapping.sourceRef) continue
+    
+    const value = evaluatedVars[mapping.sourceRef]
+    if (value === undefined) continue
+
+    // Check if this is a required HL field
+    if (REQUIRED_KEYS.includes(mapping.key)) {
+      outputs[mapping.key] = value
+    } else if (mapping.key.includes('|')) {
+      // Additional output: "slug|title" format
+      const [slug] = mapping.key.split('|', 2)
+      outputs[slug] = value
+    } else {
+      // Unknown format - store as-is
+      outputs[mapping.key] = value
     }
   }
 
