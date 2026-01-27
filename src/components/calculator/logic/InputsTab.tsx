@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Pencil, Trash2, AlertCircle, Info, Copy, FileCode } from 'lucide-react'
+import { Pencil, Trash2, AlertCircle, Info, Copy, FileCode, GripVertical } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -37,6 +37,8 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const newlyAddedRef = useRef<HTMLDivElement>(null)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   // Handle scroll and animation for newly added input
   useEffect(() => {
@@ -126,6 +128,27 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
     toast.success('Путь скопирован в буфер обмена')
   }
 
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index)
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    setDragOverIndex(index)
+  }
+
+  const handleDragEnd = () => {
+    if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
+      const newInputs = [...inputs]
+      const [draggedInput] = newInputs.splice(draggedIndex, 1)
+      newInputs.splice(dragOverIndex, 0, draggedInput)
+      onChange(newInputs)
+      toast.success('Порядок входных параметров изменён')
+    }
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
   return (
     <div className="p-4 space-y-4" data-pwcode="logic-inputs">
       {inputs.length === 0 ? (
@@ -135,7 +158,7 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
         </div>
       ) : (
         <div className="space-y-2">
-          {inputs.map((input) => {
+          {inputs.map((input, idx) => {
             const inputIssues = getInputIssues(input.id)
             const hasError = inputIssues.some(i => i.severity === 'error')
             const hasWarning = inputIssues.some(i => i.severity === 'warning')
@@ -156,18 +179,26 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
             
             const isActive = activeInputId === input.id
             const isNewlyAdded = newlyAddedId === input.id
+            const isDragging = draggedIndex === idx
+            const isDragOver = dragOverIndex === idx
             
             return (
               <div 
                 key={input.id}
                 ref={isNewlyAdded ? newlyAddedRef : null}
+                draggable
+                onDragStart={() => handleDragStart(idx)}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDragEnd={handleDragEnd}
                 className={cn(
                   "flex flex-col gap-2 p-2 border rounded-md bg-card cursor-pointer transition-colors",
                   hasError && "border-destructive",
                   hasWarning && !hasError && "border-yellow-500",
                   isActive && "border-primary bg-primary/5 shadow-md",
                   !isActive && !hasError && !hasWarning && "hover:border-accent",
-                  isNewlyAdded && "animate-highlight-pulse"
+                  isNewlyAdded && "animate-highlight-pulse",
+                  isDragging && "opacity-50",
+                  isDragOver && "border-primary border-2"
                 )}
                 onClick={() => onInputSelect?.(isActive ? null : input.id)}
               >
@@ -177,6 +208,9 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
                   </div>
                 )}
                 <div className="flex items-center gap-2">
+                  <div className="cursor-move text-muted-foreground hover:text-foreground">
+                    <GripVertical className="w-4 h-4" />
+                  </div>
                   <div className="flex-1 flex items-center gap-2">
                     {editingId === input.id ? (
                       <div className="flex items-center gap-2 flex-1">
