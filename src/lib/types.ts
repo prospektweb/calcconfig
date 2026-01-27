@@ -229,6 +229,35 @@ export interface InfoMessage {
   type: 'info' | 'warning' | 'error' | 'success'
   message: string
   timestamp: number
+  // Extended fields for nested accordion structure
+  level?: 'calculation' | 'offer' | 'detail' | 'stage' | 'root'
+  parentId?: string
+  offerId?: number
+  detailId?: string
+  stageId?: string
+  // Calculation-specific data (when type is calculation report)
+  calculationData?: {
+    offerName?: string
+    productId?: number
+    productName?: string
+    presetId?: number
+    presetName?: string
+    presetModified?: string
+    detailName?: string
+    detailType?: 'detail' | 'binding'
+    stageName?: string
+    purchasePrice?: number
+    basePrice?: number
+    currency?: string
+    pricesWithMarkup?: Array<{
+      typeId: number
+      typeName: string
+      purchasePrice: number
+      basePrice: number
+      currency: string
+    }>
+    children?: InfoMessage[]
+  }
 }
 
 export type CorrectionBase = 'RUN' | 'COST'
@@ -263,6 +292,8 @@ export interface AppState {
   calculationCurrentDetail: string | null
   isFullscreen: boolean
   salePricesSettings?: SalePricesSettings
+  calculationResults?: any[] // Store calculation results
+  hasSuccessfulCalculations?: boolean // Track if there are successful calculations
 }
 
 export const createEmptyStage = (): StageInstance => ({

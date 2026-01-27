@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { CaretDown, CaretUp, Info, Warning, X as XIcon } from '@phosphor-icons/react'
 import { InfoMessage } from '@/lib/types'
+import { CalculationReport } from './CalculationReport'
 
 interface InfoPanelProps {
   messages: InfoMessage[]
@@ -74,19 +75,32 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
       </button>
       
       {isExpanded && (
-        <ScrollArea className="h-[150px] px-4 pb-2" data-pwcode="info-messages">
-          <div className="space-y-1">
+        <ScrollArea className="h-[400px] px-4 pb-2" data-pwcode="info-messages">
+          <div className="space-y-3">
             {messages.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2">Нет сообщений</p>
             ) : (
               messages.map(msg => (
-                <div key={msg.id} className="flex items-start gap-2 py-1" data-pwcode="info-msg">
-                  <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
-                    <Badge className={getMessageColor(msg.type)}>
-                      {getMessageIcon(msg.type)}
-                    </Badge>
-                  </div>
-                  <span className="text-sm flex-1">{msg.message}</span>
+                <div key={msg.id} className="py-2 border-b border-border last:border-0" data-pwcode="info-msg">
+                  {msg.level === 'calculation' && msg.calculationData ? (
+                    // Render calculation report with nested accordions
+                    <CalculationReport message={msg} />
+                  ) : (
+                    // Render regular message
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+                        <Badge className={getMessageColor(msg.type)}>
+                          {getMessageIcon(msg.type)}
+                        </Badge>
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-sm">{msg.message}</span>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {formatTimestamp(msg.timestamp)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             )}

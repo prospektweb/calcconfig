@@ -1,0 +1,303 @@
+import { useState } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { 
+  Accordion, 
+  AccordionContent, 
+  AccordionItem, 
+  AccordionTrigger 
+} from '@/components/ui/accordion'
+import { Copy, Code } from '@phosphor-icons/react'
+import { InfoMessage } from '@/lib/types'
+import { toast } from 'sonner'
+
+interface CalculationReportProps {
+  message: InfoMessage
+}
+
+/**
+ * Format price with currency
+ */
+function formatPrice(price: number, currency: string): string {
+  return `${price.toFixed(2)} ${currency}`
+}
+
+/**
+ * Generate BBCode format for a calculation report
+ */
+function generateBBCode(message: InfoMessage): string {
+  const data = message.calculationData
+  if (!data) return message.message
+  
+  let bbcode = ''
+  
+  if (data.offerName) {
+    bbcode += `[b]Торговое предложение:[/b] ${data.offerName} | ${message.offerId || ''}\n`
+    
+    if (data.productId && data.productName) {
+      bbcode += `[b]Товар:[/b] ${data.productId} | ${data.productName}\n`
+    }
+    
+    if (data.presetId && data.presetName) {
+      const modified = data.presetModified ? ` | Изменён: ${data.presetModified}` : ''
+      bbcode += `[b]Пресет:[/b] ${data.presetId} | ${data.presetName}${modified}\n`
+    }
+    
+    bbcode += '\n[b]Детали:[/b]\n'
+    
+    // Add children details
+    if (data.children) {
+      for (const child of data.children) {
+        if (child.calculationData?.detailName) {
+          const childData = child.calculationData
+          const priceStr = childData.purchasePrice !== undefined && childData.basePrice !== undefined
+            ? ` (${formatPrice(childData.purchasePrice, childData.currency || 'RUB')} > ${formatPrice(childData.basePrice, childData.currency || 'RUB')})`
+            : ''
+          bbcode += `  - деталь ${childData.detailName}${priceStr}\n`
+        }
+      }
+    }
+    
+    bbcode += '\n[b]Итоги расчёта:[/b]\n'
+    if (data.pricesWithMarkup) {
+      for (const price of data.pricesWithMarkup) {
+        bbcode += `  - ${price.typeName}: ${formatPrice(price.basePrice, price.currency)}\n`
+      }
+    }
+  }
+  
+  return bbcode
+}
+
+/**
+ * Generate compressed format for a calculation report
+ */
+function generateCompressed(message: InfoMessage): string {
+  const data = message.calculationData
+  if (!data) return message.message
+  
+  let text = ''
+  
+  if (data.offerName) {
+    text += `Торговое предложение ${data.offerName} | ${message.offerId || ''}\n`
+    
+    if (data.children) {
+      const detailsParts: string[] = []
+      for (const child of data.children) {
+        if (child.calculationData?.detailName) {
+          const childData = child.calculationData
+          const priceStr = childData.purchasePrice !== undefined && childData.basePrice !== undefined
+            ? ` (${formatPrice(childData.purchasePrice, childData.currency || 'RUB')} > ${formatPrice(childData.basePrice, childData.currency || 'RUB')})`
+            : ''
+          detailsParts.push(`деталь ${childData.detailName}${priceStr}`)
+        }
+      }
+      
+      if (detailsParts.length > 0) {
+        text += `Детали: ${detailsParts.join(', ')}\n`
+      }
+    }
+    
+    if (data.pricesWithMarkup) {
+      const pricesParts: string[] = []
+      for (const price of data.pricesWithMarkup) {
+        pricesParts.push(`${price.typeName} - ${formatPrice(price.basePrice, price.currency)}`)
+      }
+      
+      if (pricesParts.length > 0) {
+        text += `Итоги расчёта: ${pricesParts.join(', ')}`
+      }
+    }
+  }
+  
+  return text
+}
+
+/**
+ * Copy text to clipboard
+ */
+function copyToClipboard(text: string, label: string) {
+  navigator.clipboard.writeText(text).then(() => {
+    toast.success(`${label} скопировано в буфер обмена`)
+  }).catch(() => {
+    toast.error('Ошибка при копировании')
+  })
+}
+
+/**
+ * Render a single stage within detail
+ */
+function StageItem({ message }: { message: InfoMessage }) {
+  const data = message.calculationData
+  if (!data) return null
+  
+  const priceStr = data.purchasePrice !== undefined && data.basePrice !== undefined
+    ? ` ${formatPrice(data.purchasePrice, data.currency || 'RUB')} > ${formatPrice(data.basePrice, data.currency || 'RUB')}`
+    : ''
+  
+  return (
+    <div className="pl-4 py-1 text-sm border-l-2 border-border">
+      <span className="font-medium">{data.stageName || 'Этап'}</span>
+      {priceStr && <span className="text-muted-foreground ml-2">{priceStr}</span>}
+    </div>
+  )
+}
+
+/**
+ * Render a single detail or binding
+ */
+function DetailItem({ message }: { message: InfoMessage }) {
+  const data = message.calculationData
+  if (!data) return null
+  
+  const priceStr = data.purchasePrice !== undefined && data.basePrice !== undefined
+    ? ` ${formatPrice(data.purchasePrice, data.currency || 'RUB')} > ${formatPrice(data.basePrice, data.currency || 'RUB')}`
+    : ''
+  
+  const stages = data.children?.filter(child => child.level === 'stage') || []
+  const childDetails = data.children?.filter(child => child.level === 'detail') || []
+  
+  if (stages.length === 0 && childDetails.length === 0) {
+    // Simple detail without nested items
+    return (
+      <div className="py-1 text-sm">
+        <span className="font-medium">
+          {data.detailType === 'binding' ? '📦 ' : '📄 '}
+          {data.detailName}
+        </span>
+        {priceStr && <span className="text-muted-foreground ml-2">{priceStr}</span>}
+      </div>
+    )
+  }
+  
+  return (
+    <AccordionItem value={message.id} className="border-none">
+      <AccordionTrigger className="py-2 text-sm hover:no-underline">
+        <span className="flex items-center gap-2">
+          <span className="font-medium">
+            {data.detailType === 'binding' ? '📦 ' : '📄 '}
+            {data.detailName}
+          </span>
+          {priceStr && <span className="text-muted-foreground">{priceStr}</span>}
+        </span>
+      </AccordionTrigger>
+      <AccordionContent className="space-y-1 pb-2">
+        {/* Render child details (for bindings) */}
+        {childDetails.length > 0 && (
+          <Accordion type="multiple" className="space-y-1">
+            {childDetails.map(child => (
+              <DetailItem key={child.id} message={child} />
+            ))}
+          </Accordion>
+        )}
+        
+        {/* Render stages */}
+        {stages.map(stage => (
+          <StageItem key={stage.id} message={stage} />
+        ))}
+      </AccordionContent>
+    </AccordionItem>
+  )
+}
+
+/**
+ * Main calculation report component
+ */
+export function CalculationReport({ message }: CalculationReportProps) {
+  const data = message.calculationData
+  
+  if (!data || !data.offerName) {
+    return <div className="text-sm">{message.message}</div>
+  }
+  
+  const details = data.children?.filter(child => child.level === 'detail') || []
+  
+  return (
+    <div className="space-y-2">
+      {/* Offer header */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <h4 className="font-semibold text-sm">
+            Торговое предложение: {data.offerName} | {message.offerId || ''}
+          </h4>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(generateBBCode(message), 'Расширенная информация')}
+              title="Копировать расширенную информацию с BBCode"
+              className="h-7 w-7 p-0"
+            >
+              <Code className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(generateCompressed(message), 'Сжатая информация')}
+              title="Копировать сжатую информацию"
+              className="h-7 w-7 p-0"
+            >
+              <Copy className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+        
+        {data.productId && data.productName && (
+          <div className="text-xs text-muted-foreground">
+            Товар: {data.productId} | {data.productName}
+          </div>
+        )}
+        
+        {data.presetId && data.presetName && (
+          <div className="text-xs text-muted-foreground">
+            Пресет: {data.presetId} | {data.presetName}
+            {data.presetModified && ` | Изменён: ${data.presetModified}`}
+          </div>
+        )}
+      </div>
+      
+      {/* Details accordion */}
+      {details.length > 0 && (
+        <div className="space-y-1">
+          <Accordion type="multiple" className="space-y-1">
+            {details.map(detail => (
+              <DetailItem key={detail.id} message={detail} />
+            ))}
+          </Accordion>
+        </div>
+      )}
+      
+      {/* Price summary */}
+      {(data.purchasePrice !== undefined || data.pricesWithMarkup) && (
+        <div className="border-t pt-2 space-y-2">
+          {/* Base prices */}
+          {data.purchasePrice !== undefined && data.basePrice !== undefined && (
+            <div className="text-sm">
+              <div className="font-medium mb-1">Расчетные цены торгового предложения:</div>
+              <div className="pl-4 space-y-0.5 text-xs">
+                <div>- Закупочная цена: {formatPrice(data.purchasePrice, data.currency || 'RUB')}</div>
+                <div>- Базовая цена: {formatPrice(data.basePrice, data.currency || 'RUB')}</div>
+              </div>
+            </div>
+          )}
+          
+          {/* Prices with markup */}
+          {data.pricesWithMarkup && data.pricesWithMarkup.length > 0 && (
+            <div className="text-sm">
+              <div className="font-medium mb-1">
+                Цены торгового предложения с учётом наценок:
+              </div>
+              <div className="pl-4 space-y-0.5 text-xs">
+                {data.pricesWithMarkup.map(price => (
+                  <div key={price.typeId}>
+                    - {price.typeName}: {formatPrice(price.basePrice, price.currency)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
