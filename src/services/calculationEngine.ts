@@ -85,6 +85,13 @@ async function calculateStage(
   initPayload: any,
   stepCallback?: StepCallback
 ): Promise<CalculationStageResult> {
+  console.log('[CALC] ==> Processing stage:', {
+    stageId: stage.id,
+    stageName: stage.stageName,
+    detailName: detail.name,
+    detailType: 'detailType' in detail ? 'binding' : 'detail',
+  })
+  
   // Simulate async operation
   await new Promise(resolve => setTimeout(resolve, 10))
   
@@ -124,6 +131,14 @@ async function calculateStage(
       const logicDefinition = extractLogicDefinition(settingsElement)
       const outputs = extractOutputs(stageElement)
       
+      console.log('[CALC] Logic extraction:', {
+        stageId: stage.id,
+        hasParams: !!params && Object.keys(params).length > 0,
+        inputsCount: inputs.length,
+        hasLogicDefinition: !!logicDefinition,
+        outputsCount: outputs.length,
+      })
+      
       // Only process if we have logic definition and outputs
       if (logicDefinition && outputs.length > 0) {
         // Build calculation context with CURRENT_STAGE
@@ -133,8 +148,20 @@ async function calculateStage(
           stage.stageId
         )
         
+        console.log('[CALC] Calculation context built:', {
+          stageId: stage.id,
+          contextKeys: Object.keys(context),
+          inputValues: inputs.map(i => ({ param: i.paramName, value: context[i.paramName] })),
+        })
+        
         // Evaluate LOGIC_JSON variables
         evaluatedVars = evaluateLogicVars(logicDefinition, context)
+        
+        console.log('[CALC] Variables evaluated:', {
+          stageId: stage.id,
+          variableNames: Object.keys(evaluatedVars),
+          variableValues: evaluatedVars,
+        })
         
         // Map results to outputs
         outputValues = mapOutputs(evaluatedVars, outputs)
@@ -243,6 +270,12 @@ async function calculateDetail(
   currentStep?: { value: number },
   totalSteps?: number
 ): Promise<CalculationDetailResult> {
+  console.log('[CALC] ===> Processing detail:', {
+    detailId: detail.id,
+    detailName: detail.name,
+    stagesCount: detail.stages?.length || 0,
+  })
+  
   const stageResults: CalculationStageResult[] = []
   
   // Calculate all stages for this detail
@@ -262,6 +295,13 @@ async function calculateDetail(
   }
   
   const totalCost = stageResults.reduce((sum, stage) => sum + stage.totalCost, 0)
+  
+  console.log('[CALC] Detail calculation complete:', {
+    detailId: detail.id,
+    detailName: detail.name,
+    stagesProcessed: stageResults.length,
+    totalCost,
+  })
   
   const result: CalculationDetailResult = {
     detailId: detail.id,
@@ -294,6 +334,14 @@ async function calculateBinding(
   totalSteps?: number,
   visited: Set<string> = new Set()
 ): Promise<CalculationDetailResult> {
+  console.log('[CALC] ===> Processing binding:', {
+    bindingId: binding.id,
+    bindingName: binding.name,
+    childDetailsCount: binding.detailIds?.length || 0,
+    childBindingsCount: binding.bindingIds?.length || 0,
+    stagesCount: binding.stages?.length || 0,
+  })
+  
   // Prevent circular references
   if (visited.has(binding.id)) {
     console.warn(`[CALC] Circular reference detected in binding: ${binding.id}`)
@@ -350,6 +398,15 @@ async function calculateBinding(
   const childrenCost = children.reduce((sum, child) => sum + child.purchasePrice, 0)
   const bindingStageCost = stageResults.reduce((sum, stage) => sum + stage.totalCost, 0)
   const totalCost = childrenCost + bindingStageCost
+  
+  console.log('[CALC] Binding calculation complete:', {
+    bindingId: binding.id,
+    bindingName: binding.name,
+    childrenProcessed: children.length,
+    childrenCost,
+    bindingStageCost,
+    totalCost,
+  })
   
   const result: CalculationDetailResult = {
     detailId: binding.id,
@@ -547,6 +604,13 @@ export async function calculateOffer(
   progressCallback?: ProgressCallback,
   stepCallback?: StepCallback
 ): Promise<CalculationOfferResult> {
+  console.log('[CALC] ====> Starting offer calculation:', {
+    offerId: offer.id,
+    offerName: offer.name,
+    totalDetails: details.length,
+    totalBindings: bindings.length,
+  })
+  
   const totalSteps = calculateTotalSteps(details, bindings)
   const currentStep = { value: 0 }
   
@@ -561,6 +625,14 @@ export async function calculateOffer(
   const topLevelBindings = bindings.filter(binding => 
     !bindings.some(b => b.bindingIds?.includes(binding.id))
   )
+  
+  console.log('[CALC] Top-level items identified:', {
+    topLevelDetailsCount: topLevelDetails.length,
+    topLevelDetails: topLevelDetails.map(d => ({ id: d.id, name: d.name })),
+    topLevelBindingsCount: topLevelBindings.length,
+    topLevelBindings: topLevelBindings.map(b => ({ id: b.id, name: b.name })),
+    totalSteps,
+  })
   
   // Calculate top-level details
   for (const detail of topLevelDetails) {
@@ -584,6 +656,15 @@ export async function calculateOffer(
     preset?.prices || [],
     priceTypes
   )
+  
+  console.log('[CALC] Offer calculation complete:', {
+    offerId: offer.id,
+    offerName: offer.name,
+    detailsProcessed: detailResults.length,
+    totalPurchasePrice,
+    totalBasePrice,
+    pricesWithMarkup: pricesWithMarkup.map(p => ({ type: p.typeName, price: p.basePrice })),
+  })
   
   return {
     offerId: offer.id,
