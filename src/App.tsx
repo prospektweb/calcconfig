@@ -758,12 +758,13 @@ function App() {
     }
   }, [])
   
-  const addInfoMessage = (type: InfoMessage['type'], message: string) => {
+  const addInfoMessage = (type: InfoMessage['type'], message: string, extendedMessage?: Partial<InfoMessage>) => {
     const newMessage: InfoMessage = {
       id: `msg_${Date.now()}`,
       type,
       message,
       timestamp: Date.now(),
+      ...extendedMessage,
     }
     setInfoMessages((prev) => [...prev, newMessage])
   }
@@ -1171,9 +1172,135 @@ function App() {
     setIsCalculating(true)
     setCalculationProgress(0)
     
-    // Send CALC_RUN message
-    postMessageBridge.sendCalcRun()
-    toast.info('Расчёт запущен...')
+    // Import calculation engine
+    const calculationEngine = await import('@/services/calculationEngine')
+    const { calculateAllOffers, CalculationProgress, CalculationOfferResult, CalculationDetailResult, CalculationStageResult } = calculationEngine
+    
+    try {
+      const results: CalculationOfferResult[] = []
+      
+      // Progress callback
+      const progressCallback = (progress: CalculationProgress) => {
+        setCalculationProgress(progress.percentage)
+        console.log('[CALC_PROGRESS]', progress.message, `${progress.percentage}%`)
+      }
+      
+      // Offer callback - add result to info panel
+      const offerCallback = (result: CalculationOfferResult) => {
+        // Convert calculation result to InfoMessage format
+        const offerMessage: InfoMessage = {
+          id: `calc_${result.offerId}_${Date.now()}`,
+          type: 'success',
+          message: `Расчёт завершён: ${result.offerName}`,
+          timestamp: Date.now(),
+          level: 'calculation',
+          offerId: result.offerId,
+          calculationData: {
+            offerName: result.offerName,
+            productId: result.productId,
+            productName: result.productName,
+            presetId: result.presetId,
+            presetName: result.presetName,
+            presetModified: result.presetModified,
+            purchasePrice: result.totalPurchasePrice,
+            basePrice: result.totalBasePrice,
+            currency: result.currency,
+            pricesWithMarkup: result.pricesWithMarkup,
+            children: result.details.map((detail) => convertDetailToMessage(detail)),
+          },
+        }
+        
+        addInfoMessage(offerMessage.type, offerMessage.message, offerMessage)
+        results.push(result)
+      }
+      
+      // Helper function to convert detail result to message
+      const convertDetailToMessage = (detail: CalculationDetailResult): InfoMessage => {
+        return {
+          id: `detail_${detail.detailId}_${Date.now()}_${Math.random()}`,
+          type: 'info',
+          message: detail.detailName,
+          timestamp: Date.now(),
+          level: 'detail',
+          detailId: detail.detailId,
+          calculationData: {
+            detailName: detail.detailName,
+            detailType: detail.detailType,
+            purchasePrice: detail.purchasePrice,
+            basePrice: detail.basePrice,
+            currency: detail.currency,
+            children: [
+              ...(detail.children || []).map((child) => convertDetailToMessage(child)),
+              ...(detail.stages || []).map((stage: CalculationStageResult) => ({
+                id: `stage_${stage.stageId}_${Date.now()}_${Math.random()}`,
+                type: 'info' as const,
+                message: stage.stageName,
+                timestamp: Date.now(),
+                level: 'stage' as const,
+                stageId: stage.stageId,
+                calculationData: {
+                  stageName: stage.stageName,
+                  purchasePrice: stage.totalCost,
+                  basePrice: stage.totalCost,
+                  currency: stage.currency,
+                },
+              })),
+            ],
+          },
+        }
+      }
+      
+      // Run calculation
+      await calculateAllOffers(
+        selectedOffers,
+        bitrixMeta?.product || null,
+        bitrixMeta?.preset || null,
+        details || [],
+        bindings || [],
+        bitrixMeta?.priceTypes || [],
+        progressCallback,
+        undefined,
+        offerCallback
+      )
+      
+      // Store results for later use (when saving)
+      setHasSuccessfulCalculations(true)
+      setCalculationResults(results)
+      
+      toast.success(`Расчёт завершён успешно! Обработано ${results.length} торговых предложений`)
+      setIsInfoPanelExpanded(true) // Auto-expand to show results
+      
+    } catch (error) {
+      console.error('[CALC_ERROR]', error)
+      toast.error('Ошибка при расчёте')
+      addInfoMessage('error', `Ошибка при расчёте: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setIsCalculating(false)
+      setCalculationProgress(100)
+    }
+  }
+  
+  // New state for calculation results
+  const [calculationResults, setCalculationResults] = useState<any[]>([])
+  const [hasSuccessfulCalculations, setHasSuccessfulCalculations] = useState(false)
+  
+  // New function to save successful calculations
+  const handleSaveCalculations = () => {
+    if (!hasSuccessfulCalculations || calculationResults.length === 0) {
+      toast.warning('Нет успешных расчётов для сохранения')
+      return
+    }
+    
+    console.log('[SAVE_CALC] Saving calculations', { count: calculationResults.length })
+    
+    // Send calculation results to parent via CALC_RUN message
+    postMessageBridge.sendCalcRun({
+      results: calculationResults,
+      timestamp: Date.now(),
+    })
+    
+    toast.success('Результаты расчёта отправлены')
+    setHasSuccessfulCalculations(false)
   }
   
   const handleOpenPreset = () => {
@@ -1730,6 +1857,18 @@ function App() {
               Пресет
             </Button>
             <div className="flex items-center gap-2">
+              {hasSuccessfulCalculations && (
+                <Button 
+                  size="sm" 
+                  variant="default"
+                  onClick={handleSaveCalculations}
+                  data-pwcode="btn-save-calc"
+                  title="Сохранить расчёты (успешные предложения)"
+                >
+                  <FloppyDisk className="w-4 h-4 mr-2" />
+                  Сохранить расчёты
+                </Button>
+              )}
               <Button 
                 size="sm" 
                 onClick={handleCalculation} 
