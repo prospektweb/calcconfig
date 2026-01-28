@@ -142,20 +142,31 @@ export function extractOutputs(stageElement: ElementsStoreItem | null | undefine
 /**
  * Get value from object using dot-notation path
  * e.g., "product.attributes.width" -> obj.product.attributes.width
+ * Supports array index notation like "CALC_STAGES[0].properties"
  */
 export function getValueByPath(obj: any, path: string): any {
   if (!path || !obj) return undefined
-  
-  const parts = path.split('.')
+
+  const parts: Array<string | number> = []
+  const matcher = /([^[.\]]+)|\[(\d+)\]/g
+
+  for (const match of path.matchAll(matcher)) {
+    if (match[1]) {
+      parts.push(match[1])
+    } else if (match[2]) {
+      parts.push(Number(match[2]))
+    }
+  }
+
   let current = obj
-  
+
   for (const part of parts) {
     if (current === null || current === undefined) {
       return undefined
     }
     current = current[part]
   }
-  
+
   return current
 }
 
