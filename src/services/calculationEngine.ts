@@ -19,6 +19,7 @@ import {
   evaluateLogicVars,
   mapOutputs,
 } from './calculationLogicProcessor'
+import type { InitPayload } from '@/lib/postmessage-bridge'
 
 export interface CalculationStageResult {
   stageId: string
@@ -604,11 +605,7 @@ function applyPriceMarkups(
  * Main calculation function for an offer
  */
 export async function calculateOffer(
-  offer: {
-    id: number
-    productId: number
-    name: string
-  },
+  offer: InitPayload['selectedOffers'][number],
   product: {
     id: number
     name: string
@@ -666,15 +663,20 @@ export async function calculateOffer(
     totalSteps,
   })
   
+  const offerPayload = {
+    ...initPayload,
+    offer,
+  }
+
   // Calculate top-level details
   for (const detail of topLevelDetails) {
-    const result = await calculateDetail(detail, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps)
+    const result = await calculateDetail(detail, bindings, offerPayload, stepCallback, progressCallback, currentStep, totalSteps)
     detailResults.push(result)
   }
   
   // Calculate top-level bindings
   for (const binding of topLevelBindings) {
-    const result = await calculateBinding(binding, details, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps)
+    const result = await calculateBinding(binding, details, bindings, offerPayload, stepCallback, progressCallback, currentStep, totalSteps)
     detailResults.push(result)
   }
   
@@ -718,11 +720,7 @@ export async function calculateOffer(
  * Calculate all offers progressively
  */
 export async function calculateAllOffers(
-  offers: Array<{
-    id: number
-    productId: number
-    name: string
-  }>,
+  offers: InitPayload['selectedOffers'],
   product: {
     id: number
     name: string
