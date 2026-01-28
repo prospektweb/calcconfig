@@ -246,33 +246,432 @@ export function buildCalculationContext(
   return context
 }
 
+type FormulaTokenType = 'number' | 'string' | 'identifier' | 'operator' | 'paren' | 'comma'
+
+interface FormulaToken {
+  type: FormulaTokenType
+  value: string
+}
+
+type FormulaAstNode =
+  | { type: 'Literal'; value: number | string | boolean | null }
+  | { type: 'Identifier'; name: string }
+  | { type: 'UnaryExpression'; operator: string; argument: FormulaAstNode }
+  | { type: 'BinaryExpression'; operator: string; left: FormulaAstNode; right: FormulaAstNode }
+  | { type: 'CallExpression'; callee: string; args: FormulaAstNode[] }
+
+const FORMULA_OPERATORS = new Set(['+', '-', '*', '/', '%', '>', '<', '>=', '<=', '==', '!=', '&&', '||'])
+const FORMULA_BUILTINS = {
+  get: (value: any, path: any) => {
+    if (typeof path !== 'string') return undefined
+    return getValueByPath(value, path)
+  },
+  split: (value: any, delimiter?: any) =>
+    typeof value === 'string' ? value.split(delimiter === undefined ? /\s+/ : String(delimiter)) : [],
+  ceil: (value: any) => Math.ceil(Number(value)),
+  floor: (value: any) => Math.floor(Number(value)),
+  max: (...values: any[]) => {
+    const flattened = values.length === 1 && Array.isArray(values[0]) ? values[0] : values
+    return Math.max(...flattened.map((entry) => Number(entry)))
+  },
+  min: (...values: any[]) => {
+    const flattened = values.length === 1 && Array.isArray(values[0]) ? values[0] : values
+    return Math.min(...flattened.map((entry) => Number(entry)))
+  },
+  abs: (value: any) => Math.abs(Number(value)),
+  trim: (value: any) => (value === null || value === undefined ? '' : String(value).trim()),
+  lower: (value: any) => (value === null || value === undefined ? '' : String(value).toLowerCase()),
+  round: (value: any) => Math.round(Number(value)),
+  if: (condition: any, whenTrue: any, whenFalse: any) => (condition ? whenTrue : whenFalse),
+  upper: (value: any) => (value === null || value === undefined ? '' : String(value).toUpperCase()),
+  len: (value: any) => {
+    if (typeof value === 'string' || Array.isArray(value)) return value.length
+    if (value && typeof value === 'object') return Object.keys(value).length
+    return 0
+  },
+  contains: (value: any, search: any) => {
+    if (typeof value === 'string') return value.includes(String(search))
+    if (Array.isArray(value)) return value.includes(search)
+    return false
+  },
+  replace: (value: any, search: any, replacement: any, flags?: any) => {
+    if (value === null || value === undefined) return ''
+    const source = String(value)
+    if (flags !== undefined) {
+      return source.replace(new RegExp(String(search), String(flags)), String(replacement))
+    }
+    if (search instanceof RegExp) {
+      return source.replace(search, String(replacement))
+    }
+    return source.replace(String(search), String(replacement))
+  },
+  toNumber: (value: any) => Number(value),
+  toString: (value: any) => (value === null || value === undefined ? '' : String(value)),
+  join: (value: any, delimiter?: any) =>
+    Array.isArray(value) ? value.join(delimiter === undefined ? '' : String(delimiter)) : '',
+  regexMatch: (value: any, pattern: any, flags?: any) => {
+    const regex = new RegExp(String(pattern), flags === undefined ? undefined : String(flags))
+    return regex.test(String(value))
+  },
+  regexExtract: (value: any, pattern: any, flags?: any) => {
+    const regex = new RegExp(String(pattern), flags === undefined ? undefined : String(flags))
+    const match = String(value).match(regex)
+    if (!match) return ''
+    return match.length > 1 ? match[1] : match[0]
+  },
+}
+
+function tokenizeFormula(formula: string): FormulaToken[] {
+  const tokens: FormulaToken[] = []
+  let index = 0
+
+  const isDigit = (char: string) => char >= '0' && char <= '9'
+  const isIdentifierStart = (char: string) => /[A-Za-z_]/.test(char)
+  const isIdentifierPart = (char: string) => /[A-Za-z0-9_]/.test(char)
+
+  while (index < formula.length) {
+    const char = formula[index]
+
+    if (/\s/.test(char)) {
+      index++
+      continue
+    }
+
+    if (char === '"' || char === "'") {
+      const quote = char
+      let value = ''
+      index++
+      while (index < formula.length) {
+        const current = formula[index]
+        if (current === '\\') {
+          const next = formula[index + 1]
+          if (next !== undefined) {
+            value += next
+            index += 2
+            continue
+          }
+        }
+        if (current === quote) {
+          index++
+          break
+        }
+        value += current
+        index++
+      }
+      tokens.push({ type: 'string', value })
+      continue
+    }
+
+    if (isDigit(char) || (char === '.' && isDigit(formula[index + 1] || ''))) {
+      let value = ''
+      let dotCount = 0
+      while (index < formula.length) {
+        const current = formula[index]
+        if (current === '.') {
+          dotCount += 1
+          if (dotCount > 1) break
+          value += current
+          index++
+          continue
+        }
+        if (!isDigit(current)) break
+        value += current
+        index++
+      }
+      tokens.push({ type: 'number', value })
+      continue
+    }
+
+    if (isIdentifierStart(char)) {
+      let value = ''
+      while (index < formula.length && isIdentifierPart(formula[index])) {
+        value += formula[index]
+        index++
+      }
+      tokens.push({ type: 'identifier', value })
+      continue
+    }
+
+    const twoCharOperator = formula.slice(index, index + 2)
+    if (['>=', '<=', '==', '!=', '&&', '||'].includes(twoCharOperator)) {
+      tokens.push({ type: 'operator', value: twoCharOperator })
+      index += 2
+      continue
+    }
+
+    if (['+', '-', '*', '/', '%', '>', '<', '!'].includes(char)) {
+      tokens.push({ type: 'operator', value: char })
+      index++
+      continue
+    }
+
+    if (char === '(' || char === ')') {
+      tokens.push({ type: 'paren', value: char })
+      index++
+      continue
+    }
+
+    if (char === ',') {
+      tokens.push({ type: 'comma', value: char })
+      index++
+      continue
+    }
+
+    throw new Error(`Unsupported character: ${char}`)
+  }
+
+  return tokens
+}
+
+class FormulaParser {
+  private tokens: FormulaToken[]
+  private position = 0
+
+  constructor(tokens: FormulaToken[]) {
+    this.tokens = tokens
+  }
+
+  parse(): FormulaAstNode {
+    const expression = this.parseOr()
+    if (this.position < this.tokens.length) {
+      throw new Error('Unexpected token after end of expression')
+    }
+    return expression
+  }
+
+  private peek(): FormulaToken | undefined {
+    return this.tokens[this.position]
+  }
+
+  private consume(): FormulaToken {
+    const token = this.tokens[this.position]
+    if (!token) {
+      throw new Error('Unexpected end of expression')
+    }
+    this.position += 1
+    return token
+  }
+
+  private matchOperator(...operators: string[]): string | null {
+    const token = this.peek()
+    if (token?.type === 'operator' && operators.includes(token.value)) {
+      this.position += 1
+      return token.value
+    }
+    return null
+  }
+
+  private parseOr(): FormulaAstNode {
+    let left = this.parseAnd()
+    let operator = this.matchOperator('||')
+    while (operator) {
+      const right = this.parseAnd()
+      left = { type: 'BinaryExpression', operator, left, right }
+      operator = this.matchOperator('||')
+    }
+    return left
+  }
+
+  private parseAnd(): FormulaAstNode {
+    let left = this.parseEquality()
+    let operator = this.matchOperator('&&')
+    while (operator) {
+      const right = this.parseEquality()
+      left = { type: 'BinaryExpression', operator, left, right }
+      operator = this.matchOperator('&&')
+    }
+    return left
+  }
+
+  private parseEquality(): FormulaAstNode {
+    let left = this.parseComparison()
+    let operator = this.matchOperator('==', '!=')
+    while (operator) {
+      const right = this.parseComparison()
+      left = { type: 'BinaryExpression', operator, left, right }
+      operator = this.matchOperator('==', '!=')
+    }
+    return left
+  }
+
+  private parseComparison(): FormulaAstNode {
+    let left = this.parseAdditive()
+    let operator = this.matchOperator('>', '<', '>=', '<=')
+    while (operator) {
+      const right = this.parseAdditive()
+      left = { type: 'BinaryExpression', operator, left, right }
+      operator = this.matchOperator('>', '<', '>=', '<=')
+    }
+    return left
+  }
+
+  private parseAdditive(): FormulaAstNode {
+    let left = this.parseMultiplicative()
+    let operator = this.matchOperator('+', '-')
+    while (operator) {
+      const right = this.parseMultiplicative()
+      left = { type: 'BinaryExpression', operator, left, right }
+      operator = this.matchOperator('+', '-')
+    }
+    return left
+  }
+
+  private parseMultiplicative(): FormulaAstNode {
+    let left = this.parseUnary()
+    let operator = this.matchOperator('*', '/', '%')
+    while (operator) {
+      const right = this.parseUnary()
+      left = { type: 'BinaryExpression', operator, left, right }
+      operator = this.matchOperator('*', '/', '%')
+    }
+    return left
+  }
+
+  private parseUnary(): FormulaAstNode {
+    const operator = this.matchOperator('!', '-')
+    if (operator) {
+      const argument = this.parseUnary()
+      return { type: 'UnaryExpression', operator, argument }
+    }
+    return this.parsePrimary()
+  }
+
+  private parsePrimary(): FormulaAstNode {
+    const token = this.consume()
+
+    if (token.type === 'number') {
+      return { type: 'Literal', value: Number(token.value) }
+    }
+
+    if (token.type === 'string') {
+      return { type: 'Literal', value: token.value }
+    }
+
+    if (token.type === 'identifier') {
+      if (token.value === 'true') return { type: 'Literal', value: true }
+      if (token.value === 'false') return { type: 'Literal', value: false }
+      if (token.value === 'null') return { type: 'Literal', value: null }
+
+      const next = this.peek()
+      if (next?.type === 'paren' && next.value === '(') {
+        this.consume()
+        const args: FormulaAstNode[] = []
+        const closing = this.peek()
+        if (closing?.type === 'paren' && closing.value === ')') {
+          this.consume()
+          return { type: 'CallExpression', callee: token.value, args }
+        }
+        while (true) {
+          args.push(this.parseOr())
+          const separator = this.peek()
+          if (separator?.type === 'comma') {
+            this.consume()
+            continue
+          }
+          if (separator?.type === 'paren' && separator.value === ')') {
+            this.consume()
+            break
+          }
+          throw new Error('Expected comma or closing parenthesis in function call')
+        }
+        return { type: 'CallExpression', callee: token.value, args }
+      }
+
+      return { type: 'Identifier', name: token.value }
+    }
+
+    if (token.type === 'paren' && token.value === '(') {
+      const expression = this.parseOr()
+      const closing = this.consume()
+      if (closing.type !== 'paren' || closing.value !== ')') {
+        throw new Error('Expected closing parenthesis')
+      }
+      return expression
+    }
+
+    throw new Error(`Unexpected token: ${token.value}`)
+  }
+}
+
+function evaluateAst(node: FormulaAstNode, context: Record<string, any>): any {
+  switch (node.type) {
+    case 'Literal':
+      return node.value
+    case 'Identifier':
+      return context[node.name]
+    case 'UnaryExpression': {
+      const value = evaluateAst(node.argument, context)
+      if (node.operator === '!') return !value
+      if (node.operator === '-') return -Number(value)
+      throw new Error(`Unsupported unary operator: ${node.operator}`)
+    }
+    case 'BinaryExpression': {
+      if (!FORMULA_OPERATORS.has(node.operator)) {
+        throw new Error(`Unsupported operator: ${node.operator}`)
+      }
+      const left = evaluateAst(node.left, context)
+      const right = evaluateAst(node.right, context)
+      switch (node.operator) {
+        case '+':
+          return typeof left === 'string' || typeof right === 'string' ? String(left) + String(right) : Number(left) + Number(right)
+        case '-':
+          return Number(left) - Number(right)
+        case '*':
+          return Number(left) * Number(right)
+        case '/':
+          return Number(left) / Number(right)
+        case '%':
+          return Number(left) % Number(right)
+        case '>':
+          return left > right
+        case '<':
+          return left < right
+        case '>=':
+          return left >= right
+        case '<=':
+          return left <= right
+        case '==':
+          return left === right
+        case '!=':
+          return left !== right
+        case '&&':
+          return Boolean(left) && Boolean(right)
+        case '||':
+          return Boolean(left) || Boolean(right)
+        default:
+          throw new Error(`Unsupported operator: ${node.operator}`)
+      }
+    }
+    case 'CallExpression': {
+      const callee = node.callee
+      const handler = (FORMULA_BUILTINS as Record<string, (...args: any[]) => any>)[callee]
+      if (!handler) {
+        throw new Error(`Unknown function: ${callee}`)
+      }
+      const args = node.args.map((arg) => evaluateAst(arg, context))
+      return handler(...args)
+    }
+    default:
+      return undefined
+  }
+}
+
 /**
- * Simple formula evaluator
- * Supports basic arithmetic and variable references
+ * Safe formula evaluator
+ * Supports arithmetic, comparisons, logical operators, and whitelisted functions.
  * 
- * SECURITY NOTE: Uses Function constructor for formula evaluation.
- * For production, consider using a safe expression parser library like expr-eval
- * or mathjs to avoid potential code injection risks.
- * 
- * Current implementation is safe when formulas are controlled by administrators
- * via LOGIC_JSON in CALC_SETTINGS (not user input).
+ * Only identifiers from the provided context and built-ins are allowed.
+ * This parser does not allow property access or arbitrary code execution.
  */
 export function evaluateFormula(formula: string, context: Record<string, any>): number | string | boolean | undefined {
   if (!formula) return undefined
 
   try {
-    // Basic validation: only allow safe characters
-    // This is a simple check - for production use a proper parser
-    const safePattern = /^[a-zA-Z0-9_\s+\-*/().><=&|!]+$/
-    if (!safePattern.test(formula)) {
-      console.warn('[CALC] Formula contains unsafe characters:', formula)
-      return undefined
-    }
-    
-    // Replace variable references with context values
-    // This is a simple implementation - for production use a proper parser
-    const func = new Function(...Object.keys(context), `return ${formula}`)
-    return func(...Object.values(context))
+    const tokens = tokenizeFormula(formula)
+    const parser = new FormulaParser(tokens)
+    const ast = parser.parse()
+    const result = evaluateAst(ast, context)
+    return result as number | string | boolean | undefined
   } catch (e) {
     console.warn('[CALC] Failed to evaluate formula:', formula, e)
     return undefined
