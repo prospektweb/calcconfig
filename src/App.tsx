@@ -117,14 +117,7 @@ function App() {
   const [bindings, setBindings] = useConfigKV<Binding[]>('calc_bindings', [])
   
   const [infoMessages, setInfoMessages] = useState<InfoMessage[]>([])
-  const [isInfoPanelExpanded, setIsInfoPanelExpanded] = useState(() => {
-    const stored = localStorage.getItem('calc_info_panel_expanded')
-    return stored ? stored === 'true' : false
-  })
-  
-  useEffect(() => {
-    localStorage.setItem('calc_info_panel_expanded', isInfoPanelExpanded.toString())
-  }, [isInfoPanelExpanded])
+  const [isInfoPanelExpanded, setIsInfoPanelExpanded] = useState(false)
   useEffect(() => {
     bitrixMetaRef.current = bitrixMeta
   }, [bitrixMeta])
@@ -1284,10 +1277,10 @@ function App() {
             presetId: result.presetId,
             presetName: result.presetName,
             presetModified: result.presetModified,
-            purchasePrice: result.totalPurchasePrice,
-            basePrice: result.totalBasePrice,
+            purchasePrice: result.purchasePrice,
+            directPurchasePrice: result.directPurchasePrice,
             currency: result.currency,
-            pricesWithMarkup: result.pricesWithMarkup,
+            priceRangesWithMarkup: result.priceRangesWithMarkup,
             children: result.details.map((detail) => convertDetailToMessage(detail)),
           },
         }
@@ -1322,8 +1315,8 @@ function App() {
                 stageId: stage.stageId,
                 calculationData: {
                   stageName: stage.stageName,
-                  purchasePrice: stage.totalCost,
-                  basePrice: stage.totalCost,
+                  purchasePrice: typeof stage.outputs?.purchasingPrice === 'number' ? stage.outputs.purchasingPrice : stage.totalCost,
+                  basePrice: typeof stage.outputs?.basePrice === 'number' ? stage.outputs.basePrice : stage.totalCost,
                   currency: stage.currency,
                 },
               })),
@@ -1351,7 +1344,6 @@ function App() {
       setCalculationResults(results)
       
       toast.success(`Расчёт завершён успешно! Обработано ${results.length} торговых предложений`)
-      setIsInfoPanelExpanded(true) // Auto-expand to show results
       
     } catch (error) {
       console.error('[CALC_ERROR]', error)
@@ -1376,14 +1368,34 @@ function App() {
     
     console.log('[SAVE_CALC] Saving calculations', { count: calculationResults.length })
     
-    // Send calculation results to parent via CALC_RUN message
-    postMessageBridge.sendCalcRun({
+    postMessageBridge.sendSaveCalculationRequest({
       results: calculationResults,
       timestamp: Date.now(),
     })
     
     toast.success('Результаты расчёта отправлены')
+    setCalculationResults([])
     setHasSuccessfulCalculations(false)
+  }
+
+  const handleSaveCalculationResult = (offerId: number) => {
+    const target = calculationResults.find(result => result.offerId === offerId)
+    if (!target) {
+      toast.warning('Для этого торгового предложения нет данных расчёта')
+      return
+    }
+
+    postMessageBridge.sendSaveCalculationRequest({
+      results: [target],
+      timestamp: Date.now(),
+    })
+
+    setCalculationResults(prev => {
+      const remaining = prev.filter(result => result.offerId !== offerId)
+      setHasSuccessfulCalculations(remaining.length > 0)
+      return remaining
+    })
+    toast.success('Результат расчёта отправлен')
   }
   
   const handleOpenPreset = () => {
@@ -1414,7 +1426,6 @@ function App() {
         lang: context.lang,
         id: bitrixMeta.preset.id,
       })
-      addInfoMessage('info', `Открыт пресет ID: ${bitrixMeta.preset.id}`)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Не удалось открыть пресет'
       toast.error(message)
@@ -1980,6 +1991,7 @@ function App() {
           messages={infoMessages}
           isExpanded={isInfoPanelExpanded}
           onToggle={() => setIsInfoPanelExpanded(!isInfoPanelExpanded)}
+          onSaveCalculationResult={handleSaveCalculationResult}
         />
       </div>
       

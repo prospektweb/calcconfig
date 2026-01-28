@@ -248,13 +248,18 @@ export interface InfoMessage {
     stageName?: string
     purchasePrice?: number
     basePrice?: number
+    directPurchasePrice?: number
     currency?: string
-    pricesWithMarkup?: Array<{
-      typeId: number
-      typeName: string
-      purchasePrice: number
-      basePrice: number
-      currency: string
+    priceRangesWithMarkup?: Array<{
+      quantityFrom: number | null
+      quantityTo: number | null
+      prices: Array<{
+        typeId: number
+        typeName: string
+        purchasePrice: number
+        basePrice: number
+        currency: string
+      }>
     }>
     children?: InfoMessage[]
   }

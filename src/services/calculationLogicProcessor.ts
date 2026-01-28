@@ -263,7 +263,15 @@ type FormulaAstNode =
 const FORMULA_OPERATORS = new Set(['+', '-', '*', '/', '%', '>', '<', '>=', '<=', '==', '!=', '&&', '||'])
 const FORMULA_BUILTINS = {
   get: (value: any, path: any) => {
+    if (typeof path === 'number') {
+      if (value === null || value === undefined) return undefined
+      return value[path]
+    }
     if (typeof path !== 'string') return undefined
+    if (path === '') return value
+    if (Array.isArray(value) && /^\d+$/.test(path)) {
+      return value[Number(path)]
+    }
     return getValueByPath(value, path)
   },
   split: (value: any, delimiter?: any) =>
