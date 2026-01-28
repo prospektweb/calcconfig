@@ -74,6 +74,17 @@ export interface CalculationOfferResult {
       currency: string
     }>
   }>
+  priceRangesWithMarkup?: Array<{
+    quantityFrom: number | null
+    quantityTo: number | null
+    prices: Array<{
+      typeId: number
+      typeName: string
+      purchasePrice: number
+      basePrice: number
+      currency: string
+    }>
+  }>
 }
 
 export interface CalculationProgress {
@@ -607,6 +618,89 @@ function calculateTotalSteps(details: Detail[], bindings: Binding[]): number {
   }
   
   return count
+}
+
+function buildMarkupRanges(
+  basePrice: number,
+  presetPrices: Array<{
+    typeId: number
+    price: number
+    currency: string
+    quantityFrom: number | null
+    quantityTo: number | null
+  }>,
+  priceTypes: Array<{
+    id: number
+    name: string
+    base: boolean
+    sort: number
+  }>
+): Array<{
+  quantityFrom: number | null
+  quantityTo: number | null
+  prices: Array<{
+    typeId: number
+    typeName: string
+    purchasePrice: number
+    basePrice: number
+    currency: string
+  }>
+}> {
+  const rangesMap = new Map<string, { quantityFrom: number | null; quantityTo: number | null; prices: Array<{
+    typeId: number
+    typeName: string
+    purchasePrice: number
+    basePrice: number
+    currency: string
+  }> }>()
+
+  for (const price of presetPrices) {
+    const key = `${price.quantityFrom ?? 0}-${price.quantityTo ?? '∞'}`
+    if (!rangesMap.has(key)) {
+      rangesMap.set(key, {
+        quantityFrom: price.quantityFrom ?? 0,
+        quantityTo: price.quantityTo ?? null,
+        prices: [],
+      })
+    }
+  }
+
+  if (rangesMap.size === 0) {
+    return []
+  }
+
+  for (const range of rangesMap.values()) {
+    for (const priceType of priceTypes) {
+      const matching = presetPrices.find(p => p.typeId === priceType.id
+        && (p.quantityFrom ?? 0) === (range.quantityFrom ?? 0)
+        && (p.quantityTo ?? null) === (range.quantityTo ?? null))
+
+      if (!matching) {
+        range.prices.push({
+          typeId: priceType.id,
+          typeName: priceType.name,
+          purchasePrice: basePrice,
+          basePrice: basePrice,
+          currency: 'RUB',
+        })
+        continue
+      }
+
+      const finalPrice = matching.currency === 'PRC'
+        ? basePrice * (1 + matching.price / 100)
+        : basePrice + matching.price
+
+      range.prices.push({
+        typeId: priceType.id,
+        typeName: priceType.name,
+        purchasePrice: basePrice,
+        basePrice: finalPrice,
+        currency: matching.currency === 'PRC' ? 'RUB' : matching.currency || 'RUB',
+      })
+    }
+  }
+
+  return Array.from(rangesMap.values()).sort((a, b) => (a.quantityFrom ?? 0) - (b.quantityFrom ?? 0))
 }
 
 function buildMarkupRanges(
