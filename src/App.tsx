@@ -1286,8 +1286,10 @@ function App() {
             presetModified: result.presetModified,
             purchasePrice: result.totalPurchasePrice,
             basePrice: result.totalBasePrice,
+            directPurchasePrice: result.totalDirectPurchasePrice,
             currency: result.currency,
             pricesWithMarkup: result.pricesWithMarkup,
+            priceRangesWithMarkup: result.priceRangesWithMarkup,
             children: result.details.map((detail) => convertDetailToMessage(detail)),
           },
         }
@@ -1322,8 +1324,8 @@ function App() {
                 stageId: stage.stageId,
                 calculationData: {
                   stageName: stage.stageName,
-                  purchasePrice: stage.totalCost,
-                  basePrice: stage.totalCost,
+                  purchasePrice: typeof stage.outputs?.purchasingPrice === 'number' ? stage.outputs.purchasingPrice : stage.totalCost,
+                  basePrice: typeof stage.outputs?.basePrice === 'number' ? stage.outputs.basePrice : stage.totalCost,
                   currency: stage.currency,
                 },
               })),

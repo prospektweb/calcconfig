@@ -138,7 +138,14 @@ function StageItem({ message }: { message: InfoMessage }) {
   return (
     <div className="pl-4 py-1 text-sm border-l-2 border-border">
       <span className="font-medium">{data.stageName || 'Этап'}</span>
-      {priceStr && <span className="text-muted-foreground ml-2">{priceStr}</span>}
+      {priceStr && (
+        <span
+          className="text-muted-foreground ml-2"
+          title="Слева закупочная цена, справа базовая цена"
+        >
+          {priceStr}
+        </span>
+      )}
     </div>
   )
 }
@@ -165,7 +172,14 @@ function DetailItem({ message }: { message: InfoMessage }) {
           {data.detailType === 'binding' ? '📦 ' : '📄 '}
           {data.detailName}
         </span>
-        {priceStr && <span className="text-muted-foreground ml-2">{priceStr}</span>}
+        {priceStr && (
+          <span
+            className="text-muted-foreground ml-2"
+            title="Слева закупочная цена, справа базовая цена"
+          >
+            {priceStr}
+          </span>
+        )}
       </div>
     )
   }
@@ -178,7 +192,14 @@ function DetailItem({ message }: { message: InfoMessage }) {
             {data.detailType === 'binding' ? '📦 ' : '📄 '}
             {data.detailName}
           </span>
-          {priceStr && <span className="text-muted-foreground">{priceStr}</span>}
+          {priceStr && (
+            <span
+              className="text-muted-foreground"
+              title="Слева закупочная цена, справа базовая цена"
+            >
+              {priceStr}
+            </span>
+          )}
         </span>
       </AccordionTrigger>
       <AccordionContent className="space-y-1 pb-2">
@@ -285,21 +306,62 @@ export function CalculationReport({ message }: CalculationReportProps) {
       )}
       
       {/* Price summary */}
-      {(data.purchasePrice !== undefined || data.pricesWithMarkup) && (
+      {(data.purchasePrice !== undefined || data.pricesWithMarkup || data.priceRangesWithMarkup) && (
         <div className="border-t pt-2 space-y-2">
           {/* Base prices */}
           {data.purchasePrice !== undefined && data.basePrice !== undefined && (
             <div className="text-sm">
               <div className="font-medium mb-1">Расчетные цены торгового предложения:</div>
               <div className="pl-4 space-y-0.5 text-xs">
-                <div>- Закупочная цена: {formatPrice(data.purchasePrice, data.currency || 'RUB')}</div>
+                <div>
+                  - Закупочная цена: {formatPrice(data.purchasePrice, data.currency || 'RUB')}
+                  {data.directPurchasePrice !== undefined && (
+                    <> (прямые затраты: {formatPrice(data.directPurchasePrice, data.currency || 'RUB')})</>
+                  )}
+                </div>
                 <div>- Базовая цена: {formatPrice(data.basePrice, data.currency || 'RUB')}</div>
               </div>
             </div>
           )}
           
           {/* Prices with markup */}
-          {data.pricesWithMarkup && data.pricesWithMarkup.length > 0 && (
+          {data.priceRangesWithMarkup && data.priceRangesWithMarkup.length > 0 ? (
+            <div className="text-sm">
+              <div className="font-medium mb-1">
+                Цены торгового предложения с учётом наценок (по диапазонам):
+              </div>
+              <div className="pl-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left font-medium py-1 pr-3">От</th>
+                        <th className="text-left font-medium py-1 pr-3">До</th>
+                        {data.priceRangesWithMarkup[0].prices.map(price => (
+                          <th key={price.typeId} className="text-left font-medium py-1 pr-3">
+                            {price.typeName}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.priceRangesWithMarkup.map((range, index) => (
+                        <tr key={`${range.quantityFrom}-${range.quantityTo}-${index}`} className="border-b last:border-b-0">
+                          <td className="py-1 pr-3">{range.quantityFrom ?? 0}</td>
+                          <td className="py-1 pr-3">{range.quantityTo ?? '∞'}</td>
+                          {range.prices.map(price => (
+                            <td key={price.typeId} className="py-1 pr-3">
+                              {formatPrice(price.basePrice, price.currency)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : data.pricesWithMarkup && data.pricesWithMarkup.length > 0 ? (
             <div className="text-sm">
               <div className="font-medium mb-1">
                 Цены торгового предложения с учётом наценок:
@@ -312,7 +374,7 @@ export function CalculationReport({ message }: CalculationReportProps) {
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       )}
     </div>

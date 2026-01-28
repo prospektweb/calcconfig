@@ -44,6 +44,11 @@ export interface CalculationDetailResult {
   basePrice: number
   currency: string
   children?: CalculationDetailResult[]
+  outputs?: Record<string, any>
+  width?: number
+  length?: number
+  height?: number
+  weight?: number
 }
 
 export interface CalculationOfferResult {
@@ -57,6 +62,7 @@ export interface CalculationOfferResult {
   details: CalculationDetailResult[]
   totalPurchasePrice: number
   totalBasePrice: number
+  totalDirectPurchasePrice: number
   currency: string
   pricesWithMarkup: Array<{
     typeId: number
@@ -64,6 +70,17 @@ export interface CalculationOfferResult {
     purchasePrice: number
     basePrice: number
     currency: string
+  }>
+  priceRangesWithMarkup?: Array<{
+    quantityFrom: number | null
+    quantityTo: number | null
+    prices: Array<{
+      typeId: number
+      typeName: string
+      purchasePrice: number
+      basePrice: number
+      currency: string
+    }>
   }>
 }
 
@@ -328,12 +345,23 @@ async function calculateDetail(
   }
   
   const totalCost = stageResults.reduce((sum, stage) => sum + stage.totalCost, 0)
+  const lastStageWithOutputs = [...stageResults].reverse().find(stage => stage.outputs && Object.keys(stage.outputs).length > 0)
+  const derivedOutputs = lastStageWithOutputs?.outputs
+  const derivedPurchasePrice = derivedOutputs?.purchasingPrice
+  const derivedBasePrice = derivedOutputs?.basePrice
+  const derivedWidth = derivedOutputs?.width
+  const derivedLength = derivedOutputs?.length
+  const derivedHeight = derivedOutputs?.height
+  const derivedWeight = derivedOutputs?.weight
   
   console.log('[CALC] Detail calculation complete:', {
     detailId: detail.id,
     detailName: detail.name,
     stagesProcessed: stageResults.length,
     totalCost,
+    derivedPurchasePrice,
+    derivedBasePrice,
+    derivedOutputs,
   })
   
   const result: CalculationDetailResult = {
@@ -341,9 +369,14 @@ async function calculateDetail(
     detailName: detail.name,
     detailType: 'detail',
     stages: stageResults,
-    purchasePrice: totalCost,
-    basePrice: totalCost, // Will be modified by markups later
+    purchasePrice: typeof derivedPurchasePrice === 'number' ? derivedPurchasePrice : totalCost,
+    basePrice: typeof derivedBasePrice === 'number' ? derivedBasePrice : totalCost, // Will be modified by markups later
     currency: 'RUB',
+    outputs: derivedOutputs,
+    width: typeof derivedWidth === 'number' ? derivedWidth : undefined,
+    length: typeof derivedLength === 'number' ? derivedLength : undefined,
+    height: typeof derivedHeight === 'number' ? derivedHeight : undefined,
+    weight: typeof derivedWeight === 'number' ? derivedWeight : undefined,
   }
   
   if (stepCallback) {
@@ -431,6 +464,51 @@ async function calculateBinding(
   const childrenCost = children.reduce((sum, child) => sum + child.purchasePrice, 0)
   const bindingStageCost = stageResults.reduce((sum, stage) => sum + stage.totalCost, 0)
   const totalCost = childrenCost + bindingStageCost
+  const lastStageWithOutputs = [...stageResults].reverse().find(stage => stage.outputs && Object.keys(stage.outputs).length > 0)
+
+  const aggregateChildren = (items: CalculationDetailResult[]) => {
+    let purchasePrice = 0
+    let basePrice = 0
+    let weight = 0
+    let heightMax = 0
+    let lengthMax = 0
+    let widthMax = 0
+
+    for (const item of items) {
+      const outputs = item.outputs || {}
+      const itemPurchasePrice = typeof outputs.purchasingPrice === 'number' ? outputs.purchasingPrice : item.purchasePrice
+      const itemBasePrice = typeof outputs.basePrice === 'number' ? outputs.basePrice : item.basePrice
+      const itemWeight = typeof outputs.weight === 'number' ? outputs.weight : item.weight
+      const itemHeight = typeof outputs.height === 'number' ? outputs.height : item.height
+      const itemLength = typeof outputs.length === 'number' ? outputs.length : item.length
+      const itemWidth = typeof outputs.width === 'number' ? outputs.width : item.width
+
+      purchasePrice += Number(itemPurchasePrice || 0)
+      basePrice += Number(itemBasePrice || 0)
+      weight += Number(itemWeight || 0)
+      heightMax = Math.max(heightMax, Number(itemHeight || 0))
+      lengthMax = Math.max(lengthMax, Number(itemLength || 0))
+      widthMax = Math.max(widthMax, Number(itemWidth || 0))
+    }
+
+    return {
+      purchasePrice,
+      basePrice,
+      weight,
+      height: heightMax || undefined,
+      length: lengthMax || undefined,
+      width: widthMax || undefined,
+    }
+  }
+
+  const derivedOutputs = lastStageWithOutputs?.outputs
+  const derivedPurchasePrice = derivedOutputs?.purchasingPrice
+  const derivedBasePrice = derivedOutputs?.basePrice
+  const derivedWidth = derivedOutputs?.width
+  const derivedLength = derivedOutputs?.length
+  const derivedHeight = derivedOutputs?.height
+  const derivedWeight = derivedOutputs?.weight
+  const aggregatedChildren = stageResults.length === 0 ? aggregateChildren(children) : null
   
   console.log('[CALC] Binding calculation complete:', {
     bindingId: binding.id,
@@ -439,6 +517,10 @@ async function calculateBinding(
     childrenCost,
     bindingStageCost,
     totalCost,
+    derivedPurchasePrice,
+    derivedBasePrice,
+    derivedOutputs,
+    aggregatedChildren,
   })
   
   const result: CalculationDetailResult = {
@@ -446,10 +528,26 @@ async function calculateBinding(
     detailName: binding.name,
     detailType: 'binding',
     stages: stageResults,
-    purchasePrice: totalCost,
-    basePrice: totalCost,
+    purchasePrice: typeof derivedPurchasePrice === 'number'
+      ? derivedPurchasePrice
+      : aggregatedChildren?.purchasePrice ?? totalCost,
+    basePrice: typeof derivedBasePrice === 'number'
+      ? derivedBasePrice
+      : aggregatedChildren?.basePrice ?? totalCost,
     currency: 'RUB',
     children,
+    outputs: derivedOutputs ?? (aggregatedChildren ? {
+      purchasingPrice: aggregatedChildren.purchasePrice,
+      basePrice: aggregatedChildren.basePrice,
+      width: aggregatedChildren.width,
+      length: aggregatedChildren.length,
+      height: aggregatedChildren.height,
+      weight: aggregatedChildren.weight,
+    } : undefined),
+    width: typeof derivedWidth === 'number' ? derivedWidth : aggregatedChildren?.width,
+    length: typeof derivedLength === 'number' ? derivedLength : aggregatedChildren?.length,
+    height: typeof derivedHeight === 'number' ? derivedHeight : aggregatedChildren?.height,
+    weight: typeof derivedWeight === 'number' ? derivedWeight : aggregatedChildren?.weight,
   }
   
   if (stepCallback) {
@@ -601,6 +699,89 @@ function applyPriceMarkups(
   return results
 }
 
+function buildMarkupRanges(
+  basePrice: number,
+  presetPrices: Array<{
+    typeId: number
+    price: number
+    currency: string
+    quantityFrom: number | null
+    quantityTo: number | null
+  }>,
+  priceTypes: Array<{
+    id: number
+    name: string
+    base: boolean
+    sort: number
+  }>
+): Array<{
+  quantityFrom: number | null
+  quantityTo: number | null
+  prices: Array<{
+    typeId: number
+    typeName: string
+    purchasePrice: number
+    basePrice: number
+    currency: string
+  }>
+}> {
+  const rangesMap = new Map<string, { quantityFrom: number | null; quantityTo: number | null; prices: Array<{
+    typeId: number
+    typeName: string
+    purchasePrice: number
+    basePrice: number
+    currency: string
+  }> }>()
+
+  for (const price of presetPrices) {
+    const key = `${price.quantityFrom ?? 0}-${price.quantityTo ?? '∞'}`
+    if (!rangesMap.has(key)) {
+      rangesMap.set(key, {
+        quantityFrom: price.quantityFrom ?? 0,
+        quantityTo: price.quantityTo ?? null,
+        prices: [],
+      })
+    }
+  }
+
+  if (rangesMap.size === 0) {
+    return []
+  }
+
+  for (const range of rangesMap.values()) {
+    for (const priceType of priceTypes) {
+      const matching = presetPrices.find(p => p.typeId === priceType.id
+        && (p.quantityFrom ?? 0) === (range.quantityFrom ?? 0)
+        && (p.quantityTo ?? null) === (range.quantityTo ?? null))
+
+      if (!matching) {
+        range.prices.push({
+          typeId: priceType.id,
+          typeName: priceType.name,
+          purchasePrice: basePrice,
+          basePrice: basePrice,
+          currency: 'RUB',
+        })
+        continue
+      }
+
+      const finalPrice = matching.currency === 'PRC'
+        ? basePrice * (1 + matching.price / 100)
+        : basePrice + matching.price
+
+      range.prices.push({
+        typeId: priceType.id,
+        typeName: priceType.name,
+        purchasePrice: basePrice,
+        basePrice: finalPrice,
+        currency: matching.currency === 'PRC' ? 'RUB' : matching.currency || 'RUB',
+      })
+    }
+  }
+
+  return Array.from(rangesMap.values()).sort((a, b) => (a.quantityFrom ?? 0) - (b.quantityFrom ?? 0))
+}
+
 /**
  * Main calculation function for an offer
  */
@@ -680,8 +861,9 @@ export async function calculateOffer(
     detailResults.push(result)
   }
   
-  const totalPurchasePrice = detailResults.reduce((sum, detail) => sum + detail.purchasePrice, 0)
+  const totalDirectPurchasePrice = detailResults.reduce((sum, detail) => sum + detail.purchasePrice, 0)
   const totalBasePrice = detailResults.reduce((sum, detail) => sum + detail.basePrice, 0)
+  const totalPurchasePrice = totalBasePrice
   
   // Apply price markups
   const pricesWithMarkup = applyPriceMarkups(
@@ -690,6 +872,7 @@ export async function calculateOffer(
     preset?.prices || [],
     priceTypes
   )
+  const priceRangesWithMarkup = buildMarkupRanges(totalBasePrice, preset?.prices || [], priceTypes)
   
   console.log('[CALC] Offer calculation complete:', {
     offerId: offer.id,
@@ -697,6 +880,7 @@ export async function calculateOffer(
     detailsProcessed: detailResults.length,
     totalPurchasePrice,
     totalBasePrice,
+    totalDirectPurchasePrice,
     pricesWithMarkup: pricesWithMarkup.map(p => ({ type: p.typeName, price: p.basePrice })),
   })
   
@@ -711,8 +895,10 @@ export async function calculateOffer(
     details: detailResults,
     totalPurchasePrice,
     totalBasePrice,
+    totalDirectPurchasePrice,
     currency: 'RUB',
     pricesWithMarkup,
+    priceRangesWithMarkup,
   }
 }
 
