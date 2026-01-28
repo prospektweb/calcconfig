@@ -103,6 +103,34 @@ async function calculateStage(
   let logicApplied = false
   let evaluatedVars: Record<string, any> = {}
   let outputValues: Record<string, any> = {}
+  const applyRuntimeOutputs = (stageElementToUpdate: any, outputsToApply: Record<string, any>) => {
+    if (!stageElementToUpdate?.properties || !outputsToApply) {
+      return
+    }
+
+    const outputsProperty = stageElementToUpdate.properties.OUTPUTS
+    const outputKeys: string[] = Array.isArray(outputsProperty?.VALUE)
+      ? outputsProperty.VALUE.map((value: any) => String(value))
+      : outputsProperty?.VALUE !== undefined && outputsProperty?.VALUE !== null
+          ? [String(outputsProperty.VALUE)]
+          : Array.isArray(outputsProperty)
+              ? outputsProperty
+                  .map((entry: any) => String(entry?.VALUE ?? entry?.DESCRIPTION ?? ''))
+                  .filter((value: string) => value)
+              : []
+
+    const runtimeOutputs = (outputKeys.length > 0 ? outputKeys : Object.keys(outputsToApply)).map((key) => {
+      const keyString = String(key)
+      const slug = keyString.split('|', 1)[0]
+      const value = outputsToApply[slug] ?? outputsToApply[keyString]
+      return {
+        VALUE: value ?? null,
+        DESCRIPTION: keyString,
+      }
+    })
+
+    stageElementToUpdate.properties.OUTPUTS_RUNTIME = runtimeOutputs
+  }
   
   // Get calculator settings element
   let settingsElement = null
@@ -165,6 +193,10 @@ async function calculateStage(
         
         // Map results to outputs
         outputValues = mapOutputs(evaluatedVars, outputs)
+
+        if (Object.keys(outputValues).length > 0) {
+          applyRuntimeOutputs(stageElement, outputValues)
+        }
         
         logicApplied = true
         
