@@ -44,6 +44,11 @@ export interface CalculationDetailResult {
   basePrice: number
   currency: string
   children?: CalculationDetailResult[]
+  outputs?: Record<string, any>
+  width?: number
+  length?: number
+  height?: number
+  weight?: number
 }
 
 export interface CalculationOfferResult {
@@ -328,6 +333,14 @@ async function calculateDetail(
   }
   
   const totalCost = stageResults.reduce((sum, stage) => sum + stage.totalCost, 0)
+  const lastStageWithOutputs = [...stageResults].reverse().find(stage => stage.outputs && Object.keys(stage.outputs).length > 0)
+  const derivedOutputs = lastStageWithOutputs?.outputs
+  const derivedPurchasePrice = derivedOutputs?.purchasingPrice
+  const derivedBasePrice = derivedOutputs?.basePrice
+  const derivedWidth = derivedOutputs?.width
+  const derivedLength = derivedOutputs?.length
+  const derivedHeight = derivedOutputs?.height
+  const derivedWeight = derivedOutputs?.weight
   
   console.log('[CALC] Detail calculation complete:', {
     detailId: detail.id,
@@ -341,9 +354,14 @@ async function calculateDetail(
     detailName: detail.name,
     detailType: 'detail',
     stages: stageResults,
-    purchasePrice: totalCost,
-    basePrice: totalCost, // Will be modified by markups later
+    purchasePrice: typeof derivedPurchasePrice === 'number' ? derivedPurchasePrice : totalCost,
+    basePrice: typeof derivedBasePrice === 'number' ? derivedBasePrice : totalCost, // Will be modified by markups later
     currency: 'RUB',
+    outputs: derivedOutputs,
+    width: typeof derivedWidth === 'number' ? derivedWidth : undefined,
+    length: typeof derivedLength === 'number' ? derivedLength : undefined,
+    height: typeof derivedHeight === 'number' ? derivedHeight : undefined,
+    weight: typeof derivedWeight === 'number' ? derivedWeight : undefined,
   }
   
   if (stepCallback) {
@@ -431,6 +449,51 @@ async function calculateBinding(
   const childrenCost = children.reduce((sum, child) => sum + child.purchasePrice, 0)
   const bindingStageCost = stageResults.reduce((sum, stage) => sum + stage.totalCost, 0)
   const totalCost = childrenCost + bindingStageCost
+  const lastStageWithOutputs = [...stageResults].reverse().find(stage => stage.outputs && Object.keys(stage.outputs).length > 0)
+
+  const aggregateChildren = (items: CalculationDetailResult[]) => {
+    let purchasePrice = 0
+    let basePrice = 0
+    let weight = 0
+    let heightMax = 0
+    let lengthMax = 0
+    let widthMax = 0
+
+    for (const item of items) {
+      const outputs = item.outputs || {}
+      const itemPurchasePrice = typeof outputs.purchasingPrice === 'number' ? outputs.purchasingPrice : item.purchasePrice
+      const itemBasePrice = typeof outputs.basePrice === 'number' ? outputs.basePrice : item.basePrice
+      const itemWeight = typeof outputs.weight === 'number' ? outputs.weight : item.weight
+      const itemHeight = typeof outputs.height === 'number' ? outputs.height : item.height
+      const itemLength = typeof outputs.length === 'number' ? outputs.length : item.length
+      const itemWidth = typeof outputs.width === 'number' ? outputs.width : item.width
+
+      purchasePrice += Number(itemPurchasePrice || 0)
+      basePrice += Number(itemBasePrice || 0)
+      weight += Number(itemWeight || 0)
+      heightMax = Math.max(heightMax, Number(itemHeight || 0))
+      lengthMax = Math.max(lengthMax, Number(itemLength || 0))
+      widthMax = Math.max(widthMax, Number(itemWidth || 0))
+    }
+
+    return {
+      purchasePrice,
+      basePrice,
+      weight,
+      height: heightMax || undefined,
+      length: lengthMax || undefined,
+      width: widthMax || undefined,
+    }
+  }
+
+  const derivedOutputs = lastStageWithOutputs?.outputs
+  const derivedPurchasePrice = derivedOutputs?.purchasingPrice
+  const derivedBasePrice = derivedOutputs?.basePrice
+  const derivedWidth = derivedOutputs?.width
+  const derivedLength = derivedOutputs?.length
+  const derivedHeight = derivedOutputs?.height
+  const derivedWeight = derivedOutputs?.weight
+  const aggregatedChildren = stageResults.length === 0 ? aggregateChildren(children) : null
   
   console.log('[CALC] Binding calculation complete:', {
     bindingId: binding.id,
@@ -446,10 +509,26 @@ async function calculateBinding(
     detailName: binding.name,
     detailType: 'binding',
     stages: stageResults,
-    purchasePrice: totalCost,
-    basePrice: totalCost,
+    purchasePrice: typeof derivedPurchasePrice === 'number'
+      ? derivedPurchasePrice
+      : aggregatedChildren?.purchasePrice ?? totalCost,
+    basePrice: typeof derivedBasePrice === 'number'
+      ? derivedBasePrice
+      : aggregatedChildren?.basePrice ?? totalCost,
     currency: 'RUB',
     children,
+    outputs: derivedOutputs ?? (aggregatedChildren ? {
+      purchasingPrice: aggregatedChildren.purchasePrice,
+      basePrice: aggregatedChildren.basePrice,
+      width: aggregatedChildren.width,
+      length: aggregatedChildren.length,
+      height: aggregatedChildren.height,
+      weight: aggregatedChildren.weight,
+    } : undefined),
+    width: typeof derivedWidth === 'number' ? derivedWidth : aggregatedChildren?.width,
+    length: typeof derivedLength === 'number' ? derivedLength : aggregatedChildren?.length,
+    height: typeof derivedHeight === 'number' ? derivedHeight : aggregatedChildren?.height,
+    weight: typeof derivedWeight === 'number' ? derivedWeight : aggregatedChildren?.weight,
   }
   
   if (stepCallback) {
