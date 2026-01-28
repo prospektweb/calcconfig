@@ -54,7 +54,6 @@ export function VariantsFooter({
         lang: context.lang,
         id: offer.id,
       })
-      addInfoMessage('info', `Открыто ТП ID: ${offer.id}`)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Не удалось открыть торговое предложение'
       toast.error(message)
@@ -100,7 +99,6 @@ export function VariantsFooter({
 
     try {
       openCatalogProduct(productId, parentIblock.id, parentIblock.type, context.lang)
-      addInfoMessage('info', `Открыт родительский товар ID: ${productId}`)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Не удалось открыть товар'
       toast.error(message)

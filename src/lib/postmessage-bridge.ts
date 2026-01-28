@@ -15,6 +15,7 @@ export type MessageType =
   // Расчёт и сохранение
   | 'CALC_RUN'        // iframe → bitrix: запуск расчёта
   | 'CALC_INFO'       // bitrix → iframe: информация о расчёте
+  | 'SAVE_CALCULATION_REQUEST'
   
   // Legacy responses (still in use)
   | 'SELECT_DONE'
@@ -569,6 +570,10 @@ class PostMessageBridge {
 
   sendCalcRun(payload?: any) {
     this.sendMessage('CALC_RUN', payload)
+  }
+
+  sendSaveCalculationRequest(payload?: any) {
+    this.sendMessage('SAVE_CALCULATION_REQUEST', payload)
   }
 
   sendError(code: string, message: string, details?: any, context?: any) {
