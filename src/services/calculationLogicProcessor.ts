@@ -175,10 +175,22 @@ export function getValueByPath(obj: any, path: string): any {
 
   let current = obj
 
-  for (const part of parts) {
+  for (let index = 0; index < parts.length; index++) {
+    const part = parts[index]
     if (current === null || current === undefined) {
       return undefined
     }
+
+    if (
+      part === 'OUTPUTS' &&
+      typeof current === 'object' &&
+      Array.isArray((current as any).OUTPUTS_RUNTIME) &&
+      typeof parts[index + 1] === 'number'
+    ) {
+      current = (current as any).OUTPUTS_RUNTIME
+      continue
+    }
+
     current = current[part]
   }
 
