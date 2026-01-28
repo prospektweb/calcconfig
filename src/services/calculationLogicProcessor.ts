@@ -89,6 +89,21 @@ export function extractInputs(stageElement: ElementsStoreItem | null | undefined
     return []
   }
 
+  const missingDescriptions = Array.isArray(inputsDesc)
+    ? inputsValue.filter((_, i) => !String(inputsDesc[i] || '').trim()).length
+    : inputsValue.length
+
+  if (missingDescriptions > 0) {
+    console.warn(
+      '[CALC] INPUTS wiring has missing DESCRIPTION entries for',
+      missingDescriptions,
+      'input(s). INPUTS.VALUE length:',
+      inputsValue.length,
+      'DESCRIPTION length:',
+      Array.isArray(inputsDesc) ? inputsDesc.length : 0
+    )
+  }
+
   return inputsValue.map((paramName, i) => ({
     paramName: String(paramName),
     sourcePath: Array.isArray(inputsDesc) ? String(inputsDesc[i] || '') : '',
