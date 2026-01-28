@@ -60,16 +60,19 @@ export interface CalculationOfferResult {
   presetName?: string
   presetModified?: string
   details: CalculationDetailResult[]
-  totalPurchasePrice: number
-  totalBasePrice: number
-  totalDirectPurchasePrice: number
+  directPurchasePrice: number
+  purchasePrice: number
   currency: string
-  pricesWithMarkup: Array<{
-    typeId: number
-    typeName: string
-    purchasePrice: number
-    basePrice: number
-    currency: string
+  priceRangesWithMarkup?: Array<{
+    quantityFrom: number | null
+    quantityTo: number | null
+    prices: Array<{
+      typeId: number
+      typeName: string
+      purchasePrice: number
+      basePrice: number
+      currency: string
+    }>
   }>
   priceRangesWithMarkup?: Array<{
     quantityFrom: number | null
@@ -617,12 +620,8 @@ function calculateTotalSteps(details: Detail[], bindings: Binding[]): number {
   return count
 }
 
-/**
- * Apply price markups based on preset prices
- */
-function applyPriceMarkups(
+function buildMarkupRanges(
   basePrice: number,
-  quantity: number,
   presetPrices: Array<{
     typeId: number
     price: number
@@ -637,66 +636,71 @@ function applyPriceMarkups(
     sort: number
   }>
 ): Array<{
-  typeId: number
-  typeName: string
-  purchasePrice: number
-  basePrice: number
-  currency: string
-}> {
-  const results: Array<{
+  quantityFrom: number | null
+  quantityTo: number | null
+  prices: Array<{
     typeId: number
     typeName: string
     purchasePrice: number
     basePrice: number
     currency: string
-  }> = []
-  
-  // Group prices by type
-  const pricesByType = new Map<number, typeof presetPrices[0][]>()
+  }>
+}> {
+  const rangesMap = new Map<string, { quantityFrom: number | null; quantityTo: number | null; prices: Array<{
+    typeId: number
+    typeName: string
+    purchasePrice: number
+    basePrice: number
+    currency: string
+  }> }>()
+
   for (const price of presetPrices) {
-    if (!pricesByType.has(price.typeId)) {
-      pricesByType.set(price.typeId, [])
+    const key = `${price.quantityFrom ?? 0}-${price.quantityTo ?? '∞'}`
+    if (!rangesMap.has(key)) {
+      rangesMap.set(key, {
+        quantityFrom: price.quantityFrom ?? 0,
+        quantityTo: price.quantityTo ?? null,
+        prices: [],
+      })
     }
-    pricesByType.get(price.typeId)!.push(price)
   }
-  
-  // Calculate for each price type
-  for (const priceType of priceTypes) {
-    const typePrices = pricesByType.get(priceType.id) || []
-    
-    // Find applicable price range
-    let applicablePrice = typePrices.find(p => {
-      const from = p.quantityFrom ?? 0
-      const to = p.quantityTo
-      return quantity >= from && (to === null || quantity <= to)
-    })
-    
-    // If no range found, try to find the first range (fallback)
-    if (!applicablePrice && typePrices.length > 0) {
-      applicablePrice = typePrices[0]
-    }
-    
-    let finalPrice = basePrice
-    if (applicablePrice) {
-      if (applicablePrice.currency === 'PRC') {
-        // Percentage markup
-        finalPrice = basePrice * (1 + applicablePrice.price / 100)
-      } else {
-        // Absolute markup in RUB
-        finalPrice = basePrice + applicablePrice.price
+
+  if (rangesMap.size === 0) {
+    return []
+  }
+
+  for (const range of rangesMap.values()) {
+    for (const priceType of priceTypes) {
+      const matching = presetPrices.find(p => p.typeId === priceType.id
+        && (p.quantityFrom ?? 0) === (range.quantityFrom ?? 0)
+        && (p.quantityTo ?? null) === (range.quantityTo ?? null))
+
+      if (!matching) {
+        range.prices.push({
+          typeId: priceType.id,
+          typeName: priceType.name,
+          purchasePrice: basePrice,
+          basePrice: basePrice,
+          currency: 'RUB',
+        })
+        continue
       }
+
+      const finalPrice = matching.currency === 'PRC'
+        ? basePrice * (1 + matching.price / 100)
+        : basePrice + matching.price
+
+      range.prices.push({
+        typeId: priceType.id,
+        typeName: priceType.name,
+        purchasePrice: basePrice,
+        basePrice: finalPrice,
+        currency: matching.currency === 'PRC' ? 'RUB' : matching.currency || 'RUB',
+      })
     }
-    
-    results.push({
-      typeId: priceType.id,
-      typeName: priceType.name,
-      purchasePrice: basePrice,
-      basePrice: finalPrice,
-      currency: 'RUB',
-    })
   }
-  
-  return results
+
+  return Array.from(rangesMap.values()).sort((a, b) => (a.quantityFrom ?? 0) - (b.quantityFrom ?? 0))
 }
 
 function buildMarkupRanges(
@@ -861,27 +865,17 @@ export async function calculateOffer(
     detailResults.push(result)
   }
   
-  const totalDirectPurchasePrice = detailResults.reduce((sum, detail) => sum + detail.purchasePrice, 0)
-  const totalBasePrice = detailResults.reduce((sum, detail) => sum + detail.basePrice, 0)
-  const totalPurchasePrice = totalBasePrice
+  const directPurchasePrice = detailResults.reduce((sum, detail) => sum + detail.purchasePrice, 0)
+  const purchasePrice = detailResults.reduce((sum, detail) => sum + detail.basePrice, 0)
   
-  // Apply price markups
-  const pricesWithMarkup = applyPriceMarkups(
-    totalBasePrice,
-    1, // Default quantity
-    preset?.prices || [],
-    priceTypes
-  )
-  const priceRangesWithMarkup = buildMarkupRanges(totalBasePrice, preset?.prices || [], priceTypes)
+  const priceRangesWithMarkup = buildMarkupRanges(purchasePrice, preset?.prices || [], priceTypes)
   
   console.log('[CALC] Offer calculation complete:', {
     offerId: offer.id,
     offerName: offer.name,
     detailsProcessed: detailResults.length,
-    totalPurchasePrice,
-    totalBasePrice,
-    totalDirectPurchasePrice,
-    pricesWithMarkup: pricesWithMarkup.map(p => ({ type: p.typeName, price: p.basePrice })),
+    purchasePrice,
+    directPurchasePrice,
   })
   
   return {
@@ -893,11 +887,9 @@ export async function calculateOffer(
     presetName: preset?.name,
     presetModified: preset?.properties?.DATE_MODIFY ? String(preset.properties.DATE_MODIFY) : undefined,
     details: detailResults,
-    totalPurchasePrice,
-    totalBasePrice,
-    totalDirectPurchasePrice,
+    directPurchasePrice,
+    purchasePrice,
     currency: 'RUB',
-    pricesWithMarkup,
     priceRangesWithMarkup,
   }
 }

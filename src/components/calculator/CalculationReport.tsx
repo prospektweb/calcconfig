@@ -1,15 +1,11 @@
-import { useState } from 'react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { 
   Accordion, 
   AccordionContent, 
   AccordionItem, 
   AccordionTrigger 
 } from '@/components/ui/accordion'
-import { Copy, Code, CheckCircle, XCircle } from '@phosphor-icons/react'
+import { CheckCircle, XCircle } from '@phosphor-icons/react'
 import { InfoMessage } from '@/lib/types'
-import { toast } from 'sonner'
 
 interface CalculationReportProps {
   message: InfoMessage
@@ -25,7 +21,7 @@ function formatPrice(price: number, currency: string): string {
 /**
  * Generate BBCode format for a calculation report
  */
-function generateBBCode(message: InfoMessage): string {
+export function buildFullReportText(message: InfoMessage): string {
   const data = message.calculationData
   if (!data) return message.message
   
@@ -59,69 +55,25 @@ function generateBBCode(message: InfoMessage): string {
     }
     
     bbcode += '\n[b]Итоги расчёта:[/b]\n'
-    if (data.pricesWithMarkup) {
-      for (const price of data.pricesWithMarkup) {
-        bbcode += `  - ${price.typeName}: ${formatPrice(price.basePrice, price.currency)}\n`
+    if (data.purchasePrice !== undefined) {
+      bbcode += `  - Закупочная цена: ${formatPrice(data.purchasePrice, data.currency || 'RUB')}\n`
+      if (data.directPurchasePrice !== undefined) {
+        bbcode += `    (прямые затраты: ${formatPrice(data.directPurchasePrice, data.currency || 'RUB')})\n`
+      }
+    }
+    if (data.priceRangesWithMarkup && data.priceRangesWithMarkup.length > 0) {
+      bbcode += '\n[b]Наценки по диапазонам:[/b]\n'
+      for (const range of data.priceRangesWithMarkup) {
+        const toValue = range.quantityTo ?? '∞'
+        bbcode += `  - ${range.quantityFrom ?? 0}–${toValue}:\n`
+        for (const price of range.prices) {
+          bbcode += `    • ${price.typeName}: ${formatPrice(price.basePrice, price.currency)}\n`
+        }
       }
     }
   }
   
   return bbcode
-}
-
-/**
- * Generate compressed format for a calculation report
- */
-function generateCompressed(message: InfoMessage): string {
-  const data = message.calculationData
-  if (!data) return message.message
-  
-  let text = ''
-  
-  if (data.offerName) {
-    text += `Торговое предложение ${data.offerName} | ${message.offerId || ''}\n`
-    
-    if (data.children) {
-      const detailsParts: string[] = []
-      for (const child of data.children) {
-        if (child.calculationData?.detailName) {
-          const childData = child.calculationData
-          const priceStr = childData.purchasePrice !== undefined && childData.basePrice !== undefined
-            ? ` (${formatPrice(childData.purchasePrice, childData.currency || 'RUB')} > ${formatPrice(childData.basePrice, childData.currency || 'RUB')})`
-            : ''
-          detailsParts.push(`деталь ${childData.detailName}${priceStr}`)
-        }
-      }
-      
-      if (detailsParts.length > 0) {
-        text += `Детали: ${detailsParts.join(', ')}\n`
-      }
-    }
-    
-    if (data.pricesWithMarkup) {
-      const pricesParts: string[] = []
-      for (const price of data.pricesWithMarkup) {
-        pricesParts.push(`${price.typeName} - ${formatPrice(price.basePrice, price.currency)}`)
-      }
-      
-      if (pricesParts.length > 0) {
-        text += `Итоги расчёта: ${pricesParts.join(', ')}`
-      }
-    }
-  }
-  
-  return text
-}
-
-/**
- * Copy text to clipboard
- */
-function copyToClipboard(text: string, label: string) {
-  navigator.clipboard.writeText(text).then(() => {
-    toast.success(`${label} скопировано в буфер обмена`)
-  }).catch(() => {
-    toast.error('Ошибка при копировании')
-  })
 }
 
 /**
@@ -234,7 +186,7 @@ export function CalculationReport({ message }: CalculationReportProps) {
   const details = data.children?.filter(child => child.level === 'detail') || []
   
   // Determine if calculation was successful
-  const hasNonZeroPrices = data.purchasePrice > 0 || data.basePrice > 0
+  const hasNonZeroPrices = (data.purchasePrice ?? 0) > 0
   const isSuccessful = hasNonZeroPrices && details.length > 0
   
   return (
@@ -246,24 +198,6 @@ export function CalculationReport({ message }: CalculationReportProps) {
             Торговое предложение: {data.offerName} | {message.offerId || ''}
           </h4>
           <div className="flex items-center gap-1 flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => copyToClipboard(generateBBCode(message), 'Расширенная информация')}
-              title="Копировать расширенную информацию с BBCode"
-              className="h-7 w-7 p-0"
-            >
-              <Code className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => copyToClipboard(generateCompressed(message), 'Сжатая информация')}
-              title="Копировать сжатую информацию"
-              className="h-7 w-7 p-0"
-            >
-              <Copy className="w-4 h-4" />
-            </Button>
             {isSuccessful ? (
               <CheckCircle 
                 className="w-5 h-5 text-green-600 dark:text-green-500" 
@@ -306,10 +240,10 @@ export function CalculationReport({ message }: CalculationReportProps) {
       )}
       
       {/* Price summary */}
-      {(data.purchasePrice !== undefined || data.pricesWithMarkup || data.priceRangesWithMarkup) && (
+      {(data.purchasePrice !== undefined || data.priceRangesWithMarkup) && (
         <div className="border-t pt-2 space-y-2">
           {/* Base prices */}
-          {data.purchasePrice !== undefined && data.basePrice !== undefined && (
+          {data.purchasePrice !== undefined && (
             <div className="text-sm">
               <div className="font-medium mb-1">Расчетные цены торгового предложения:</div>
               <div className="pl-4 space-y-0.5 text-xs">
@@ -319,7 +253,6 @@ export function CalculationReport({ message }: CalculationReportProps) {
                     <> (прямые затраты: {formatPrice(data.directPurchasePrice, data.currency || 'RUB')})</>
                   )}
                 </div>
-                <div>- Базовая цена: {formatPrice(data.basePrice, data.currency || 'RUB')}</div>
               </div>
             </div>
           )}
@@ -359,19 +292,6 @@ export function CalculationReport({ message }: CalculationReportProps) {
                     </tbody>
                   </table>
                 </div>
-              </div>
-            </div>
-          ) : data.pricesWithMarkup && data.pricesWithMarkup.length > 0 ? (
-            <div className="text-sm">
-              <div className="font-medium mb-1">
-                Цены торгового предложения с учётом наценок:
-              </div>
-              <div className="pl-4 space-y-0.5 text-xs">
-                {data.pricesWithMarkup.map(price => (
-                  <div key={price.typeId}>
-                    - {price.typeName}: {formatPrice(price.basePrice, price.currency)}
-                  </div>
-                ))}
               </div>
             </div>
           ) : null}

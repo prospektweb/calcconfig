@@ -1,14 +1,18 @@
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { CaretDown, CaretUp, Info, Warning, X as XIcon } from '@phosphor-icons/react'
 import { InfoMessage } from '@/lib/types'
-import { CalculationReport } from './CalculationReport'
+import { CalculationReport, buildFullReportText } from './CalculationReport'
+import { useState } from 'react'
+import { toast } from 'sonner'
 
 interface InfoPanelProps {
   messages: InfoMessage[]
   isExpanded: boolean
   onToggle: () => void
+  onSaveCalculationResult: (offerId: number) => void
 }
 
 function formatTimestamp(timestamp: number): string {
@@ -23,6 +27,8 @@ function formatTimestamp(timestamp: number): string {
 }
 
 export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
+  const [selectedMessage, setSelectedMessage] = useState<InfoMessage | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null
   const getMessageIcon = (type: InfoMessage['type']) => {
     switch (type) {
@@ -48,6 +54,50 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
     }
   }
 
+  const formatPrice = (price: number, currency: string) => `${price.toFixed(2)} ${currency}`
+
+  const getMaxOfferPrice = (message: InfoMessage): { value: number | null; currency: string } => {
+    const data = message.calculationData
+    if (!data) return { value: null, currency: 'RUB' }
+
+    const ranges = data.priceRangesWithMarkup
+    if (!ranges || ranges.length === 0) {
+      return { value: null, currency: data.currency || 'RUB' }
+    }
+
+    let maxValue = -Infinity
+    let currency = data.currency || 'RUB'
+    for (const range of ranges) {
+      for (const price of range.prices) {
+        if (price.basePrice > maxValue) {
+          maxValue = price.basePrice
+          currency = price.currency
+        }
+      }
+    }
+
+    if (!Number.isFinite(maxValue)) {
+      return { value: null, currency }
+    }
+
+    return { value: maxValue, currency }
+  }
+
+  const handleOpenReport = (message: InfoMessage) => {
+    setSelectedMessage(message)
+    setIsDialogOpen(true)
+  }
+
+  const handleCopyReport = () => {
+    if (!selectedMessage) return
+    const text = buildFullReportText(selectedMessage)
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Отчёт скопирован в буфер обмена')
+    }).catch(() => {
+      toast.error('Ошибка при копировании')
+    })
+  }
+
   return (
     <div className="border-t border-border bg-card" data-pwcode="infopanel">
       <button
@@ -58,11 +108,11 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Badge className="bg-success text-success-foreground flex-shrink-0" data-pwcode="info-count">{messages.length}</Badge>
           <span className="text-sm font-medium flex-shrink-0">Информация</span>
-          {lastMessage && (
-            <>
-              <span className="text-sm text-muted-foreground flex-1 text-left ml-2 truncate">
-                {lastMessage.message}
-              </span>
+            {lastMessage && (
+              <>
+                <span className="text-sm text-muted-foreground flex-1 text-left ml-2 truncate">
+                  {lastMessage.message}
+                </span>
               <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
                 {formatTimestamp(lastMessage.timestamp)}
               </span>
@@ -83,8 +133,35 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
               messages.map(msg => (
                 <div key={msg.id} className="py-2 border-b border-border last:border-0" data-pwcode="info-msg">
                   {msg.level === 'calculation' && msg.calculationData ? (
-                    // Render calculation report with nested accordions
-                    <CalculationReport message={msg} />
+                    <button
+                      type="button"
+                      className="w-full text-left"
+                      onClick={() => handleOpenReport(msg)}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-medium truncate">
+                          {msg.calculationData.offerName}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {typeof msg.calculationData.purchasePrice === 'number' && (
+                            <span title="Закупочная цена">
+                              {formatPrice(msg.calculationData.purchasePrice, msg.calculationData.currency || 'RUB')}
+                            </span>
+                          )}
+                          <span>&gt;</span>
+                          {(() => {
+                            const maxPrice = getMaxOfferPrice(msg)
+                            return (
+                              <span title="Максимальная отпускная цена">
+                                {maxPrice.value !== null
+                                  ? formatPrice(maxPrice.value, maxPrice.currency)
+                                  : '—'}
+                              </span>
+                            )
+                          })()}
+                        </div>
+                      </div>
+                    </button>
                   ) : (
                     // Render regular message
                     <div className="flex items-start gap-2">
@@ -107,6 +184,28 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
           </div>
         </ScrollArea>
       )}
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Отчёт по торговому предложению</DialogTitle>
+          </DialogHeader>
+          {selectedMessage && <CalculationReport message={selectedMessage} />}
+          <DialogFooter className="gap-2 sm:gap-2 sm:justify-end">
+            <Button variant="outline" onClick={handleCopyReport}>
+              Копировать отчёт в буфер
+            </Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Закрыть
+            </Button>
+            {selectedMessage?.offerId && (
+              <Button variant="outline" onClick={() => onSaveCalculationResult(selectedMessage.offerId!)}>
+                Сохранить
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
