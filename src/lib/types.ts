@@ -261,17 +261,6 @@ export interface InfoMessage {
         currency: string
       }>
     }>
-    priceRangesWithMarkup?: Array<{
-      quantityFrom: number | null
-      quantityTo: number | null
-      prices: Array<{
-        typeId: number
-        typeName: string
-        purchasePrice: number
-        basePrice: number
-        currency: string
-      }>
-    }>
     children?: InfoMessage[]
   }
 }

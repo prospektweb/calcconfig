@@ -117,14 +117,7 @@ function App() {
   const [bindings, setBindings] = useConfigKV<Binding[]>('calc_bindings', [])
   
   const [infoMessages, setInfoMessages] = useState<InfoMessage[]>([])
-  const [isInfoPanelExpanded, setIsInfoPanelExpanded] = useState(() => {
-    const stored = localStorage.getItem('calc_info_panel_expanded')
-    return stored ? stored === 'true' : false
-  })
-  
-  useEffect(() => {
-    localStorage.setItem('calc_info_panel_expanded', isInfoPanelExpanded.toString())
-  }, [isInfoPanelExpanded])
+  const [isInfoPanelExpanded, setIsInfoPanelExpanded] = useState(false)
   useEffect(() => {
     bitrixMetaRef.current = bitrixMeta
   }, [bitrixMeta])

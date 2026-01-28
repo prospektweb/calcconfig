@@ -83,19 +83,20 @@ function StageItem({ message }: { message: InfoMessage }) {
   const data = message.calculationData
   if (!data) return null
   
-  const priceStr = data.purchasePrice !== undefined && data.basePrice !== undefined
-    ? ` ${formatPrice(data.purchasePrice, data.currency || 'RUB')} > ${formatPrice(data.basePrice, data.currency || 'RUB')}`
-    : ''
+  const hasPrices = data.purchasePrice !== undefined && data.basePrice !== undefined
   
   return (
     <div className="pl-4 py-1 text-sm border-l-2 border-border">
       <span className="font-medium">{data.stageName || 'Этап'}</span>
-      {priceStr && (
-        <span
-          className="text-muted-foreground ml-2"
-          title="Слева закупочная цена, справа базовая цена"
-        >
-          {priceStr}
+      {hasPrices && (
+        <span className="text-muted-foreground ml-2">
+          <span title="Закупочная цена">
+            {formatPrice(data.purchasePrice!, data.currency || 'RUB')}
+          </span>
+          <span className="mx-1">&gt;</span>
+          <span title="Базовая цена">
+            {formatPrice(data.basePrice!, data.currency || 'RUB')}
+          </span>
         </span>
       )}
     </div>
@@ -109,9 +110,7 @@ function DetailItem({ message }: { message: InfoMessage }) {
   const data = message.calculationData
   if (!data) return null
   
-  const priceStr = data.purchasePrice !== undefined && data.basePrice !== undefined
-    ? ` ${formatPrice(data.purchasePrice, data.currency || 'RUB')} > ${formatPrice(data.basePrice, data.currency || 'RUB')}`
-    : ''
+  const hasPrices = data.purchasePrice !== undefined && data.basePrice !== undefined
   
   const stages = data.children?.filter(child => child.level === 'stage') || []
   const childDetails = data.children?.filter(child => child.level === 'detail') || []
@@ -124,12 +123,15 @@ function DetailItem({ message }: { message: InfoMessage }) {
           {data.detailType === 'binding' ? '📦 ' : '📄 '}
           {data.detailName}
         </span>
-        {priceStr && (
-          <span
-            className="text-muted-foreground ml-2"
-            title="Слева закупочная цена, справа базовая цена"
-          >
-            {priceStr}
+        {hasPrices && (
+          <span className="text-muted-foreground ml-2">
+            <span title="Закупочная цена">
+              {formatPrice(data.purchasePrice!, data.currency || 'RUB')}
+            </span>
+            <span className="mx-1">&gt;</span>
+            <span title="Базовая цена">
+              {formatPrice(data.basePrice!, data.currency || 'RUB')}
+            </span>
           </span>
         )}
       </div>
@@ -144,12 +146,15 @@ function DetailItem({ message }: { message: InfoMessage }) {
             {data.detailType === 'binding' ? '📦 ' : '📄 '}
             {data.detailName}
           </span>
-          {priceStr && (
-            <span
-              className="text-muted-foreground"
-              title="Слева закупочная цена, справа базовая цена"
-            >
-              {priceStr}
+          {hasPrices && (
+            <span className="text-muted-foreground">
+              <span title="Закупочная цена">
+                {formatPrice(data.purchasePrice!, data.currency || 'RUB')}
+              </span>
+              <span className="mx-1">&gt;</span>
+              <span title="Базовая цена">
+                {formatPrice(data.basePrice!, data.currency || 'RUB')}
+              </span>
             </span>
           )}
         </span>
