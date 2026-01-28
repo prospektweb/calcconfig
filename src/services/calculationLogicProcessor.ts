@@ -205,6 +205,23 @@ export function buildCalculationContext(
   inputWirings: InputWiring[],
   currentStageId: number
 ): Record<string, any> {
+  const getRuntimePrevStageValue = (sourcePath: string): any | undefined => {
+    if (!sourcePath) return undefined
+
+    const stageMatch = sourcePath.match(/elementsStore\.CALC_STAGES\[(\d+)\]/)
+    if (!stageMatch) return undefined
+
+    const outputMatch = sourcePath.match(/OUTPUTS\.(?:VALUE|DESCRIPTION)\[(\d+)\]/)
+    if (!outputMatch) return undefined
+
+    const stageIndex = Number(stageMatch[1])
+    const outputIndex = Number(outputMatch[1])
+    const runtimeOutputs = initPayload?.elementsStore?.CALC_STAGES?.[stageIndex]?.properties?.OUTPUTS_RUNTIME
+    if (!Array.isArray(runtimeOutputs)) return undefined
+
+    return runtimeOutputs[outputIndex]?.VALUE
+  }
+
   const context: Record<string, any> = {
     // Add the entire initPayload for deep access
     ...initPayload,
@@ -214,7 +231,12 @@ export function buildCalculationContext(
   // Wire inputs from initPayload to context based on INPUTS mappings
   for (const wiring of inputWirings) {
     if (wiring.sourcePath) {
-      const value = getValueByPath(initPayload, wiring.sourcePath)
+      const runtimeValue = wiring.paramName.startsWith('prevStageResults')
+        ? getRuntimePrevStageValue(wiring.sourcePath)
+        : undefined
+      const value = runtimeValue !== undefined
+        ? runtimeValue
+        : getValueByPath(initPayload, wiring.sourcePath)
       context[wiring.paramName] = value
       console.log('[CALC] Wired input:', wiring.paramName, '=', value, 'from', wiring.sourcePath)
     }
