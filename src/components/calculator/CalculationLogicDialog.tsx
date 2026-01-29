@@ -755,6 +755,24 @@ export function CalculationLogicDialog({
     }
   }
 
+  const handleCopyInputParams = () => {
+    const text = inputs.map(input => input.name).join(', ')
+    navigator.clipboard.writeText(text)
+    toast.success('Названия входных параметров скопированы')
+  }
+
+  const handleCopyVars = () => {
+    const text = vars.map(variable => variable.name).join(', ')
+    navigator.clipboard.writeText(text)
+    toast.success('Названия переменных скопированы')
+  }
+
+  const handleCopyFormulas = () => {
+    const text = vars.map(variable => `${variable.name} = ${variable.formula}`).join('\n\n')
+    navigator.clipboard.writeText(text)
+    toast.success('Названия переменных и формулы скопированы')
+  }
+
   const handleOpenHelp = (placeCode: string, title: string) => {
     setHelpPlaceCode(placeCode)
     setHelpTitle(title)
@@ -1366,6 +1384,36 @@ export function CalculationLogicDialog({
                 >
                   Сбросить изменения
                 </Button>
+              )}
+              {activeTab === 'inputs' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyInputParams}
+                  title="Названия входных параметров будут скопированы в буфер обмена"
+                >
+                  Скопировать параметры
+                </Button>
+              )}
+              {activeTab === 'formulas' && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyVars}
+                    title="Названия переменных будут скопированы в буфер обмена"
+                  >
+                    Скопировать переменные
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyFormulas}
+                    title="Названия переменных и формулы будут скопированы в буфер обмена"
+                  >
+                    Скопировать формулы
+                  </Button>
+                </>
               )}
             </div>
             <div className="flex gap-2">
