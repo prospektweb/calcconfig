@@ -102,5 +102,6 @@ export const ALLOWED_FUNCTIONS = [
   'trim', 'lower', 'upper', 'len', 'contains', 'replace',
   'toNumber', 'toString',
   'split', 'join', 'get',
-  'regexMatch', 'regexExtract'
+  'regexMatch', 'regexExtract',
+  'getPrice'
 ] as const

@@ -844,6 +844,45 @@ export function inferExprType(
           }
           
           return 'any'
+
+        case 'getPrice': {
+          if (args.length < 2 || args.length > 3) {
+            issues.push({
+              severity: 'error',
+              scope,
+              refId,
+              message: `Функция getPrice() требует 2 или 3 аргумента, получено ${args.length}`
+            })
+            return 'number'
+          }
+
+          if (args[0] !== 'number' && args[0] !== 'any' && args[0] !== 'unknown') {
+            issues.push({
+              severity: 'error',
+              scope,
+              refId,
+              message: `Функция getPrice() ожидает number в первом аргументе, получен ${args[0]}`
+            })
+          }
+          if (args[1] !== 'array' && args[1] !== 'any' && args[1] !== 'unknown') {
+            issues.push({
+              severity: 'error',
+              scope,
+              refId,
+              message: `Функция getPrice() ожидает array во втором аргументе, получен ${args[1]}`
+            })
+          }
+          if (args.length === 3 && args[2] !== 'bool' && args[2] !== 'any' && args[2] !== 'unknown') {
+            issues.push({
+              severity: 'error',
+              scope,
+              refId,
+              message: `Функция getPrice() ожидает bool в третьем аргументе, получен ${args[2]}`
+            })
+          }
+
+          return 'number'
+        }
         
         case 'regexMatch':
           if (args.length !== 2) {
