@@ -1245,6 +1245,13 @@ export function CalculationLogicDialog({
                               <div className="text-xs text-muted-foreground">split, join, get</div>
                             </button>
                             <button 
+                              onClick={() => handleOpenHelp('help_functions_price', 'Функции для цен')}
+                              className="w-full text-left hover:bg-muted p-2 rounded-md"
+                            >
+                              <div className="text-sm font-medium">Цены</div>
+                              <div className="text-xs text-muted-foreground">getPrice</div>
+                            </button>
+                            <button 
                               onClick={() => handleOpenHelp('help_functions_regex', 'Регулярные выражения')}
                               className="w-full text-left hover:bg-muted p-2 rounded-md"
                             >

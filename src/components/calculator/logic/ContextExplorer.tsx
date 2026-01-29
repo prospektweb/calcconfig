@@ -45,6 +45,7 @@ const FIELD_LABELS: Record<string, string> = {
   purchasingCurrency: 'Валюта закупки',
   basePrice: 'Базовая цена',
   baseCurrency: 'Валюта базовой цены',
+  basePricesByRanges: 'Базовые цены по диапазонам',
   name: 'Название',
   code: 'Код'
 }
@@ -444,6 +445,16 @@ function ElementSection({ title, element, elementType, section, subsection, inde
     path: `${basePath}.purchasingCurrency`,
     type: 'string'
   })
+
+  if (element.prices && element.prices.length > 1) {
+    tagItems.push({
+      code: 'basePricesByRanges',
+      label: FIELD_LABELS.basePricesByRanges,
+      name: generateParamName(section, subsection, 'basePricesByRanges'),
+      path: `${basePath}.prices`,
+      type: 'array'
+    })
+  }
 
   // Base price - find from priceTypes
   const basePriceType = initPayload.priceTypes?.find(pt => pt.base === true)
