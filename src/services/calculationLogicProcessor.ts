@@ -420,9 +420,7 @@ export function buildCalculationContext(
         continue
       }
 
-      const runtimeValue = wiring.paramName.startsWith('prevStageResults')
-        ? getRuntimePrevStageValue(wiring.sourcePath)
-        : undefined
+      const runtimeValue = getRuntimePrevStageValue(wiring.sourcePath)
       const value = runtimeValue !== undefined
         ? runtimeValue
         : getValueByPath(initPayload, wiring.sourcePath)
@@ -515,6 +513,53 @@ const FORMULA_BUILTINS = {
     const match = String(value).match(regex)
     if (!match) return ''
     return match.length > 1 ? match[1] : match[0]
+  },
+  getPrice: (quantity: any, prices: any, exact?: any) => {
+    const numericQuantity = Number(quantity)
+    if (!Array.isArray(prices) || !Number.isFinite(numericQuantity)) {
+      return undefined
+    }
+
+    const sortedRanges = [...prices].sort((a, b) => {
+      const fromA = Number(a?.quantityFrom ?? 0)
+      const fromB = Number(b?.quantityFrom ?? 0)
+      return fromA - fromB
+    })
+
+    if (exact === true) {
+      for (const range of sortedRanges) {
+        const from = Number(range?.quantityFrom ?? 0)
+        const toRaw = range?.quantityTo
+        const to = toRaw === null || toRaw === undefined ? Infinity : Number(toRaw)
+        if (!Number.isFinite(from) || !Number.isFinite(to)) {
+          continue
+        }
+        if (numericQuantity >= from && numericQuantity <= to) {
+          return Number(range?.price ?? 0)
+        }
+      }
+      return undefined
+    }
+
+    if (numericQuantity === 0) {
+      return 0
+    }
+
+    for (const range of sortedRanges) {
+      const price = Number(range?.price ?? 0)
+      const toRaw = range?.quantityTo
+      const to = toRaw === null || toRaw === undefined ? Infinity : Number(toRaw)
+      if (!Number.isFinite(price) || !Number.isFinite(to)) {
+        continue
+      }
+      const var0 = price * numericQuantity
+      const var1 = price * to
+      if (var1 > var0) {
+        return var0 / numericQuantity
+      }
+    }
+
+    return undefined
   },
 }
 
