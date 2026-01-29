@@ -268,10 +268,9 @@ const resolveVariantForStageAlias = (
   let variantId: number | null = null
 
   if (optionsMapping) {
-    const { value, xmlId } = getOfferPropertyMatchValue(
-      initPayload?.selectedOffers?.[0]?.properties,
-      optionsMapping
-    )
+    const offerProperties =
+      initPayload?.offer?.properties ?? initPayload?.selectedOffers?.[0]?.properties
+    const { value, xmlId } = getOfferPropertyMatchValue(offerProperties, optionsMapping)
 
     const mappingMatch = optionsMapping.mappings.find((mapping) => {
       const mappingValue = mapping?.value ? String(mapping.value) : null
