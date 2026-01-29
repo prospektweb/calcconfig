@@ -472,7 +472,23 @@ function ElementSection({ title, element, elementType, section, subsection, inde
   if (element.properties) {
     Object.entries(element.properties).forEach(([code, prop]) => {
       if (code === 'CML2_LINK') return // Ignore CML2_LINK
-      
+
+      if (prop.PROPERTY_TYPE === 'S' && prop.WITH_DESCRIPTION === 'Y' &&
+          Array.isArray(prop.DESCRIPTION) && Array.isArray(prop.VALUE)) {
+        prop.VALUE.forEach((value, index) => {
+          if (value === undefined || value === null) return
+          const label = `param-${value}`
+          tagItems.push({
+            code: `${code}-${index}`,
+            label,
+            name: label,
+            path: `${basePath}.properties.${code}.DESCRIPTION[${index}]`,
+            type: 'string'
+          })
+        })
+        return
+      }
+
       const { path, type } = buildPropertyPath(basePath, code, prop)
       tagItems.push({
         code,
