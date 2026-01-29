@@ -159,6 +159,175 @@ export function extractOutputs(stageElement: ElementsStoreItem | null | undefine
  * e.g., "product.attributes.width" -> obj.product.attributes.width
  * Supports array index notation like "CALC_STAGES[0].properties"
  */
+const decodeHtmlEntities = (value: string): string => {
+  if (!/[&](quot|#34|amp|lt|gt);/.test(value)) {
+    return value
+  }
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+}
+
+type OptionsMapping = {
+  propertyCode: string
+  propertyType?: string
+  mappings: Array<{
+    value?: string
+    xmlId?: string
+    variantId?: number | string
+  }>
+}
+
+const extractOptionsMapping = (
+  stageElement: ElementsStoreItem | null | undefined,
+  type: 'operation' | 'material'
+): OptionsMapping | null => {
+  const property = type === 'operation'
+    ? stageElement?.properties?.OPTIONS_OPERATION
+    : stageElement?.properties?.OPTIONS_MATERIAL
+
+  if (!property) return null
+
+  const rawValue = property['~VALUE']
+  const rawTextValue = typeof rawValue === 'object' && rawValue !== null ? rawValue.TEXT : rawValue
+  const fallbackValue = property.VALUE
+  const textFallback = typeof fallbackValue === 'object' && fallbackValue !== null ? fallbackValue.TEXT : fallbackValue
+  const valueToParse = typeof rawTextValue === 'string'
+    ? rawTextValue
+    : typeof textFallback === 'string'
+      ? textFallback
+      : null
+
+  if (!valueToParse) return null
+
+  try {
+    const decoded = decodeHtmlEntities(valueToParse)
+    const parsed = JSON.parse(decoded)
+    if (!parsed?.propertyCode || !Array.isArray(parsed?.mappings)) {
+      return null
+    }
+    return {
+      propertyCode: String(parsed.propertyCode),
+      propertyType: parsed.propertyType ? String(parsed.propertyType) : undefined,
+      mappings: parsed.mappings,
+    }
+  } catch (error) {
+    console.warn('[CALC] Failed to parse options mapping JSON:', error)
+    return null
+  }
+}
+
+const getOfferPropertyMatchValue = (
+  offerProperties: Record<string, any> | undefined,
+  optionsMapping: OptionsMapping
+): { value: string | null; xmlId: string | null } => {
+  if (!offerProperties) {
+    return { value: null, xmlId: null }
+  }
+
+  const offerProp = offerProperties[optionsMapping.propertyCode]
+  if (!offerProp) {
+    return { value: null, xmlId: null }
+  }
+
+  const rawValue = offerProp['~VALUE'] ?? offerProp.VALUE ?? offerProp.value ?? null
+  const rawXmlId = offerProp.VALUE_XML_ID ?? offerProp.XML_ID ?? offerProp.valueXmlId ?? null
+
+  const normalizeValue = (val: any): string | null => {
+    if (val === null || val === undefined || val === false) return null
+    if (Array.isArray(val)) {
+      const first = val.find((entry) => entry !== null && entry !== undefined && entry !== false)
+      return first !== undefined ? String(first) : null
+    }
+    return String(val)
+  }
+
+  return {
+    value: normalizeValue(rawValue),
+    xmlId: normalizeValue(rawXmlId),
+  }
+}
+
+const resolveVariantForStageAlias = (
+  initPayload: any,
+  currentStageId: number,
+  targetStageId: number,
+  type: 'operation' | 'material'
+): any | null => {
+  const currentStageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
+    (stage: any) => stage.id === currentStageId
+  )
+  const targetStageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
+    (stage: any) => stage.id === targetStageId
+  )
+
+  const optionsMapping = extractOptionsMapping(currentStageElement, type)
+  let variantId: number | null = null
+
+  if (optionsMapping) {
+    const { value, xmlId } = getOfferPropertyMatchValue(
+      initPayload?.selectedOffers?.[0]?.properties,
+      optionsMapping
+    )
+
+    const mappingMatch = optionsMapping.mappings.find((mapping) => {
+      const mappingValue = mapping?.value ? String(mapping.value) : null
+      const mappingXmlId = mapping?.xmlId ? String(mapping.xmlId) : null
+      if (xmlId && mappingXmlId && xmlId === mappingXmlId) return true
+      if (value && mappingValue && value === mappingValue) return true
+      if (value && mappingXmlId && value === mappingXmlId) return true
+      return false
+    })
+
+    if (mappingMatch?.variantId !== undefined && mappingMatch?.variantId !== null) {
+      const parsedVariantId = Number(mappingMatch.variantId)
+      variantId = Number.isNaN(parsedVariantId) ? null : parsedVariantId
+    }
+  }
+
+  if (!variantId) {
+    const fallbackStageElement = targetStageElement || currentStageElement
+    if (fallbackStageElement?.properties) {
+      const fallbackValue = type === 'operation'
+        ? fallbackStageElement.properties?.OPERATION_VARIANT?.VALUE
+        : fallbackStageElement.properties?.MATERIAL_VARIANT?.VALUE
+      const parsedFallback = Number(fallbackValue)
+      variantId = Number.isNaN(parsedFallback) ? null : parsedFallback
+    }
+  }
+
+  if (!variantId) return null
+
+  const elementsSiblings = initPayload?.elementsSiblings
+    ?? initPayload?.elementsStore?.CALC_STAGES_SIBLINGS
+    ?? []
+  const stageSiblings = Array.isArray(elementsSiblings)
+    ? elementsSiblings.find((item: any) => Number(item.stageId) === Number(targetStageId))
+    : null
+
+  const variantsList = type === 'operation'
+    ? stageSiblings?.CALC_OPERATIONS_VARIANTS
+    : stageSiblings?.CALC_MATERIALS_VARIANTS
+
+  if (Array.isArray(variantsList)) {
+    const match = variantsList.find((variant: any) => Number(variant.id) === Number(variantId))
+    if (match) return match
+  }
+
+  const storeList = type === 'operation'
+    ? initPayload?.elementsStore?.CALC_OPERATIONS_VARIANTS
+    : initPayload?.elementsStore?.CALC_MATERIALS_VARIANTS
+
+  if (Array.isArray(storeList)) {
+    return storeList.find((variant: any) => Number(variant.id) === Number(variantId)) ?? null
+  }
+
+  return null
+}
+
 export function getValueByPath(obj: any, path: string): any {
   if (!path || !obj) return undefined
 
@@ -231,6 +400,27 @@ export function buildCalculationContext(
   // Wire inputs from initPayload to context based on INPUTS mappings
   for (const wiring of inputWirings) {
     if (wiring.sourcePath) {
+      const stageAliasMatch = wiring.sourcePath.match(
+        /^stage_(\d+)\.(operationVariant|materialVariant)(?:\.(.+))?$/
+      )
+      if (stageAliasMatch) {
+        const targetStageId = Number(stageAliasMatch[1])
+        const aliasType = stageAliasMatch[2] === 'operationVariant' ? 'operation' : 'material'
+        const aliasRemainder = stageAliasMatch[3]
+        const variant = resolveVariantForStageAlias(
+          initPayload,
+          currentStageId,
+          targetStageId,
+          aliasType
+        )
+        const aliasValue = aliasRemainder
+          ? getValueByPath(variant, aliasRemainder)
+          : variant
+        context[wiring.paramName] = aliasValue
+        console.log('[CALC] Wired input:', wiring.paramName, '=', aliasValue, 'from', wiring.sourcePath)
+        continue
+      }
+
       const runtimeValue = wiring.paramName.startsWith('prevStageResults')
         ? getRuntimePrevStageValue(wiring.sourcePath)
         : undefined

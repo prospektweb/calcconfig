@@ -821,6 +821,7 @@ export function ContextExplorer({
                     section="stage"
                     subsection="Operationvariant"
                     index={stageElements.operationVariantIndex}
+                    basePath={currentStage ? `stage_${currentStage.id}.operationVariant` : undefined}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -860,6 +861,7 @@ export function ContextExplorer({
                     section="stage"
                     subsection="Materialvariant"
                     index={stageElements.materialVariantIndex}
+                    basePath={currentStage ? `stage_${currentStage.id}.materialVariant` : undefined}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -971,6 +973,7 @@ export function ContextExplorer({
                               section="prevStage"
                               subsection="Operationvariant"
                               index={operationVariantIndex}
+                              basePath={`stage_${prevStage.stageId}.operationVariant`}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -1007,6 +1010,7 @@ export function ContextExplorer({
                               section="prevStage"
                               subsection="Materialvariant"
                               index={materialVariantIndex}
+                              basePath={`stage_${prevStage.stageId}.materialVariant`}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
