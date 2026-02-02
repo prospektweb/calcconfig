@@ -82,13 +82,6 @@ function tokenize(formula: string): Token[] {
       continue
     }
     
-    // Operators
-    if ('+-*/'.includes(char)) {
-      tokens.push({ type: 'operator', value: char, pos: i })
-      i++
-      continue
-    }
-    
     // Comparison and logical operators
     if (char === '=' && i + 1 < formula.length && formula[i + 1] === '=') {
       tokens.push({ type: 'operator', value: '==', pos: i })
@@ -97,6 +90,16 @@ function tokenize(formula: string): Token[] {
     }
     if (char === '!' && i + 1 < formula.length && formula[i + 1] === '=') {
       tokens.push({ type: 'operator', value: '!=', pos: i })
+      i += 2
+      continue
+    }
+    if (char === '&' && i + 1 < formula.length && formula[i + 1] === '&') {
+      tokens.push({ type: 'operator', value: '&&', pos: i })
+      i += 2
+      continue
+    }
+    if (char === '|' && i + 1 < formula.length && formula[i + 1] === '|') {
+      tokens.push({ type: 'operator', value: '||', pos: i })
       i += 2
       continue
     }
@@ -117,6 +120,18 @@ function tokenize(formula: string): Token[] {
     }
     if (char === '<') {
       tokens.push({ type: 'operator', value: '<', pos: i })
+      i++
+      continue
+    }
+    if (char === '!') {
+      tokens.push({ type: 'operator', value: '!', pos: i })
+      i++
+      continue
+    }
+    
+    // Operators
+    if ('+-*/'.includes(char)) {
+      tokens.push({ type: 'operator', value: char, pos: i })
       i++
       continue
     }
@@ -150,7 +165,12 @@ function tokenize(formula: string): Token[] {
       if (['true', 'false', 'null'].includes(lowerValue)) {
         tokens.push({ type: 'keyword', value: lowerValue, pos: i })
       } else if (['and', 'or', 'not'].includes(lowerValue)) {
-        tokens.push({ type: 'keyword', value: lowerValue, pos: i })
+        const operatorMap: Record<string, string> = {
+          and: '&&',
+          or: '||',
+          not: '!'
+        }
+        tokens.push({ type: 'operator', value: operatorMap[lowerValue], pos: i })
       } else if (ALLOWED_FUNCTIONS.includes(value as any)) {
         tokens.push({ type: 'function', value, pos: i })
       } else {
@@ -212,7 +232,7 @@ export function inferExprType(
     function parseLogicalOr(): ValueType {
       let left = parseLogicalAnd()
       
-      while (pos < tokens.length && tokens[pos].type === 'keyword' && tokens[pos].value === 'or') {
+      while (pos < tokens.length && tokens[pos].type === 'operator' && tokens[pos].value === '||') {
         pos++
         const right = parseLogicalAnd()
         
@@ -242,7 +262,7 @@ export function inferExprType(
     function parseLogicalAnd(): ValueType {
       let left = parseComparison()
       
-      while (pos < tokens.length && tokens[pos].type === 'keyword' && tokens[pos].value === 'and') {
+      while (pos < tokens.length && tokens[pos].type === 'operator' && tokens[pos].value === '&&') {
         pos++
         const right = parseComparison()
         
@@ -408,7 +428,7 @@ export function inferExprType(
     
     function parseUnary(): ValueType {
       // Handle 'not' operator
-      if (pos < tokens.length && tokens[pos].type === 'keyword' && tokens[pos].value === 'not') {
+      if (pos < tokens.length && tokens[pos].type === 'operator' && tokens[pos].value === '!') {
         pos++
         const operand = parseUnary()
         
