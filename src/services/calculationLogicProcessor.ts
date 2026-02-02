@@ -630,7 +630,16 @@ function tokenizeFormula(formula: string): FormulaToken[] {
         value += formula[index]
         index++
       }
-      tokens.push({ type: 'identifier', value })
+      const lowerValue = value.toLowerCase()
+      if (lowerValue === 'and') {
+        tokens.push({ type: 'operator', value: '&&' })
+      } else if (lowerValue === 'or') {
+        tokens.push({ type: 'operator', value: '||' })
+      } else if (lowerValue === 'not') {
+        tokens.push({ type: 'operator', value: '!' })
+      } else {
+        tokens.push({ type: 'identifier', value })
+      }
       continue
     }
 

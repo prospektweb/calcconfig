@@ -1198,7 +1198,7 @@ export function CalculationLogicDialog({
                               className="w-full text-left hover:bg-muted p-2 rounded-md"
                             >
                               <div className="text-sm font-medium">Операторы</div>
-                              <div className="text-xs text-muted-foreground">+ - * / == != &gt; &lt; &gt;= &lt;= and or not</div>
+                              <div className="text-xs text-muted-foreground">+ - * / == != &gt; &lt; &gt;= &lt;= && || ! (также and/or/not)</div>
                             </button>
                           </div>
                         </AccordionContent>
