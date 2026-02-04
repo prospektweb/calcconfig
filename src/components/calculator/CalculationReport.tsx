@@ -94,8 +94,8 @@ function DetailItem({
   onOpenStage,
 }: {
   message: InfoMessage
-  onOpenDetail: (detailId: string | undefined, event?: MouseEvent) => void
-  onOpenStage: (stageId: string | undefined, event?: MouseEvent) => void
+  onOpenDetail: (detailId: string | undefined) => void
+  onOpenStage: (stageId: string | undefined) => void
 }) {
   const data = message.calculationData
   if (!data) return null
@@ -113,7 +113,7 @@ function DetailItem({
         <button
           type="button"
           className="font-medium text-left hover:underline"
-          onClick={(event) => onOpenDetail(message.detailId, event)}
+          onClick={() => onOpenDetail(message.detailId)}
         >
           {data.detailType === 'binding' ? '📦 ' : '📄 '}
           {data.detailName}
