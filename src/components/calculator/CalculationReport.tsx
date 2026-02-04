@@ -363,6 +363,9 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
   if (!data || !data.offerName) {
     return <div className="text-sm">{message.message}</div>
   }
+
+  const [parametrValues, setParametrValues] = useState<Array<{ name: string; value: string }>>([])
+  const [priceRanges, setPriceRanges] = useState<NonNullable<typeof data.priceRangesWithMarkup>>([])
   
   const details = data.children?.filter(child => child.level === 'detail') || []
   
