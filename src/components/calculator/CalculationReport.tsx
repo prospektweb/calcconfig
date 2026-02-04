@@ -140,7 +140,7 @@ function DetailItem({
         onClick={() => onOpenDetail(message.detailId)}
       >
         <span className="flex items-center gap-2">
-          <span className="font-medium text-left">
+          <button className="font-medium text-left">
             {data.detailType === 'binding' ? '📦 ' : '📄 '}
             {data.detailName}
           </button>
