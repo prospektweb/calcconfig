@@ -280,6 +280,11 @@ export interface SaveCalcLogicRequestPayload {
     // key для обязательных: "width", "length", etc.
     // key для дополнительных: "${slug}|${title}"
   }
+
+  stageParametrValuesScheme?: {
+    offer?: Array<{ name: string; template: string }>
+    product?: Array<{ name: string; template: string }>
+  }
 }
 
 

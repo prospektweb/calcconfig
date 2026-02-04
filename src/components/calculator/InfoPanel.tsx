@@ -14,8 +14,13 @@ interface InfoPanelProps {
   messages: InfoMessage[]
   isExpanded: boolean
   onToggle: () => void
-  onSaveCalculationResult: (offerId: number) => void
+  onSaveCalculationResult: (offerId: number, overrides?: ReportOverrides) => void
   bitrixMeta?: InitPayload | null
+}
+
+type ReportOverrides = {
+  priceRangesWithMarkup?: NonNullable<InfoMessage['calculationData']>['priceRangesWithMarkup']
+  parametrValues?: NonNullable<InfoMessage['calculationData']>['parametrValues']
 }
 
 function formatTimestamp(timestamp: number): string {
@@ -33,6 +38,7 @@ export function InfoPanel({ messages, isExpanded, onToggle, onSaveCalculationRes
   const [selectedMessage, setSelectedMessage] = useState<InfoMessage | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isReportFullscreen, setIsReportFullscreen] = useState(false)
+  const [reportOverrides, setReportOverrides] = useState<Record<number, ReportOverrides>>({})
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null
   const getMessageIcon = (type: InfoMessage['type']) => {
     switch (type) {
@@ -90,6 +96,13 @@ export function InfoPanel({ messages, isExpanded, onToggle, onSaveCalculationRes
   const handleOpenReport = (message: InfoMessage) => {
     setSelectedMessage(message)
     setIsDialogOpen(true)
+  }
+
+  const handleReportChange = (offerId: number, overrides: ReportOverrides) => {
+    setReportOverrides(prev => ({
+      ...prev,
+      [offerId]: overrides,
+    }))
   }
 
   const handleCopyReport = () => {
@@ -237,7 +250,13 @@ export function InfoPanel({ messages, isExpanded, onToggle, onSaveCalculationRes
             </div>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto p-6">
-            {selectedMessage && <CalculationReport message={selectedMessage} bitrixMeta={bitrixMeta} />}
+            {selectedMessage && (
+              <CalculationReport
+                message={selectedMessage}
+                bitrixMeta={bitrixMeta}
+                onChange={handleReportChange}
+              />
+            )}
           </div>
           <DialogFooter className="gap-2 sm:gap-2 sm:justify-end border-t px-6 py-4">
             <Button variant="outline" onClick={handleCopyReport}>
@@ -247,7 +266,10 @@ export function InfoPanel({ messages, isExpanded, onToggle, onSaveCalculationRes
               Закрыть
             </Button>
             {selectedMessage?.offerId && (
-              <Button variant="outline" onClick={() => onSaveCalculationResult(selectedMessage.offerId!)}>
+              <Button
+                variant="outline"
+                onClick={() => onSaveCalculationResult(selectedMessage.offerId!, reportOverrides[selectedMessage.offerId!])}
+              >
                 Сохранить
               </Button>
             )}
