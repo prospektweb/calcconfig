@@ -356,6 +356,9 @@ function StageLogItem({
  */
 export function CalculationReport({ message, bitrixMeta, onChange }: CalculationReportProps) {
   const data = message.calculationData
+
+  const [parametrValues, setParametrValues] = useState<Array<{ name: string; value: string }>>([])
+  const [priceRanges, setPriceRanges] = useState<NonNullable<InfoMessage['calculationData']>['priceRangesWithMarkup']>([])
   
   if (!data || !data.offerName) {
     return <div className="text-sm">{message.message}</div>
@@ -457,21 +460,23 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
   }
 
   useEffect(() => {
+    if (!data) return
     const baseValues = data.parametrValues?.map(entry => ({
       name: entry.name ?? '',
       value: entry.value ?? '',
     })) ?? []
     setParametrValues([...baseValues, { name: '', value: '' }])
-  }, [data.parametrValues])
+  }, [data])
 
   useEffect(() => {
+    if (!data) return
     setPriceRanges(
       data.priceRangesWithMarkup?.map(range => ({
         ...range,
         prices: range.prices.map(price => ({ ...price })),
       })) ?? []
     )
-  }, [data.priceRangesWithMarkup])
+  }, [data])
 
   useEffect(() => {
     if (!message.offerId || !onChange) return
