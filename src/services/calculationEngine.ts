@@ -6,6 +6,7 @@
  * Integrates LOGIC_JSON processing for dynamic formula-based calculations.
  */
 
+import type { CalculationStageLogEntry } from '@/lib/types'
 import { Detail, Binding, StageInstance } from '@/lib/types'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { useOperationVariantStore } from '@/stores/operation-variant-store'
@@ -33,6 +34,7 @@ export interface CalculationStageResult {
   logicApplied?: boolean
   variables?: Record<string, any>
   outputs?: Record<string, any>
+  logs?: CalculationStageLogEntry[]
 }
 
 export interface CalculationDetailResult {
@@ -108,6 +110,7 @@ async function calculateStage(
   let operationCost = 0
   let materialCost = 0
   const currency = 'RUB'
+  const stageLogs: CalculationStageLogEntry[] = []
   
   // Enhanced: Extract logic data from initPayload
   let logicApplied = false
@@ -193,7 +196,9 @@ async function calculateStage(
         })
         
         // Evaluate LOGIC_JSON variables
-        evaluatedVars = evaluateLogicVars(logicDefinition, context)
+        evaluatedVars = evaluateLogicVars(logicDefinition, context, (entry) => {
+          stageLogs.push(entry)
+        })
         
         console.log('[CALC] Variables evaluated:', {
           stageId: stage.id,
@@ -291,6 +296,7 @@ async function calculateStage(
     logicApplied,
     variables: logicApplied ? evaluatedVars : undefined,
     outputs: logicApplied ? outputValues : undefined,
+    logs: stageLogs.length > 0 ? stageLogs : undefined,
   }
   
   if (stepCallback) {
