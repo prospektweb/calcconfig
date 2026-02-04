@@ -1319,6 +1319,8 @@ function App() {
                   basePrice: typeof stage.outputs?.basePrice === 'number' ? stage.outputs.basePrice : stage.totalCost,
                   currency: stage.currency,
                   stageLogs: stage.logs,
+                  stageInputs: stage.inputs,
+                  stageOutputs: stage.outputs,
                 },
               })),
             ],

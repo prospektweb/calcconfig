@@ -844,6 +844,51 @@ class FormulaParser {
   }
 }
 
+const FORMULA_IDENTIFIER_PATTERN = /\b[A-Za-z_][A-Za-z0-9_]*\b/g
+const FORMULA_RESERVED = new Set(['true', 'false', 'null', 'undefined'])
+
+function formatFormulaValue(value: unknown): string {
+  if (value === null) return 'null'
+  if (value === undefined) return 'undefined'
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  try {
+    return JSON.stringify(value)
+  } catch (error) {
+    return String(value)
+  }
+}
+
+function getFormulaIdentifiers(formula: string, context: Record<string, any>): string[] {
+  const builtins = new Set(Object.keys(FORMULA_BUILTINS))
+  const identifiers = new Set<string>()
+  const matches = formula.match(FORMULA_IDENTIFIER_PATTERN) || []
+
+  for (const token of matches) {
+    if (builtins.has(token) || FORMULA_RESERVED.has(token)) {
+      continue
+    }
+    if (Object.prototype.hasOwnProperty.call(context, token)) {
+      identifiers.add(token)
+    }
+  }
+
+  return Array.from(identifiers)
+}
+
+function buildFormulaPreview(formula: string, context: Record<string, any>): string {
+  const builtins = new Set(Object.keys(FORMULA_BUILTINS))
+  return formula.replace(FORMULA_IDENTIFIER_PATTERN, (token) => {
+    if (builtins.has(token) || FORMULA_RESERVED.has(token)) {
+      return token
+    }
+    if (Object.prototype.hasOwnProperty.call(context, token)) {
+      return formatFormulaValue(context[token])
+    }
+    return token
+  })
+}
+
 function evaluateAst(node: FormulaAstNode, context: Record<string, any>): any {
   switch (node.type) {
     case 'Literal':
@@ -961,6 +1006,12 @@ export function evaluateLogicVars(
     if (varDef.formula) {
       // Evaluate formula with current results (includes previously calculated vars)
       const value = evaluateFormula(varDef.formula, results)
+      const formulaIdentifiers = getFormulaIdentifiers(varDef.formula, results)
+      const formulaValues = formulaIdentifiers.map((name) => ({
+        name,
+        value: results[name],
+      }))
+      const formulaPreview = buildFormulaPreview(varDef.formula, results)
       results[varDef.name] = value
       console.log('[CALC] Var', varDef.name, '=', value, 'from formula:', varDef.formula)
       onLog?.({
@@ -968,6 +1019,8 @@ export function evaluateLogicVars(
         name: varDef.name,
         value,
         formula: varDef.formula,
+        formulaPreview,
+        formulaValues,
       })
     } else if (varDef.value !== undefined) {
       // Use static value

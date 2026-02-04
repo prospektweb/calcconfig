@@ -6,7 +6,7 @@
  * Integrates LOGIC_JSON processing for dynamic formula-based calculations.
  */
 
-import type { CalculationStageLogEntry } from '@/lib/types'
+import type { CalculationStageInputEntry, CalculationStageLogEntry } from '@/lib/types'
 import { Detail, Binding, StageInstance } from '@/lib/types'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { useOperationVariantStore } from '@/stores/operation-variant-store'
@@ -35,6 +35,7 @@ export interface CalculationStageResult {
   variables?: Record<string, any>
   outputs?: Record<string, any>
   logs?: CalculationStageLogEntry[]
+  inputs?: CalculationStageInputEntry[]
 }
 
 export interface CalculationDetailResult {
@@ -116,6 +117,7 @@ async function calculateStage(
   let logicApplied = false
   let evaluatedVars: Record<string, any> = {}
   let outputValues: Record<string, any> = {}
+  let inputEntries: CalculationStageInputEntry[] = []
   const applyRuntimeOutputs = (stageElementToUpdate: any, outputsToApply: Record<string, any>) => {
     if (!stageElementToUpdate?.properties || !outputsToApply) {
       return
@@ -195,6 +197,12 @@ async function calculateStage(
           inputValues: inputs.map(i => ({ param: i.paramName, value: context[i.paramName] })),
         })
         
+        inputEntries = inputs.map((input) => ({
+          name: input.paramName,
+          value: context[input.paramName],
+          sourcePath: input.sourcePath,
+        }))
+
         // Evaluate LOGIC_JSON variables
         evaluatedVars = evaluateLogicVars(logicDefinition, context, (entry) => {
           stageLogs.push(entry)
@@ -297,6 +305,7 @@ async function calculateStage(
     variables: logicApplied ? evaluatedVars : undefined,
     outputs: logicApplied ? outputValues : undefined,
     logs: stageLogs.length > 0 ? stageLogs : undefined,
+    inputs: inputEntries.length > 0 ? inputEntries : undefined,
   }
   
   if (stepCallback) {

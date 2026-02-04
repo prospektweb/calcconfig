@@ -5,7 +5,8 @@ import {
   AccordionItem, 
   AccordionTrigger 
 } from '@/components/ui/accordion'
-import { CheckCircle, XCircle } from '@phosphor-icons/react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { CheckCircle, Info, XCircle } from '@phosphor-icons/react'
 import { InfoMessage } from '@/lib/types'
 import type { InitPayload } from '@/lib/postmessage-bridge'
 import { getBitrixContext, getIblockByCode, openBitrixAdmin, openCatalogProduct } from '@/lib/bitrix-utils'
@@ -134,13 +135,12 @@ function DetailItem({
   
   return (
     <AccordionItem value={message.id} className="border-none">
-      <AccordionTrigger className="py-2 text-sm hover:no-underline">
+      <AccordionTrigger
+        className="py-2 text-sm hover:no-underline"
+        onClick={() => onOpenDetail(message.detailId)}
+      >
         <span className="flex items-center gap-2">
-          <button
-            type="button"
-            className="font-medium text-left hover:underline"
-            onClick={(event) => onOpenDetail(message.detailId, event)}
-          >
+          <span className="font-medium text-left">
             {data.detailType === 'binding' ? '📦 ' : '📄 '}
             {data.detailName}
           </button>
@@ -221,16 +221,15 @@ function StageLogItem({
 
   return (
     <AccordionItem value={message.id} className="border border-border/60 rounded-md">
-      <AccordionTrigger className="px-3 py-2 text-sm hover:no-underline">
+      <AccordionTrigger
+        className="px-3 py-2 text-sm hover:no-underline"
+        onClick={() => onOpenStage(message.stageId)}
+      >
         <div className="flex items-start justify-between gap-2 w-full">
           <div className="flex flex-col text-left gap-1">
-            <button
-              type="button"
-              className="font-medium text-left hover:underline"
-              onClick={(event) => onOpenStage(message.stageId, event)}
-            >
+            <span className="font-medium text-left">
               {index + 1}. {data.stageName || 'Этап'}
-            </button>
+            </span>
             {hasPrices && (
               <span className="text-xs text-muted-foreground">
                 <span title="Закупочная цена">
@@ -246,6 +245,18 @@ function StageLogItem({
         </div>
       </AccordionTrigger>
       <AccordionContent className="px-3 pb-3 text-xs text-muted-foreground space-y-3">
+        {data.stageInputs && data.stageInputs.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-foreground">Входящие параметры</div>
+            <ul className="list-disc list-inside space-y-1">
+              {data.stageInputs.map((input, inputIndex) => (
+                <li key={`${message.id}-input-${inputIndex}`}>
+                  <strong>{input.name}</strong>: {formatLogValue(input.value)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {summaryEntries.length > 0 && (
           <div className="space-y-1">
             <div className="text-xs font-medium text-foreground">Сводка</div>
@@ -266,25 +277,68 @@ function StageLogItem({
             <ul className="list-disc list-inside space-y-1">
               {variableEntries.map((entry, entryIndex) => (
                 <li key={`${message.id}-var-${entryIndex}`}>
-                  <span>
-                    Переменная <strong>{entry.name}</strong> = {formatLogValue(entry.value)}
+                  <span className="inline-flex items-center gap-2">
+                    <span>
+                      <strong>{entry.name}</strong>
+                      {entry.type === 'varFormula' && entry.formulaPreview ? `: ${entry.formulaPreview}` : ''}
+                      {' = '}
+                      {formatLogValue(entry.value)}
+                    </span>
+                    {entry.type === 'varFormula' && entry.formula ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center text-muted-foreground cursor-help">
+                              <Info className="w-3.5 h-3.5" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs text-xs">
+                            <div className="space-y-2">
+                              <div>
+                                <div className="font-medium text-foreground">Формула</div>
+                                <code className="block bg-muted px-2 py-1 rounded">{entry.formula}</code>
+                              </div>
+                              {entry.formulaValues && entry.formulaValues.length > 0 && (
+                                <div>
+                                  <div className="font-medium text-foreground">Значения параметров</div>
+                                  <ul className="list-disc list-inside space-y-1">
+                                    {entry.formulaValues.map((valueEntry, valueIndex) => (
+                                      <li key={`${message.id}-param-${entryIndex}-${valueIndex}`}>
+                                        <strong>{valueEntry.name}</strong>: {formatLogValue(valueEntry.value)}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : null}
                   </span>
-                  {entry.type === 'varFormula' && entry.formula ? (
-                    <>
-                      {' '}
-                      из формулы <code className="bg-muted px-1 py-0.5 rounded">{entry.formula}</code>
-                    </>
-                  ) : (
-                    ' (статическое значение)'
-                  )}
                 </li>
               ))}
             </ul>
           </div>
         )}
-        {summaryEntries.length === 0 && variableEntries.length === 0 && (
-          <div>Нет данных по логике этапа.</div>
+        {data.stageOutputs && Object.keys(data.stageOutputs).length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-foreground">Итоги этапа</div>
+            <ul className="list-disc list-inside space-y-1">
+              {Object.entries(data.stageOutputs).map(([key, value]) => (
+                <li key={`${message.id}-output-${key}`}>
+                  <strong>{key}</strong>: {formatLogValue(value)}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
+        {summaryEntries.length === 0 &&
+          variableEntries.length === 0 &&
+          (!data.stageInputs || data.stageInputs.length === 0) &&
+          (!data.stageOutputs || Object.keys(data.stageOutputs).length === 0) && (
+            <div>Нет данных по этапу.</div>
+          )}
       </AccordionContent>
     </AccordionItem>
   )
@@ -349,15 +403,13 @@ export function CalculationReport({ message, bitrixMeta }: CalculationReportProp
     openIblockElement('CALC_PRESETS', presetId, 'пресета')
   }
 
-  const openDetail = (detailId: string | undefined, event?: MouseEvent) => {
-    if (event) event.stopPropagation()
+  const openDetail = (detailId: string | undefined) => {
     const numericId = detailId ? Number(detailId) : NaN
     if (!Number.isFinite(numericId)) return
     openIblockElement('CALC_DETAILS', numericId, 'детали')
   }
 
-  const openStage = (stageId: string | undefined, event?: MouseEvent) => {
-    if (event) event.stopPropagation()
+  const openStage = (stageId: string | undefined) => {
     const numericId = stageId ? Number(stageId) : NaN
     if (!Number.isFinite(numericId)) return
     openIblockElement('CALC_STAGES', numericId, 'этапа')
@@ -491,9 +543,7 @@ export function CalculationReport({ message, bitrixMeta }: CalculationReportProp
           {/* Prices with markup */}
           {data.priceRangesWithMarkup && data.priceRangesWithMarkup.length > 0 ? (
             <div className="text-sm">
-              <div className="font-medium mb-1">
-                Цены торгового предложения с учётом наценок (по диапазонам):
-              </div>
+              <div className="font-medium mb-1">Формирование отпускных цен</div>
               <div className="pl-2">
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
