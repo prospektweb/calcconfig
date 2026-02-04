@@ -1,18 +1,21 @@
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { CaretDown, CaretUp, Info, Warning, X as XIcon } from '@phosphor-icons/react'
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ArrowsIn, ArrowsOut, CaretDown, CaretUp, Info, Warning, X as XIcon } from '@phosphor-icons/react'
 import { InfoMessage } from '@/lib/types'
 import { CalculationReport, buildFullReportText } from './CalculationReport'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import type { InitPayload } from '@/lib/postmessage-bridge'
+import { cn } from '@/lib/utils'
 
 interface InfoPanelProps {
   messages: InfoMessage[]
   isExpanded: boolean
   onToggle: () => void
   onSaveCalculationResult: (offerId: number) => void
+  bitrixMeta?: InitPayload | null
 }
 
 function formatTimestamp(timestamp: number): string {
@@ -26,9 +29,10 @@ function formatTimestamp(timestamp: number): string {
   return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`
 }
 
-export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
+export function InfoPanel({ messages, isExpanded, onToggle, onSaveCalculationResult, bitrixMeta }: InfoPanelProps) {
   const [selectedMessage, setSelectedMessage] = useState<InfoMessage | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isReportFullscreen, setIsReportFullscreen] = useState(false)
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null
   const getMessageIcon = (type: InfoMessage['type']) => {
     switch (type) {
@@ -141,6 +145,7 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-sm font-medium truncate">
                           {msg.calculationData.offerName}
+                          {msg.offerId ? ` | ${msg.offerId}` : ''}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           {typeof msg.calculationData.purchasePrice === 'number' && (
@@ -186,12 +191,55 @@ export function InfoPanel({ messages, isExpanded, onToggle }: InfoPanelProps) {
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Отчёт по торговому предложению</DialogTitle>
+        <DialogContent
+          className={cn(
+            "p-0 gap-0 flex flex-col overflow-hidden min-h-0",
+            isReportFullscreen
+              ? "inset-0 w-screen h-screen max-w-none max-h-none sm:max-w-none sm:max-h-none rounded-none translate-x-0 translate-y-0"
+              : "min-w-[1024px] w-[90vw] max-w-[90vw] sm:max-w-[90vw] h-[90vh] max-h-[90vh]"
+          )}
+          hideClose
+        >
+          <DialogHeader className="px-6 py-4 border-b border-border flex-shrink-0">
+            <div className="flex items-start justify-between gap-3">
+              <DialogTitle className="text-lg font-semibold">
+                Отчёт по торговому предложению
+              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setIsReportFullscreen(!isReportFullscreen)}
+                  title={isReportFullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}
+                >
+                  {isReportFullscreen ? <ArrowsIn className="w-4 h-4" /> : <ArrowsOut className="w-4 h-4" />}
+                </Button>
+                <DialogClose asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    title="Закрыть"
+                  >
+                    <span className="sr-only">Close</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+                      <path
+                        d="M18 6 6 18M6 6l12 12"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </Button>
+                </DialogClose>
+              </div>
+            </div>
           </DialogHeader>
-          {selectedMessage && <CalculationReport message={selectedMessage} />}
-          <DialogFooter className="gap-2 sm:gap-2 sm:justify-end">
+          <div className="flex-1 overflow-y-auto p-6">
+            {selectedMessage && <CalculationReport message={selectedMessage} bitrixMeta={bitrixMeta} />}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2 sm:justify-end border-t px-6 py-4">
             <Button variant="outline" onClick={handleCopyReport}>
               Копировать отчёт в буфер
             </Button>

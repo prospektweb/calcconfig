@@ -224,6 +224,25 @@ export interface Binding {
   bitrixId: number | null
 }
 
+export interface CalculationStageLogEntry {
+  type: 'evaluatingVars' | 'varFormula' | 'varStatic' | 'noVars'
+  count?: number
+  name?: string
+  value?: unknown
+  formula?: string
+  formulaPreview?: string
+  formulaValues?: Array<{
+    name: string
+    value: unknown
+  }>
+}
+
+export interface CalculationStageInputEntry {
+  name: string
+  value: unknown
+  sourcePath?: string
+}
+
 export interface InfoMessage {
   id: string
   type: 'info' | 'warning' | 'error' | 'success'
@@ -246,6 +265,9 @@ export interface InfoMessage {
     detailName?: string
     detailType?: 'detail' | 'binding'
     stageName?: string
+    stageLogs?: CalculationStageLogEntry[]
+    stageInputs?: CalculationStageInputEntry[]
+    stageOutputs?: Record<string, unknown>
     purchasePrice?: number
     basePrice?: number
     directPurchasePrice?: number
