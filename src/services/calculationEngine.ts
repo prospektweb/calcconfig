@@ -6,6 +6,7 @@
  * Integrates LOGIC_JSON processing for dynamic formula-based calculations.
  */
 
+import type { CalculationStageInputEntry, CalculationStageLogEntry } from '@/lib/types'
 import { Detail, Binding, StageInstance } from '@/lib/types'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { useOperationVariantStore } from '@/stores/operation-variant-store'
@@ -33,6 +34,8 @@ export interface CalculationStageResult {
   logicApplied?: boolean
   variables?: Record<string, any>
   outputs?: Record<string, any>
+  logs?: CalculationStageLogEntry[]
+  inputs?: CalculationStageInputEntry[]
 }
 
 export interface CalculationDetailResult {
@@ -108,11 +111,13 @@ async function calculateStage(
   let operationCost = 0
   let materialCost = 0
   const currency = 'RUB'
+  const stageLogs: CalculationStageLogEntry[] = []
   
   // Enhanced: Extract logic data from initPayload
   let logicApplied = false
   let evaluatedVars: Record<string, any> = {}
   let outputValues: Record<string, any> = {}
+  let inputEntries: CalculationStageInputEntry[] = []
   const applyRuntimeOutputs = (stageElementToUpdate: any, outputsToApply: Record<string, any>) => {
     if (!stageElementToUpdate?.properties || !outputsToApply) {
       return
@@ -192,8 +197,16 @@ async function calculateStage(
           inputValues: inputs.map(i => ({ param: i.paramName, value: context[i.paramName] })),
         })
         
+        inputEntries = inputs.map((input) => ({
+          name: input.paramName,
+          value: context[input.paramName],
+          sourcePath: input.sourcePath,
+        }))
+
         // Evaluate LOGIC_JSON variables
-        evaluatedVars = evaluateLogicVars(logicDefinition, context)
+        evaluatedVars = evaluateLogicVars(logicDefinition, context, (entry) => {
+          stageLogs.push(entry)
+        })
         
         console.log('[CALC] Variables evaluated:', {
           stageId: stage.id,
@@ -291,6 +304,8 @@ async function calculateStage(
     logicApplied,
     variables: logicApplied ? evaluatedVars : undefined,
     outputs: logicApplied ? outputValues : undefined,
+    logs: stageLogs.length > 0 ? stageLogs : undefined,
+    inputs: inputEntries.length > 0 ? inputEntries : undefined,
   }
   
   if (stepCallback) {
