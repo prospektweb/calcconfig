@@ -357,8 +357,8 @@ function StageLogItem({
 export function CalculationReport({ message, bitrixMeta, onChange }: CalculationReportProps) {
   const data = message.calculationData
 
-  const [parametrValues, setParametrValues] = useState<Array<{ name: string; value: string }>>([])
-  const [priceRanges, setPriceRanges] = useState<NonNullable<InfoMessage['calculationData']>['priceRangesWithMarkup']>([])
+  const [parametrRows, setParametrRows] = useState<Array<{ name: string; value: string }>>([])
+  const [priceRangeRows, setPriceRangeRows] = useState<NonNullable<InfoMessage['calculationData']>['priceRangesWithMarkup']>([])
   
   if (!data || !data.offerName) {
     return <div className="text-sm">{message.message}</div>
@@ -465,12 +465,12 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
       name: entry.name ?? '',
       value: entry.value ?? '',
     })) ?? []
-    setParametrValues([...baseValues, { name: '', value: '' }])
+    setParametrRows([...baseValues, { name: '', value: '' }])
   }, [data])
 
   useEffect(() => {
     if (!data) return
-    setPriceRanges(
+    setPriceRangeRows(
       data.priceRangesWithMarkup?.map(range => ({
         ...range,
         prices: range.prices.map(price => ({ ...price })),
@@ -480,15 +480,15 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
 
   useEffect(() => {
     if (!message.offerId || !onChange) return
-    const cleaned = parametrValues.filter(entry => entry.name.trim() || entry.value.trim())
+    const cleaned = parametrRows.filter(entry => entry.name.trim() || entry.value.trim())
     onChange(message.offerId, {
       parametrValues: cleaned,
-      priceRangesWithMarkup: priceRanges,
+      priceRangesWithMarkup: priceRangeRows,
     })
-  }, [message.offerId, onChange, parametrValues, priceRanges])
+  }, [message.offerId, onChange, parametrRows, priceRangeRows])
 
   const handleParametrChange = (index: number, field: 'name' | 'value', value: string) => {
-    setParametrValues(prev => {
+    setParametrRows(prev => {
       const next = [...prev]
       next[index] = { ...next[index], [field]: value }
       const last = next[next.length - 1]
@@ -500,7 +500,7 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
   }
 
   const handlePriceChange = (rangeIndex: number, priceIndex: number, value: string) => {
-    setPriceRanges(prev => {
+    setPriceRangeRows(prev => {
       const next = prev.map(range => ({
         ...range,
         prices: range.prices.map(price => ({ ...price })),
@@ -582,7 +582,7 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
             <div>Значение</div>
           </div>
           <div className="space-y-2">
-            {parametrValues.map((entry, index) => (
+            {parametrRows.map((entry, index) => (
               <div key={`${entry.name}-${index}`} className="grid grid-cols-2 gap-4">
                 <input
                   value={entry.name}
@@ -637,7 +637,7 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
           )}
           
           {/* Prices with markup */}
-          {priceRanges && priceRanges.length > 0 ? (
+          {priceRangeRows && priceRangeRows.length > 0 ? (
             <div className="text-sm">
               <div className="font-medium mb-1">Формирование отпускных цен</div>
               <div className="pl-2">
@@ -647,7 +647,7 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
                       <tr className="border-b">
                         <th className="text-left font-medium py-1 pr-3">От</th>
                         <th className="text-left font-medium py-1 pr-3">До</th>
-                        {priceRanges[0].prices.map(price => (
+                        {priceRangeRows[0].prices.map(price => (
                           <th key={price.typeId} className="text-left font-medium py-1 pr-3">
                             {price.typeName}
                           </th>
@@ -655,7 +655,7 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
                       </tr>
                     </thead>
                     <tbody>
-                      {priceRanges.map((range, rangeIndex) => (
+                      {priceRangeRows.map((range, rangeIndex) => (
                         <tr key={`${range.quantityFrom}-${range.quantityTo}-${rangeIndex}`} className="border-b last:border-b-0">
                           <td className="py-1 pr-3">{range.quantityFrom ?? 0}</td>
                           <td className="py-1 pr-3">{range.quantityTo ?? '∞'}</td>
