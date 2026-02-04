@@ -38,6 +38,16 @@ export interface CalculationStageResult {
   inputs?: CalculationStageInputEntry[]
 }
 
+interface ParametrSchemeEntry {
+  name: string
+  template: string
+}
+
+interface ParametrAccumulator {
+  offer: Map<string, string>
+  product: Map<string, string>
+}
+
 export interface CalculationDetailResult {
   detailId: string
   detailName: string
@@ -66,6 +76,14 @@ export interface CalculationOfferResult {
   directPurchasePrice: number
   purchasePrice: number
   currency: string
+  parametrValues?: Array<{
+    name: string
+    value: string
+  }>
+  productParametrValues?: Array<{
+    name: string
+    value: string
+  }>
   priceRangesWithMarkup?: Array<{
     quantityFrom: number | null
     quantityTo: number | null
@@ -89,6 +107,52 @@ export interface CalculationProgress {
 export type ProgressCallback = (progress: CalculationProgress) => void
 export type StepCallback = (result: CalculationStageResult | CalculationDetailResult | CalculationOfferResult) => void
 
+function extractParametrScheme(stageElement: any, propertyCode: string): ParametrSchemeEntry[] {
+  const property = stageElement?.properties?.[propertyCode]
+  const values = property?.VALUE
+  const descriptions = property?.DESCRIPTION
+  if (!Array.isArray(values)) {
+    return []
+  }
+  return values
+    .map((value: unknown, index: number) => ({
+      name: String(value ?? '').trim(),
+      template: String(descriptions?.[index] ?? '').trim(),
+    }))
+    .filter(entry => entry.name.length > 0 || entry.template.length > 0)
+}
+
+function applyParametrScheme(
+  entries: ParametrSchemeEntry[],
+  accumulator: Map<string, string>,
+  scope: Record<string, unknown>
+): void {
+  entries.forEach(entry => {
+    const name = entry.name.trim()
+    if (!name) {
+      return
+    }
+    const previous = accumulator.get(name) ?? ''
+    const template = entry.template ?? ''
+    const value = template.replace(/\{([^}]+)\}/g, (_match, token) => {
+      const key = String(token).trim()
+      if (!key) return ''
+      if (key === 'self') {
+        return previous
+      }
+      const replacement = scope[key]
+      if (replacement === null || replacement === undefined) {
+        return ''
+      }
+      return String(replacement)
+    })
+    if (accumulator.has(name)) {
+      accumulator.delete(name)
+    }
+    accumulator.set(name, value)
+  })
+}
+
 /**
  * Calculate cost for a single stage
  */
@@ -96,7 +160,8 @@ async function calculateStage(
   stage: StageInstance,
   detail: Detail | Binding,
   initPayload: any,
-  stepCallback?: StepCallback
+  stepCallback?: StepCallback,
+  parametrAccumulator?: ParametrAccumulator
 ): Promise<CalculationStageResult> {
   console.log('[CALC] ==> Processing stage:', {
     stageId: stage.id,
@@ -182,8 +247,8 @@ async function calculateStage(
         outputsCount: outputs.length,
       })
       
-      // Only process if we have logic definition and outputs
-      if (logicDefinition && outputs.length > 0) {
+      // Only process if we have logic definition
+      if (logicDefinition) {
         // Build calculation context with CURRENT_STAGE
         const context = buildCalculationContext(
           initPayload,
@@ -214,11 +279,28 @@ async function calculateStage(
           variableValues: evaluatedVars,
         })
         
-        // Map results to outputs
-        outputValues = mapOutputs(evaluatedVars, outputs)
+        if (outputs.length > 0) {
+          // Map results to outputs
+          outputValues = mapOutputs(evaluatedVars, outputs)
 
-        if (Object.keys(outputValues).length > 0) {
-          applyRuntimeOutputs(stageElement, outputValues)
+          if (Object.keys(outputValues).length > 0) {
+            applyRuntimeOutputs(stageElement, outputValues)
+          }
+        }
+
+        if (parametrAccumulator) {
+          const inputScope = inputEntries.reduce<Record<string, unknown>>((acc, entry) => {
+            acc[entry.name] = entry.value
+            return acc
+          }, {})
+          const scope = {
+            ...inputScope,
+            ...evaluatedVars,
+          }
+          const offerScheme = extractParametrScheme(stageElement, 'SCHEME_PARAMETR_VALUES')
+          const productScheme = extractParametrScheme(stageElement, 'SCHEME_PRODUCT_PARAMETR_VALUES')
+          applyParametrScheme(offerScheme, parametrAccumulator.offer, scope)
+          applyParametrScheme(productScheme, parametrAccumulator.product, scope)
         }
         
         logicApplied = true
@@ -325,7 +407,8 @@ async function calculateDetail(
   stepCallback?: StepCallback,
   progressCallback?: ProgressCallback,
   currentStep?: { value: number },
-  totalSteps?: number
+  totalSteps?: number,
+  parametrAccumulator?: ParametrAccumulator
 ): Promise<CalculationDetailResult> {
   console.log('[CALC] ===> Processing detail:', {
     detailId: detail.id,
@@ -347,7 +430,7 @@ async function calculateDetail(
       })
     }
     
-    const stageResult = await calculateStage(stage, detail, initPayload, stepCallback)
+    const stageResult = await calculateStage(stage, detail, initPayload, stepCallback, parametrAccumulator)
     stageResults.push(stageResult)
   }
   
@@ -405,7 +488,8 @@ async function calculateBinding(
   progressCallback?: ProgressCallback,
   currentStep?: { value: number },
   totalSteps?: number,
-  visited: Set<string> = new Set()
+  visited: Set<string> = new Set(),
+  parametrAccumulator?: ParametrAccumulator
 ): Promise<CalculationDetailResult> {
   console.log('[CALC] ===> Processing binding:', {
     bindingId: binding.id,
@@ -438,7 +522,7 @@ async function calculateBinding(
   for (const detailId of binding.detailIds || []) {
     const childDetail = details.find(d => d.id === detailId)
     if (childDetail) {
-      const childResult = await calculateDetail(childDetail, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps)
+      const childResult = await calculateDetail(childDetail, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps, parametrAccumulator)
       children.push(childResult)
     }
   }
@@ -447,7 +531,7 @@ async function calculateBinding(
   for (const bindingId of binding.bindingIds || []) {
     const childBinding = bindings.find(b => b.id === bindingId)
     if (childBinding) {
-      const childResult = await calculateBinding(childBinding, details, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps, visited)
+      const childResult = await calculateBinding(childBinding, details, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps, visited, parametrAccumulator)
       children.push(childResult)
     }
   }
@@ -464,7 +548,7 @@ async function calculateBinding(
       })
     }
     
-    const stageResult = await calculateStage(stage, binding, initPayload, stepCallback)
+    const stageResult = await calculateStage(stage, binding, initPayload, stepCallback, parametrAccumulator)
     stageResults.push(stageResult)
   }
   
@@ -750,6 +834,10 @@ export async function calculateOffer(
   const currentStep = { value: 0 }
   
   const detailResults: CalculationDetailResult[] = []
+  const parametrAccumulator: ParametrAccumulator = {
+    offer: new Map(),
+    product: new Map(),
+  }
   
   // Get top-level details (not in any binding)
   const topLevelDetails = details.filter(detail => 
@@ -776,13 +864,13 @@ export async function calculateOffer(
 
   // Calculate top-level details
   for (const detail of topLevelDetails) {
-    const result = await calculateDetail(detail, bindings, offerPayload, stepCallback, progressCallback, currentStep, totalSteps)
+    const result = await calculateDetail(detail, bindings, offerPayload, stepCallback, progressCallback, currentStep, totalSteps, parametrAccumulator)
     detailResults.push(result)
   }
   
   // Calculate top-level bindings
   for (const binding of topLevelBindings) {
-    const result = await calculateBinding(binding, details, bindings, offerPayload, stepCallback, progressCallback, currentStep, totalSteps)
+    const result = await calculateBinding(binding, details, bindings, offerPayload, stepCallback, progressCallback, currentStep, totalSteps, new Set(), parametrAccumulator)
     detailResults.push(result)
   }
   
@@ -811,6 +899,8 @@ export async function calculateOffer(
     directPurchasePrice,
     purchasePrice,
     currency: 'RUB',
+    parametrValues: Array.from(parametrAccumulator.offer, ([name, value]) => ({ name, value })),
+    productParametrValues: Array.from(parametrAccumulator.product, ([name, value]) => ({ name, value })),
     priceRangesWithMarkup,
   }
 }

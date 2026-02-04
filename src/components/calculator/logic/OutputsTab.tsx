@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrig
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
-import { FormulaVar, ValidationIssue, InputParam, ResultsHL, AdditionalResult } from './types'
+import { FormulaVar, ValidationIssue, InputParam, ResultsHL, AdditionalResult, ParametrValuesSchemeEntry } from './types'
 import { cn } from '@/lib/utils'
 import { slugify } from '@/lib/stage-utils'
 
@@ -15,6 +15,11 @@ interface OutputsTabProps {
   additionalResults?: AdditionalResult[]
   onResultsHLChange?: (resultsHL: ResultsHL) => void
   onAdditionalResultsChange?: (additionalResults: AdditionalResult[]) => void
+  parametrValuesScheme?: ParametrValuesSchemeEntry[]
+  productParametrValuesScheme?: ParametrValuesSchemeEntry[]
+  onParametrValuesSchemeChange?: (entries: ParametrValuesSchemeEntry[]) => void
+  onProductParametrValuesSchemeChange?: (entries: ParametrValuesSchemeEntry[]) => void
+  parametrNamesPool?: string[]
   issues?: ValidationIssue[]
   offerModel?: any
 }
@@ -28,6 +33,11 @@ export function OutputsTab({
   additionalResults = [],
   onResultsHLChange,
   onAdditionalResultsChange,
+  parametrValuesScheme = [],
+  productParametrValuesScheme = [],
+  onParametrValuesSchemeChange,
+  onProductParametrValuesSchemeChange,
+  parametrNamesPool = [],
   issues = [],
   offerModel
 }: OutputsTabProps) {
@@ -450,6 +460,137 @@ export function OutputsTab({
           </Button>
         </div>
       )}
+
+      <div className="space-y-4 pt-4 border-t border-border">
+        <div>
+          <h3 className="text-sm font-medium mb-1">Параметры товара</h3>
+          <p className="text-xs text-muted-foreground">
+            Настройте пары "Название" и шаблон для расчётных параметров товара.
+          </p>
+        </div>
+        <ParametrValuesTable
+          entries={productParametrValuesScheme}
+          onChange={onProductParametrValuesSchemeChange}
+          existingNames={parametrNamesPool}
+        />
+      </div>
+
+      <div className="space-y-4 pt-4 border-t border-border">
+        <div>
+          <h3 className="text-sm font-medium mb-1">Параметры торгового предложения</h3>
+          <p className="text-xs text-muted-foreground">
+            Определите шаблоны, которые будут записаны в PARAMETR_VALUES.
+          </p>
+        </div>
+        <ParametrValuesTable
+          entries={parametrValuesScheme}
+          onChange={onParametrValuesSchemeChange}
+          existingNames={parametrNamesPool}
+        />
+      </div>
+    </div>
+  )
+}
+
+function ParametrValuesTable({
+  entries,
+  onChange,
+  existingNames,
+}: {
+  entries: ParametrValuesSchemeEntry[]
+  onChange?: (entries: ParametrValuesSchemeEntry[]) => void
+  existingNames: string[]
+}) {
+  const showEmptyRow = entries.length === 0
+
+  const handleChange = (id: string, updates: Partial<ParametrValuesSchemeEntry>) => {
+    if (!onChange) return
+    onChange(
+      entries.map(entry => (entry.id === id ? { ...entry, ...updates } : entry))
+    )
+  }
+
+  const handleRemove = (id: string) => {
+    if (!onChange) return
+    onChange(entries.filter(entry => entry.id !== id))
+  }
+
+  const handleAdd = () => {
+    if (!onChange) return
+    const newEntry: ParametrValuesSchemeEntry = {
+      id: `parametr_${Date.now()}`,
+      name: '',
+      template: '',
+    }
+    onChange([...entries, newEntry])
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-4 text-xs font-medium text-muted-foreground px-2">
+        <div>Название</div>
+        <div>Значение</div>
+      </div>
+      <div className="space-y-2">
+        {showEmptyRow ? (
+          <div className="grid grid-cols-2 gap-4 items-start px-2">
+            <Input
+              placeholder="Название"
+              className="h-8 text-xs"
+              onFocus={handleAdd}
+            />
+            <Input
+              placeholder="Шаблон значения"
+              className="h-8 text-xs"
+              onFocus={handleAdd}
+            />
+          </div>
+        ) : (
+          entries.map(entry => (
+            <div key={entry.id} className="grid grid-cols-2 gap-4 items-start px-2">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={entry.name}
+                  onChange={(event) => handleChange(entry.id, { name: event.target.value })}
+                  placeholder="Название"
+                  className="h-8 text-xs flex-1"
+                  list={existingNames.length > 0 ? `parametr-names-${entry.id}` : undefined}
+                />
+                {existingNames.length > 0 && (
+                  <datalist id={`parametr-names-${entry.id}`}>
+                    {existingNames.map(name => (
+                      <option key={name} value={name} />
+                    ))}
+                  </datalist>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-destructive"
+                  onClick={() => handleRemove(entry.id)}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+              <Input
+                value={entry.template}
+                onChange={(event) => handleChange(entry.id, { template: event.target.value })}
+                placeholder="Шаблон значения"
+                className="h-8 text-xs"
+              />
+            </div>
+          ))
+        )}
+      </div>
+      <Button
+        onClick={handleAdd}
+        size="sm"
+        variant="outline"
+        className="gap-2"
+      >
+        <Plus className="w-4 h-4" />
+        Добавить параметр
+      </Button>
     </div>
   )
 }

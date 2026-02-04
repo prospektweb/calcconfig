@@ -283,6 +283,14 @@ export interface InfoMessage {
         currency: string
       }>
     }>
+    parametrValues?: Array<{
+      name: string
+      value: string
+    }>
+    productParametrValues?: Array<{
+      name: string
+      value: string
+    }>
     children?: InfoMessage[]
   }
 }

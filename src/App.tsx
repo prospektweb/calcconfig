@@ -1281,6 +1281,8 @@ function App() {
             directPurchasePrice: result.directPurchasePrice,
             currency: result.currency,
             priceRangesWithMarkup: result.priceRangesWithMarkup,
+            parametrValues: result.parametrValues,
+            productParametrValues: result.productParametrValues,
             children: result.details.map((detail) => convertDetailToMessage(detail)),
           },
         }
@@ -1381,15 +1383,27 @@ function App() {
     setHasSuccessfulCalculations(false)
   }
 
-  const handleSaveCalculationResult = (offerId: number) => {
+  const handleSaveCalculationResult = (
+    offerId: number,
+    overrides?: {
+      priceRangesWithMarkup?: InfoMessage['calculationData'] extends { priceRangesWithMarkup?: infer T } ? T : never
+      parametrValues?: InfoMessage['calculationData'] extends { parametrValues?: infer T } ? T : never
+    }
+  ) => {
     const target = calculationResults.find(result => result.offerId === offerId)
     if (!target) {
       toast.warning('Для этого торгового предложения нет данных расчёта')
       return
     }
 
+    const updatedTarget = {
+      ...target,
+      priceRangesWithMarkup: overrides?.priceRangesWithMarkup ?? target.priceRangesWithMarkup,
+      parametrValues: overrides?.parametrValues ?? target.parametrValues,
+    }
+
     postMessageBridge.sendSaveCalculationRequest({
-      results: [target],
+      results: [updatedTarget],
       timestamp: Date.now(),
     })
 

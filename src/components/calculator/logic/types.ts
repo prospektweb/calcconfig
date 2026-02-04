@@ -76,6 +76,12 @@ export interface AdditionalResult {
   sourceRef: string
 }
 
+export interface ParametrValuesSchemeEntry {
+  id: string
+  name: string
+  template: string
+}
+
 export interface StageLogic {
   version: 1
   stageIndex: number
@@ -87,6 +93,8 @@ export interface StageLogic {
   resultsHL?: ResultsHL
   writePlan?: WritePlanItem[]  // deprecated - для обратной совместимости при парсинге
   additionalResults?: AdditionalResult[]
+  parametrValuesScheme?: ParametrValuesSchemeEntry[]
+  productParametrValuesScheme?: ParametrValuesSchemeEntry[]
 }
 
 export interface ValidationIssue {
