@@ -21,6 +21,7 @@ interface InfoPanelProps {
 type ReportOverrides = {
   priceRangesWithMarkup?: NonNullable<InfoMessage['calculationData']>['priceRangesWithMarkup']
   parametrValues?: NonNullable<InfoMessage['calculationData']>['parametrValues']
+  offerName?: NonNullable<InfoMessage['calculationData']>['offerName']
 }
 
 function formatTimestamp(timestamp: number): string {

@@ -7,7 +7,7 @@ import {
   AccordionTrigger 
 } from '@/components/ui/accordion'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { CheckCircle, Info, XCircle } from '@phosphor-icons/react'
+import { CheckCircle, Info, PencilSimpleLine, XCircle } from '@phosphor-icons/react'
 import { InfoMessage } from '@/lib/types'
 import type { InitPayload } from '@/lib/postmessage-bridge'
 import { getBitrixContext, getIblockByCode, openBitrixAdmin, openCatalogProduct } from '@/lib/bitrix-utils'
@@ -22,13 +22,18 @@ interface CalculationReportProps {
 type ReportOverrides = {
   priceRangesWithMarkup?: NonNullable<InfoMessage['calculationData']>['priceRangesWithMarkup']
   parametrValues?: NonNullable<InfoMessage['calculationData']>['parametrValues']
+  offerName?: NonNullable<InfoMessage['calculationData']>['offerName']
 }
 
 /**
  * Format price with currency
  */
 function formatPrice(price: number, currency: string): string {
-  return `${price.toFixed(2)} ${currency}`
+  const formatter = new Intl.NumberFormat('ru-RU', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+  return `${formatter.format(price)} ${currency}`
 }
 
 /**
@@ -299,16 +304,16 @@ function StageLogItem({
                               <Info className="w-3.5 h-3.5" />
                             </span>
                           </TooltipTrigger>
-                          <TooltipContent className="max-w-xs text-xs">
+                          <TooltipContent className="max-w-xs text-xs bg-black text-white border border-black">
                             <div className="space-y-2">
                               <div>
-                                <div className="font-medium text-foreground">Формула</div>
-                                <code className="block bg-muted px-2 py-1 rounded text-foreground">{entry.formula}</code>
+                                <div className="font-medium text-white">Формула</div>
+                                <code className="block bg-white px-2 py-1 rounded text-black">{entry.formula}</code>
                               </div>
                               {entry.formulaValues && entry.formulaValues.length > 0 && (
                                 <div>
-                                  <div className="font-medium text-foreground">Значения параметров</div>
-                                  <ul className="list-disc list-inside space-y-1 text-foreground">
+                                  <div className="font-medium text-white">Значения параметров</div>
+                                  <ul className="list-disc list-inside space-y-1 text-white">
                                     {entry.formulaValues.map((valueEntry, valueIndex) => (
                                       <li key={`${message.id}-param-${entryIndex}-${valueIndex}`}>
                                         <strong>{valueEntry.name}</strong>: {formatLogValue(valueEntry.value)}
@@ -357,16 +362,23 @@ function StageLogItem({
 export function CalculationReport({ message, bitrixMeta, onChange }: CalculationReportProps) {
   const data = message.calculationData
 
-  const [parametrRows, setParametrRows] = useState<Array<{ name: string; value: string }>>([])
+  const createParametrRow = (overrides: Partial<{ id: string; name: string; value: string }> = {}) => ({
+    id: `param_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    name: '',
+    value: '',
+    ...overrides,
+  })
+
+  const [parametrRows, setParametrRows] = useState<Array<{ id: string; name: string; value: string }>>([])
   const [priceRangeRows, setPriceRangeRows] = useState<NonNullable<InfoMessage['calculationData']>['priceRangesWithMarkup']>([])
+  const [offerName, setOfferName] = useState(data?.offerName ?? '')
+  const [isOfferNameEditing, setIsOfferNameEditing] = useState(false)
+  const [isMarkupEditing, setIsMarkupEditing] = useState(false)
   const onChangeRef = useRef(onChange)
   
   if (!data || !data.offerName) {
     return <div className="text-sm">{message.message}</div>
   }
-
-  const [parametrValues, setParametrValues] = useState<Array<{ name: string; value: string }>>([])
-  const [priceRanges, setPriceRanges] = useState<NonNullable<typeof data.priceRangesWithMarkup>>([])
   
   const details = data.children?.filter(child => child.level === 'detail') || []
   
@@ -462,11 +474,13 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
 
   useEffect(() => {
     if (!data) return
-    const baseValues = data.parametrValues?.map(entry => ({
-      name: entry.name ?? '',
-      value: entry.value ?? '',
-    })) ?? []
-    setParametrRows([...baseValues, { name: '', value: '' }])
+    const baseValues = data.parametrValues
+      ?.filter(entry => entry.name !== 'Название ТП')
+      .map(entry => createParametrRow({
+        name: entry.name ?? '',
+        value: entry.value ?? '',
+      })) ?? []
+    setParametrRows([...baseValues, createParametrRow()])
   }, [data])
 
   useEffect(() => {
@@ -480,17 +494,26 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
   }, [data])
 
   useEffect(() => {
+    if (!data) return
+    setOfferName(data.offerName ?? '')
+    setIsOfferNameEditing(false)
+  }, [data])
+
+  useEffect(() => {
     onChangeRef.current = onChange
   }, [onChange])
 
   useEffect(() => {
     if (!message.offerId || !onChangeRef.current) return
-    const cleaned = parametrRows.filter(entry => entry.name.trim() || entry.value.trim())
+    const cleaned = parametrRows
+      .filter(entry => entry.name.trim() || entry.value.trim())
+      .map(entry => ({ name: entry.name, value: entry.value }))
     onChangeRef.current(message.offerId, {
       parametrValues: cleaned,
       priceRangesWithMarkup: priceRangeRows,
+      offerName,
     })
-  }, [message.offerId, parametrRows, priceRangeRows])
+  }, [message.offerId, parametrRows, priceRangeRows, offerName])
 
   const handleParametrChange = (index: number, field: 'name' | 'value', value: string) => {
     setParametrRows(prev => {
@@ -498,7 +521,7 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
       next[index] = { ...next[index], [field]: value }
       const last = next[next.length - 1]
       if (last && (last.name.trim() || last.value.trim())) {
-        next.push({ name: '', value: '' })
+        next.push(createParametrRow())
       }
       return next
     })
@@ -548,16 +571,37 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
         )}
 
         <div className="flex items-center justify-between gap-2">
-          <h4 className="font-semibold text-sm flex-1">
-            Торговое предложение:{' '}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <h4 className="font-semibold text-sm">
+              Торговое предложение:{' '}
+            </h4>
+            {isOfferNameEditing ? (
+              <input
+                value={offerName}
+                onChange={(event) => setOfferName(event.target.value)}
+                className="h-7 flex-1 min-w-[180px] rounded-md border border-border bg-background px-2 text-xs"
+              />
+            ) : (
+              <button
+                type="button"
+                className="text-left hover:underline text-sm truncate"
+                onClick={(event) => openOffer(message.offerId, event)}
+              >
+                {offerName}
+              </button>
+            )}
+            {message.offerId ? (
+              <span className="text-sm text-muted-foreground">| {message.offerId}</span>
+            ) : null}
             <button
               type="button"
-              className="text-left hover:underline"
-              onClick={(event) => openOffer(message.offerId, event)}
+              className="h-7 w-7 flex items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:text-foreground"
+              onClick={() => setIsOfferNameEditing(prev => !prev)}
+              title={isOfferNameEditing ? 'Скрыть редактирование названия' : 'Редактировать название'}
             >
-              {data.offerName} {message.offerId ? `| ${message.offerId}` : ''}
+              <PencilSimpleLine className="w-4 h-4" />
             </button>
-          </h4>
+          </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             {isSuccessful ? (
               <CheckCircle 
@@ -588,7 +632,7 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
           </div>
           <div className="space-y-2">
             {parametrRows.map((entry, index) => (
-              <div key={`${entry.name}-${index}`} className="grid grid-cols-2 gap-4">
+              <div key={entry.id} className="grid grid-cols-2 gap-4">
                 <input
                   value={entry.name}
                   onChange={(event) => handleParametrChange(index, 'name', event.target.value)}
@@ -644,7 +688,17 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
           {/* Prices with markup */}
           {priceRangeRows && priceRangeRows.length > 0 ? (
             <div className="text-sm">
-              <div className="font-medium mb-1">Формирование отпускных цен</div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="font-medium">Маркетинг отпускных цен</div>
+                <button
+                  type="button"
+                  className="h-7 w-7 flex items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsMarkupEditing(prev => !prev)}
+                  title={isMarkupEditing ? 'Скрыть редактирование цен' : 'Редактировать цены'}
+                >
+                  <PencilSimpleLine className="w-4 h-4" />
+                </button>
+              </div>
               <div className="pl-2">
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
@@ -665,19 +719,25 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
                           <td className="py-1 pr-3">{range.quantityFrom ?? 0}</td>
                           <td className="py-1 pr-3">{range.quantityTo ?? '∞'}</td>
                           {range.prices.map((price, priceIndex) => (
-                            <td key={price.typeId} className="py-1 pr-3">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={price.basePrice}
-                                onChange={(event) => handlePriceChange(rangeIndex, priceIndex, event.target.value)}
-                                className="h-7 w-24 rounded-md border border-border bg-background px-2 text-xs"
-                              />
-                              <span className="ml-1 text-muted-foreground">{price.currency}</span>
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
+                          <td key={price.typeId} className="py-1 pr-3">
+                            {isMarkupEditing ? (
+                              <>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={price.basePrice}
+                                  onChange={(event) => handlePriceChange(rangeIndex, priceIndex, event.target.value)}
+                                  className="h-7 w-24 rounded-md border border-border bg-background px-2 text-xs"
+                                />
+                                <span className="ml-1 text-muted-foreground">{price.currency}</span>
+                              </>
+                            ) : (
+                              <span>{formatPrice(price.basePrice, price.currency)}</span>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
                     </tbody>
                   </table>
                 </div>

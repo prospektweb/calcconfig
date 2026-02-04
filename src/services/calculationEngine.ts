@@ -45,7 +45,7 @@ interface ParametrSchemeEntry {
 
 interface ParametrAccumulator {
   offer: Map<string, string>
-  product: Map<string, string>
+  offerName?: string
 }
 
 export interface CalculationDetailResult {
@@ -77,10 +77,6 @@ export interface CalculationOfferResult {
   purchasePrice: number
   currency: string
   parametrValues?: Array<{
-    name: string
-    value: string
-  }>
-  productParametrValues?: Array<{
     name: string
     value: string
   }>
@@ -122,10 +118,15 @@ function extractParametrScheme(stageElement: any, propertyCode: string): Paramet
     .filter(entry => entry.name.length > 0 || entry.template.length > 0)
 }
 
+const OFFER_NAME_PARAM = 'Название ТП'
+
 function applyParametrScheme(
   entries: ParametrSchemeEntry[],
   accumulator: Map<string, string>,
-  scope: Record<string, unknown>
+  scope: Record<string, unknown>,
+  options?: {
+    onOfferName?: (value: string) => void
+  }
 ): void {
   entries.forEach(entry => {
     const name = entry.name.trim()
@@ -146,6 +147,13 @@ function applyParametrScheme(
       }
       return String(replacement)
     })
+    if (name === OFFER_NAME_PARAM && options?.onOfferName) {
+      const nextOfferName = value.trim()
+      if (nextOfferName) {
+        options.onOfferName(nextOfferName)
+      }
+      return
+    }
     if (accumulator.has(name)) {
       accumulator.delete(name)
     }
@@ -298,9 +306,11 @@ async function calculateStage(
             ...evaluatedVars,
           }
           const offerScheme = extractParametrScheme(stageElement, 'SCHEME_PARAMETR_VALUES')
-          const productScheme = extractParametrScheme(stageElement, 'SCHEME_PRODUCT_PARAMETR_VALUES')
-          applyParametrScheme(offerScheme, parametrAccumulator.offer, scope)
-          applyParametrScheme(productScheme, parametrAccumulator.product, scope)
+          applyParametrScheme(offerScheme, parametrAccumulator.offer, scope, {
+            onOfferName: (value) => {
+              parametrAccumulator.offerName = value
+            },
+          })
         }
         
         logicApplied = true
@@ -836,7 +846,6 @@ export async function calculateOffer(
   const detailResults: CalculationDetailResult[] = []
   const parametrAccumulator: ParametrAccumulator = {
     offer: new Map(),
-    product: new Map(),
   }
   
   // Get top-level details (not in any binding)
@@ -889,7 +898,7 @@ export async function calculateOffer(
   
   return {
     offerId: offer.id,
-    offerName: offer.name,
+    offerName: parametrAccumulator.offerName || offer.name,
     productId: product?.id || offer.productId,
     productName: product?.name || 'Unknown Product',
     presetId: preset?.id,
@@ -900,7 +909,6 @@ export async function calculateOffer(
     purchasePrice,
     currency: 'RUB',
     parametrValues: Array.from(parametrAccumulator.offer, ([name, value]) => ({ name, value })),
-    productParametrValues: Array.from(parametrAccumulator.product, ([name, value]) => ({ name, value })),
     priceRangesWithMarkup,
   }
 }

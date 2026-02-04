@@ -94,7 +94,6 @@ export interface StageLogic {
   writePlan?: WritePlanItem[]  // deprecated - для обратной совместимости при парсинге
   additionalResults?: AdditionalResult[]
   parametrValuesScheme?: ParametrValuesSchemeEntry[]
-  productParametrValuesScheme?: ParametrValuesSchemeEntry[]
 }
 
 export interface ValidationIssue {

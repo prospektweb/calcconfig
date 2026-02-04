@@ -16,9 +16,7 @@ interface OutputsTabProps {
   onResultsHLChange?: (resultsHL: ResultsHL) => void
   onAdditionalResultsChange?: (additionalResults: AdditionalResult[]) => void
   parametrValuesScheme?: ParametrValuesSchemeEntry[]
-  productParametrValuesScheme?: ParametrValuesSchemeEntry[]
   onParametrValuesSchemeChange?: (entries: ParametrValuesSchemeEntry[]) => void
-  onProductParametrValuesSchemeChange?: (entries: ParametrValuesSchemeEntry[]) => void
   parametrNamesPool?: string[]
   issues?: ValidationIssue[]
   offerModel?: any
@@ -34,9 +32,7 @@ export function OutputsTab({
   onResultsHLChange,
   onAdditionalResultsChange,
   parametrValuesScheme = [],
-  productParametrValuesScheme = [],
   onParametrValuesSchemeChange,
-  onProductParametrValuesSchemeChange,
   parametrNamesPool = [],
   issues = [],
   offerModel
@@ -87,6 +83,7 @@ export function OutputsTab({
   
   const hasVars = vars.length > 0
   const hasInputs = inputs.length > 0
+  const offerParametrNames = Array.from(new Set([...parametrNamesPool, 'Название ТП']))
   
   // Get result issues grouped by refId
   const resultIssues = issues.filter(i => i.scope === 'result')
@@ -463,29 +460,15 @@ export function OutputsTab({
 
       <div className="space-y-4 pt-4 border-t border-border">
         <div>
-          <h3 className="text-sm font-medium mb-1">Параметры товара</h3>
-          <p className="text-xs text-muted-foreground">
-            Настройте пары "Название" и шаблон для расчётных параметров товара.
-          </p>
-        </div>
-        <ParametrValuesTable
-          entries={productParametrValuesScheme}
-          onChange={onProductParametrValuesSchemeChange}
-          existingNames={parametrNamesPool}
-        />
-      </div>
-
-      <div className="space-y-4 pt-4 border-t border-border">
-        <div>
           <h3 className="text-sm font-medium mb-1">Параметры торгового предложения</h3>
           <p className="text-xs text-muted-foreground">
-            Определите шаблоны, которые будут записаны в PARAMETR_VALUES.
+            Определите шаблоны, на основании которых будут формироваться данные для названия ТП и свойства PARAMETR_VALUES.
           </p>
         </div>
         <ParametrValuesTable
           entries={parametrValuesScheme}
           onChange={onParametrValuesSchemeChange}
-          existingNames={parametrNamesPool}
+          existingNames={offerParametrNames}
         />
       </div>
     </div>

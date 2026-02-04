@@ -1282,7 +1282,6 @@ function App() {
             currency: result.currency,
             priceRangesWithMarkup: result.priceRangesWithMarkup,
             parametrValues: result.parametrValues,
-            productParametrValues: result.productParametrValues,
             children: result.details.map((detail) => convertDetailToMessage(detail)),
           },
         }
@@ -1388,6 +1387,7 @@ function App() {
     overrides?: {
       priceRangesWithMarkup?: InfoMessage['calculationData'] extends { priceRangesWithMarkup?: infer T } ? T : never
       parametrValues?: InfoMessage['calculationData'] extends { parametrValues?: infer T } ? T : never
+      offerName?: InfoMessage['calculationData'] extends { offerName?: infer T } ? T : never
     }
   ) => {
     const target = calculationResults.find(result => result.offerId === offerId)
@@ -1400,6 +1400,7 @@ function App() {
       ...target,
       priceRangesWithMarkup: overrides?.priceRangesWithMarkup ?? target.priceRangesWithMarkup,
       parametrValues: overrides?.parametrValues ?? target.parametrValues,
+      offerName: overrides?.offerName ?? target.offerName,
     }
 
     postMessageBridge.sendSaveCalculationRequest({

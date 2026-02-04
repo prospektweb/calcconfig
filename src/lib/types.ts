@@ -287,10 +287,6 @@ export interface InfoMessage {
       name: string
       value: string
     }>
-    productParametrValues?: Array<{
-      name: string
-      value: string
-    }>
     children?: InfoMessage[]
   }
 }
