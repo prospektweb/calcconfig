@@ -296,12 +296,12 @@ function StageLogItem({
                             <div className="space-y-2">
                               <div>
                                 <div className="font-medium text-foreground">Формула</div>
-                                <code className="block bg-muted px-2 py-1 rounded">{entry.formula}</code>
+                                <code className="block bg-muted px-2 py-1 rounded text-foreground">{entry.formula}</code>
                               </div>
                               {entry.formulaValues && entry.formulaValues.length > 0 && (
                                 <div>
                                   <div className="font-medium text-foreground">Значения параметров</div>
-                                  <ul className="list-disc list-inside space-y-1">
+                                  <ul className="list-disc list-inside space-y-1 text-foreground">
                                     {entry.formulaValues.map((valueEntry, valueIndex) => (
                                       <li key={`${message.id}-param-${entryIndex}-${valueIndex}`}>
                                         <strong>{valueEntry.name}</strong>: {formatLogValue(valueEntry.value)}
