@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CaretLeft, CaretRight, ArrowsOut, ArrowsIn } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { InitPayload, postMessageBridge, SaveCalcLogicRequestPayload } from '@/lib/postmessage-bridge'
@@ -205,6 +206,7 @@ export function CalculationLogicDialog({
 }: CalculationLogicDialogProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false)
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true)
+  const [helpAccordionValues, setHelpAccordionValues] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState('inputs')
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showJsonTree, setShowJsonTree] = useState(false) // false = ContextExplorer, true = JsonTree
@@ -485,9 +487,15 @@ export function CalculationLogicDialog({
     if (tab === 'inputs') {
       setLeftPanelCollapsed(false)  // Open Context
       setRightPanelCollapsed(true)  // Close Help
+      setHelpAccordionValues([])
     } else if (tab === 'formulas') {
       setLeftPanelCollapsed(true)   // Close Context
       setRightPanelCollapsed(false) // Open Help
+      setHelpAccordionValues(['syntax', 'functions'])
+    } else if (tab === 'outputs') {
+      setLeftPanelCollapsed(true)   // Close Context
+      setRightPanelCollapsed(false) // Open Help
+      setHelpAccordionValues(['params-vars'])
     }
   }
 
@@ -720,7 +728,7 @@ export function CalculationLogicDialog({
     }
 
     setInputs([...inputs, newInput])
-    setActiveTab('inputs')
+    handleTabChange('inputs')
     toast.success(`Параметр "${name}" добавлен`)
   }
 
@@ -775,7 +783,7 @@ export function CalculationLogicDialog({
     }
     
     setInputs([...inputs, newInput])
-    setActiveTab('inputs')
+    handleTabChange('inputs')
     setNewlyAddedInputId(newInput.id)
     toast.success(`Параметр "${uniqueName}" добавлен`)
   }
@@ -1249,27 +1257,151 @@ export function CalculationLogicDialog({
               <div className="flex-1 min-h-0 overflow-hidden">
                 <ScrollArea className="h-full">
                   <div className="p-4">
-                    <Accordion type="multiple" defaultValue={activeTab === 'formulas' ? ['params-vars'] : ['syntax', 'functions']}>
+                    <Accordion
+                      type="multiple"
+                      value={helpAccordionValues}
+                      onValueChange={setHelpAccordionValues}
+                    >
                       {/* Syntax Section */}
                       <AccordionItem value="syntax">
                         <AccordionTrigger className="text-sm font-medium">Синтаксис</AccordionTrigger>
                         <AccordionContent>
-                          <div className="space-y-2">
-                            <button 
-                              onClick={() => handleOpenHelp('help_types', 'Типы данных')}
-                              className="w-full text-left hover:bg-muted p-2 rounded-md"
-                            >
-                              <div className="text-sm font-medium">Типы данных</div>
-                              <div className="text-xs text-muted-foreground">number, string, boolean</div>
-                            </button>
-                            <button 
-                              onClick={() => handleOpenHelp('help_operators', 'Операторы')}
-                              className="w-full text-left hover:bg-muted p-2 rounded-md"
-                            >
-                              <div className="text-sm font-medium">Операторы</div>
-                              <div className="text-xs text-muted-foreground">+ - * / == != &gt; &lt; &gt;= &lt;= && || ! (также and/or/not)</div>
-                            </button>
-                          </div>
+                          <TooltipProvider delayDuration={200}>
+                            <div className="flex flex-wrap gap-1.5">
+                              {[
+                                {
+                                  label: 'number',
+                                  insertText: 'number',
+                                  description: 'Числовой тип данных.',
+                                  example: 'Пример: 10, 3.14'
+                                },
+                                {
+                                  label: 'string',
+                                  insertText: 'string',
+                                  description: 'Строковый тип данных.',
+                                  example: 'Пример: "Привет"'
+                                },
+                                {
+                                  label: 'boolean',
+                                  insertText: 'boolean',
+                                  description: 'Логический тип данных (true/false).',
+                                  example: 'Пример: true'
+                                },
+                                {
+                                  label: '==',
+                                  insertText: '==',
+                                  description: 'Проверка равенства.',
+                                  example: 'Пример: a == b'
+                                },
+                                {
+                                  label: '!=',
+                                  insertText: '!=',
+                                  description: 'Проверка неравенства.',
+                                  example: 'Пример: a != b'
+                                },
+                                {
+                                  label: '>',
+                                  insertText: '>',
+                                  description: 'Больше.',
+                                  example: 'Пример: a > b'
+                                },
+                                {
+                                  label: '<',
+                                  insertText: '<',
+                                  description: 'Меньше.',
+                                  example: 'Пример: a < b'
+                                },
+                                {
+                                  label: '>=',
+                                  insertText: '>=',
+                                  description: 'Больше либо равно.',
+                                  example: 'Пример: a >= b'
+                                },
+                                {
+                                  label: '<=',
+                                  insertText: '<=',
+                                  description: 'Меньше либо равно.',
+                                  example: 'Пример: a <= b'
+                                },
+                                {
+                                  label: '&&',
+                                  insertText: '&&',
+                                  description: 'Логическое И.',
+                                  example: 'Пример: a && b'
+                                },
+                                {
+                                  label: '||',
+                                  insertText: '||',
+                                  description: 'Логическое ИЛИ.',
+                                  example: 'Пример: a || b'
+                                },
+                                {
+                                  label: '!',
+                                  insertText: '!',
+                                  description: 'Логическое НЕ.',
+                                  example: 'Пример: !flag'
+                                },
+                                {
+                                  label: 'and',
+                                  insertText: 'and',
+                                  description: 'Альтернатива для &&.',
+                                  example: 'Пример: a and b'
+                                },
+                                {
+                                  label: 'or',
+                                  insertText: 'or',
+                                  description: 'Альтернатива для ||.',
+                                  example: 'Пример: a or b'
+                                },
+                                {
+                                  label: 'not',
+                                  insertText: 'not',
+                                  description: 'Альтернатива для !.',
+                                  example: 'Пример: not flag'
+                                },
+                                {
+                                  label: '+',
+                                  insertText: '+',
+                                  description: 'Сложение.',
+                                  example: 'Пример: a + b'
+                                },
+                                {
+                                  label: '-',
+                                  insertText: '-',
+                                  description: 'Вычитание.',
+                                  example: 'Пример: a - b'
+                                },
+                                {
+                                  label: '*',
+                                  insertText: '*',
+                                  description: 'Умножение.',
+                                  example: 'Пример: a * b'
+                                },
+                                {
+                                  label: '/',
+                                  insertText: '/',
+                                  description: 'Деление.',
+                                  example: 'Пример: a / b'
+                                }
+                              ].map(item => (
+                                <Tooltip key={item.label}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleInsertIntoFormula(item.insertText)}
+                                      className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
+                                    >
+                                      {item.label}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs text-xs">
+                                    <div className="font-medium">{item.description}</div>
+                                    <div className="text-muted-foreground">{item.example}</div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ))}
+                            </div>
+                          </TooltipProvider>
                         </AccordionContent>
                       </AccordionItem>
 
@@ -1277,57 +1409,154 @@ export function CalculationLogicDialog({
                       <AccordionItem value="functions">
                         <AccordionTrigger className="text-sm font-medium">Функции</AccordionTrigger>
                         <AccordionContent>
-                          <div className="space-y-2">
-                            <button 
-                              onClick={() => handleOpenHelp('help_functions_conditional', 'Функция if(condition, a, b)')}
-                              className="w-full text-left hover:bg-muted p-2 rounded-md"
-                            >
-                              <div className="text-sm font-medium">if(condition, a, b)</div>
-                              <div className="text-xs text-muted-foreground">Условный оператор</div>
-                            </button>
-                            <button 
-                              onClick={() => handleOpenHelp('help_functions_arithmetic', 'Арифметические функции')}
-                              className="w-full text-left hover:bg-muted p-2 rounded-md"
-                            >
-                              <div className="text-sm font-medium">Арифметические</div>
-                              <div className="text-xs text-muted-foreground">round, ceil, floor, min, max, abs</div>
-                            </button>
-                            <button 
-                              onClick={() => handleOpenHelp('help_functions_string', 'Строковые функции')}
-                              className="w-full text-left hover:bg-muted p-2 rounded-md"
-                            >
-                              <div className="text-sm font-medium">Строки</div>
-                              <div className="text-xs text-muted-foreground">trim, lower, upper, len, contains, replace</div>
-                            </button>
-                            <button 
-                              onClick={() => handleOpenHelp('help_functions_conversion', 'Функции преобразования')}
-                              className="w-full text-left hover:bg-muted p-2 rounded-md"
-                            >
-                              <div className="text-sm font-medium">Преобразование</div>
-                              <div className="text-xs text-muted-foreground">toNumber, toString</div>
-                            </button>
-                            <button 
-                              onClick={() => handleOpenHelp('help_functions_array', 'Функции для массивов')}
-                              className="w-full text-left hover:bg-muted p-2 rounded-md"
-                            >
-                              <div className="text-sm font-medium">Массивы</div>
-                              <div className="text-xs text-muted-foreground">split, join, get</div>
-                            </button>
-                            <button 
-                              onClick={() => handleOpenHelp('help_functions_price', 'Функции для цен')}
-                              className="w-full text-left hover:bg-muted p-2 rounded-md"
-                            >
-                              <div className="text-sm font-medium">Цены</div>
-                              <div className="text-xs text-muted-foreground">getPrice</div>
-                            </button>
-                            <button 
-                              onClick={() => handleOpenHelp('help_functions_regex', 'Регулярные выражения')}
-                              className="w-full text-left hover:bg-muted p-2 rounded-md"
-                            >
-                              <div className="text-sm font-medium">Регулярные выражения</div>
-                              <div className="text-xs text-muted-foreground">regexMatch, regexExtract</div>
-                            </button>
-                          </div>
+                          <TooltipProvider delayDuration={200}>
+                            <div className="flex flex-wrap gap-1.5">
+                              {[
+                                {
+                                  label: 'Условный оператор',
+                                  insertText: 'if(condition, a, b)',
+                                  description: 'Возвращает a или b по условию.',
+                                  example: 'Пример: if(x > 0, x, 0)'
+                                },
+                                {
+                                  label: 'round',
+                                  insertText: 'round()',
+                                  description: 'Округляет число до ближайшего целого.',
+                                  example: 'Пример: round(3.6)'
+                                },
+                                {
+                                  label: 'ceil',
+                                  insertText: 'ceil()',
+                                  description: 'Округляет вверх.',
+                                  example: 'Пример: ceil(2.1)'
+                                },
+                                {
+                                  label: 'floor',
+                                  insertText: 'floor()',
+                                  description: 'Округляет вниз.',
+                                  example: 'Пример: floor(2.9)'
+                                },
+                                {
+                                  label: 'min',
+                                  insertText: 'min()',
+                                  description: 'Возвращает минимальное значение.',
+                                  example: 'Пример: min(a, b)'
+                                },
+                                {
+                                  label: 'max',
+                                  insertText: 'max()',
+                                  description: 'Возвращает максимальное значение.',
+                                  example: 'Пример: max(a, b)'
+                                },
+                                {
+                                  label: 'abs',
+                                  insertText: 'abs()',
+                                  description: 'Абсолютное значение числа.',
+                                  example: 'Пример: abs(-5)'
+                                },
+                                {
+                                  label: 'trim',
+                                  insertText: 'trim()',
+                                  description: 'Удаляет пробелы по краям строки.',
+                                  example: 'Пример: trim(name)'
+                                },
+                                {
+                                  label: 'lower',
+                                  insertText: 'lower()',
+                                  description: 'Приводит строку к нижнему регистру.',
+                                  example: 'Пример: lower(text)'
+                                },
+                                {
+                                  label: 'upper',
+                                  insertText: 'upper()',
+                                  description: 'Приводит строку к верхнему регистру.',
+                                  example: 'Пример: upper(text)'
+                                },
+                                {
+                                  label: 'len',
+                                  insertText: 'len()',
+                                  description: 'Длина строки.',
+                                  example: 'Пример: len(text)'
+                                },
+                                {
+                                  label: 'contains',
+                                  insertText: 'contains()',
+                                  description: 'Проверяет наличие подстроки.',
+                                  example: 'Пример: contains(text, "abc")'
+                                },
+                                {
+                                  label: 'replace',
+                                  insertText: 'replace()',
+                                  description: 'Заменяет подстроку.',
+                                  example: 'Пример: replace(text, "a", "b")'
+                                },
+                                {
+                                  label: 'toNumber',
+                                  insertText: 'toNumber()',
+                                  description: 'Преобразует в число.',
+                                  example: 'Пример: toNumber(value)'
+                                },
+                                {
+                                  label: 'toString',
+                                  insertText: 'toString()',
+                                  description: 'Преобразует в строку.',
+                                  example: 'Пример: toString(value)'
+                                },
+                                {
+                                  label: 'split',
+                                  insertText: 'split()',
+                                  description: 'Разбивает строку в массив.',
+                                  example: 'Пример: split(text, ",")'
+                                },
+                                {
+                                  label: 'join',
+                                  insertText: 'join()',
+                                  description: 'Склеивает массив в строку.',
+                                  example: 'Пример: join(items, ",")'
+                                },
+                                {
+                                  label: 'get',
+                                  insertText: 'get()',
+                                  description: 'Получает элемент массива по индексу.',
+                                  example: 'Пример: get(items, 0)'
+                                },
+                                {
+                                  label: 'getPrice',
+                                  insertText: 'getPrice()',
+                                  description: 'Получает цену по параметру.',
+                                  example: 'Пример: getPrice(code)'
+                                },
+                                {
+                                  label: 'regexMatch',
+                                  insertText: 'regexMatch()',
+                                  description: 'Проверяет соответствие регулярному выражению.',
+                                  example: 'Пример: regexMatch(text, "[0-9]+")'
+                                },
+                                {
+                                  label: 'regexExtract',
+                                  insertText: 'regexExtract()',
+                                  description: 'Извлекает совпадение по регулярному выражению.',
+                                  example: 'Пример: regexExtract(text, "[0-9]+")'
+                                }
+                              ].map(item => (
+                                <Tooltip key={item.label}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleInsertIntoFormula(item.insertText)}
+                                      className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
+                                    >
+                                      {item.label}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs text-xs">
+                                    <div className="font-medium">{item.description}</div>
+                                    <div className="text-muted-foreground">{item.example}</div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ))}
+                            </div>
+                          </TooltipProvider>
                         </AccordionContent>
                       </AccordionItem>
                       
@@ -1390,11 +1619,11 @@ export function CalculationLogicDialog({
                             // Find the first error
                             const firstError = validationIssues[0]
                             if (firstError.scope === 'input') {
-                              setActiveTab('inputs')
+                              handleTabChange('inputs')
                             } else if (firstError.scope === 'var') {
-                              setActiveTab('formulas')
+                              handleTabChange('formulas')
                             } else if (firstError.scope === 'result') {
-                              setActiveTab('outputs')
+                              handleTabChange('outputs')
                             }
                           } else {
                             handleOpenHelp('help_errors', 'Ошибки')
