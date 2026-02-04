@@ -233,7 +233,6 @@ export function CalculationLogicDialog({
   const [writePlan, setWritePlan] = useState<WritePlanItem[]>([])
   const [additionalResults, setAdditionalResults] = useState<AdditionalResult[]>([])
   const [parametrValuesScheme, setParametrValuesScheme] = useState<ParametrValuesSchemeEntry[]>([])
-  const [productParametrValuesScheme, setProductParametrValuesScheme] = useState<ParametrValuesSchemeEntry[]>([])
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
   const previousInputsRef = useRef<InputParam[]>([])
 
@@ -244,13 +243,6 @@ export function CalculationLogicDialog({
       const schemeValues = stage?.properties?.SCHEME_PARAMETR_VALUES?.VALUE
       if (Array.isArray(schemeValues)) {
         schemeValues.forEach((value: unknown) => {
-          const name = String(value ?? '').trim()
-          if (name) names.add(name)
-        })
-      }
-      const productSchemeValues = stage?.properties?.SCHEME_PRODUCT_PARAMETR_VALUES?.VALUE
-      if (Array.isArray(productSchemeValues)) {
-        productSchemeValues.forEach((value: unknown) => {
           const name = String(value ?? '').trim()
           if (name) names.add(name)
         })
@@ -296,7 +288,6 @@ export function CalculationLogicDialog({
       setWritePlan([])
       setAdditionalResults([])
       setParametrValuesScheme([])
-      setProductParametrValuesScheme([])
       return
     }
     
@@ -315,7 +306,6 @@ export function CalculationLogicDialog({
     let savedResultsHL: ResultsHL = createEmptyResultsHL()
     let savedAdditionalResults: AdditionalResult[] = []
     let savedParametrValuesScheme: ParametrValuesSchemeEntry[] = []
-    let savedProductParametrValuesScheme: ParametrValuesSchemeEntry[] = []
     
     if (settingsElement || stageElement) {
       // Build inputs from PARAMS + INPUTS
@@ -340,10 +330,6 @@ export function CalculationLogicDialog({
       const schemeValue = stageElement?.properties?.SCHEME_PARAMETR_VALUES?.VALUE as string[] | undefined
       const schemeDescription = stageElement?.properties?.SCHEME_PARAMETR_VALUES?.DESCRIPTION as string[] | undefined
       savedParametrValuesScheme = buildParametrValuesSchemeFromInit(schemeValue, schemeDescription)
-
-      const productSchemeValue = stageElement?.properties?.SCHEME_PRODUCT_PARAMETR_VALUES?.VALUE as string[] | undefined
-      const productSchemeDescription = stageElement?.properties?.SCHEME_PRODUCT_PARAMETR_VALUES?.DESCRIPTION as string[] | undefined
-      savedProductParametrValuesScheme = buildParametrValuesSchemeFromInit(productSchemeValue, productSchemeDescription)
     }
     
     // Try localStorage draft
@@ -356,7 +342,6 @@ export function CalculationLogicDialog({
         const draftResultsHL = parsed?.resultsHL || createEmptyResultsHL()
         const draftAdditionalResults = Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : []
         const draftParametrValuesScheme = Array.isArray(parsed?.parametrValuesScheme) ? parsed.parametrValuesScheme : []
-        const draftProductParametrValuesScheme = Array.isArray(parsed?.productParametrValuesScheme) ? parsed.productParametrValuesScheme : []
         
         // Compare draft with saved data from INIT
         const draftStateJson = JSON.stringify({
@@ -364,16 +349,14 @@ export function CalculationLogicDialog({
           vars: draftVars,
           resultsHL: draftResultsHL,
           additionalResults: draftAdditionalResults,
-          parametrValuesScheme: draftParametrValuesScheme,
-          productParametrValuesScheme: draftProductParametrValuesScheme
+          parametrValuesScheme: draftParametrValuesScheme
         })
         const savedStateJson = JSON.stringify({
           inputs: savedInputs,
           vars: savedVars,
           resultsHL: savedResultsHL,
           additionalResults: savedAdditionalResults,
-          parametrValuesScheme: savedParametrValuesScheme,
-          productParametrValuesScheme: savedProductParametrValuesScheme
+          parametrValuesScheme: savedParametrValuesScheme
         })
         
         if (draftStateJson === savedStateJson) {
@@ -384,7 +367,6 @@ export function CalculationLogicDialog({
           setResultsHL(savedResultsHL)
           setAdditionalResults(savedAdditionalResults)
           setParametrValuesScheme(savedParametrValuesScheme)
-          setProductParametrValuesScheme(savedProductParametrValuesScheme)
           setWritePlan([])
         } else {
           // Draft has changes, use it
@@ -394,7 +376,6 @@ export function CalculationLogicDialog({
           setWritePlan(Array.isArray(parsed?.writePlan) ? parsed.writePlan : [])
           setAdditionalResults(draftAdditionalResults)
           setParametrValuesScheme(draftParametrValuesScheme)
-          setProductParametrValuesScheme(draftProductParametrValuesScheme)
         }
         return
       } catch (e) {
@@ -409,7 +390,6 @@ export function CalculationLogicDialog({
     setResultsHL(savedResultsHL)
     setAdditionalResults(savedAdditionalResults)
     setParametrValuesScheme(savedParametrValuesScheme)
-    setProductParametrValuesScheme(savedProductParametrValuesScheme)
     setWritePlan([])  // writePlan deprecated
   }, [open, currentStageId, currentSettingsId, initPayload])
 
@@ -426,8 +406,7 @@ export function CalculationLogicDialog({
           vars,
           resultsHL,
           additionalResults,
-          parametrValuesScheme,
-          productParametrValuesScheme
+          parametrValuesScheme
         })
       
       const getSavedState = () => {
@@ -438,8 +417,7 @@ export function CalculationLogicDialog({
             vars: [],
             resultsHL: createEmptyResultsHL(),
             additionalResults: [],
-            parametrValuesScheme: [],
-            productParametrValuesScheme: []
+            parametrValuesScheme: []
           })
         }
         
@@ -467,10 +445,6 @@ export function CalculationLogicDialog({
         const schemeValue = stageElement?.properties?.SCHEME_PARAMETR_VALUES?.VALUE as string[] | undefined
         const schemeDescription = stageElement?.properties?.SCHEME_PARAMETR_VALUES?.DESCRIPTION as string[] | undefined
         const savedParametrValuesScheme = buildParametrValuesSchemeFromInit(schemeValue, schemeDescription)
-
-        const productSchemeValue = stageElement?.properties?.SCHEME_PRODUCT_PARAMETR_VALUES?.VALUE as string[] | undefined
-        const productSchemeDescription = stageElement?.properties?.SCHEME_PRODUCT_PARAMETR_VALUES?.DESCRIPTION as string[] | undefined
-        const savedProductParametrValuesScheme = buildParametrValuesSchemeFromInit(productSchemeValue, productSchemeDescription)
         
         return JSON.stringify({
           version: 1,
@@ -478,8 +452,7 @@ export function CalculationLogicDialog({
           vars: savedVars,
           resultsHL: savedResultsHL,
           additionalResults: savedAdditionalResults,
-          parametrValuesScheme: savedParametrValuesScheme,
-          productParametrValuesScheme: savedProductParametrValuesScheme
+          parametrValuesScheme: savedParametrValuesScheme
         })
       }
       
@@ -495,8 +468,7 @@ export function CalculationLogicDialog({
           resultsHL,
           writePlan,
           additionalResults,
-          parametrValuesScheme,
-          productParametrValuesScheme
+          parametrValuesScheme
         }
         localStorage.setItem(draftKey, JSON.stringify(draft))
       } else {
@@ -504,7 +476,7 @@ export function CalculationLogicDialog({
         localStorage.removeItem(draftKey)
       }
     }
-  }, [inputs, vars, resultsHL, writePlan, additionalResults, parametrValuesScheme, productParametrValuesScheme, open, currentStageId, currentSettingsId, stageIndex, initPayload])
+  }, [inputs, vars, resultsHL, writePlan, additionalResults, parametrValuesScheme, open, currentStageId, currentSettingsId, stageIndex, initPayload])
 
   // Handler for tab changes with automatic panel switching
   const handleTabChange = (tab: string) => {
@@ -964,13 +936,6 @@ export function CalculationLogicDialog({
         name: entry.name.trim(),
         template: entry.template.trim(),
       }))
-    const productParametrValuesPayload = productParametrValuesScheme
-      .filter(entry => entry.name.trim() || entry.template.trim())
-      .map(entry => ({
-        name: entry.name.trim(),
-        template: entry.template.trim(),
-      }))
-
     // Construct new payload format
     const payload: SaveCalcLogicRequestPayload = {
       settingsId: currentSettingsId,
@@ -985,7 +950,6 @@ export function CalculationLogicDialog({
       },
       stageParametrValuesScheme: {
         offer: parametrValuesPayload,
-        product: productParametrValuesPayload,
       }
     }
     
@@ -1049,17 +1013,12 @@ export function CalculationLogicDialog({
       const schemeValue = stageElement?.properties?.SCHEME_PARAMETR_VALUES?.VALUE as string[] | undefined
       const schemeDescription = stageElement?.properties?.SCHEME_PARAMETR_VALUES?.DESCRIPTION as string[] | undefined
       const savedParametrValuesScheme = buildParametrValuesSchemeFromInit(schemeValue, schemeDescription)
-
-      const productSchemeValue = stageElement?.properties?.SCHEME_PRODUCT_PARAMETR_VALUES?.VALUE as string[] | undefined
-      const productSchemeDescription = stageElement?.properties?.SCHEME_PRODUCT_PARAMETR_VALUES?.DESCRIPTION as string[] | undefined
-      const savedProductParametrValuesScheme = buildParametrValuesSchemeFromInit(productSchemeValue, productSchemeDescription)
       
       setInputs(inputs)
       setVars(vars)
       setResultsHL(resultsHL)
       setAdditionalResults(additionalResults)
       setParametrValuesScheme(savedParametrValuesScheme)
-      setProductParametrValuesScheme(savedProductParametrValuesScheme)
       setWritePlan([])  // deprecated
     } else {
       // Reset to empty
@@ -1069,7 +1028,6 @@ export function CalculationLogicDialog({
       setWritePlan([])
       setAdditionalResults([])
       setParametrValuesScheme([])
-      setProductParametrValuesScheme([])
     }
     
     // Очистить ошибки
@@ -1265,9 +1223,7 @@ export function CalculationLogicDialog({
                       issues={validationIssues}
                       offerModel={logicContext?.offer}
                       parametrValuesScheme={parametrValuesScheme}
-                      productParametrValuesScheme={productParametrValuesScheme}
                       onParametrValuesSchemeChange={setParametrValuesScheme}
-                      onProductParametrValuesSchemeChange={setProductParametrValuesScheme}
                       parametrNamesPool={globalParametrNames}
                     />
                   </ScrollArea>

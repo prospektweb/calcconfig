@@ -283,7 +283,6 @@ export interface SaveCalcLogicRequestPayload {
 
   stageParametrValuesScheme?: {
     offer?: Array<{ name: string; template: string }>
-    product?: Array<{ name: string; template: string }>
   }
 }
 
