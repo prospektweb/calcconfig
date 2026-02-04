@@ -1318,6 +1318,7 @@ function App() {
                   purchasePrice: typeof stage.outputs?.purchasingPrice === 'number' ? stage.outputs.purchasingPrice : stage.totalCost,
                   basePrice: typeof stage.outputs?.basePrice === 'number' ? stage.outputs.basePrice : stage.totalCost,
                   currency: stage.currency,
+                  stageLogs: stage.logs,
                 },
               })),
             ],
@@ -1992,6 +1993,7 @@ function App() {
           isExpanded={isInfoPanelExpanded}
           onToggle={() => setIsInfoPanelExpanded(!isInfoPanelExpanded)}
           onSaveCalculationResult={handleSaveCalculationResult}
+          bitrixMeta={bitrixMeta}
         />
       </div>
       

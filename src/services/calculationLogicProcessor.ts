@@ -6,7 +6,7 @@
  */
 
 import { extractLogicJsonString } from '@/lib/stage-utils'
-import type { ElementsStoreItem, BitrixPropertyValue } from '@/lib/types'
+import type { ElementsStoreItem, BitrixPropertyValue, CalculationStageLogEntry } from '@/lib/types'
 
 /**
  * Interface for a variable definition from LOGIC_JSON
@@ -938,16 +938,19 @@ export function evaluateFormula(formula: string, context: Record<string, any>): 
  */
 export function evaluateLogicVars(
   logicDefinition: LogicDefinition | null,
-  context: Record<string, any>
+  context: Record<string, any>,
+  onLog?: (entry: CalculationStageLogEntry) => void
 ): Record<string, any> {
   if (!logicDefinition?.vars || !Array.isArray(logicDefinition.vars)) {
     console.log('[CALC] No vars in logic definition')
+    onLog?.({ type: 'noVars' })
     return {}
   }
 
   const results: Record<string, any> = { ...context }
 
   console.log('[CALC] Evaluating', logicDefinition.vars.length, 'variables')
+  onLog?.({ type: 'evaluatingVars', count: logicDefinition.vars.length })
 
   // Process variables in order
   // Variables can reference previously calculated variables
@@ -960,10 +963,21 @@ export function evaluateLogicVars(
       const value = evaluateFormula(varDef.formula, results)
       results[varDef.name] = value
       console.log('[CALC] Var', varDef.name, '=', value, 'from formula:', varDef.formula)
+      onLog?.({
+        type: 'varFormula',
+        name: varDef.name,
+        value,
+        formula: varDef.formula,
+      })
     } else if (varDef.value !== undefined) {
       // Use static value
       results[varDef.name] = varDef.value
       console.log('[CALC] Var', varDef.name, '=', varDef.value, '(static)')
+      onLog?.({
+        type: 'varStatic',
+        name: varDef.name,
+        value: varDef.value,
+      })
     }
   }
 
