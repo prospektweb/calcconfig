@@ -143,7 +143,7 @@ function DetailItem({
           <span className="font-medium text-left">
             {data.detailType === 'binding' ? '📦 ' : '📄 '}
             {data.detailName}
-          </span>
+          </button>
           {hasPrices && (
             <span className="text-muted-foreground">
               <span title="Закупочная цена">
