@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { 
   Accordion, 
   AccordionContent, 
@@ -359,6 +359,7 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
 
   const [parametrRows, setParametrRows] = useState<Array<{ name: string; value: string }>>([])
   const [priceRangeRows, setPriceRangeRows] = useState<NonNullable<InfoMessage['calculationData']>['priceRangesWithMarkup']>([])
+  const onChangeRef = useRef(onChange)
   
   if (!data || !data.offerName) {
     return <div className="text-sm">{message.message}</div>
@@ -479,13 +480,17 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
   }, [data])
 
   useEffect(() => {
-    if (!message.offerId || !onChange) return
+    onChangeRef.current = onChange
+  }, [onChange])
+
+  useEffect(() => {
+    if (!message.offerId || !onChangeRef.current) return
     const cleaned = parametrRows.filter(entry => entry.name.trim() || entry.value.trim())
-    onChange(message.offerId, {
+    onChangeRef.current(message.offerId, {
       parametrValues: cleaned,
       priceRangesWithMarkup: priceRangeRows,
     })
-  }, [message.offerId, onChange, parametrRows, priceRangeRows])
+  }, [message.offerId, parametrRows, priceRangeRows])
 
   const handleParametrChange = (index: number, field: 'name' | 'value', value: string) => {
     setParametrRows(prev => {

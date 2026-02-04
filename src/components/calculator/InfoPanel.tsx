@@ -5,7 +5,7 @@ import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogT
 import { ArrowsIn, ArrowsOut, CaretDown, CaretUp, Info, Warning, X as XIcon } from '@phosphor-icons/react'
 import { InfoMessage } from '@/lib/types'
 import { CalculationReport, buildFullReportText } from './CalculationReport'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import type { InitPayload } from '@/lib/postmessage-bridge'
 import { cn } from '@/lib/utils'
@@ -98,12 +98,12 @@ export function InfoPanel({ messages, isExpanded, onToggle, onSaveCalculationRes
     setIsDialogOpen(true)
   }
 
-  const handleReportChange = (offerId: number, overrides: ReportOverrides) => {
+  const handleReportChange = useCallback((offerId: number, overrides: ReportOverrides) => {
     setReportOverrides(prev => ({
       ...prev,
       [offerId]: overrides,
     }))
-  }
+  }, [])
 
   const handleCopyReport = () => {
     if (!selectedMessage) return
