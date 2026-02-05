@@ -490,8 +490,24 @@ function findWindowPaths(value: unknown, maxDepth = 6): string[] {
 
 function sanitizeContextValue(value: unknown, depth = 0): unknown {
   if (depth > 6) return null
+  
+  // Проверка на browser globals
   if (typeof window !== 'undefined' && value === window) return null
   if (typeof document !== 'undefined' && value === document) return null
+  if (typeof navigator !== 'undefined' && value === navigator) return null
+  if (typeof location !== 'undefined' && value === location) return null
+  if (typeof history !== 'undefined' && value === history) return null
+  
+  // Проверка на DOM nodes (с try-catch для безопасности)
+  try {
+    if (typeof Node !== 'undefined' && value instanceof Node) return null
+    if (typeof Element !== 'undefined' && value instanceof Element) return null
+    if (typeof HTMLElement !== 'undefined' && value instanceof HTMLElement) return null
+    if (typeof Event !== 'undefined' && value instanceof Event) return null
+  } catch {
+    // Ignore instanceof errors
+  }
+  
   if (typeof value === 'function') return null
   if (value === null || value === undefined) return value
 
@@ -504,7 +520,7 @@ function sanitizeContextValue(value: unknown, depth = 0): unknown {
 
   const tag = Object.prototype.toString.call(value)
   if (tag !== '[object Object]') {
-    return String(value)
+    return null  // Отсечь всё кроме plain objects
   }
 
   const sanitized: Record<string, unknown> = {}
@@ -667,6 +683,34 @@ export function CalculationLogicDialog({
     () => sanitizeLogicContextForRender(logicContext)?.offer ?? null,
     [logicContext]
   )
+
+  // Создаем отдельный useMemo для offerModelForRender с дополнительной санитизацией
+  const offerModelForRender = useMemo(() => {
+    if (!logicContextForRender || typeof logicContextForRender !== 'object') {
+      return null
+    }
+    
+    const ctx = logicContextForRender as Record<string, unknown>
+    
+    // Безопасно извлекаем offer
+    if (!('offer' in ctx)) {
+      return null
+    }
+    
+    const offer = ctx.offer
+    
+    if (!offer || typeof offer !== 'object') {
+      return null
+    }
+    
+    // Проверяем что это plain object
+    if (Object.prototype.toString.call(offer) !== '[object Object]') {
+      return null
+    }
+    
+    // Санитизируем ПОВТОРНО для дополнительной безопасности
+    return sanitizeContextValue(offer, 0)
+  }, [logicContextForRender])
 
   // State for save/draft management
   const [savedJson, setSavedJson] = useState<string | null>(null)
@@ -1860,7 +1904,7 @@ export function CalculationLogicDialog({
                         onResultsHLChange={setResultsHL}
                         onAdditionalResultsChange={setAdditionalResults}
                         issues={validationIssuesForRender}
-                      offerModel={sanitizedOfferModel}
+                      offerModel={offerModelForRender}
                         parametrValuesScheme={parametrValuesSchemeForRender}
                         onParametrValuesSchemeChange={setParametrValuesScheme}
                         parametrNamesPool={globalParametrNames}
