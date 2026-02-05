@@ -663,6 +663,11 @@ export function CalculationLogicDialog({
     [logicContext]
   )
 
+  const sanitizedOfferModel = useMemo(
+    () => sanitizeLogicContextForRender(logicContext)?.offer ?? null,
+    [logicContext]
+  )
+
   // State for save/draft management
   const [savedJson, setSavedJson] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -1855,7 +1860,7 @@ export function CalculationLogicDialog({
                         onResultsHLChange={setResultsHL}
                         onAdditionalResultsChange={setAdditionalResults}
                         issues={validationIssuesForRender}
-                      offerModel={sanitizeLogicContextForRender(logicContext)?.offer ?? null}
+                      offerModel={sanitizedOfferModel}
                         parametrValuesScheme={parametrValuesSchemeForRender}
                         onParametrValuesSchemeChange={setParametrValuesScheme}
                         parametrNamesPool={globalParametrNames}

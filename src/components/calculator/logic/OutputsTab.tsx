@@ -26,6 +26,12 @@ interface OutputsTabProps {
 const NONE_VALUE = '__none__'
 const safeRenderString = (value: unknown) => (typeof value === 'string' ? value : '')
 
+/**
+ * Ensures the input value is an array, returning an empty array if not.
+ * This prevents React errors when non-array values are passed as array props.
+ */
+const ensureArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : [])
+
 const sanitizeStringArray = (values: unknown[]): string[] =>
   values.filter(value => typeof value === 'string').map(value => value)
 
@@ -125,8 +131,8 @@ export function OutputsTab({
   onTemplateFocus
 }: OutputsTabProps) {
   // Validate and sanitize all incoming props to prevent React errors
-  const safeInputs = sanitizeInputsForRender(Array.isArray(inputs) ? inputs : [])
-  const safeVars = sanitizeVarsForRender(Array.isArray(vars) ? vars : [])
+  const safeInputs = sanitizeInputsForRender(ensureArray<InputParam>(inputs))
+  const safeVars = sanitizeVarsForRender(ensureArray<FormulaVar>(vars))
   const safeResultsHL = sanitizeResultsHLForRender(resultsHL || {
     width: { sourceKind: null, sourceRef: '' },
     length: { sourceKind: null, sourceRef: '' },
@@ -135,10 +141,10 @@ export function OutputsTab({
     purchasingPrice: { sourceKind: null, sourceRef: '' },
     basePrice: { sourceKind: null, sourceRef: '' },
   })
-  const safeAdditionalResults = sanitizeAdditionalResultsForRender(Array.isArray(additionalResults) ? additionalResults : [])
-  const safeParametrValuesScheme = sanitizeParametrValuesSchemeForRender(Array.isArray(parametrValuesScheme) ? parametrValuesScheme : [])
-  const safeIssues = sanitizeIssuesForRender(Array.isArray(issues) ? issues : [])
-  const safeParametrNamesPool = sanitizeStringArray(Array.isArray(parametrNamesPool) ? parametrNamesPool : [])
+  const safeAdditionalResults = sanitizeAdditionalResultsForRender(ensureArray<AdditionalResult>(additionalResults))
+  const safeParametrValuesScheme = sanitizeParametrValuesSchemeForRender(ensureArray<ParametrValuesSchemeEntry>(parametrValuesScheme))
+  const safeIssues = sanitizeIssuesForRender(ensureArray<ValidationIssue>(issues))
+  const safeParametrNamesPool = sanitizeStringArray(ensureArray<string>(parametrNamesPool))
   const safeOfferModel = sanitizeOfferModel(offerModel)
   
   // Helper to create empty ResultsHL if not provided
