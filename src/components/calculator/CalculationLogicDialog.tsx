@@ -181,6 +181,10 @@ function warnOnFiltered(label: string, count: number) {
   }
 }
 
+function safeRenderString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
 function sanitizeInputs(rawInputs: InputParam[], label: string): InputParam[] {
   let filteredCount = 0
   const sanitized = rawInputs
@@ -1923,16 +1927,23 @@ export function CalculationLogicDialog({
                                 {inputs.length === 0 ? (
                                   <div className="text-xs text-muted-foreground italic">Нет параметров</div>
                                 ) : (
-                                  inputs.map(input => (
+                                  inputs.map(input => {
+                                    const inputName = safeRenderString(input.name)
+                                    return (
                                     <button
                                       key={input.id}
-                                      onClick={() => handleInsertIntoFormula(input.name)}
+                                      onClick={() => {
+                                        if (inputName) {
+                                          handleInsertIntoFormula(inputName)
+                                        }
+                                      }}
                                       className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
-                                      title={`Кликните, чтобы вставить: ${input.name}`}
+                                      title={`Кликните, чтобы вставить: ${inputName}`}
                                     >
-                                      {input.name}
+                                      {inputName}
                                     </button>
-                                  ))
+                                  )
+                                  })
                                 )}
                               </div>
                             </div>
@@ -1944,16 +1955,23 @@ export function CalculationLogicDialog({
                                 {vars.length === 0 ? (
                                   <div className="text-xs text-muted-foreground italic">Нет переменных</div>
                                 ) : (
-                                  vars.map(v => (
+                                  vars.map(v => {
+                                    const varName = safeRenderString(v.name)
+                                    return (
                                     <button
                                       key={v.id}
-                                      onClick={() => handleInsertIntoFormula(v.name)}
+                                      onClick={() => {
+                                        if (varName) {
+                                          handleInsertIntoFormula(varName)
+                                        }
+                                      }}
                                       className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
-                                      title={`Кликните, чтобы вставить: ${v.name}`}
+                                      title={`Кликните, чтобы вставить: ${varName}`}
                                     >
-                                      {v.name}
+                                      {varName}
                                     </button>
-                                  ))
+                                  )
+                                  })
                                 )}
                               </div>
                             </div>
