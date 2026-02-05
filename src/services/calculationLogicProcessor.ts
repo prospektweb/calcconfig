@@ -528,13 +528,21 @@ const FORMULA_BUILTINS = {
 
     if (exact === true) {
       for (const range of sortedRanges) {
-        const from = Number(range?.quantityFrom ?? 0)
+        const fromRaw = range?.quantityFrom
         const toRaw = range?.quantityTo
-        const to = toRaw === null || toRaw === undefined ? Infinity : Number(toRaw)
-        if (!Number.isFinite(from) || !Number.isFinite(to)) {
+        const from =
+          fromRaw === null || fromRaw === undefined ? null : Number(fromRaw)
+        const to = toRaw === null || toRaw === undefined ? null : Number(toRaw)
+        if (
+          (from !== null && !Number.isFinite(from)) ||
+          (to !== null && !Number.isFinite(to))
+        ) {
           continue
         }
-        if (numericQuantity >= from && numericQuantity <= to) {
+        if (
+          (from === null || numericQuantity >= from) &&
+          (to === null || numericQuantity <= to)
+        ) {
           return Number(range?.price ?? 0)
         }
       }
@@ -545,21 +553,38 @@ const FORMULA_BUILTINS = {
       return 0
     }
 
+    let bestPrice: number | undefined
+    let bestTotal = Infinity
+    let bestBilledQty = Infinity
+
     for (const range of sortedRanges) {
       const price = Number(range?.price ?? 0)
+      const fromRaw = range?.quantityFrom
       const toRaw = range?.quantityTo
+      const from =
+        fromRaw === null || fromRaw === undefined ? 1 : Number(fromRaw)
       const to = toRaw === null || toRaw === undefined ? Infinity : Number(toRaw)
-      if (!Number.isFinite(price) || !Number.isFinite(to)) {
+      if (!Number.isFinite(price) || !Number.isFinite(from) || !Number.isFinite(to)) {
         continue
       }
-      const var0 = price * numericQuantity
-      const var1 = price * to
-      if (var1 > var0) {
-        return var0 / numericQuantity
+      if (numericQuantity > to) {
+        continue
+      }
+      const billedQty = Math.max(numericQuantity, from)
+      const total = billedQty * price
+      if (
+        total < bestTotal ||
+        (total === bestTotal &&
+          (price < (bestPrice ?? Infinity) ||
+            (price === (bestPrice ?? Infinity) && billedQty < bestBilledQty)))
+      ) {
+        bestTotal = total
+        bestPrice = price
+        bestBilledQty = billedQty
       }
     }
 
-    return undefined
+    return bestPrice
   },
 }
 
