@@ -450,7 +450,7 @@ class DiagnosticErrorBoundary extends Component<
     if (this.state.hasError) {
       return (
         <div className="p-4 text-xs text-destructive">
-          Ошибка рендера в секции: {this.props.label}
+          PR#184 не помог. Ошибка рендера в секции: {this.props.label}
         </div>
       )
     }
