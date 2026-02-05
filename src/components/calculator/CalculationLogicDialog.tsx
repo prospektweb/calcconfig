@@ -432,6 +432,89 @@ class CalculationLogicErrorBoundary extends Component<
   }
 }
 
+class DiagnosticErrorBoundary extends Component<
+  { label: string; children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error(`[calcconfig] ${this.props.label} render error`, error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 text-xs text-destructive">
+          Ошибка рендера в секции: {this.props.label}
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+function findWindowPaths(value: unknown, maxDepth = 6): string[] {
+  if (typeof window === 'undefined') return []
+  const target = window
+  const seen = new Set<unknown>()
+  const results: string[] = []
+
+  const visit = (current: unknown, path: string, depth: number) => {
+    if (depth > maxDepth || results.length > 20) return
+    if (current === target) {
+      results.push(path)
+      return
+    }
+    if (!current || typeof current !== 'object') return
+    if (seen.has(current)) return
+    seen.add(current)
+
+    if (Array.isArray(current)) {
+      current.forEach((item, index) => visit(item, `${path}[${index}]`, depth + 1))
+      return
+    }
+
+    Object.entries(current as Record<string, unknown>).forEach(([key, val]) => {
+      visit(val, `${path}.${key}`, depth + 1)
+    })
+  }
+
+  visit(value, 'root', 0)
+  return results
+}
+
+function sanitizeContextValue(value: unknown, depth = 0): unknown {
+  if (depth > 6) return null
+  if (typeof window !== 'undefined' && value === window) return null
+  if (typeof document !== 'undefined' && value === document) return null
+  if (typeof value === 'function') return null
+  if (value === null || value === undefined) return value
+
+  const type = typeof value
+  if (type === 'string' || type === 'number' || type === 'boolean') return value
+
+  if (Array.isArray(value)) {
+    return value.map(item => sanitizeContextValue(item, depth + 1)).filter(item => item !== null)
+  }
+
+  const tag = Object.prototype.toString.call(value)
+  if (tag !== '[object Object]') {
+    return String(value)
+  }
+
+  const sanitized: Record<string, unknown> = {}
+  Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
+    const next = sanitizeContextValue(val, depth + 1)
+    if (next !== null) sanitized[key] = next
+  })
+  return sanitized
+}
+
 interface CalculationLogicDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -529,6 +612,11 @@ export function CalculationLogicDialog({
   const validationIssuesForRender = useMemo(
     () => sanitizeIssuesForRender(validationIssues),
     [validationIssues]
+  )
+
+  const logicContextForRender = useMemo(
+    () => sanitizeContextValue(logicContext),
+    [logicContext]
   )
 
   // State for save/draft management
@@ -850,6 +938,7 @@ export function CalculationLogicDialog({
       console.log('issues[0].message', toType(validationIssues?.[0]?.message), validationIssues?.[0]?.message)
       console.log('issues[0].hint', toType(validationIssues?.[0]?.hint), validationIssues?.[0]?.hint)
       console.log('logicContext', toType(logicContext), toKeys(logicContext))
+      console.log('logicContext.windowPaths', findWindowPaths(logicContext))
       console.groupEnd()
 
       setLeftPanelCollapsed(true)   // Close Context
@@ -1609,8 +1698,8 @@ export function CalculationLogicDialog({
                     {showJsonTree ? (
                       logicContext ? (
                         <div className="p-4" data-pwcode="logic-context-tree">
-                          <JsonTree
-                            data={logicContext}
+                        <JsonTree
+                          data={logicContextForRender}
                             onLeafClick={handleLeafClick}
                             isPathDisabled={isPathDisabled}
                           />
@@ -1622,8 +1711,8 @@ export function CalculationLogicDialog({
                       )
                     ) : (
                       <div className="p-4" data-pwcode="logic-context-tree">
-                        <ContextExplorer
-                          initPayload={initPayload}
+                      <ContextExplorer
+                        initPayload={logicContextForRender as InitPayload}
                           currentStageId={currentStageId}
                           currentDetailId={currentDetailId}
                           currentBindingId={currentBindingId}
@@ -1681,6 +1770,7 @@ export function CalculationLogicDialog({
                 <div className="flex-1 min-h-0 overflow-hidden">
                   <TabsContent value="inputs" className="h-full m-0 p-0">
                     <ScrollArea className="h-full">
+                    <DiagnosticErrorBoundary label="inputs-tab">
                       <InputsTab 
                         inputs={inputsForRender} 
                         onChange={setInputs} 
@@ -1690,10 +1780,12 @@ export function CalculationLogicDialog({
                         newlyAddedId={newlyAddedInputId}
                         onNewlyAddedIdChange={setNewlyAddedInputId}
                       />
+                    </DiagnosticErrorBoundary>
                     </ScrollArea>
                   </TabsContent>
                   <TabsContent value="formulas" className="h-full m-0 p-0">
                     <ScrollArea className="h-full">
+                    <DiagnosticErrorBoundary label="formulas-tab">
                       <FormulasTab 
                         inputs={inputsForRender} 
                         vars={varsForRender} 
@@ -1706,10 +1798,12 @@ export function CalculationLogicDialog({
                         }}
                         onTextareaBlur={() => setLastTextareaFocus(null)}
                       />
+                    </DiagnosticErrorBoundary>
                     </ScrollArea>
                   </TabsContent>
                   <TabsContent value="outputs" className="h-full m-0 p-0">
                     <ScrollArea className="h-full">
+                    <DiagnosticErrorBoundary label="outputs-tab">
                       <OutputsTab 
                         vars={varsForRender}
                         inputs={inputsForRender}
@@ -1718,7 +1812,7 @@ export function CalculationLogicDialog({
                         onResultsHLChange={setResultsHL}
                         onAdditionalResultsChange={setAdditionalResults}
                         issues={validationIssuesForRender}
-                        offerModel={logicContext?.offer}
+                      offerModel={(logicContextForRender as { offer?: unknown } | null)?.offer}
                         parametrValuesScheme={parametrValuesSchemeForRender}
                         onParametrValuesSchemeChange={setParametrValuesScheme}
                         parametrNamesPool={globalParametrNames}
@@ -1727,6 +1821,7 @@ export function CalculationLogicDialog({
                           setLastTextareaFocus(null)
                         }}
                       />
+                    </DiagnosticErrorBoundary>
                     </ScrollArea>
                   </TabsContent>
                 </div>
@@ -1747,9 +1842,10 @@ export function CalculationLogicDialog({
                     <CaretRight className="w-4 h-4" />
                   </Button>
                 </div>
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  <ScrollArea className="h-full">
-                    <div className="p-4">
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <ScrollArea className="h-full">
+                  <div className="p-4">
+                    <DiagnosticErrorBoundary label="help-panel">
                       <Accordion
                         type="multiple"
                         value={helpAccordionValues}
@@ -2116,7 +2212,8 @@ export function CalculationLogicDialog({
                           </div>
                         </AccordionContent>
                       </AccordionItem>
-                    </Accordion>
+                      </Accordion>
+                    </DiagnosticErrorBoundary>
 
                     {/* Errors Section - No Accordion */}
                     <div className="mt-4">
