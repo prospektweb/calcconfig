@@ -1870,6 +1870,7 @@ export function CalculationLogicDialog({
                           setLastTemplateFocus({ entryId, cursorPosition })
                           setLastTextareaFocus(null)
                         }}
+                        onInsertTemplateTag={handleInsertIntoFormula}
                       />
                     </DiagnosticErrorBoundary>
                     </ScrollArea>

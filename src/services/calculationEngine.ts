@@ -126,14 +126,16 @@ function applyParametrScheme(
   scope: Record<string, unknown>,
   options?: {
     onOfferName?: (value: string) => void
+    previousOfferName?: string
   }
 ): void {
+  let currentOfferName = options?.previousOfferName ?? ''
   entries.forEach(entry => {
     const name = entry.name.trim()
     if (!name) {
       return
     }
-    const previous = accumulator.get(name) ?? ''
+    const previous = name === OFFER_NAME_PARAM ? currentOfferName : accumulator.get(name) ?? ''
     const template = entry.template ?? ''
     const value = template.replace(/\{([^}]+)\}/g, (_match, token) => {
       const key = String(token).trim()
@@ -151,6 +153,7 @@ function applyParametrScheme(
       const nextOfferName = value.trim()
       if (nextOfferName) {
         options.onOfferName(nextOfferName)
+        currentOfferName = nextOfferName
       }
       return
     }
@@ -310,6 +313,7 @@ async function calculateStage(
             onOfferName: (value) => {
               parametrAccumulator.offerName = value
             },
+            previousOfferName: parametrAccumulator.offerName,
           })
         }
         
@@ -846,6 +850,7 @@ export async function calculateOffer(
   const detailResults: CalculationDetailResult[] = []
   const parametrAccumulator: ParametrAccumulator = {
     offer: new Map(),
+    offerName: offer.name,
   }
   
   // Get top-level details (not in any binding)

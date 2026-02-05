@@ -21,6 +21,7 @@ interface OutputsTabProps {
   parametrNamesPool?: string[]
   issues?: ValidationIssue[]
   onTemplateFocus?: (entryId: string, cursorPosition: number) => void
+  onInsertTemplateTag?: (tag: string) => void
 }
 
 const NONE_VALUE = '__none__'
@@ -200,7 +201,8 @@ export function OutputsTab({
   onParametrValuesSchemeChange,
   parametrNamesPool = [],
   issues = [],
-  onTemplateFocus
+  onTemplateFocus,
+  onInsertTemplateTag,
 }: OutputsTabProps) {
   // DOUBLE SANITIZATION: First ensure arrays, then sanitize content
   const safeProps = {
@@ -657,7 +659,15 @@ export function OutputsTab({
         <div>
           <h3 className="text-sm font-medium mb-1">Параметры торгового предложения</h3>
           <p className="text-xs text-muted-foreground">
-            Определите шаблоны, на основании которых будут формироваться данные для названия ТП и свойства PARAMETR_VALUES. Используйте {'{'} self {'}'} для вставки текущего значения.
+            Определите шаблоны, на основании которых будут формироваться данные для названия ТП и свойства PARAMETR_VALUES. Используйте{' '}
+            <button
+              type="button"
+              className="text-primary underline underline-offset-2 hover:text-primary/80"
+              onClick={() => onInsertTemplateTag?.('self')}
+            >
+              {'{'}self{'}'}
+            </button>{' '}
+            для вставки текущего значения.
           </p>
         </div>
         <ParametrValuesTable
