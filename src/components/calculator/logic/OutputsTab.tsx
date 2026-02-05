@@ -1,4 +1,5 @@
 import { Plus, Trash2, AlertCircle } from 'lucide-react'
+import { Component, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
@@ -88,6 +89,104 @@ const sanitizeIssuesForRender = (items: ValidationIssue[]) =>
       hint: typeof issue.hint === 'string' ? issue.hint : undefined,
     }))
 
+/**
+ * Helper to create empty ResultsHL if not provided
+ */
+const createEmptyResultsHL = (): ResultsHL => ({
+  width: { sourceKind: null, sourceRef: '' },
+  length: { sourceKind: null, sourceRef: '' },
+  height: { sourceKind: null, sourceRef: '' },
+  weight: { sourceKind: null, sourceRef: '' },
+  purchasingPrice: { sourceKind: null, sourceRef: '' },
+  basePrice: { sourceKind: null, sourceRef: '' },
+})
+
+/**
+ * Mini ErrorBoundary for HL Results Section
+ */
+class HLResultsErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error('[PR#184] HL Results Section render error', error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 text-xs text-destructive">
+          PR#184 не помог. Ошибка рендера в секции: PR#184-HL
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+/**
+ * Mini ErrorBoundary for Additional Results Section
+ */
+class AdditionalResultsErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error('[PR#184] Additional Results Section render error', error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 text-xs text-destructive">
+          PR#184 не помог. Ошибка рендера в секции: PR#184-Additional
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+/**
+ * Mini ErrorBoundary for Параметры ТП Section
+ */
+class ParametrTPErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error('[PR#184] Параметры ТП Section render error', error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 text-xs text-destructive">
+          PR#184 не помог. Ошибка рендера в секции: PR#184-Parametr
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 
 export function OutputsTab({ 
@@ -103,21 +202,25 @@ export function OutputsTab({
   issues = [],
   onTemplateFocus
 }: OutputsTabProps) {
-  // Validate and sanitize all incoming props to prevent React errors
-  const safeInputs = sanitizeInputsForRender(ensureArray<InputParam>(inputs))
-  const safeVars = sanitizeVarsForRender(ensureArray<FormulaVar>(vars))
-  const safeResultsHL = sanitizeResultsHLForRender(resultsHL || {
-    width: { sourceKind: null, sourceRef: '' },
-    length: { sourceKind: null, sourceRef: '' },
-    height: { sourceKind: null, sourceRef: '' },
-    weight: { sourceKind: null, sourceRef: '' },
-    purchasingPrice: { sourceKind: null, sourceRef: '' },
-    basePrice: { sourceKind: null, sourceRef: '' },
-  })
-  const safeAdditionalResults = sanitizeAdditionalResultsForRender(ensureArray<AdditionalResult>(additionalResults))
-  const safeParametrValuesScheme = sanitizeParametrValuesSchemeForRender(ensureArray<ParametrValuesSchemeEntry>(parametrValuesScheme))
-  const safeIssues = sanitizeIssuesForRender(ensureArray<ValidationIssue>(issues))
-  const safeParametrNamesPool = sanitizeStringArray(ensureArray<string>(parametrNamesPool))
+  // DOUBLE SANITIZATION: First ensure arrays, then sanitize content
+  const safeProps = {
+    vars: ensureArray<FormulaVar>(vars),
+    inputs: ensureArray<InputParam>(inputs),
+    resultsHL: resultsHL || createEmptyResultsHL(),
+    additionalResults: ensureArray<AdditionalResult>(additionalResults),
+    parametrValuesScheme: ensureArray<ParametrValuesSchemeEntry>(parametrValuesScheme),
+    issues: ensureArray<ValidationIssue>(issues),
+    parametrNamesPool: ensureArray<string>(parametrNamesPool)
+  }
+
+  // Second level sanitization with type safety
+  const safeInputs = sanitizeInputsForRender(safeProps.inputs)
+  const safeVars = sanitizeVarsForRender(safeProps.vars)
+  const safeResultsHL = sanitizeResultsHLForRender(safeProps.resultsHL)
+  const safeAdditionalResults = sanitizeAdditionalResultsForRender(safeProps.additionalResults)
+  const safeParametrValuesScheme = sanitizeParametrValuesSchemeForRender(safeProps.parametrValuesScheme)
+  const safeIssues = sanitizeIssuesForRender(safeProps.issues)
+  const safeParametrNamesPool = sanitizeStringArray(safeProps.parametrNamesPool)
   
   // Helper to create empty ResultsHL if not provided
   const currentResultsHL = safeResultsHL
@@ -184,12 +287,12 @@ export function OutputsTab({
     ...safeVars
       .filter(v => {
         if (!v.name?.trim()) return false
-        const type = v.inferredType || v.declaredType
+        const type = v.inferredType
         // Include number types and unknown/undefined types
         return type === 'number' || !type || type === 'unknown'
       })
       .map(v => { 
-        const type = v.inferredType || v.declaredType
+        const type = v.inferredType
         const typeLabel = type === 'number' 
           ? '' 
           : type 
@@ -224,6 +327,7 @@ export function OutputsTab({
     <div className="p-4 space-y-6" data-pwcode="logic-outputs">
       {/* HL Section - Required Results */}
       {onResultsHLChange && (
+        <HLResultsErrorBoundary>
         <div className="space-y-4">
           <div>
             <h3 className="text-sm font-medium mb-3">Итоги этапа: Обязательные результаты</h3>
@@ -236,10 +340,10 @@ export function OutputsTab({
             {/* Левая колонка: Габариты */}
             <div className="space-y-3">
               <h4 className="text-xs font-medium text-muted-foreground">Габариты</h4>
-              {HL_FIELDS_LEFT.map(field => {
+              {HL_FIELDS_LEFT?.filter(f => f?.key).map(field => {
                 const mapping = currentResultsHL[field.key]
-                const fieldIssues = resultIssues.filter(i => i.refId === `hl_${field.key}`)
-                const hasError = fieldIssues.some(i => i.severity === 'error')
+                const fieldIssues = resultIssues.filter(i => i?.refId === `hl_${field.key}`)
+                const hasError = fieldIssues.some(i => i?.severity === 'error')
                 
                 return (
                   <div key={field.key} className={cn(
@@ -309,10 +413,10 @@ export function OutputsTab({
             {/* Правая колонка: Вес и цены */}
             <div className="space-y-3">
               <h4 className="text-xs font-medium text-muted-foreground">Вес и цены</h4>
-              {HL_FIELDS_RIGHT.map(field => {
+              {HL_FIELDS_RIGHT?.filter(f => f?.key).map(field => {
                 const mapping = currentResultsHL[field.key]
-                const fieldIssues = resultIssues.filter(i => i.refId === `hl_${field.key}`)
-                const hasError = fieldIssues.some(i => i.severity === 'error')
+                const fieldIssues = resultIssues.filter(i => i?.refId === `hl_${field.key}`)
+                const hasError = fieldIssues.some(i => i?.severity === 'error')
                 
                 return (
                   <div key={field.key} className={cn(
@@ -386,10 +490,12 @@ export function OutputsTab({
             </div>
           )}
         </div>
+        </HLResultsErrorBoundary>
       )}
 
       {/* AdditionalResults Section */}
       {onAdditionalResultsChange && (
+        <AdditionalResultsErrorBoundary>
         <div className="space-y-4 pt-4 border-t border-border">
           <div>
             <h3 className="text-sm font-medium mb-3">Дополнительные результаты</h3>
@@ -411,10 +517,10 @@ export function OutputsTab({
                   <Label className="text-xs font-medium text-muted-foreground">Значение</Label>
                 </div>
                 
-                {safeAdditionalResults.map(item => {
-                  const itemIssues = resultIssues.filter(i => i.refId === item.id)
-                  const hasError = itemIssues.some(i => i.severity === 'error')
-                  const hasWarning = itemIssues.some(i => i.severity === 'warning')
+                {safeAdditionalResults?.filter(item => item?.id).map(item => {
+                  const itemIssues = resultIssues.filter(i => i?.refId === item.id)
+                  const hasError = itemIssues.some(i => i?.severity === 'error')
+                  const hasWarning = itemIssues.some(i => i?.severity === 'warning')
                   
                   return (
                     <div 
@@ -502,16 +608,16 @@ export function OutputsTab({
                               )} />
                             </TooltipTrigger>
                             <TooltipContent>
-                              {itemIssues.map((issue, idx) => (
+                              {itemIssues?.filter(issue => issue?.message).map((issue, idx) => (
                                 <div key={idx}>
-                                  <p>{safeRenderString(issue.message)}</p>
-                                  {issue.hint && (
+                                  <p>{safeRenderString(issue?.message)}</p>
+                                  {issue?.hint && (
                                     <p className="text-xs text-muted-foreground">
-                                      {safeRenderString(issue.hint)}
+                                      {safeRenderString(issue?.hint)}
                                     </p>
                                   )}
                                 </div>
-                              ))}
+                              )) || null}
                             </TooltipContent>
                           </Tooltip>
                         )}
@@ -543,13 +649,15 @@ export function OutputsTab({
             Добавить результат
           </Button>
         </div>
+        </AdditionalResultsErrorBoundary>
       )}
 
+      <ParametrTPErrorBoundary>
       <div className="space-y-4 pt-4 border-t border-border">
         <div>
           <h3 className="text-sm font-medium mb-1">Параметры торгового предложения</h3>
           <p className="text-xs text-muted-foreground">
-            Определите шаблоны, на основании которых будут формироваться данные для названия ТП и свойства PARAMETR_VALUES. Используйте {self} для вставки текущего значения.
+            Определите шаблоны, на основании которых будут формироваться данные для названия ТП и свойства PARAMETR_VALUES. Используйте {'{'} self {'}'} для вставки текущего значения.
           </p>
         </div>
         <ParametrValuesTable
@@ -559,6 +667,7 @@ export function OutputsTab({
           onTemplateFocus={onTemplateFocus}
         />
       </div>
+      </ParametrTPErrorBoundary>
     </div>
   )
 }
@@ -619,11 +728,11 @@ function ParametrValuesTable({
             />
           </div>
         ) : (
-          entries.map(entry => (
+          entries?.filter(entry => entry?.id).map(entry => (
             <div key={entry.id} className="grid grid-cols-2 gap-4 items-start px-2">
               <div className="flex items-center gap-2">
                 <Input
-                  value={entry.name}
+                  value={entry?.name ?? ''}
                   onChange={(event) => handleChange(entry.id, { name: event.target.value })}
                   placeholder="Название"
                   className="h-8 text-xs flex-1"
@@ -631,9 +740,9 @@ function ParametrValuesTable({
                 />
                 {existingNames.length > 0 && (
                   <datalist id={`parametr-names-${entry.id}`}>
-                    {existingNames.map(name => (
+                    {existingNames?.filter(name => name).map(name => (
                       <option key={name} value={name} />
-                    ))}
+                    )) || null}
                   </datalist>
                 )}
                 <Button
@@ -646,21 +755,21 @@ function ParametrValuesTable({
                 </Button>
               </div>
               <Input
-                value={entry.template}
+                value={entry?.template ?? ''}
                 onChange={(event) => handleChange(entry.id, { template: event.target.value })}
                 placeholder="Шаблон значения"
                 className="h-8 text-xs"
                 onFocus={(event) => {
                   const target = event.target as HTMLInputElement
-                  onTemplateFocus?.(entry.id, target.selectionStart ?? target.value.length)
+                  onTemplateFocus?.(entry.id, target.selectionStart ?? target?.value?.length ?? 0)
                 }}
                 onSelect={(event) => {
                   const target = event.target as HTMLInputElement
-                  onTemplateFocus?.(entry.id, target.selectionStart ?? target.value.length)
+                  onTemplateFocus?.(entry.id, target.selectionStart ?? target?.value?.length ?? 0)
                 }}
                 onBlur={(event) => {
                   const target = event.target as HTMLInputElement
-                  onTemplateFocus?.(entry.id, target.selectionStart ?? target.value.length)
+                  onTemplateFocus?.(entry.id, target.selectionStart ?? target?.value?.length ?? 0)
                 }}
               />
             </div>
