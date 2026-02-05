@@ -181,6 +181,10 @@ function warnOnFiltered(label: string, count: number) {
   }
 }
 
+function safeRenderString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
 function sanitizeInputs(rawInputs: InputParam[], label: string): InputParam[] {
   let filteredCount = 0
   const sanitized = rawInputs
@@ -282,6 +286,125 @@ function sanitizeParametrValuesScheme(
   return sanitized
 }
 
+function sanitizeIssues(rawIssues: ValidationIssue[], label: string): ValidationIssue[] {
+  let filteredCount = 0
+  const sanitized = rawIssues
+    .filter(issue => {
+      if (typeof issue?.message !== 'string') {
+        filteredCount += 1
+        return false
+      }
+      return true
+    })
+    .map(issue => ({
+      ...issue,
+      hint: typeof issue.hint === 'string' ? issue.hint : undefined,
+    }))
+
+  warnOnFiltered(label, filteredCount)
+  return sanitized
+}
+
+function sanitizeInputsForRender(rawInputs: InputParam[]): InputParam[] {
+  return rawInputs
+    .filter(input => typeof input?.name === 'string')
+    .map(input => ({
+      ...input,
+      name: String(input.name),
+      sourcePath: String(input.sourcePath ?? ''),
+    }))
+}
+
+function sanitizeVarsForRender(rawVars: FormulaVar[]): FormulaVar[] {
+  return rawVars
+    .filter(formulaVar => typeof formulaVar?.name === 'string')
+    .map(formulaVar => ({
+      ...formulaVar,
+      name: String(formulaVar.name),
+      formula: String(formulaVar.formula ?? ''),
+    }))
+}
+
+function sanitizeResultsHLForRender(rawResults: ResultsHL): ResultsHL {
+  const safeResults = createEmptyResultsHL()
+
+  Object.keys(safeResults).forEach(key => {
+    const resultKey = key as keyof ResultsHL
+    const entry = rawResults?.[resultKey]
+    if (entry) {
+      safeResults[resultKey] = {
+        ...entry,
+        sourceRef: typeof entry.sourceRef === 'string' ? entry.sourceRef : '',
+      }
+    }
+  })
+
+  return safeResults
+}
+
+function sanitizeAdditionalResultsForRender(rawResults: AdditionalResult[]): AdditionalResult[] {
+  return rawResults
+    .filter(result => typeof result?.id === 'string')
+    .map(result => ({
+      ...result,
+      key: typeof result.key === 'string' ? result.key : '',
+      title: typeof result.title === 'string' ? result.title : String(result.title ?? ''),
+      sourceRef: typeof result.sourceRef === 'string' ? result.sourceRef : '',
+    }))
+}
+
+function sanitizeParametrValuesSchemeForRender(rawEntries: ParametrValuesSchemeEntry[]): ParametrValuesSchemeEntry[] {
+  return rawEntries
+    .filter(entry => typeof entry?.id === 'string')
+    .map(entry => ({
+      ...entry,
+      name: typeof entry.name === 'string' ? entry.name : String(entry.name ?? ''),
+      template: typeof entry.template === 'string' ? entry.template : String(entry.template ?? ''),
+    }))
+}
+
+function sanitizeIssuesForRender(rawIssues: ValidationIssue[]): ValidationIssue[] {
+  return rawIssues
+    .filter(issue => typeof issue?.message === 'string')
+    .map(issue => ({
+      ...issue,
+      hint: typeof issue.hint === 'string' ? issue.hint : undefined,
+    }))
+}
+
+function hasInvalidInputs(rawInputs: InputParam[]): boolean {
+  return rawInputs.some(input => typeof input?.name !== 'string')
+}
+
+function hasInvalidVars(rawVars: FormulaVar[]): boolean {
+  return rawVars.some(formulaVar => typeof formulaVar?.name !== 'string')
+}
+
+function hasInvalidResultsHL(rawResults: ResultsHL): boolean {
+  return Object.values(rawResults || {}).some(entry => entry && typeof entry.sourceRef !== 'string')
+}
+
+function hasInvalidAdditionalResults(rawResults: AdditionalResult[]): boolean {
+  return rawResults.some(
+    result =>
+      typeof result?.id !== 'string' ||
+      typeof result?.key !== 'string' ||
+      typeof result?.sourceRef !== 'string'
+  )
+}
+
+function hasInvalidParametrValuesScheme(rawEntries: ParametrValuesSchemeEntry[]): boolean {
+  return rawEntries.some(entry => typeof entry?.id !== 'string')
+}
+
+function hasInvalidIssues(rawIssues: ValidationIssue[]): boolean {
+  return rawIssues.some(
+    issue =>
+      typeof issue?.message !== 'string' ||
+      (issue.hint !== undefined && issue.hint !== null && typeof issue.hint !== 'string')
+  )
+}
+
 interface CalculationLogicDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -364,6 +487,22 @@ export function CalculationLogicDialog({
     })
     return Array.from(names).sort((a, b) => a.localeCompare(b, 'ru'))
   }, [initPayload])
+
+  const inputsForRender = useMemo(() => sanitizeInputsForRender(inputs), [inputs])
+  const varsForRender = useMemo(() => sanitizeVarsForRender(vars), [vars])
+  const resultsHLForRender = useMemo(() => sanitizeResultsHLForRender(resultsHL), [resultsHL])
+  const additionalResultsForRender = useMemo(
+    () => sanitizeAdditionalResultsForRender(additionalResults),
+    [additionalResults]
+  )
+  const parametrValuesSchemeForRender = useMemo(
+    () => sanitizeParametrValuesSchemeForRender(parametrValuesScheme),
+    [parametrValuesScheme]
+  )
+  const validationIssuesForRender = useMemo(
+    () => sanitizeIssuesForRender(validationIssues),
+    [validationIssues]
+  )
 
   // State for save/draft management
   const [savedJson, setSavedJson] = useState<string | null>(null)
@@ -457,21 +596,48 @@ export function CalculationLogicDialog({
     if (draftJson) {
       try {
         const parsed = JSON.parse(draftJson)
+        const rawDraftInputs = Array.isArray(parsed?.inputs) ? parsed.inputs : []
+        const rawDraftVars = Array.isArray(parsed?.vars) ? parsed.vars : []
+        const rawDraftResultsHL = parsed?.resultsHL || createEmptyResultsHL()
+        const rawDraftAdditionalResults = Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : []
+        const rawDraftParametrValuesScheme = Array.isArray(parsed?.parametrValuesScheme) ? parsed.parametrValuesScheme : []
+        const rawDraftIssues = Array.isArray(parsed?.issues) ? parsed.issues : []
+
+        const hasInvalidDraft =
+          hasInvalidInputs(rawDraftInputs) ||
+          hasInvalidVars(rawDraftVars) ||
+          hasInvalidResultsHL(rawDraftResultsHL) ||
+          hasInvalidAdditionalResults(rawDraftAdditionalResults) ||
+          hasInvalidParametrValuesScheme(rawDraftParametrValuesScheme) ||
+          hasInvalidIssues(rawDraftIssues)
+
+        if (hasInvalidDraft) {
+          console.warn('Ignoring invalid draft data for calculation logic', { draftKey })
+          localStorage.removeItem(draftKey)
+          setInputs(savedInputs)
+          setVars(savedVars)
+          setResultsHL(savedResultsHL)
+          setAdditionalResults(savedAdditionalResults)
+          setParametrValuesScheme(savedParametrValuesScheme)
+          setWritePlan([])
+          return
+        }
+
         const draftInputs = sanitizeInputs(
-          Array.isArray(parsed?.inputs) ? parsed.inputs : [],
+          rawDraftInputs,
           'draft inputs'
         )
         const draftVars = sanitizeVars(
-          Array.isArray(parsed?.vars) ? parsed.vars : [],
+          rawDraftVars,
           'draft vars'
         )
-        const draftResultsHL = sanitizeResultsHL(parsed?.resultsHL || createEmptyResultsHL())
+        const draftResultsHL = sanitizeResultsHL(rawDraftResultsHL)
         const draftAdditionalResults = sanitizeAdditionalResults(
-          Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : [],
+          rawDraftAdditionalResults,
           'draft additionalResults'
         )
         const draftParametrValuesScheme = sanitizeParametrValuesScheme(
-          Array.isArray(parsed?.parametrValuesScheme) ? parsed.parametrValuesScheme : [],
+          rawDraftParametrValuesScheme,
           'draft parametrValuesScheme'
         )
         
@@ -1105,7 +1271,7 @@ export function CalculationLogicDialog({
 
   const handleValidate = () => {
     const result = validateAll(inputs, vars, stageIndex, [], resultsHL, writePlan, additionalResults)
-    setValidationIssues(result.issues)
+    setValidationIssues(sanitizeIssues(result.issues, 'validation issues'))
     
     // Also update vars with inferred types
     const symbolTable = new Map<string, ValueType>()
@@ -1145,7 +1311,7 @@ export function CalculationLogicDialog({
   const handleSave = async () => {
     // Финальная проверка
     const result = validateAll(inputs, vars, stageIndex, [], resultsHL, writePlan, additionalResults)
-    setValidationIssues(result.issues)
+    setValidationIssues(sanitizeIssues(result.issues, 'validation issues'))
     
     if (!result.valid) {
       toast.error('Исправьте ошибки перед сохранением')
@@ -1328,9 +1494,15 @@ export function CalculationLogicDialog({
               <DialogTitle className="text-lg font-semibold">
                 Логика расчёта
               </DialogTitle>
+              {(() => {
+                const safeStageName = safeRenderString(stageName)
+                const safeCalculatorName = safeRenderString(calculatorName)
+                return (
               <p className="text-sm text-muted-foreground mt-1">
-                Этап #{stageIndex + 1}{stageName ? `: ${stageName}` : ''} • Калькулятор: {calculatorName || 'Не выбран'}
+                  Этап #{stageIndex + 1}{safeStageName ? `: ${safeStageName}` : ''} • Калькулятор: {safeCalculatorName || 'Не выбран'}
               </p>
+                )
+              })()}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -1461,9 +1633,9 @@ export function CalculationLogicDialog({
                 <TabsContent value="inputs" className="h-full m-0 p-0">
                   <ScrollArea className="h-full">
                     <InputsTab 
-                      inputs={inputs} 
+                      inputs={inputsForRender} 
                       onChange={setInputs} 
-                      issues={validationIssues}
+                      issues={validationIssuesForRender}
                       activeInputId={activeInputId}
                       onInputSelect={setActiveInputId}
                       newlyAddedId={newlyAddedInputId}
@@ -1474,11 +1646,11 @@ export function CalculationLogicDialog({
                 <TabsContent value="formulas" className="h-full m-0 p-0">
                   <ScrollArea className="h-full">
                     <FormulasTab 
-                      inputs={inputs} 
-                      vars={vars} 
+                      inputs={inputsForRender} 
+                      vars={varsForRender} 
                       onChange={setVars}
                       stageIndex={stageIndex}
-                      issues={validationIssues}
+                      issues={validationIssuesForRender}
                       onTextareaFocus={(varId, cursorPosition) => {
                         setLastTextareaFocus({ varId, cursorPosition })
                         setLastTemplateFocus(null)
@@ -1490,15 +1662,15 @@ export function CalculationLogicDialog({
                 <TabsContent value="outputs" className="h-full m-0 p-0">
                   <ScrollArea className="h-full">
                     <OutputsTab 
-                      vars={vars}
-                      inputs={inputs}
-                      resultsHL={resultsHL}
-                      additionalResults={additionalResults}
+                      vars={varsForRender}
+                      inputs={inputsForRender}
+                      resultsHL={resultsHLForRender}
+                      additionalResults={additionalResultsForRender}
                       onResultsHLChange={setResultsHL}
                       onAdditionalResultsChange={setAdditionalResults}
-                      issues={validationIssues}
+                      issues={validationIssuesForRender}
                       offerModel={logicContext?.offer}
-                      parametrValuesScheme={parametrValuesScheme}
+                      parametrValuesScheme={parametrValuesSchemeForRender}
                       onParametrValuesSchemeChange={setParametrValuesScheme}
                       parametrNamesPool={globalParametrNames}
                       onTemplateFocus={(entryId, cursorPosition) => {
@@ -1841,19 +2013,26 @@ export function CalculationLogicDialog({
                             <div>
                               <h4 className="text-xs font-medium text-muted-foreground mb-2">Входные параметры</h4>
                               <div className="flex flex-wrap gap-1.5">
-                                {inputs.length === 0 ? (
+                                {inputsForRender.length === 0 ? (
                                   <div className="text-xs text-muted-foreground italic">Нет параметров</div>
                                 ) : (
-                                  inputs.map(input => (
+                                  inputsForRender.map(input => {
+                                    const inputName = safeRenderString(input.name)
+                                    return (
                                     <button
                                       key={input.id}
-                                      onClick={() => handleInsertIntoFormula(input.name)}
+                                      onClick={() => {
+                                        if (inputName) {
+                                          handleInsertIntoFormula(inputName)
+                                        }
+                                      }}
                                       className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
-                                      title={`Кликните, чтобы вставить: ${input.name}`}
+                                      title={`Кликните, чтобы вставить: ${inputName}`}
                                     >
-                                      {input.name}
+                                      {inputName}
                                     </button>
-                                  ))
+                                  )
+                                  })
                                 )}
                               </div>
                             </div>
@@ -1862,19 +2041,26 @@ export function CalculationLogicDialog({
                             <div>
                               <h4 className="text-xs font-medium text-muted-foreground mb-2">Переменные</h4>
                               <div className="flex flex-wrap gap-1.5">
-                                {vars.length === 0 ? (
+                                {varsForRender.length === 0 ? (
                                   <div className="text-xs text-muted-foreground italic">Нет переменных</div>
                                 ) : (
-                                  vars.map(v => (
+                                  varsForRender.map(v => {
+                                    const varName = safeRenderString(v.name)
+                                    return (
                                     <button
                                       key={v.id}
-                                      onClick={() => handleInsertIntoFormula(v.name)}
+                                      onClick={() => {
+                                        if (varName) {
+                                          handleInsertIntoFormula(varName)
+                                        }
+                                      }}
                                       className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
-                                      title={`Кликните, чтобы вставить: ${v.name}`}
+                                      title={`Кликните, чтобы вставить: ${varName}`}
                                     >
-                                      {v.name}
+                                      {varName}
                                     </button>
-                                  ))
+                                  )
+                                  })
                                 )}
                               </div>
                             </div>
@@ -1887,9 +2073,9 @@ export function CalculationLogicDialog({
                     <div className="mt-4">
                       <button 
                         onClick={() => {
-                          if (validationIssues.length > 0) {
+                          if (validationIssuesForRender.length > 0) {
                             // Find the first error
-                            const firstError = validationIssues[0]
+                            const firstError = validationIssuesForRender[0]
                             if (firstError.scope === 'input') {
                               handleTabChange('inputs')
                             } else if (firstError.scope === 'var') {
@@ -1905,14 +2091,14 @@ export function CalculationLogicDialog({
                       >
                         <div className="text-sm font-medium flex items-center gap-2">
                           Ошибки
-                          {validationIssues.length > 0 && (
+                          {validationIssuesForRender.length > 0 && (
                             <span className="text-xs bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded">
-                              {validationIssues.length}
+                              {validationIssuesForRender.length}
                             </span>
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {validationIssues.length > 0 
+                          {validationIssuesForRender.length > 0 
                             ? 'Кликните, чтобы перейти к первой ошибке' 
                             : 'Ошибок не обнаружено'}
                         </div>

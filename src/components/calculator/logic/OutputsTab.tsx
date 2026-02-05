@@ -24,6 +24,7 @@ interface OutputsTabProps {
 }
 
 const NONE_VALUE = '__none__'
+const safeRenderString = (value: unknown) => (typeof value === 'string' ? value : '')
 
 export function OutputsTab({ 
   vars,
@@ -197,7 +198,10 @@ export function OutputsTab({
                       <SelectTrigger className="h-8 text-xs flex-1">
                         <SelectValue placeholder="Не выбрано">
                           {mapping.sourceRef && mapping.sourceKind ? (
-                            <span>{mapping.sourceRef} {mapping.sourceKind === 'var' ? '(переменная)' : '(вход)'}</span>
+                            <span>
+                              {safeRenderString(mapping.sourceRef)}{' '}
+                              {mapping.sourceKind === 'var' ? '(переменная)' : '(вход)'}
+                            </span>
                           ) : null}
                         </SelectValue>
                       </SelectTrigger>
@@ -208,7 +212,7 @@ export function OutputsTab({
                           <SelectLabel>Переменные</SelectLabel>
                           {numberSources.filter(src => src.kind === 'var').map(src => (
                             <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                              {src.ref}
+                              {safeRenderString(src.ref)}
                             </SelectItem>
                           ))}
                         </SelectGroup>
@@ -217,7 +221,7 @@ export function OutputsTab({
                           <SelectLabel>Входные параметры</SelectLabel>
                           {numberSources.filter(src => src.kind === 'input').map(src => (
                             <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                              {src.ref}
+                              {safeRenderString(src.ref)}
                             </SelectItem>
                           ))}
                         </SelectGroup>
@@ -267,7 +271,10 @@ export function OutputsTab({
                       <SelectTrigger className="h-8 text-xs flex-1">
                         <SelectValue placeholder="Не выбрано">
                           {mapping.sourceRef && mapping.sourceKind ? (
-                            <span>{mapping.sourceRef} {mapping.sourceKind === 'var' ? '(переменная)' : '(вход)'}</span>
+                            <span>
+                              {safeRenderString(mapping.sourceRef)}{' '}
+                              {mapping.sourceKind === 'var' ? '(переменная)' : '(вход)'}
+                            </span>
                           ) : null}
                         </SelectValue>
                       </SelectTrigger>
@@ -278,7 +285,7 @@ export function OutputsTab({
                           <SelectLabel>Переменные</SelectLabel>
                           {numberSources.filter(src => src.kind === 'var').map(src => (
                             <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                              {src.ref}
+                              {safeRenderString(src.ref)}
                             </SelectItem>
                           ))}
                         </SelectGroup>
@@ -287,7 +294,7 @@ export function OutputsTab({
                           <SelectLabel>Входные параметры</SelectLabel>
                           {numberSources.filter(src => src.kind === 'input').map(src => (
                             <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                              {src.ref}
+                              {safeRenderString(src.ref)}
                             </SelectItem>
                           ))}
                         </SelectGroup>
@@ -358,7 +365,7 @@ export function OutputsTab({
                         />
                         {item.key && (
                           <div className="text-xs text-muted-foreground truncate">
-                            key: {item.key}
+                            key: {safeRenderString(item.key)}
                           </div>
                         )}
                       </div>
@@ -382,11 +389,14 @@ export function OutputsTab({
                           }}
                         >
                           <SelectTrigger className="h-8 text-xs flex-1">
-                            <SelectValue placeholder="Выберите источник...">
-                              {item.sourceRef && item.sourceKind ? (
-                                <span>{item.sourceRef} {item.sourceKind === 'var' ? '(переменная)' : '(вход)'}</span>
-                              ) : null}
-                            </SelectValue>
+                          <SelectValue placeholder="Выберите источник...">
+                            {item.sourceRef && item.sourceKind ? (
+                              <span>
+                                {safeRenderString(item.sourceRef)}{' '}
+                                {item.sourceKind === 'var' ? '(переменная)' : '(вход)'}
+                              </span>
+                            ) : null}
+                          </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
@@ -395,7 +405,7 @@ export function OutputsTab({
                               <SelectLabel>Переменные</SelectLabel>
                               {allSources.filter(src => src.kind === 'var').map(src => (
                                 <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                                  {src.ref}
+                                  {safeRenderString(src.ref)}
                                 </SelectItem>
                               ))}
                             </SelectGroup>
@@ -404,7 +414,7 @@ export function OutputsTab({
                               <SelectLabel>Входные параметры</SelectLabel>
                               {allSources.filter(src => src.kind === 'input').map(src => (
                                 <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                                  {src.ref}
+                                  {safeRenderString(src.ref)}
                                 </SelectItem>
                               ))}
                             </SelectGroup>
@@ -423,8 +433,12 @@ export function OutputsTab({
                             <TooltipContent>
                               {itemIssues.map((issue, idx) => (
                                 <div key={idx}>
-                                  <p>{issue.message}</p>
-                                  {issue.hint && <p className="text-xs text-muted-foreground">{issue.hint}</p>}
+                                  <p>{safeRenderString(issue.message)}</p>
+                                  {issue.hint && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {safeRenderString(issue.hint)}
+                                    </p>
+                                  )}
                                 </div>
                               ))}
                             </TooltipContent>
