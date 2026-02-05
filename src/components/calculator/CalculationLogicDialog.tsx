@@ -531,47 +531,6 @@ function sanitizeContextValue(value: unknown, depth = 0): unknown {
   return sanitized
 }
 
-/**
- * Safely extracts and sanitizes the logic context for rendering in OutputsTab.
- * This function ensures that the offerModel prop receives only serializable data.
- * 
- * @param logicContext - The raw logic context that may contain non-serializable data
- * @returns An object with a safely extracted offer property, or null if invalid
- */
-function sanitizeLogicContextForRender(logicContext: unknown): { offer: unknown } | null {
-  if (!logicContext || typeof logicContext !== 'object') {
-    return null
-  }
-  
-  // Safely access the offer property
-  const contextObj = logicContext as Record<string, unknown>
-  if (!('offer' in contextObj)) {
-    return null
-  }
-  
-  const offer = contextObj.offer
-  
-  // Validate that offer is a plain object or null/undefined
-  if (offer === null || offer === undefined) {
-    return { offer: null }
-  }
-  
-  if (typeof offer !== 'object') {
-    return null
-  }
-  
-  // Additional check to ensure offer is a plain object and not a DOM node or other non-serializable object
-  const tag = Object.prototype.toString.call(offer)
-  if (tag !== '[object Object]') {
-    return null
-  }
-  
-  // Sanitize the offer object to remove non-serializable properties
-  const sanitizedOffer = sanitizeContextValue(offer)
-  
-  return { offer: sanitizedOffer }
-}
-
 interface CalculationLogicDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -678,39 +637,6 @@ export function CalculationLogicDialog({
     () => sanitizeContextValue(logicContext),
     [logicContext]
   )
-
-  const sanitizedOfferModel = useMemo(
-    () => sanitizeLogicContextForRender(logicContext)?.offer ?? null,
-    [logicContext]
-  )
-
-  // Создаем отдельный useMemo для offerModelForRender с дополнительной санитизацией
-  const offerModelForRender = useMemo(() => {
-    if (!logicContextForRender || typeof logicContextForRender !== 'object') {
-      return null
-    }
-    
-    const ctx = logicContextForRender as Record<string, unknown>
-    
-    // Безопасно извлекаем offer
-    if (!('offer' in ctx)) {
-      return null
-    }
-    
-    const offer = ctx.offer
-    
-    if (!offer || typeof offer !== 'object') {
-      return null
-    }
-    
-    // Проверяем что это plain object
-    if (Object.prototype.toString.call(offer) !== '[object Object]') {
-      return null
-    }
-    
-    // Санитизируем ПОВТОРНО для дополнительной безопасности
-    return sanitizeContextValue(offer, 0)
-  }, [logicContextForRender])
 
   // State for save/draft management
   const [savedJson, setSavedJson] = useState<string | null>(null)
@@ -1904,7 +1830,6 @@ export function CalculationLogicDialog({
                         onResultsHLChange={setResultsHL}
                         onAdditionalResultsChange={setAdditionalResults}
                         issues={validationIssuesForRender}
-                      offerModel={offerModelForRender}
                         parametrValuesScheme={parametrValuesSchemeForRender}
                         onParametrValuesSchemeChange={setParametrValuesScheme}
                         parametrNamesPool={globalParametrNames}

@@ -19,7 +19,6 @@ interface OutputsTabProps {
   onParametrValuesSchemeChange?: (entries: ParametrValuesSchemeEntry[]) => void
   parametrNamesPool?: string[]
   issues?: ValidationIssue[]
-  offerModel?: any
   onTemplateFocus?: (entryId: string, cursorPosition: number) => void
 }
 
@@ -89,22 +88,7 @@ const sanitizeIssuesForRender = (items: ValidationIssue[]) =>
       hint: typeof issue.hint === 'string' ? issue.hint : undefined,
     }))
 
-/**
- * Safely sanitizes the offerModel prop to ensure it's a valid object or null.
- * Since the offerModel is already sanitized by offerModelForRender in the parent component,
- * we only need to do a simple validation check.
- * 
- * @param offerModel - The already sanitized offer model from parent
- * @returns A safely validated offer model or null
- */
-const sanitizeOfferModel = (offerModel: unknown): Record<string, unknown> | null => {
-  // Простая проверка, так как данные уже полностью санитизированы в родительском компоненте
-  if (!offerModel || typeof offerModel !== 'object') {
-    return null
-  }
-  
-  return offerModel as Record<string, unknown>
-}
+
 
 export function OutputsTab({ 
   vars,
@@ -117,7 +101,6 @@ export function OutputsTab({
   onParametrValuesSchemeChange,
   parametrNamesPool = [],
   issues = [],
-  offerModel,
   onTemplateFocus
 }: OutputsTabProps) {
   // Validate and sanitize all incoming props to prevent React errors
@@ -135,7 +118,6 @@ export function OutputsTab({
   const safeParametrValuesScheme = sanitizeParametrValuesSchemeForRender(ensureArray<ParametrValuesSchemeEntry>(parametrValuesScheme))
   const safeIssues = sanitizeIssuesForRender(ensureArray<ValidationIssue>(issues))
   const safeParametrNamesPool = sanitizeStringArray(ensureArray<string>(parametrNamesPool))
-  const safeOfferModel = sanitizeOfferModel(offerModel)
   
   // Helper to create empty ResultsHL if not provided
   const currentResultsHL = safeResultsHL
