@@ -83,6 +83,33 @@ const sanitizeIssuesForRender = (items: ValidationIssue[]) =>
       hint: typeof issue.hint === 'string' ? issue.hint : undefined,
     }))
 
+/**
+ * Safely sanitizes the offerModel prop to ensure it's a valid object or null.
+ * This prevents React error #31 from being thrown when the prop contains non-serializable data.
+ * 
+ * @param offerModel - The raw offer model that may contain invalid data
+ * @returns A safely sanitized offer model or null
+ */
+const sanitizeOfferModel = (offerModel: unknown): Record<string, unknown> | null => {
+  if (offerModel === null || offerModel === undefined) {
+    return null
+  }
+  
+  if (typeof offerModel !== 'object') {
+    return null
+  }
+  
+  // Check if it's a plain object
+  const tag = Object.prototype.toString.call(offerModel)
+  if (tag !== '[object Object]') {
+    return null
+  }
+  
+  // Return the offer model as-is if it's a valid plain object
+  // The data is already sanitized by sanitizeLogicContextForRender in the parent component
+  return offerModel as Record<string, unknown>
+}
+
 export function OutputsTab({ 
   vars,
   inputs = [],
@@ -97,8 +124,9 @@ export function OutputsTab({
   offerModel,
   onTemplateFocus
 }: OutputsTabProps) {
-  const safeInputs = sanitizeInputsForRender(inputs)
-  const safeVars = sanitizeVarsForRender(vars)
+  // Validate and sanitize all incoming props to prevent React errors
+  const safeInputs = sanitizeInputsForRender(Array.isArray(inputs) ? inputs : [])
+  const safeVars = sanitizeVarsForRender(Array.isArray(vars) ? vars : [])
   const safeResultsHL = sanitizeResultsHLForRender(resultsHL || {
     width: { sourceKind: null, sourceRef: '' },
     length: { sourceKind: null, sourceRef: '' },
@@ -107,10 +135,11 @@ export function OutputsTab({
     purchasingPrice: { sourceKind: null, sourceRef: '' },
     basePrice: { sourceKind: null, sourceRef: '' },
   })
-  const safeAdditionalResults = sanitizeAdditionalResultsForRender(additionalResults)
-  const safeParametrValuesScheme = sanitizeParametrValuesSchemeForRender(parametrValuesScheme)
-  const safeIssues = sanitizeIssuesForRender(issues)
-  const safeParametrNamesPool = sanitizeStringArray(parametrNamesPool)
+  const safeAdditionalResults = sanitizeAdditionalResultsForRender(Array.isArray(additionalResults) ? additionalResults : [])
+  const safeParametrValuesScheme = sanitizeParametrValuesSchemeForRender(Array.isArray(parametrValuesScheme) ? parametrValuesScheme : [])
+  const safeIssues = sanitizeIssuesForRender(Array.isArray(issues) ? issues : [])
+  const safeParametrNamesPool = sanitizeStringArray(Array.isArray(parametrNamesPool) ? parametrNamesPool : [])
+  const safeOfferModel = sanitizeOfferModel(offerModel)
   
   // Helper to create empty ResultsHL if not provided
   const currentResultsHL = safeResultsHL
