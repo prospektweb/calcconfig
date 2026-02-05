@@ -7,7 +7,7 @@
  */
 
 import type { CalculationStageInputEntry, CalculationStageLogEntry } from '@/lib/types'
-import { Detail, Binding, StageInstance } from '@/lib/types'
+import { Detail, Binding, StageInstance, type Iblock } from '@/lib/types'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { useOperationVariantStore } from '@/stores/operation-variant-store'
 import { useMaterialVariantStore } from '@/stores/material-variant-store'
@@ -120,26 +120,58 @@ function extractParametrScheme(stageElement: any, propertyCode: string): Paramet
 
 const OFFER_NAME_PARAM = 'Название ТП'
 
+const resolveEnumDisplayValue = (value: unknown, iblocks?: Iblock[]): string | undefined => {
+  if (value === null || value === undefined || !Array.isArray(iblocks)) {
+    return undefined
+  }
+  const raw = String(value)
+  for (const iblock of iblocks) {
+    const properties = iblock.properties ?? []
+    for (const property of properties) {
+      const enums = property.ENUMS ?? []
+      for (const entry of enums) {
+        if (entry.XML_ID === raw) {
+          return entry.VALUE
+        }
+      }
+    }
+  }
+  return undefined
+}
+
 function applyParametrScheme(
   entries: ParametrSchemeEntry[],
   accumulator: Map<string, string>,
   scope: Record<string, unknown>,
   options?: {
     onOfferName?: (value: string) => void
+    previousOfferName?: string
+    iblocks?: Iblock[]
   }
 ): void {
+  let currentOfferName = options?.previousOfferName ?? ''
   entries.forEach(entry => {
     const name = entry.name.trim()
     if (!name) {
       return
     }
-    const previous = accumulator.get(name) ?? ''
+    const previous = name === OFFER_NAME_PARAM ? currentOfferName : accumulator.get(name) ?? ''
     const template = entry.template ?? ''
     const value = template.replace(/\{([^}]+)\}/g, (_match, token) => {
       const key = String(token).trim()
       if (!key) return ''
       if (key === 'self') {
         return previous
+      }
+      if (key.endsWith('~')) {
+        const baseKey = key.slice(0, -1).trim()
+        if (!baseKey) return ''
+        const rawValue = scope[baseKey]
+        if (rawValue === null || rawValue === undefined) {
+          return ''
+        }
+        const readableValue = resolveEnumDisplayValue(rawValue, options?.iblocks)
+        return readableValue ?? String(rawValue)
       }
       const replacement = scope[key]
       if (replacement === null || replacement === undefined) {
@@ -151,6 +183,7 @@ function applyParametrScheme(
       const nextOfferName = value.trim()
       if (nextOfferName) {
         options.onOfferName(nextOfferName)
+        currentOfferName = nextOfferName
       }
       return
     }
@@ -310,6 +343,8 @@ async function calculateStage(
             onOfferName: (value) => {
               parametrAccumulator.offerName = value
             },
+            previousOfferName: parametrAccumulator.offerName,
+            iblocks: initPayload?.iblocks,
           })
         }
         
@@ -846,6 +881,7 @@ export async function calculateOffer(
   const detailResults: CalculationDetailResult[] = []
   const parametrAccumulator: ParametrAccumulator = {
     offer: new Map(),
+    offerName: offer.name,
   }
   
   // Get top-level details (not in any binding)
