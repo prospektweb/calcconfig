@@ -91,28 +91,18 @@ const sanitizeIssuesForRender = (items: ValidationIssue[]) =>
 
 /**
  * Safely sanitizes the offerModel prop to ensure it's a valid object or null.
- * This prevents React error #31 from being thrown when the prop contains non-serializable data.
+ * Since the offerModel is already sanitized by offerModelForRender in the parent component,
+ * we only need to do a simple validation check.
  * 
- * @param offerModel - The raw offer model that may contain invalid data
- * @returns A safely sanitized offer model or null
+ * @param offerModel - The already sanitized offer model from parent
+ * @returns A safely validated offer model or null
  */
 const sanitizeOfferModel = (offerModel: unknown): Record<string, unknown> | null => {
-  if (offerModel === null || offerModel === undefined) {
+  // Простая проверка, так как данные уже полностью санитизированы в родительском компоненте
+  if (!offerModel || typeof offerModel !== 'object') {
     return null
   }
   
-  if (typeof offerModel !== 'object') {
-    return null
-  }
-  
-  // Check if it's a plain object
-  const tag = Object.prototype.toString.call(offerModel)
-  if (tag !== '[object Object]') {
-    return null
-  }
-  
-  // Return the offer model as-is if it's a valid plain object
-  // The data is already sanitized by sanitizeLogicContextForRender in the parent component
   return offerModel as Record<string, unknown>
 }
 
