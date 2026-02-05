@@ -227,6 +227,10 @@ export function CalculationLogicDialog({
     varId: string
     cursorPosition: number
   } | null>(null)
+  const [lastTemplateFocus, setLastTemplateFocus] = useState<{
+    entryId: string
+    cursorPosition: number
+  } | null>(null)
 
   // State for logic editing
   const [inputs, setInputs] = useState<InputParam[]>([])
@@ -237,6 +241,7 @@ export function CalculationLogicDialog({
   const [parametrValuesScheme, setParametrValuesScheme] = useState<ParametrValuesSchemeEntry[]>([])
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
   const previousInputsRef = useRef<InputParam[]>([])
+  const previousVarsRef = useRef<FormulaVar[]>([])
 
   const globalParametrNames = useMemo(() => {
     const names = new Set<string>()
@@ -488,14 +493,18 @@ export function CalculationLogicDialog({
       setLeftPanelCollapsed(false)  // Open Context
       setRightPanelCollapsed(true)  // Close Help
       setHelpAccordionValues([])
+      setLastTextareaFocus(null)
+      setLastTemplateFocus(null)
     } else if (tab === 'formulas') {
       setLeftPanelCollapsed(true)   // Close Context
       setRightPanelCollapsed(false) // Open Help
       setHelpAccordionValues(['syntax', 'functions'])
+      setLastTemplateFocus(null)
     } else if (tab === 'outputs') {
       setLeftPanelCollapsed(true)   // Close Context
       setRightPanelCollapsed(false) // Open Help
       setHelpAccordionValues(['params-vars'])
+      setLastTextareaFocus(null)
     }
   }
 
@@ -574,6 +583,93 @@ export function CalculationLogicDialog({
 
     previousInputsRef.current = inputs
   }, [inputs])
+
+  useEffect(() => {
+    const previousVars = previousVarsRef.current
+
+    if (previousVars.length === 0) {
+      previousVarsRef.current = vars
+      return
+    }
+
+    const renames = vars.reduce<Array<{ from: string; to: string }>>((acc, variable) => {
+      const previous = previousVars.find(prev => prev.id === variable.id)
+      if (previous && previous.name !== variable.name) {
+        acc.push({ from: previous.name, to: variable.name })
+      }
+      return acc
+    }, [])
+
+    if (renames.length === 0) {
+      previousVarsRef.current = vars
+      return
+    }
+
+    const replaceInText = (text: string) =>
+      renames.reduce((current, rename) => {
+        const regex = new RegExp(`\\b${escapeRegExp(rename.from)}\\b`, 'g')
+        return current.replace(regex, rename.to)
+      }, text)
+
+    setVars(prevVars => {
+      let hasChanges = false
+      const nextVars = prevVars.map(variable => {
+        const updatedFormula = replaceInText(variable.formula)
+        if (updatedFormula !== variable.formula) {
+          hasChanges = true
+          return { ...variable, formula: updatedFormula }
+        }
+        return variable
+      })
+      return hasChanges ? nextVars : prevVars
+    })
+
+    setResultsHL(prevResults => {
+      let hasChanges = false
+      const nextResults = { ...prevResults }
+      ;(Object.keys(nextResults) as Array<keyof ResultsHL>).forEach(key => {
+        const mapping = nextResults[key]
+        if (mapping.sourceKind !== 'var') return
+        const rename = renames.find(item => item.from === mapping.sourceRef)
+        if (rename) {
+          hasChanges = true
+          nextResults[key] = { ...mapping, sourceRef: rename.to }
+        }
+      })
+      return hasChanges ? nextResults : prevResults
+    })
+
+    setAdditionalResults(prevResults => {
+      let hasChanges = false
+      const nextResults = prevResults.map(result => {
+        if (result.sourceKind !== 'var') {
+          return result
+        }
+        const rename = renames.find(item => item.from === result.sourceRef)
+        if (!rename) {
+          return result
+        }
+        hasChanges = true
+        return { ...result, sourceRef: rename.to }
+      })
+      return hasChanges ? nextResults : prevResults
+    })
+
+    setParametrValuesScheme(prevScheme => {
+      let hasChanges = false
+      const nextScheme = prevScheme.map(entry => {
+        const updatedTemplate = replaceInText(entry.template)
+        if (updatedTemplate !== entry.template) {
+          hasChanges = true
+          return { ...entry, template: updatedTemplate }
+        }
+        return entry
+      })
+      return hasChanges ? nextScheme : prevScheme
+    })
+
+    previousVarsRef.current = vars
+  }, [vars])
 
   // Auto-update inferred types for vars when inputs or formulas change
   useEffect(() => {
@@ -789,20 +885,39 @@ export function CalculationLogicDialog({
   }
   
   const handleInsertIntoFormula = (text: string) => {
+    if (lastTemplateFocus) {
+      const { entryId, cursorPosition } = lastTemplateFocus
+
+      setParametrValuesScheme(prevScheme =>
+        prevScheme.map(entry => {
+          if (entry.id !== entryId) return entry
+          const before = entry.template.slice(0, cursorPosition)
+          const after = entry.template.slice(cursorPosition)
+          const insertText = `{${text}}`
+          return { ...entry, template: before + insertText + after }
+        })
+      )
+
+      setLastTemplateFocus(null)
+      toast.success(`"{${text}}" вставлен в шаблон`)
+      return
+    }
+
     if (lastTextareaFocus) {
       // Insert into saved position
       const { varId, cursorPosition } = lastTextareaFocus
       
-      setVars(vars.map(v => {
-        if (v.id === varId) {
-          const before = v.formula.slice(0, cursorPosition)
-          const after = v.formula.slice(cursorPosition)
-          // Add spaces around text
-          const insertText = ` ${text} `
-          return { ...v, formula: before + insertText + after }
-        }
-        return v
-      }))
+      setVars(prevVars =>
+        prevVars.map(v => {
+          if (v.id === varId) {
+            const before = v.formula.slice(0, cursorPosition)
+            const after = v.formula.slice(cursorPosition)
+            const insertText = text
+            return { ...v, formula: before + insertText + after }
+          }
+          return v
+        })
+      )
       
       // Reset after insertion
       setLastTextareaFocus(null)
@@ -1214,7 +1329,10 @@ export function CalculationLogicDialog({
                       onChange={setVars}
                       stageIndex={stageIndex}
                       issues={validationIssues}
-                      onTextareaFocus={(varId, cursorPosition) => setLastTextareaFocus({ varId, cursorPosition })}
+                      onTextareaFocus={(varId, cursorPosition) => {
+                        setLastTextareaFocus({ varId, cursorPosition })
+                        setLastTemplateFocus(null)
+                      }}
                       onTextareaBlur={() => setLastTextareaFocus(null)}
                     />
                   </ScrollArea>
@@ -1233,6 +1351,10 @@ export function CalculationLogicDialog({
                       parametrValuesScheme={parametrValuesScheme}
                       onParametrValuesSchemeChange={setParametrValuesScheme}
                       parametrNamesPool={globalParametrNames}
+                      onTemplateFocus={(entryId, cursorPosition) => {
+                        setLastTemplateFocus({ entryId, cursorPosition })
+                        setLastTextareaFocus(null)
+                      }}
                     />
                   </ScrollArea>
                 </TabsContent>
