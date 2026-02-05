@@ -581,6 +581,19 @@ export function CalculationLogicDialog({
       return hasChanges ? nextResults : prevResults
     })
 
+    setParametrValuesScheme(prevScheme => {
+      let hasChanges = false
+      const nextScheme = prevScheme.map(entry => {
+        const updatedTemplate = replaceInFormula(entry.template)
+        if (updatedTemplate !== entry.template) {
+          hasChanges = true
+          return { ...entry, template: updatedTemplate }
+        }
+        return entry
+      })
+      return hasChanges ? nextScheme : prevScheme
+    })
+
     previousInputsRef.current = inputs
   }, [inputs])
 
