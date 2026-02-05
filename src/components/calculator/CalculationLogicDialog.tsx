@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { Component, ReactNode, useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -403,6 +403,33 @@ function hasInvalidIssues(rawIssues: ValidationIssue[]): boolean {
       typeof issue?.message !== 'string' ||
       (issue.hint !== undefined && issue.hint !== null && typeof issue.hint !== 'string')
   )
+}
+
+class CalculationLogicErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error('[calcconfig] Calculation logic render error', error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 text-sm text-destructive">
+          Произошла ошибка при отображении логики расчёта. Попробуйте обновить страницу или
+          пересоздать вкладку.
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
 
 interface CalculationLogicDialogProps {
@@ -1487,367 +1514,368 @@ export function CalculationLogicDialog({
         hideClose
         data-pwcode="calculation-logic-dialog"
       >
-        {/* Fixed Header */}
-        <DialogHeader className="px-6 py-4 border-b border-border flex-shrink-0">
-          <div className="flex items-start justify-between">
-            <div>
-              <DialogTitle className="text-lg font-semibold">
-                Логика расчёта
-              </DialogTitle>
-              {(() => {
-                const safeStageName = safeRenderString(stageName)
-                const safeCalculatorName = safeRenderString(calculatorName)
-                return (
-              <p className="text-sm text-muted-foreground mt-1">
-                  Этап #{stageIndex + 1}{safeStageName ? `: ${safeStageName}` : ''} • Калькулятор: {safeCalculatorName || 'Не выбран'}
-              </p>
-                )
-              })()}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                title={isFullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}
-              >
-                {isFullscreen ? <ArrowsIn className="w-4 h-4" /> : <ArrowsOut className="w-4 h-4" />}
-              </Button>
-              <DialogClose asChild>
+        <CalculationLogicErrorBoundary>
+          {/* Fixed Header */}
+          <DialogHeader className="px-6 py-4 border-b border-border flex-shrink-0">
+            <div className="flex items-start justify-between">
+              <div>
+                <DialogTitle className="text-lg font-semibold">
+                  Логика расчёта
+                </DialogTitle>
+                {(() => {
+                  const safeStageName = safeRenderString(stageName)
+                  const safeCalculatorName = safeRenderString(calculatorName)
+                  return (
+                <p className="text-sm text-muted-foreground mt-1">
+                    Этап #{stageIndex + 1}{safeStageName ? `: ${safeStageName}` : ''} • Калькулятор: {safeCalculatorName || 'Не выбран'}
+                </p>
+                  )
+                })()}
+              </div>
+              <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-8 w-8 p-0"
-                  title="Закрыть"
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  title={isFullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}
                 >
-                  <span className="sr-only">Close</span>
-                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
-                    <path
-                      d="M18 6 6 18M6 6l12 12"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                  {isFullscreen ? <ArrowsIn className="w-4 h-4" /> : <ArrowsOut className="w-4 h-4" />}
                 </Button>
-              </DialogClose>
-            </div>
-          </div>
-        </DialogHeader>
-
-        {/* Body - Three Column Layout */}
-        <div className="flex flex-1 overflow-hidden min-h-0">
-          {/* Left Panel - Context (Collapsible) */}
-          {!leftPanelCollapsed && (
-            <div className="w-80 border-r border-border flex flex-col h-full">
-              <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
-                <h3 className="font-medium text-sm">Контекст</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={() => setLeftPanelCollapsed(true)}
-                >
-                  <CaretLeft className="w-4 h-4" />
-                </Button>
-              </div>
-              
-              {/* Container with content - FIXED */}
-              <div className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
-                {/* Main content with scroll */}
-                <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
-                  {showJsonTree ? (
-                    logicContext ? (
-                      <div className="p-4" data-pwcode="logic-context-tree">
-                        <JsonTree
-                          data={logicContext}
-                          onLeafClick={handleLeafClick}
-                          isPathDisabled={isPathDisabled}
-                        />
-                      </div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground p-4">
-                        Нет данных контекста
-                      </div>
-                    )
-                  ) : (
-                    <div className="p-4" data-pwcode="logic-context-tree">
-                      <ContextExplorer
-                        initPayload={initPayload}
-                        currentStageId={currentStageId}
-                        currentDetailId={currentDetailId}
-                        currentBindingId={currentBindingId}
-                        onAddInput={handleContextExplorerAddInput}
-                      />
-                    </div>
-                  )}
-                </div>
-                
-                {/* Toggle button - always at bottom */}
-                <div className="flex-shrink-0 p-2 bg-background border-t">
+                <DialogClose asChild>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full text-xs"
-                    onClick={() => setShowJsonTree(!showJsonTree)}
+                    className="h-8 w-8 p-0"
+                    title="Закрыть"
                   >
-                    {showJsonTree ? 'Скрыть дополнительные данные' : 'Показать дополнительные данные'}
+                    <span className="sr-only">Close</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+                      <path
+                        d="M18 6 6 18M6 6l12 12"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </Button>
+                </DialogClose>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {/* Body - Three Column Layout */}
+          <div className="flex flex-1 overflow-hidden min-h-0">
+            {/* Left Panel - Context (Collapsible) */}
+            {!leftPanelCollapsed && (
+              <div className="w-80 border-r border-border flex flex-col h-full">
+                <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
+                  <h3 className="font-medium text-sm">Контекст</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => setLeftPanelCollapsed(true)}
+                  >
+                    <CaretLeft className="w-4 h-4" />
                   </Button>
                 </div>
+                
+                {/* Container with content - FIXED */}
+                <div className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
+                  {/* Main content with scroll */}
+                  <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+                    {showJsonTree ? (
+                      logicContext ? (
+                        <div className="p-4" data-pwcode="logic-context-tree">
+                          <JsonTree
+                            data={logicContext}
+                            onLeafClick={handleLeafClick}
+                            isPathDisabled={isPathDisabled}
+                          />
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground p-4">
+                          Нет данных контекста
+                        </div>
+                      )
+                    ) : (
+                      <div className="p-4" data-pwcode="logic-context-tree">
+                        <ContextExplorer
+                          initPayload={initPayload}
+                          currentStageId={currentStageId}
+                          currentDetailId={currentDetailId}
+                          currentBindingId={currentBindingId}
+                          onAddInput={handleContextExplorerAddInput}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Toggle button - always at bottom */}
+                  <div className="flex-shrink-0 p-2 bg-background border-t">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs"
+                      onClick={() => setShowJsonTree(!showJsonTree)}
+                    >
+                      {showJsonTree ? 'Скрыть дополнительные данные' : 'Показать дополнительные данные'}
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Collapsed Left Panel Toggle */}
-          {leftPanelCollapsed && (
-            <div className="w-10 border-r border-border flex items-start justify-center pt-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={() => setLeftPanelCollapsed(false)}
-              >
-                <CaretRight className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-
-          {/* Center Panel - Editor (Main, Not Collapsible) */}
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0">
-              <div className="px-4 py-3 border-b border-border flex-shrink-0">
-                <TabsList className="w-full justify-start">
-                  <TabsTrigger value="inputs" className="flex-1">
-                    Входные параметры
-                  </TabsTrigger>
-                  <TabsTrigger value="formulas" className="flex-1">
-                    Формулы
-                  </TabsTrigger>
-                  <TabsTrigger value="outputs" className="flex-1">
-                    Итоги этапа
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <TabsContent value="inputs" className="h-full m-0 p-0">
-                  <ScrollArea className="h-full">
-                    <InputsTab 
-                      inputs={inputsForRender} 
-                      onChange={setInputs} 
-                      issues={validationIssuesForRender}
-                      activeInputId={activeInputId}
-                      onInputSelect={setActiveInputId}
-                      newlyAddedId={newlyAddedInputId}
-                      onNewlyAddedIdChange={setNewlyAddedInputId}
-                    />
-                  </ScrollArea>
-                </TabsContent>
-                <TabsContent value="formulas" className="h-full m-0 p-0">
-                  <ScrollArea className="h-full">
-                    <FormulasTab 
-                      inputs={inputsForRender} 
-                      vars={varsForRender} 
-                      onChange={setVars}
-                      stageIndex={stageIndex}
-                      issues={validationIssuesForRender}
-                      onTextareaFocus={(varId, cursorPosition) => {
-                        setLastTextareaFocus({ varId, cursorPosition })
-                        setLastTemplateFocus(null)
-                      }}
-                      onTextareaBlur={() => setLastTextareaFocus(null)}
-                    />
-                  </ScrollArea>
-                </TabsContent>
-                <TabsContent value="outputs" className="h-full m-0 p-0">
-                  <ScrollArea className="h-full">
-                    <OutputsTab 
-                      vars={varsForRender}
-                      inputs={inputsForRender}
-                      resultsHL={resultsHLForRender}
-                      additionalResults={additionalResultsForRender}
-                      onResultsHLChange={setResultsHL}
-                      onAdditionalResultsChange={setAdditionalResults}
-                      issues={validationIssuesForRender}
-                      offerModel={logicContext?.offer}
-                      parametrValuesScheme={parametrValuesSchemeForRender}
-                      onParametrValuesSchemeChange={setParametrValuesScheme}
-                      parametrNamesPool={globalParametrNames}
-                      onTemplateFocus={(entryId, cursorPosition) => {
-                        setLastTemplateFocus({ entryId, cursorPosition })
-                        setLastTextareaFocus(null)
-                      }}
-                    />
-                  </ScrollArea>
-                </TabsContent>
-              </div>
-            </Tabs>
-          </div>
-
-          {/* Right Panel - Help (Collapsible, Collapsed by Default) */}
-          {!rightPanelCollapsed && (
-            <div className="w-80 border-l border-border flex flex-col overflow-hidden h-full">
-              <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
-                <h3 className="font-medium text-sm">Справка</h3>
+            {/* Collapsed Left Panel Toggle */}
+            {leftPanelCollapsed && (
+              <div className="w-10 border-r border-border flex items-start justify-center pt-4">
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0"
-                  onClick={() => setRightPanelCollapsed(true)}
+                  onClick={() => setLeftPanelCollapsed(false)}
                 >
                   <CaretRight className="w-4 h-4" />
                 </Button>
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <ScrollArea className="h-full">
-                  <div className="p-4">
-                    <Accordion
-                      type="multiple"
-                      value={helpAccordionValues}
-                      onValueChange={setHelpAccordionValues}
-                    >
-                      {/* Syntax Section */}
-                      <AccordionItem value="syntax">
-                        <AccordionTrigger className="text-sm font-medium">Синтаксис</AccordionTrigger>
-                        <AccordionContent>
-                          <TooltipProvider delayDuration={200}>
-                            <div className="flex flex-wrap gap-1.5">
-                              {[
-                                {
-                                  label: 'number',
-                                  insertText: 'number',
-                                  description: 'Числовой тип данных.',
-                                  example: 'Пример: 10, 3.14'
-                                },
-                                {
-                                  label: 'string',
-                                  insertText: 'string',
-                                  description: 'Строковый тип данных.',
-                                  example: 'Пример: "Привет"'
-                                },
-                                {
-                                  label: 'boolean',
-                                  insertText: 'boolean',
-                                  description: 'Логический тип данных (true/false).',
-                                  example: 'Пример: true'
-                                },
-                                {
-                                  label: '==',
-                                  insertText: '==',
-                                  description: 'Проверка равенства.',
-                                  example: 'Пример: a == b'
-                                },
-                                {
-                                  label: '!=',
-                                  insertText: '!=',
-                                  description: 'Проверка неравенства.',
-                                  example: 'Пример: a != b'
-                                },
-                                {
-                                  label: '>',
-                                  insertText: '>',
-                                  description: 'Больше.',
-                                  example: 'Пример: a > b'
-                                },
-                                {
-                                  label: '<',
-                                  insertText: '<',
-                                  description: 'Меньше.',
-                                  example: 'Пример: a < b'
-                                },
-                                {
-                                  label: '>=',
-                                  insertText: '>=',
-                                  description: 'Больше либо равно.',
-                                  example: 'Пример: a >= b'
-                                },
-                                {
-                                  label: '<=',
-                                  insertText: '<=',
-                                  description: 'Меньше либо равно.',
-                                  example: 'Пример: a <= b'
-                                },
-                                {
-                                  label: '&&',
-                                  insertText: '&&',
-                                  description: 'Логическое И.',
-                                  example: 'Пример: a && b'
-                                },
-                                {
-                                  label: '||',
-                                  insertText: '||',
-                                  description: 'Логическое ИЛИ.',
-                                  example: 'Пример: a || b'
-                                },
-                                {
-                                  label: '!',
-                                  insertText: '!',
-                                  description: 'Логическое НЕ.',
-                                  example: 'Пример: !flag'
-                                },
-                                {
-                                  label: 'and',
-                                  insertText: 'and',
-                                  description: 'Альтернатива для &&.',
-                                  example: 'Пример: a and b'
-                                },
-                                {
-                                  label: 'or',
-                                  insertText: 'or',
-                                  description: 'Альтернатива для ||.',
-                                  example: 'Пример: a or b'
-                                },
-                                {
-                                  label: 'not',
-                                  insertText: 'not',
-                                  description: 'Альтернатива для !.',
-                                  example: 'Пример: not flag'
-                                },
-                                {
-                                  label: '+',
-                                  insertText: '+',
-                                  description: 'Сложение.',
-                                  example: 'Пример: a + b'
-                                },
-                                {
-                                  label: '-',
-                                  insertText: '-',
-                                  description: 'Вычитание.',
-                                  example: 'Пример: a - b'
-                                },
-                                {
-                                  label: '*',
-                                  insertText: '*',
-                                  description: 'Умножение.',
-                                  example: 'Пример: a * b'
-                                },
-                                {
-                                  label: '/',
-                                  insertText: '/',
-                                  description: 'Деление.',
-                                  example: 'Пример: a / b'
-                                }
-                              ].map(item => (
-                                <Tooltip key={item.label}>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleInsertIntoFormula(item.insertText)}
-                                      className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
-                                    >
-                                      {item.label}
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs text-xs">
-                                    <div className="font-medium">{item.description}</div>
-                                    <div className="text-muted-foreground">{item.example}</div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              ))}
-                            </div>
-                          </TooltipProvider>
-                        </AccordionContent>
-                      </AccordionItem>
+            )}
+
+            {/* Center Panel - Editor (Main, Not Collapsible) */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0">
+                <div className="px-4 py-3 border-b border-border flex-shrink-0">
+                  <TabsList className="w-full justify-start">
+                    <TabsTrigger value="inputs" className="flex-1">
+                      Входные параметры
+                    </TabsTrigger>
+                    <TabsTrigger value="formulas" className="flex-1">
+                      Формулы
+                    </TabsTrigger>
+                    <TabsTrigger value="outputs" className="flex-1">
+                      Итоги этапа
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <TabsContent value="inputs" className="h-full m-0 p-0">
+                    <ScrollArea className="h-full">
+                      <InputsTab 
+                        inputs={inputsForRender} 
+                        onChange={setInputs} 
+                        issues={validationIssuesForRender}
+                        activeInputId={activeInputId}
+                        onInputSelect={setActiveInputId}
+                        newlyAddedId={newlyAddedInputId}
+                        onNewlyAddedIdChange={setNewlyAddedInputId}
+                      />
+                    </ScrollArea>
+                  </TabsContent>
+                  <TabsContent value="formulas" className="h-full m-0 p-0">
+                    <ScrollArea className="h-full">
+                      <FormulasTab 
+                        inputs={inputsForRender} 
+                        vars={varsForRender} 
+                        onChange={setVars}
+                        stageIndex={stageIndex}
+                        issues={validationIssuesForRender}
+                        onTextareaFocus={(varId, cursorPosition) => {
+                          setLastTextareaFocus({ varId, cursorPosition })
+                          setLastTemplateFocus(null)
+                        }}
+                        onTextareaBlur={() => setLastTextareaFocus(null)}
+                      />
+                    </ScrollArea>
+                  </TabsContent>
+                  <TabsContent value="outputs" className="h-full m-0 p-0">
+                    <ScrollArea className="h-full">
+                      <OutputsTab 
+                        vars={varsForRender}
+                        inputs={inputsForRender}
+                        resultsHL={resultsHLForRender}
+                        additionalResults={additionalResultsForRender}
+                        onResultsHLChange={setResultsHL}
+                        onAdditionalResultsChange={setAdditionalResults}
+                        issues={validationIssuesForRender}
+                        offerModel={logicContext?.offer}
+                        parametrValuesScheme={parametrValuesSchemeForRender}
+                        onParametrValuesSchemeChange={setParametrValuesScheme}
+                        parametrNamesPool={globalParametrNames}
+                        onTemplateFocus={(entryId, cursorPosition) => {
+                          setLastTemplateFocus({ entryId, cursorPosition })
+                          setLastTextareaFocus(null)
+                        }}
+                      />
+                    </ScrollArea>
+                  </TabsContent>
+                </div>
+              </Tabs>
+            </div>
+
+            {/* Right Panel - Help (Collapsible, Collapsed by Default) */}
+            {!rightPanelCollapsed && (
+              <div className="w-80 border-l border-border flex flex-col overflow-hidden h-full">
+                <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
+                  <h3 className="font-medium text-sm">Справка</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => setRightPanelCollapsed(true)}
+                  >
+                    <CaretRight className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <ScrollArea className="h-full">
+                    <div className="p-4">
+                      <Accordion
+                        type="multiple"
+                        value={helpAccordionValues}
+                        onValueChange={setHelpAccordionValues}
+                      >
+                        {/* Syntax Section */}
+                        <AccordionItem value="syntax">
+                          <AccordionTrigger className="text-sm font-medium">Синтаксис</AccordionTrigger>
+                          <AccordionContent>
+                            <TooltipProvider delayDuration={200}>
+                              <div className="flex flex-wrap gap-1.5">
+                                {[
+                                  {
+                                    label: 'number',
+                                    insertText: 'number',
+                                    description: 'Числовой тип данных.',
+                                    example: 'Пример: 10, 3.14'
+                                  },
+                                  {
+                                    label: 'string',
+                                    insertText: 'string',
+                                    description: 'Строковый тип данных.',
+                                    example: 'Пример: "Привет"'
+                                  },
+                                  {
+                                    label: 'boolean',
+                                    insertText: 'boolean',
+                                    description: 'Логический тип данных (true/false).',
+                                    example: 'Пример: true'
+                                  },
+                                  {
+                                    label: '==',
+                                    insertText: '==',
+                                    description: 'Проверка равенства.',
+                                    example: 'Пример: a == b'
+                                  },
+                                  {
+                                    label: '!=',
+                                    insertText: '!=',
+                                    description: 'Проверка неравенства.',
+                                    example: 'Пример: a != b'
+                                  },
+                                  {
+                                    label: '>',
+                                    insertText: '>',
+                                    description: 'Больше.',
+                                    example: 'Пример: a > b'
+                                  },
+                                  {
+                                    label: '<',
+                                    insertText: '<',
+                                    description: 'Меньше.',
+                                    example: 'Пример: a < b'
+                                  },
+                                  {
+                                    label: '>=',
+                                    insertText: '>=',
+                                    description: 'Больше либо равно.',
+                                    example: 'Пример: a >= b'
+                                  },
+                                  {
+                                    label: '<=',
+                                    insertText: '<=',
+                                    description: 'Меньше либо равно.',
+                                    example: 'Пример: a <= b'
+                                  },
+                                  {
+                                    label: '&&',
+                                    insertText: '&&',
+                                    description: 'Логическое И.',
+                                    example: 'Пример: a && b'
+                                  },
+                                  {
+                                    label: '||',
+                                    insertText: '||',
+                                    description: 'Логическое ИЛИ.',
+                                    example: 'Пример: a || b'
+                                  },
+                                  {
+                                    label: '!',
+                                    insertText: '!',
+                                    description: 'Логическое НЕ.',
+                                    example: 'Пример: !flag'
+                                  },
+                                  {
+                                    label: 'and',
+                                    insertText: 'and',
+                                    description: 'Альтернатива для &&.',
+                                    example: 'Пример: a and b'
+                                  },
+                                  {
+                                    label: 'or',
+                                    insertText: 'or',
+                                    description: 'Альтернатива для ||.',
+                                    example: 'Пример: a or b'
+                                  },
+                                  {
+                                    label: 'not',
+                                    insertText: 'not',
+                                    description: 'Альтернатива для !.',
+                                    example: 'Пример: not flag'
+                                  },
+                                  {
+                                    label: '+',
+                                    insertText: '+',
+                                    description: 'Сложение.',
+                                    example: 'Пример: a + b'
+                                  },
+                                  {
+                                    label: '-',
+                                    insertText: '-',
+                                    description: 'Вычитание.',
+                                    example: 'Пример: a - b'
+                                  },
+                                  {
+                                    label: '*',
+                                    insertText: '*',
+                                    description: 'Умножение.',
+                                    example: 'Пример: a * b'
+                                  },
+                                  {
+                                    label: '/',
+                                    insertText: '/',
+                                    description: 'Деление.',
+                                    example: 'Пример: a / b'
+                                  }
+                                ].map(item => (
+                                  <Tooltip key={item.label}>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleInsertIntoFormula(item.insertText)}
+                                        className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
+                                      >
+                                        {item.label}
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs text-xs">
+                                      <div className="font-medium">{item.description}</div>
+                                      <div className="text-muted-foreground">{item.example}</div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ))}
+                              </div>
+                            </TooltipProvider>
+                          </AccordionContent>
+                        </AccordionItem>
 
                       {/* Functions Section */}
                       <AccordionItem value="functions">
@@ -2194,6 +2222,7 @@ export function CalculationLogicDialog({
             </div>
           </div>
         </DialogFooter>
+        </CalculationLogicErrorBoundary>
       </DialogContent>
 
       {/* Help Detail Dialog */}
