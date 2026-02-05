@@ -181,6 +181,10 @@ function warnOnFiltered(label: string, count: number) {
   }
 }
 
+function safeRenderString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
 function sanitizeInputs(rawInputs: InputParam[], label: string): InputParam[] {
   let filteredCount = 0
   const sanitized = rawInputs
@@ -280,6 +284,58 @@ function sanitizeParametrValuesScheme(
 
   warnOnFiltered(label, filteredCount)
   return sanitized
+}
+
+function sanitizeIssues(rawIssues: ValidationIssue[], label: string): ValidationIssue[] {
+  let filteredCount = 0
+  const sanitized = rawIssues
+    .filter(issue => {
+      if (typeof issue?.message !== 'string') {
+        filteredCount += 1
+        return false
+      }
+      return true
+    })
+    .map(issue => ({
+      ...issue,
+      hint: typeof issue.hint === 'string' ? issue.hint : undefined,
+    }))
+
+  warnOnFiltered(label, filteredCount)
+  return sanitized
+}
+
+function hasInvalidInputs(rawInputs: InputParam[]): boolean {
+  return rawInputs.some(input => typeof input?.name !== 'string')
+}
+
+function hasInvalidVars(rawVars: FormulaVar[]): boolean {
+  return rawVars.some(formulaVar => typeof formulaVar?.name !== 'string')
+}
+
+function hasInvalidResultsHL(rawResults: ResultsHL): boolean {
+  return Object.values(rawResults || {}).some(entry => entry && typeof entry.sourceRef !== 'string')
+}
+
+function hasInvalidAdditionalResults(rawResults: AdditionalResult[]): boolean {
+  return rawResults.some(
+    result =>
+      typeof result?.id !== 'string' ||
+      typeof result?.key !== 'string' ||
+      typeof result?.sourceRef !== 'string'
+  )
+}
+
+function hasInvalidParametrValuesScheme(rawEntries: ParametrValuesSchemeEntry[]): boolean {
+  return rawEntries.some(entry => typeof entry?.id !== 'string')
+}
+
+function hasInvalidIssues(rawIssues: ValidationIssue[]): boolean {
+  return rawIssues.some(
+    issue =>
+      typeof issue?.message !== 'string' ||
+      (issue.hint !== undefined && issue.hint !== null && typeof issue.hint !== 'string')
+  )
 }
 
 interface CalculationLogicDialogProps {
@@ -457,21 +513,48 @@ export function CalculationLogicDialog({
     if (draftJson) {
       try {
         const parsed = JSON.parse(draftJson)
+        const rawDraftInputs = Array.isArray(parsed?.inputs) ? parsed.inputs : []
+        const rawDraftVars = Array.isArray(parsed?.vars) ? parsed.vars : []
+        const rawDraftResultsHL = parsed?.resultsHL || createEmptyResultsHL()
+        const rawDraftAdditionalResults = Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : []
+        const rawDraftParametrValuesScheme = Array.isArray(parsed?.parametrValuesScheme) ? parsed.parametrValuesScheme : []
+        const rawDraftIssues = Array.isArray(parsed?.issues) ? parsed.issues : []
+
+        const hasInvalidDraft =
+          hasInvalidInputs(rawDraftInputs) ||
+          hasInvalidVars(rawDraftVars) ||
+          hasInvalidResultsHL(rawDraftResultsHL) ||
+          hasInvalidAdditionalResults(rawDraftAdditionalResults) ||
+          hasInvalidParametrValuesScheme(rawDraftParametrValuesScheme) ||
+          hasInvalidIssues(rawDraftIssues)
+
+        if (hasInvalidDraft) {
+          console.warn('Ignoring invalid draft data for calculation logic', { draftKey })
+          localStorage.removeItem(draftKey)
+          setInputs(savedInputs)
+          setVars(savedVars)
+          setResultsHL(savedResultsHL)
+          setAdditionalResults(savedAdditionalResults)
+          setParametrValuesScheme(savedParametrValuesScheme)
+          setWritePlan([])
+          return
+        }
+
         const draftInputs = sanitizeInputs(
-          Array.isArray(parsed?.inputs) ? parsed.inputs : [],
+          rawDraftInputs,
           'draft inputs'
         )
         const draftVars = sanitizeVars(
-          Array.isArray(parsed?.vars) ? parsed.vars : [],
+          rawDraftVars,
           'draft vars'
         )
-        const draftResultsHL = sanitizeResultsHL(parsed?.resultsHL || createEmptyResultsHL())
+        const draftResultsHL = sanitizeResultsHL(rawDraftResultsHL)
         const draftAdditionalResults = sanitizeAdditionalResults(
-          Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : [],
+          rawDraftAdditionalResults,
           'draft additionalResults'
         )
         const draftParametrValuesScheme = sanitizeParametrValuesScheme(
-          Array.isArray(parsed?.parametrValuesScheme) ? parsed.parametrValuesScheme : [],
+          rawDraftParametrValuesScheme,
           'draft parametrValuesScheme'
         )
         
@@ -1105,7 +1188,7 @@ export function CalculationLogicDialog({
 
   const handleValidate = () => {
     const result = validateAll(inputs, vars, stageIndex, [], resultsHL, writePlan, additionalResults)
-    setValidationIssues(result.issues)
+    setValidationIssues(sanitizeIssues(result.issues, 'validation issues'))
     
     // Also update vars with inferred types
     const symbolTable = new Map<string, ValueType>()
@@ -1145,7 +1228,7 @@ export function CalculationLogicDialog({
   const handleSave = async () => {
     // Финальная проверка
     const result = validateAll(inputs, vars, stageIndex, [], resultsHL, writePlan, additionalResults)
-    setValidationIssues(result.issues)
+    setValidationIssues(sanitizeIssues(result.issues, 'validation issues'))
     
     if (!result.valid) {
       toast.error('Исправьте ошибки перед сохранением')
@@ -1844,16 +1927,23 @@ export function CalculationLogicDialog({
                                 {inputs.length === 0 ? (
                                   <div className="text-xs text-muted-foreground italic">Нет параметров</div>
                                 ) : (
-                                  inputs.map(input => (
+                                  inputs.map(input => {
+                                    const inputName = safeRenderString(input.name)
+                                    return (
                                     <button
                                       key={input.id}
-                                      onClick={() => handleInsertIntoFormula(input.name)}
+                                      onClick={() => {
+                                        if (inputName) {
+                                          handleInsertIntoFormula(inputName)
+                                        }
+                                      }}
                                       className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
-                                      title={`Кликните, чтобы вставить: ${input.name}`}
+                                      title={`Кликните, чтобы вставить: ${inputName}`}
                                     >
-                                      {input.name}
+                                      {inputName}
                                     </button>
-                                  ))
+                                  )
+                                  })
                                 )}
                               </div>
                             </div>
@@ -1865,16 +1955,23 @@ export function CalculationLogicDialog({
                                 {vars.length === 0 ? (
                                   <div className="text-xs text-muted-foreground italic">Нет переменных</div>
                                 ) : (
-                                  vars.map(v => (
+                                  vars.map(v => {
+                                    const varName = safeRenderString(v.name)
+                                    return (
                                     <button
                                       key={v.id}
-                                      onClick={() => handleInsertIntoFormula(v.name)}
+                                      onClick={() => {
+                                        if (varName) {
+                                          handleInsertIntoFormula(varName)
+                                        }
+                                      }}
                                       className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent cursor-pointer"
-                                      title={`Кликните, чтобы вставить: ${v.name}`}
+                                      title={`Кликните, чтобы вставить: ${varName}`}
                                     >
-                                      {v.name}
+                                      {varName}
                                     </button>
-                                  ))
+                                  )
+                                  })
                                 )}
                               </div>
                             </div>
