@@ -932,9 +932,27 @@ function evaluateAst(node: FormulaAstNode, context: Record<string, any>): any {
       }
       const left = evaluateAst(node.left, context)
       const right = evaluateAst(node.right, context)
+      const isNumericValue = (value: unknown): boolean => {
+        if (typeof value === 'number') {
+          return Number.isFinite(value)
+        }
+        if (typeof value === 'string') {
+          const trimmed = value.trim()
+          return trimmed !== '' && Number.isFinite(Number(trimmed))
+        }
+        return false
+      }
+      const toNumericValue = (value: unknown): number => (
+        typeof value === 'number' ? value : Number(value)
+      )
       switch (node.operator) {
         case '+':
-          return typeof left === 'string' || typeof right === 'string' ? String(left) + String(right) : Number(left) + Number(right)
+          if (isNumericValue(left) && isNumericValue(right)) {
+            return toNumericValue(left) + toNumericValue(right)
+          }
+          return typeof left === 'string' || typeof right === 'string'
+            ? String(left) + String(right)
+            : Number(left) + Number(right)
         case '-':
           return Number(left) - Number(right)
         case '*':
@@ -944,13 +962,21 @@ function evaluateAst(node: FormulaAstNode, context: Record<string, any>): any {
         case '%':
           return Number(left) % Number(right)
         case '>':
-          return left > right
+          return isNumericValue(left) && isNumericValue(right)
+            ? toNumericValue(left) > toNumericValue(right)
+            : left > right
         case '<':
-          return left < right
+          return isNumericValue(left) && isNumericValue(right)
+            ? toNumericValue(left) < toNumericValue(right)
+            : left < right
         case '>=':
-          return left >= right
+          return isNumericValue(left) && isNumericValue(right)
+            ? toNumericValue(left) >= toNumericValue(right)
+            : left >= right
         case '<=':
-          return left <= right
+          return isNumericValue(left) && isNumericValue(right)
+            ? toNumericValue(left) <= toNumericValue(right)
+            : left <= right
         case '==':
           return left === right
         case '!=':
