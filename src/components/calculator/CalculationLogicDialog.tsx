@@ -489,11 +489,16 @@ function findWindowPaths(value: unknown, maxDepth = 6): string[] {
 }
 
 function sanitizeContextValue(value: unknown, depth = 0): unknown {
-  if (depth > 6) return null
+  // Увеличена максимальная глубина для предотвращения бесконечной рекурсии
+  const MAX_DEPTH = 5
   
-  // Проверка на browser globals
+  if (depth > MAX_DEPTH) return null
+  
+  // Проверка на циклические ссылки к window/document/global
   if (typeof window !== 'undefined' && value === window) return null
   if (typeof document !== 'undefined' && value === document) return null
+  if (typeof global !== 'undefined' && value === global) return null
+  if (typeof globalThis !== 'undefined' && value === globalThis) return null
   if (typeof navigator !== 'undefined' && value === navigator) return null
   if (typeof location !== 'undefined' && value === location) return null
   if (typeof history !== 'undefined' && value === history) return null
@@ -508,26 +513,52 @@ function sanitizeContextValue(value: unknown, depth = 0): unknown {
     // Ignore instanceof errors
   }
   
+  // Функции не сериализуются
   if (typeof value === 'function') return null
+  
+  // Примитивы возвращаем как есть
   if (value === null || value === undefined) return value
-
+  
   const type = typeof value
   if (type === 'string' || type === 'number' || type === 'boolean') return value
-
+  
+  // Массивы рекурсивно очищаем
   if (Array.isArray(value)) {
-    return value.map(item => sanitizeContextValue(item, depth + 1)).filter(item => item !== null)
+    return value
+      .slice(0, 100) // Ограничить длину массива для предотвращения огромных структур
+      .map(item => sanitizeContextValue(item, depth + 1))
+      .filter(item => item !== null && item !== undefined)
   }
-
+  
+  // Проверка на plain objects
   const tag = Object.prototype.toString.call(value)
   if (tag !== '[object Object]') {
-    return null  // Отсечь всё кроме plain objects
+    // Попытка сериализации для других типов
+    try {
+      return String(value)
+    } catch {
+      return null
+    }
   }
-
+  
+  // Рекурсивная обработка объектов
   const sanitized: Record<string, unknown> = {}
-  Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
-    const next = sanitizeContextValue(val, depth + 1)
-    if (next !== null) sanitized[key] = next
-  })
+  const entries = Object.entries(value as Record<string, unknown>)
+  
+  // Ограничить количество свойств
+  const MAX_PROPERTIES = 50
+  const limitedEntries = entries.slice(0, MAX_PROPERTIES)
+  
+  for (const [key, val] of limitedEntries) {
+    // Пропускать приватные и системные свойства
+    if (key.startsWith('_') || key.startsWith('$')) continue
+    
+    const sanitizedValue = sanitizeContextValue(val, depth + 1)
+    if (sanitizedValue !== null && sanitizedValue !== undefined) {
+      sanitized[key] = sanitizedValue
+    }
+  }
+  
   return sanitized
 }
 
