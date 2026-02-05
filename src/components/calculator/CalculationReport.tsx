@@ -228,8 +228,15 @@ function StageLogItem({
 
   const hasPrices = data.purchasePrice !== undefined && data.basePrice !== undefined
   const logs = data.stageLogs || []
-  const summaryEntries = logs.filter((entry) => entry.type === 'evaluatingVars' || entry.type === 'noVars')
   const variableEntries = logs.filter((entry) => entry.type === 'varFormula' || entry.type === 'varStatic')
+  const inputCount = data.stageInputs?.length ?? 0
+  const variableCount = variableEntries.length
+  const outputCount = data.stageOutputs ? Object.keys(data.stageOutputs).length : 0
+  const defaultSections = [
+    inputCount > 0 ? 'inputs' : null,
+    variableCount > 0 ? 'variables' : null,
+    outputCount > 0 ? 'outputs' : null,
+  ].filter(Boolean) as string[]
 
   return (
     <AccordionItem value={message.id} className="border border-border/60 rounded-md">
@@ -257,96 +264,95 @@ function StageLogItem({
         </div>
       </AccordionTrigger>
       <AccordionContent className="px-3 pb-3 text-xs text-muted-foreground space-y-3">
-        {data.stageInputs && data.stageInputs.length > 0 && (
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-foreground">Входящие параметры</div>
-            <ul className="list-disc list-inside space-y-1">
-              {data.stageInputs.map((input, inputIndex) => (
-                <li key={`${message.id}-input-${inputIndex}`}>
-                  <strong>{input.name}</strong>: {formatLogValue(input.value)}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {summaryEntries.length > 0 && (
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-foreground">Сводка</div>
-            <ul className="list-disc list-inside space-y-1">
-              {summaryEntries.map((entry, entryIndex) => (
-                <li key={`${message.id}-summary-${entryIndex}`}>
-                  {entry.type === 'evaluatingVars'
-                    ? `Запущена обработка ${entry.count ?? 0} переменных`
-                    : 'Нет переменных в логике'}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {variableEntries.length > 0 && (
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-foreground">Переменные</div>
-            <ul className="list-disc list-inside space-y-1">
-              {variableEntries.map((entry, entryIndex) => (
-                <li key={`${message.id}-var-${entryIndex}`}>
-                  <span className="inline-flex items-center gap-2">
-                    <span>
-                      <strong>{entry.name}</strong>
-                      {entry.type === 'varFormula' && entry.formulaPreview ? `: ${entry.formulaPreview}` : ''}
-                      {' = '}
-                      {formatLogValue(entry.value)}
-                    </span>
-                    {entry.type === 'varFormula' && entry.formula ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-flex items-center text-muted-foreground cursor-help">
-                              <Info className="w-3.5 h-3.5" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs text-xs bg-black text-white border border-black">
-                            <div className="space-y-2">
-                              <div>
-                                <div className="font-medium text-white">Формула</div>
-                                <code className="block bg-white px-2 py-1 rounded text-black">{entry.formula}</code>
-                              </div>
-                              {entry.formulaValues && entry.formulaValues.length > 0 && (
-                                <div>
-                                  <div className="font-medium text-white">Значения параметров</div>
-                                  <ul className="list-disc list-inside space-y-1 text-white">
-                                    {entry.formulaValues.map((valueEntry, valueIndex) => (
-                                      <li key={`${message.id}-param-${entryIndex}-${valueIndex}`}>
-                                        <strong>{valueEntry.name}</strong>: {formatLogValue(valueEntry.value)}
-                                      </li>
-                                    ))}
-                                  </ul>
+        <Accordion type="multiple" defaultValue={defaultSections} className="space-y-2">
+          {data.stageInputs && data.stageInputs.length > 0 && (
+            <AccordionItem value="inputs" className="border border-border/60 rounded-md">
+              <AccordionTrigger className="px-2 py-1.5 text-xs font-medium text-foreground hover:no-underline">
+                Входящие параметры ({inputCount})
+              </AccordionTrigger>
+              <AccordionContent className="px-2 pb-2">
+                <ul className="list-disc list-inside space-y-1">
+                  {data.stageInputs.map((input, inputIndex) => (
+                    <li key={`${message.id}-input-${inputIndex}`}>
+                      <strong>{input.name}</strong>: {formatLogValue(input.value)}
+                    </li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          )}
+          {variableEntries.length > 0 && (
+            <AccordionItem value="variables" className="border border-border/60 rounded-md">
+              <AccordionTrigger className="px-2 py-1.5 text-xs font-medium text-foreground hover:no-underline">
+                Переменные ({variableCount})
+              </AccordionTrigger>
+              <AccordionContent className="px-2 pb-2">
+                <ul className="list-disc list-inside space-y-1">
+                  {variableEntries.map((entry, entryIndex) => (
+                    <li key={`${message.id}-var-${entryIndex}`}>
+                      <span className="inline-flex items-center gap-2">
+                        <span>
+                          <strong>{entry.name}</strong>
+                          {entry.type === 'varFormula' && entry.formulaPreview ? `: ${entry.formulaPreview}` : ''}
+                          {' = '}
+                          {formatLogValue(entry.value)}
+                        </span>
+                        {entry.type === 'varFormula' && entry.formula ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center text-muted-foreground cursor-help">
+                                  <Info className="w-3.5 h-3.5" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs text-xs bg-black text-white border border-black">
+                                <div className="space-y-2">
+                                  <div>
+                                    <div className="font-medium text-white">Формула</div>
+                                    <code className="block bg-white px-2 py-1 rounded text-black">{entry.formula}</code>
+                                  </div>
+                                  {entry.formulaValues && entry.formulaValues.length > 0 && (
+                                    <div>
+                                      <div className="font-medium text-white">Значения параметров</div>
+                                      <ul className="list-disc list-inside space-y-1 text-white">
+                                        {entry.formulaValues.map((valueEntry, valueIndex) => (
+                                          <li key={`${message.id}-param-${entryIndex}-${valueIndex}`}>
+                                            <strong>{valueEntry.name}</strong>: {formatLogValue(valueEntry.value)}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : null}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {data.stageOutputs && Object.keys(data.stageOutputs).length > 0 && (
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-foreground">Итоги этапа</div>
-            <ul className="list-disc list-inside space-y-1">
-              {Object.entries(data.stageOutputs).map(([key, value]) => (
-                <li key={`${message.id}-output-${key}`}>
-                  <strong>{key}</strong>: {formatLogValue(value)}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {summaryEntries.length === 0 &&
-          variableEntries.length === 0 &&
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : null}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          )}
+          {data.stageOutputs && Object.keys(data.stageOutputs).length > 0 && (
+            <AccordionItem value="outputs" className="border border-border/60 rounded-md">
+              <AccordionTrigger className="px-2 py-1.5 text-xs font-medium text-foreground hover:no-underline">
+                Итоги этапа ({outputCount})
+              </AccordionTrigger>
+              <AccordionContent className="px-2 pb-2">
+                <ul className="list-disc list-inside space-y-1">
+                  {Object.entries(data.stageOutputs).map(([key, value]) => (
+                    <li key={`${message.id}-output-${key}`}>
+                      <strong>{key}</strong>: {formatLogValue(value)}
+                    </li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          )}
+        </Accordion>
+        {variableEntries.length === 0 &&
           (!data.stageInputs || data.stageInputs.length === 0) &&
           (!data.stageOutputs || Object.keys(data.stageOutputs).length === 0) && (
             <div>Нет данных по этапу.</div>
