@@ -24,6 +24,64 @@ interface OutputsTabProps {
 }
 
 const NONE_VALUE = '__none__'
+const safeRenderString = (value: unknown) => (typeof value === 'string' ? value : '')
+
+const sanitizeStringArray = (values: unknown[]): string[] =>
+  values.filter(value => typeof value === 'string').map(value => value)
+
+const sanitizeInputsForRender = (items: InputParam[]) =>
+  items
+    .filter(item => typeof item?.name === 'string')
+    .map(item => ({
+      ...item,
+      name: String(item.name),
+      sourcePath: String(item.sourcePath ?? ''),
+    }))
+
+const sanitizeVarsForRender = (items: FormulaVar[]) =>
+  items
+    .filter(item => typeof item?.name === 'string')
+    .map(item => ({
+      ...item,
+      name: String(item.name),
+      formula: String(item.formula ?? ''),
+    }))
+
+const sanitizeAdditionalResultsForRender = (items: AdditionalResult[]) =>
+  items
+    .filter(item => typeof item?.id === 'string')
+    .map(item => ({
+      ...item,
+      key: typeof item.key === 'string' ? item.key : '',
+      title: typeof item.title === 'string' ? item.title : String(item.title ?? ''),
+      sourceRef: typeof item.sourceRef === 'string' ? item.sourceRef : '',
+    }))
+
+const sanitizeResultsHLForRender = (results: ResultsHL): ResultsHL => ({
+  width: { sourceKind: results?.width?.sourceKind ?? null, sourceRef: typeof results?.width?.sourceRef === 'string' ? results.width.sourceRef : '' },
+  length: { sourceKind: results?.length?.sourceKind ?? null, sourceRef: typeof results?.length?.sourceRef === 'string' ? results.length.sourceRef : '' },
+  height: { sourceKind: results?.height?.sourceKind ?? null, sourceRef: typeof results?.height?.sourceRef === 'string' ? results.height.sourceRef : '' },
+  weight: { sourceKind: results?.weight?.sourceKind ?? null, sourceRef: typeof results?.weight?.sourceRef === 'string' ? results.weight.sourceRef : '' },
+  purchasingPrice: { sourceKind: results?.purchasingPrice?.sourceKind ?? null, sourceRef: typeof results?.purchasingPrice?.sourceRef === 'string' ? results.purchasingPrice.sourceRef : '' },
+  basePrice: { sourceKind: results?.basePrice?.sourceKind ?? null, sourceRef: typeof results?.basePrice?.sourceRef === 'string' ? results.basePrice.sourceRef : '' },
+})
+
+const sanitizeParametrValuesSchemeForRender = (items: ParametrValuesSchemeEntry[]) =>
+  items
+    .filter(item => typeof item?.id === 'string')
+    .map(item => ({
+      ...item,
+      name: typeof item.name === 'string' ? item.name : String(item.name ?? ''),
+      template: typeof item.template === 'string' ? item.template : String(item.template ?? ''),
+    }))
+
+const sanitizeIssuesForRender = (items: ValidationIssue[]) =>
+  items
+    .filter(issue => typeof issue?.message === 'string')
+    .map(issue => ({
+      ...issue,
+      hint: typeof issue.hint === 'string' ? issue.hint : undefined,
+    }))
 
 export function OutputsTab({ 
   vars,
@@ -39,16 +97,23 @@ export function OutputsTab({
   offerModel,
   onTemplateFocus
 }: OutputsTabProps) {
-  
-  // Helper to create empty ResultsHL if not provided
-  const currentResultsHL = resultsHL || {
+  const safeInputs = sanitizeInputsForRender(inputs)
+  const safeVars = sanitizeVarsForRender(vars)
+  const safeResultsHL = sanitizeResultsHLForRender(resultsHL || {
     width: { sourceKind: null, sourceRef: '' },
     length: { sourceKind: null, sourceRef: '' },
     height: { sourceKind: null, sourceRef: '' },
     weight: { sourceKind: null, sourceRef: '' },
     purchasingPrice: { sourceKind: null, sourceRef: '' },
     basePrice: { sourceKind: null, sourceRef: '' },
-  }
+  })
+  const safeAdditionalResults = sanitizeAdditionalResultsForRender(additionalResults)
+  const safeParametrValuesScheme = sanitizeParametrValuesSchemeForRender(parametrValuesScheme)
+  const safeIssues = sanitizeIssuesForRender(issues)
+  const safeParametrNamesPool = sanitizeStringArray(parametrNamesPool)
+  
+  // Helper to create empty ResultsHL if not provided
+  const currentResultsHL = safeResultsHL
   
   // Handlers for AdditionalResults
   const handleAddAdditionalResult = () => {
@@ -83,12 +148,12 @@ export function OutputsTab({
     }))
   }
   
-  const hasVars = vars.length > 0
-  const hasInputs = inputs.length > 0
-  const offerParametrNames = Array.from(new Set([...parametrNamesPool, 'Название ТП']))
+  const hasVars = safeVars.length > 0
+  const hasInputs = safeInputs.length > 0
+  const offerParametrNames = Array.from(new Set([...safeParametrNamesPool, 'Название ТП']))
   
   // Get result issues grouped by refId
-  const resultIssues = issues.filter(i => i.scope === 'result')
+  const resultIssues = safeIssues.filter(i => i.scope === 'result')
   const resultErrorCount = resultIssues.filter(i => i.severity === 'error').length
   const resultWarningCount = resultIssues.filter(i => i.severity === 'warning').length
 
@@ -109,7 +174,7 @@ export function OutputsTab({
   // Show vars with number type OR unknown type (validation will check at save)
   // and only number inputs
   const numberSources = [
-    ...vars
+    ...safeVars
       .filter(v => {
         if (!v.name?.trim()) return false
         const type = v.inferredType || v.declaredType
@@ -129,7 +194,7 @@ export function OutputsTab({
           label: `${v.name} (переменная${typeLabel})`
         }
       }),
-    ...inputs
+    ...safeInputs
       .filter(i => i.name?.trim() && i.valueType === 'number')
       .map(i => ({ 
         kind: 'input' as const, 
@@ -140,10 +205,10 @@ export function OutputsTab({
 
   // Sources for AdditionalResults (vars + inputs)
   const allSources = [
-    ...vars
+    ...safeVars
       .filter(v => v.name?.trim())
       .map(v => ({ kind: 'var' as const, ref: v.name, label: `${v.name} (перем.)`, type: v.inferredType })),
-    ...inputs
+    ...safeInputs
       .filter(i => i.name?.trim())
       .map(i => ({ kind: 'input' as const, ref: i.name, label: `${i.name} (вход)`, type: i.valueType })),
   ]
@@ -197,7 +262,10 @@ export function OutputsTab({
                       <SelectTrigger className="h-8 text-xs flex-1">
                         <SelectValue placeholder="Не выбрано">
                           {mapping.sourceRef && mapping.sourceKind ? (
-                            <span>{mapping.sourceRef} {mapping.sourceKind === 'var' ? '(переменная)' : '(вход)'}</span>
+                            <span>
+                              {safeRenderString(mapping.sourceRef)}{' '}
+                              {mapping.sourceKind === 'var' ? '(переменная)' : '(вход)'}
+                            </span>
                           ) : null}
                         </SelectValue>
                       </SelectTrigger>
@@ -208,7 +276,7 @@ export function OutputsTab({
                           <SelectLabel>Переменные</SelectLabel>
                           {numberSources.filter(src => src.kind === 'var').map(src => (
                             <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                              {src.ref}
+                              {safeRenderString(src.ref)}
                             </SelectItem>
                           ))}
                         </SelectGroup>
@@ -217,7 +285,7 @@ export function OutputsTab({
                           <SelectLabel>Входные параметры</SelectLabel>
                           {numberSources.filter(src => src.kind === 'input').map(src => (
                             <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                              {src.ref}
+                              {safeRenderString(src.ref)}
                             </SelectItem>
                           ))}
                         </SelectGroup>
@@ -267,7 +335,10 @@ export function OutputsTab({
                       <SelectTrigger className="h-8 text-xs flex-1">
                         <SelectValue placeholder="Не выбрано">
                           {mapping.sourceRef && mapping.sourceKind ? (
-                            <span>{mapping.sourceRef} {mapping.sourceKind === 'var' ? '(переменная)' : '(вход)'}</span>
+                            <span>
+                              {safeRenderString(mapping.sourceRef)}{' '}
+                              {mapping.sourceKind === 'var' ? '(переменная)' : '(вход)'}
+                            </span>
                           ) : null}
                         </SelectValue>
                       </SelectTrigger>
@@ -278,7 +349,7 @@ export function OutputsTab({
                           <SelectLabel>Переменные</SelectLabel>
                           {numberSources.filter(src => src.kind === 'var').map(src => (
                             <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                              {src.ref}
+                              {safeRenderString(src.ref)}
                             </SelectItem>
                           ))}
                         </SelectGroup>
@@ -287,7 +358,7 @@ export function OutputsTab({
                           <SelectLabel>Входные параметры</SelectLabel>
                           {numberSources.filter(src => src.kind === 'input').map(src => (
                             <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                              {src.ref}
+                              {safeRenderString(src.ref)}
                             </SelectItem>
                           ))}
                         </SelectGroup>
@@ -320,7 +391,7 @@ export function OutputsTab({
             </p>
           </div>
 
-          {additionalResults.length === 0 ? (
+          {safeAdditionalResults.length === 0 ? (
             <div className="text-center py-6 text-sm text-muted-foreground border border-dashed rounded-md">
               Дополнительные результаты пока не добавлены
             </div>
@@ -333,7 +404,7 @@ export function OutputsTab({
                   <Label className="text-xs font-medium text-muted-foreground">Значение</Label>
                 </div>
                 
-                {additionalResults.map(item => {
+                {safeAdditionalResults.map(item => {
                   const itemIssues = resultIssues.filter(i => i.refId === item.id)
                   const hasError = itemIssues.some(i => i.severity === 'error')
                   const hasWarning = itemIssues.some(i => i.severity === 'warning')
@@ -358,7 +429,7 @@ export function OutputsTab({
                         />
                         {item.key && (
                           <div className="text-xs text-muted-foreground truncate">
-                            key: {item.key}
+                            key: {safeRenderString(item.key)}
                           </div>
                         )}
                       </div>
@@ -382,11 +453,14 @@ export function OutputsTab({
                           }}
                         >
                           <SelectTrigger className="h-8 text-xs flex-1">
-                            <SelectValue placeholder="Выберите источник...">
-                              {item.sourceRef && item.sourceKind ? (
-                                <span>{item.sourceRef} {item.sourceKind === 'var' ? '(переменная)' : '(вход)'}</span>
-                              ) : null}
-                            </SelectValue>
+                          <SelectValue placeholder="Выберите источник...">
+                            {item.sourceRef && item.sourceKind ? (
+                              <span>
+                                {safeRenderString(item.sourceRef)}{' '}
+                                {item.sourceKind === 'var' ? '(переменная)' : '(вход)'}
+                              </span>
+                            ) : null}
+                          </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
@@ -395,7 +469,7 @@ export function OutputsTab({
                               <SelectLabel>Переменные</SelectLabel>
                               {allSources.filter(src => src.kind === 'var').map(src => (
                                 <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                                  {src.ref}
+                                  {safeRenderString(src.ref)}
                                 </SelectItem>
                               ))}
                             </SelectGroup>
@@ -404,7 +478,7 @@ export function OutputsTab({
                               <SelectLabel>Входные параметры</SelectLabel>
                               {allSources.filter(src => src.kind === 'input').map(src => (
                                 <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                                  {src.ref}
+                                  {safeRenderString(src.ref)}
                                 </SelectItem>
                               ))}
                             </SelectGroup>
@@ -423,8 +497,12 @@ export function OutputsTab({
                             <TooltipContent>
                               {itemIssues.map((issue, idx) => (
                                 <div key={idx}>
-                                  <p>{issue.message}</p>
-                                  {issue.hint && <p className="text-xs text-muted-foreground">{issue.hint}</p>}
+                                  <p>{safeRenderString(issue.message)}</p>
+                                  {issue.hint && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {safeRenderString(issue.hint)}
+                                    </p>
+                                  )}
                                 </div>
                               ))}
                             </TooltipContent>
@@ -468,7 +546,7 @@ export function OutputsTab({
           </p>
         </div>
         <ParametrValuesTable
-          entries={parametrValuesScheme}
+          entries={safeParametrValuesScheme}
           onChange={onParametrValuesSchemeChange}
           existingNames={offerParametrNames}
           onTemplateFocus={onTemplateFocus}
