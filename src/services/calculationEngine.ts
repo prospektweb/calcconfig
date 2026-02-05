@@ -7,7 +7,7 @@
  */
 
 import type { CalculationStageInputEntry, CalculationStageLogEntry } from '@/lib/types'
-import { Detail, Binding, StageInstance } from '@/lib/types'
+import { Detail, Binding, StageInstance, type Iblock } from '@/lib/types'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
 import { useOperationVariantStore } from '@/stores/operation-variant-store'
 import { useMaterialVariantStore } from '@/stores/material-variant-store'
@@ -120,6 +120,25 @@ function extractParametrScheme(stageElement: any, propertyCode: string): Paramet
 
 const OFFER_NAME_PARAM = 'Название ТП'
 
+const resolveEnumDisplayValue = (value: unknown, iblocks?: Iblock[]): string | undefined => {
+  if (value === null || value === undefined || !Array.isArray(iblocks)) {
+    return undefined
+  }
+  const raw = String(value)
+  for (const iblock of iblocks) {
+    const properties = iblock.properties ?? []
+    for (const property of properties) {
+      const enums = property.ENUMS ?? []
+      for (const entry of enums) {
+        if (entry.XML_ID === raw) {
+          return entry.VALUE
+        }
+      }
+    }
+  }
+  return undefined
+}
+
 function applyParametrScheme(
   entries: ParametrSchemeEntry[],
   accumulator: Map<string, string>,
@@ -127,6 +146,7 @@ function applyParametrScheme(
   options?: {
     onOfferName?: (value: string) => void
     previousOfferName?: string
+    iblocks?: Iblock[]
   }
 ): void {
   let currentOfferName = options?.previousOfferName ?? ''
@@ -142,6 +162,16 @@ function applyParametrScheme(
       if (!key) return ''
       if (key === 'self') {
         return previous
+      }
+      if (key.endsWith('~')) {
+        const baseKey = key.slice(0, -1).trim()
+        if (!baseKey) return ''
+        const rawValue = scope[baseKey]
+        if (rawValue === null || rawValue === undefined) {
+          return ''
+        }
+        const readableValue = resolveEnumDisplayValue(rawValue, options?.iblocks)
+        return readableValue ?? String(rawValue)
       }
       const replacement = scope[key]
       if (replacement === null || replacement === undefined) {
@@ -314,6 +344,7 @@ async function calculateStage(
               parametrAccumulator.offerName = value
             },
             previousOfferName: parametrAccumulator.offerName,
+            iblocks: initPayload?.iblocks,
           })
         }
         
