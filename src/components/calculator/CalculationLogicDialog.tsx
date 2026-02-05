@@ -489,12 +489,12 @@ function findWindowPaths(value: unknown, maxDepth = 6): string[] {
 }
 
 function sanitizeContextValue(value: unknown, depth = 0): unknown {
-  // Увеличена максимальная глубина для предотвращения бесконечной рекурсии
+  // Уменьшена максимальная глубина для предотвращения бесконечной рекурсии
   const MAX_DEPTH = 5
   
   if (depth > MAX_DEPTH) return null
   
-  // Проверка на циклические ссылки к window/document/global
+  // Проверка на глобальные объекты
   if (typeof window !== 'undefined' && value === window) return null
   if (typeof document !== 'undefined' && value === document) return null
   if (typeof global !== 'undefined' && value === global) return null
