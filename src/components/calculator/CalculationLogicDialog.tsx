@@ -598,6 +598,9 @@ export function CalculationLogicDialog({
     return Array.from(names).sort((a, b) => a.localeCompare(b, 'ru'))
   }, [initPayload])
 
+  const logicContext = useMemo(() => buildLogicContext(initPayload), [initPayload])
+
+
   const inputsForRender = useMemo(() => sanitizeInputsForRender(inputs), [inputs])
   const varsForRender = useMemo(() => sanitizeVarsForRender(vars), [vars])
   const resultsHLForRender = useMemo(() => sanitizeResultsHLForRender(resultsHL), [resultsHL])
@@ -1225,7 +1228,6 @@ export function CalculationLogicDialog({
   const visibleStages = allStages.slice(0, stageIndex + 1)
 
   // Build context for the left panel (without selectedOffers)
-  const logicContext = useMemo(() => buildLogicContext(initPayload), [initPayload])
 
   const handleLeafClick = (path: string, value: any, type: string) => {
     // If there's an active input, update its path
