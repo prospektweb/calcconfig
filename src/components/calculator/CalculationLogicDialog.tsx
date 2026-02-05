@@ -488,11 +488,14 @@ function findWindowPaths(value: unknown, maxDepth = 6): string[] {
   return results
 }
 
+// Constants for sanitizeContextValue
+const SANITIZE_MAX_DEPTH = 5
+const SANITIZE_MAX_ARRAY_LENGTH = 100
+const SANITIZE_MAX_PROPERTIES = 50
+
 function sanitizeContextValue(value: unknown, depth = 0): unknown {
   // Уменьшена максимальная глубина для предотвращения бесконечной рекурсии
-  const MAX_DEPTH = 5
-  
-  if (depth > MAX_DEPTH) return null
+  if (depth > SANITIZE_MAX_DEPTH) return null
   
   // Проверка на глобальные объекты
   if (typeof window !== 'undefined' && value === window) return null
@@ -525,7 +528,7 @@ function sanitizeContextValue(value: unknown, depth = 0): unknown {
   // Массивы рекурсивно очищаем
   if (Array.isArray(value)) {
     return value
-      .slice(0, 100) // Ограничить длину массива для предотвращения огромных структур
+      .slice(0, SANITIZE_MAX_ARRAY_LENGTH) // Ограничить длину массива для предотвращения огромных структур
       .map(item => sanitizeContextValue(item, depth + 1))
       .filter(item => item !== null && item !== undefined)
   }
@@ -546,8 +549,7 @@ function sanitizeContextValue(value: unknown, depth = 0): unknown {
   const entries = Object.entries(value as Record<string, unknown>)
   
   // Ограничить количество свойств
-  const MAX_PROPERTIES = 50
-  const limitedEntries = entries.slice(0, MAX_PROPERTIES)
+  const limitedEntries = entries.slice(0, SANITIZE_MAX_PROPERTIES)
   
   for (const [key, val] of limitedEntries) {
     // Пропускать приватные и системные свойства
