@@ -20,6 +20,7 @@ interface OutputsTabProps {
   parametrNamesPool?: string[]
   issues?: ValidationIssue[]
   offerModel?: any
+  onTemplateFocus?: (entryId: string, cursorPosition: number) => void
 }
 
 const NONE_VALUE = '__none__'
@@ -35,7 +36,8 @@ export function OutputsTab({
   onParametrValuesSchemeChange,
   parametrNamesPool = [],
   issues = [],
-  offerModel
+  offerModel,
+  onTemplateFocus
 }: OutputsTabProps) {
   
   // Helper to create empty ResultsHL if not provided
@@ -462,13 +464,14 @@ export function OutputsTab({
         <div>
           <h3 className="text-sm font-medium mb-1">Параметры торгового предложения</h3>
           <p className="text-xs text-muted-foreground">
-            Определите шаблоны, на основании которых будут формироваться данные для названия ТП и свойства PARAMETR_VALUES.
+            Определите шаблоны, на основании которых будут формироваться данные для названия ТП и свойства PARAMETR_VALUES. Используйте {self} для вставки текущего значения.
           </p>
         </div>
         <ParametrValuesTable
           entries={parametrValuesScheme}
           onChange={onParametrValuesSchemeChange}
           existingNames={offerParametrNames}
+          onTemplateFocus={onTemplateFocus}
         />
       </div>
     </div>
@@ -479,10 +482,12 @@ function ParametrValuesTable({
   entries,
   onChange,
   existingNames,
+  onTemplateFocus,
 }: {
   entries: ParametrValuesSchemeEntry[]
   onChange?: (entries: ParametrValuesSchemeEntry[]) => void
   existingNames: string[]
+  onTemplateFocus?: (entryId: string, cursorPosition: number) => void
 }) {
   const showEmptyRow = entries.length === 0
 
@@ -560,6 +565,18 @@ function ParametrValuesTable({
                 onChange={(event) => handleChange(entry.id, { template: event.target.value })}
                 placeholder="Шаблон значения"
                 className="h-8 text-xs"
+                onFocus={(event) => {
+                  const target = event.target as HTMLInputElement
+                  onTemplateFocus?.(entry.id, target.selectionStart ?? target.value.length)
+                }}
+                onSelect={(event) => {
+                  const target = event.target as HTMLInputElement
+                  onTemplateFocus?.(entry.id, target.selectionStart ?? target.value.length)
+                }}
+                onBlur={(event) => {
+                  const target = event.target as HTMLInputElement
+                  onTemplateFocus?.(entry.id, target.selectionStart ?? target.value.length)
+                }}
               />
             </div>
           ))
