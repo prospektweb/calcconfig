@@ -304,20 +304,29 @@ interface TagCloudProps {
   onAddInput: (path: string, name: string, valueType: ValueType) => void
 }
 
+const safeRenderString = (value: unknown): string => (typeof value === 'string' ? value : '')
+
 function TagCloud({ items, onAddInput }: TagCloudProps) {
   return (
     <div className="flex flex-wrap gap-1.5">
-      {items.map(item => (
-        <button 
-          key={item.code}
-          onClick={() => onAddInput(item.path, item.name, item.type)}
-          className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent whitespace-nowrap cursor-pointer overflow-hidden text-ellipsis"
-          style={{ maxWidth: '280px' }}
-          title={item.label}
-        >
-          {item.label}
-        </button>
-      ))}
+      {items.map(item => {
+        const label = safeRenderString(item.label)
+        return (
+          <button 
+            key={item.code}
+            onClick={() => {
+              if (typeof item.name === 'string') {
+                onAddInput(item.path, item.name, item.type)
+              }
+            }}
+            className="px-2 py-0.5 text-xs rounded-md bg-muted hover:bg-accent whitespace-nowrap cursor-pointer overflow-hidden text-ellipsis"
+            style={{ maxWidth: '280px' }}
+            title={label}
+          >
+            {label}
+          </button>
+        )
+      })}
     </div>
   )
 }
