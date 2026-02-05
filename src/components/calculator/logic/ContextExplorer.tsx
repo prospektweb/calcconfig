@@ -523,7 +523,7 @@ function ElementSection({ title, element, elementType, section, subsection, inde
   return (
     <AccordionItem value={`${elementType}-${index ?? 0}`} className="border-none">
       <AccordionTrigger className="text-xs hover:no-underline py-2 [&[data-state=open]>svg]:rotate-90">
-        {title}
+        {safeRenderString(title)}
       </AccordionTrigger>
       <AccordionContent className="pb-2">
         <div>
@@ -975,7 +975,7 @@ export function ContextExplorer({
                   return (
                     <AccordionItem key={prevStage.stageId} value={`prev-stage-${prevStage.stageId}`} className="border-none">
                       <AccordionTrigger className="text-xs hover:no-underline py-2 [&[data-state=open]>svg]:rotate-90">
-                        {prevStage.stageName}
+                        {safeRenderString(prevStage.stageName)}
                       </AccordionTrigger>
                       <AccordionContent className="pb-2">
                         <Accordion type="multiple" className="pl-2.5 space-y-1">

@@ -1411,9 +1411,15 @@ export function CalculationLogicDialog({
               <DialogTitle className="text-lg font-semibold">
                 Логика расчёта
               </DialogTitle>
+              {(() => {
+                const safeStageName = safeRenderString(stageName)
+                const safeCalculatorName = safeRenderString(calculatorName)
+                return (
               <p className="text-sm text-muted-foreground mt-1">
-                Этап #{stageIndex + 1}{stageName ? `: ${stageName}` : ''} • Калькулятор: {calculatorName || 'Не выбран'}
+                  Этап #{stageIndex + 1}{safeStageName ? `: ${safeStageName}` : ''} • Калькулятор: {safeCalculatorName || 'Не выбран'}
               </p>
+                )
+              })()}
             </div>
             <div className="flex items-center gap-2">
               <Button
