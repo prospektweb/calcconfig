@@ -831,6 +831,27 @@ export function CalculationLogicDialog({
       setHelpAccordionValues(['syntax', 'functions'])
       setLastTemplateFocus(null)
     } else if (tab === 'outputs') {
+      const toType = (value: unknown) => Object.prototype.toString.call(value)
+      const toKeys = (value: unknown) =>
+        value && typeof value === 'object' ? Object.keys(value as Record<string, unknown>) : []
+
+      console.groupCollapsed('[calcconfig][diagnostic] outputs tab render snapshot')
+      console.log('stageIndex', stageIndex)
+      console.log('stageName', toType(stageName), stageName)
+      console.log('calculatorName', toType(calculatorName), calculatorName)
+      console.log('inputs[0].name', toType(inputs?.[0]?.name), inputs?.[0]?.name)
+      console.log('vars[0].name', toType(vars?.[0]?.name), vars?.[0]?.name)
+      console.log('resultsHL', toType(resultsHL), toKeys(resultsHL))
+      console.log('resultsHL.width.sourceRef', toType(resultsHL?.width?.sourceRef), resultsHL?.width?.sourceRef)
+      console.log('additionalResults[0]', toType(additionalResults?.[0]), toKeys(additionalResults?.[0]))
+      console.log('additionalResults[0].key', toType(additionalResults?.[0]?.key), additionalResults?.[0]?.key)
+      console.log('parametrValuesScheme[0]', toType(parametrValuesScheme?.[0]), toKeys(parametrValuesScheme?.[0]))
+      console.log('issues[0]', toType(validationIssues?.[0]), toKeys(validationIssues?.[0]))
+      console.log('issues[0].message', toType(validationIssues?.[0]?.message), validationIssues?.[0]?.message)
+      console.log('issues[0].hint', toType(validationIssues?.[0]?.hint), validationIssues?.[0]?.hint)
+      console.log('logicContext', toType(logicContext), toKeys(logicContext))
+      console.groupEnd()
+
       setLeftPanelCollapsed(true)   // Close Context
       setRightPanelCollapsed(false) // Open Help
       setHelpAccordionValues(['params-vars'])
