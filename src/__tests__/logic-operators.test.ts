@@ -7,9 +7,11 @@ export function runLogicOperatorTests(): void {
   const context = { a: true, b: false }
   const keywordResult = evaluateFormula('if(a and b, 1, 0)', context)
   const symbolicResult = evaluateFormula('if(a && b, 1, 0)', context)
+  const numericIfResult = evaluateFormula('if(2150>(1000+150),0,(2150-1000-150))', {})
 
   assert.equal(keywordResult, 0)
   assert.equal(symbolicResult, 0)
+  assert.equal(numericIfResult, 0)
 
   const symbols: SymbolTable = {
     a: { kind: 'input', name: 'a', declaredType: 'bool' },
