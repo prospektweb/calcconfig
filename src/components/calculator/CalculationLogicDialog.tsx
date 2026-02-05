@@ -175,6 +175,113 @@ function buildParametrValuesSchemeFromInit(
   }))
 }
 
+function warnOnFiltered(label: string, count: number) {
+  if (count > 0) {
+    console.warn(`[calcconfig] Filtered ${count} invalid ${label} entries`)
+  }
+}
+
+function sanitizeInputs(rawInputs: InputParam[], label: string): InputParam[] {
+  let filteredCount = 0
+  const sanitized = rawInputs
+    .filter(input => {
+      if (typeof input?.name !== 'string') {
+        filteredCount += 1
+        return false
+      }
+      return true
+    })
+    .map(input => ({
+      ...input,
+      name: String(input.name),
+      sourcePath: String(input.sourcePath ?? ''),
+    }))
+
+  warnOnFiltered(label, filteredCount)
+  return sanitized
+}
+
+function sanitizeVars(rawVars: FormulaVar[], label: string): FormulaVar[] {
+  let filteredCount = 0
+  const sanitized = rawVars
+    .filter(formulaVar => {
+      if (typeof formulaVar?.name !== 'string') {
+        filteredCount += 1
+        return false
+      }
+      return true
+    })
+    .map(formulaVar => ({
+      ...formulaVar,
+      name: String(formulaVar.name),
+      formula: String(formulaVar.formula ?? ''),
+    }))
+
+  warnOnFiltered(label, filteredCount)
+  return sanitized
+}
+
+function sanitizeResultsHL(rawResults: ResultsHL): ResultsHL {
+  const safeResults = createEmptyResultsHL()
+
+  Object.keys(safeResults).forEach(key => {
+    const resultKey = key as keyof ResultsHL
+    const entry = rawResults?.[resultKey]
+    if (entry) {
+      safeResults[resultKey] = {
+        ...entry,
+        sourceRef: typeof entry.sourceRef === 'string' ? entry.sourceRef : '',
+      }
+    }
+  })
+
+  return safeResults
+}
+
+function sanitizeAdditionalResults(rawResults: AdditionalResult[], label: string): AdditionalResult[] {
+  let filteredCount = 0
+  const sanitized = rawResults
+    .filter(result => {
+      if (typeof result?.id !== 'string' || typeof result?.key !== 'string' || typeof result?.sourceRef !== 'string') {
+        filteredCount += 1
+        return false
+      }
+      return true
+    })
+    .map(result => ({
+      ...result,
+      key: String(result.key),
+      title: String(result.title ?? ''),
+      sourceRef: String(result.sourceRef),
+    }))
+
+  warnOnFiltered(label, filteredCount)
+  return sanitized
+}
+
+function sanitizeParametrValuesScheme(
+  rawEntries: ParametrValuesSchemeEntry[],
+  label: string
+): ParametrValuesSchemeEntry[] {
+  let filteredCount = 0
+  const sanitized = rawEntries
+    .filter(entry => {
+      if (typeof entry?.id !== 'string') {
+        filteredCount += 1
+        return false
+      }
+      return true
+    })
+    .map(entry => ({
+      ...entry,
+      name: String(entry.name ?? ''),
+      template: String(entry.template ?? ''),
+    }))
+
+  warnOnFiltered(label, filteredCount)
+  return sanitized
+}
+
 interface CalculationLogicDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -320,23 +427,29 @@ export function CalculationLogicDialog({
       const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
       const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
       const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
-      savedInputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
+      savedInputs = sanitizeInputs(
+        buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc),
+        'init inputs'
+      )
       
       // Build vars from LOGIC_JSON (pass entire property object for proper parsing)
       const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
-      savedVars = buildVarsFromInit(logicJsonProp)
+      savedVars = sanitizeVars(buildVarsFromInit(logicJsonProp), 'init vars')
       
       // Build results from OUTPUTS
       const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
       const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
       const inputNames = savedInputs.map(inp => inp.name)
       const results = buildResultsFromInit(outputsValue, outputsDesc, inputNames)
-      savedResultsHL = results.resultsHL
-      savedAdditionalResults = results.additionalResults
+      savedResultsHL = sanitizeResultsHL(results.resultsHL)
+      savedAdditionalResults = sanitizeAdditionalResults(results.additionalResults, 'init additionalResults')
 
       const schemeValue = stageElement?.properties?.SCHEME_PARAMETR_VALUES?.VALUE as string[] | undefined
       const schemeDescription = stageElement?.properties?.SCHEME_PARAMETR_VALUES?.DESCRIPTION as string[] | undefined
-      savedParametrValuesScheme = buildParametrValuesSchemeFromInit(schemeValue, schemeDescription)
+      savedParametrValuesScheme = sanitizeParametrValuesScheme(
+        buildParametrValuesSchemeFromInit(schemeValue, schemeDescription),
+        'init parametrValuesScheme'
+      )
     }
     
     // Try localStorage draft
@@ -344,11 +457,23 @@ export function CalculationLogicDialog({
     if (draftJson) {
       try {
         const parsed = JSON.parse(draftJson)
-        const draftInputs = Array.isArray(parsed?.inputs) ? parsed.inputs : []
-        const draftVars = Array.isArray(parsed?.vars) ? parsed.vars : []
-        const draftResultsHL = parsed?.resultsHL || createEmptyResultsHL()
-        const draftAdditionalResults = Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : []
-        const draftParametrValuesScheme = Array.isArray(parsed?.parametrValuesScheme) ? parsed.parametrValuesScheme : []
+        const draftInputs = sanitizeInputs(
+          Array.isArray(parsed?.inputs) ? parsed.inputs : [],
+          'draft inputs'
+        )
+        const draftVars = sanitizeVars(
+          Array.isArray(parsed?.vars) ? parsed.vars : [],
+          'draft vars'
+        )
+        const draftResultsHL = sanitizeResultsHL(parsed?.resultsHL || createEmptyResultsHL())
+        const draftAdditionalResults = sanitizeAdditionalResults(
+          Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : [],
+          'draft additionalResults'
+        )
+        const draftParametrValuesScheme = sanitizeParametrValuesScheme(
+          Array.isArray(parsed?.parametrValuesScheme) ? parsed.parametrValuesScheme : [],
+          'draft parametrValuesScheme'
+        )
         
         // Compare draft with saved data from INIT
         const draftStateJson = JSON.stringify({
@@ -439,19 +564,31 @@ export function CalculationLogicDialog({
         const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
         const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
         const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
-        const savedInputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
+        const savedInputs = sanitizeInputs(
+          buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc),
+          'init inputs'
+        )
         
         const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
-        const savedVars = buildVarsFromInit(logicJsonProp)
+        const savedVars = sanitizeVars(buildVarsFromInit(logicJsonProp), 'init vars')
         
         const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
         const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
         const inputNames = savedInputs.map(inp => inp.name)
-        const { resultsHL: savedResultsHL, additionalResults: savedAdditionalResults } = buildResultsFromInit(outputsValue, outputsDesc, inputNames)
+        const { resultsHL: rawResultsHL, additionalResults: rawAdditionalResults } = buildResultsFromInit(
+          outputsValue,
+          outputsDesc,
+          inputNames
+        )
+        const savedResultsHL = sanitizeResultsHL(rawResultsHL)
+        const savedAdditionalResults = sanitizeAdditionalResults(rawAdditionalResults, 'init additionalResults')
 
         const schemeValue = stageElement?.properties?.SCHEME_PARAMETR_VALUES?.VALUE as string[] | undefined
         const schemeDescription = stageElement?.properties?.SCHEME_PARAMETR_VALUES?.DESCRIPTION as string[] | undefined
-        const savedParametrValuesScheme = buildParametrValuesSchemeFromInit(schemeValue, schemeDescription)
+        const savedParametrValuesScheme = sanitizeParametrValuesScheme(
+          buildParametrValuesSchemeFromInit(schemeValue, schemeDescription),
+          'init parametrValuesScheme'
+        )
         
         return JSON.stringify({
           version: 1,
