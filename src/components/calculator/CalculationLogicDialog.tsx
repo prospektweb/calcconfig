@@ -1763,7 +1763,7 @@ export function CalculationLogicDialog({
                     ) : (
                       <div className="p-4" data-pwcode="logic-context-tree">
                       <ContextExplorer
-                        initPayload={logicContextForRender as InitPayload}
+                        initPayload={initPayload}
                           currentStageId={currentStageId}
                           currentDetailId={currentDetailId}
                           currentBindingId={currentBindingId}
