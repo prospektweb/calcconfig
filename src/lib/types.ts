@@ -369,3 +369,76 @@ export interface Iblock {
   name: string
   parent: number | null
 }
+
+// ============================================================================
+// Calculation History Types - For storing calculation results in HighloadBlock
+// ============================================================================
+
+/**
+ * Stage information in calculation history structure
+ */
+export interface CalculationHistoryStage {
+  stageId: string
+  stageName: string
+  operationCost: number
+  materialCost: number
+  totalCost: number
+  currency: string
+  logicApplied?: boolean
+  variables?: Record<string, any>
+  outputs?: Record<string, any>
+}
+
+/**
+ * Structure item representing a detail or binding in calculation history
+ */
+export interface CalculationStructureItem {
+  id: string
+  name: string
+  type: 'detail' | 'binding'
+  // Этапы (для деталей и скреплений)
+  stages: CalculationHistoryStage[]
+  // Дочерние элементы (для скреплений)
+  children?: CalculationStructureItem[]
+  // Итоги элемента
+  totals: {
+    purchasePrice: number
+    basePrice: number
+    currency: string
+  }
+}
+
+/**
+ * Complete calculation history JSON structure for a single trade offer
+ * This is what gets stored in HighloadBlock
+ */
+export interface CalculationHistoryJson {
+  offerId: number
+  offerName: string
+  productId: number
+  productName: string
+  presetId: number
+  presetName: string
+  timestamp: number
+  // Структура: скрепления → детали → этапы → итоги
+  structure: CalculationStructureItem[]
+  // Итого по всему ТП
+  totals: {
+    purchasePrice: number
+    basePrice: number
+    currency: string
+    // Ценовые диапазоны с наценками
+    priceRangesWithMarkup?: Array<{
+      quantityFrom: number | null
+      quantityTo: number | null
+      prices: Array<{
+        typeId: number
+        typeName: string
+        purchasePrice: number
+        basePrice: number
+        currency: string
+      }>
+    }>
+    parametrValues?: Record<string, string>
+  }
+}
