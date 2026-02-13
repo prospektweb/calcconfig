@@ -16,6 +16,7 @@ export type MessageType =
   | 'CALC_RUN'        // iframe → bitrix: запуск расчёта
   | 'CALC_INFO'       // bitrix → iframe: информация о расчёте
   | 'SAVE_CALCULATION_REQUEST'
+  | 'SAVE_CALCULATION_PROGRESS' // bitrix → iframe: прогресс сохранения результатов расчёта
   
   // Legacy responses (still in use)
   | 'SELECT_DONE'
@@ -156,6 +157,20 @@ export interface CalcInfoPayload {
     offerId: number
     // ... данные для отображения
   }>
+}
+
+export interface SaveCalculationProgressPayload {
+  step: 'start' | 'item' | 'complete'
+  total: number
+  processed: number
+  success: number
+  failed: number
+  percent: number
+  item?: {
+    offerId: number
+    historyId: number
+    status: string
+  }
 }
 
 /**
