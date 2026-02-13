@@ -71,7 +71,7 @@ function convertDetailToStructureItem(detail: CalculationDetailResult): Calculat
   // Calculate totals according to the rules:
   // - Итог последнего этапа внутри детали = итог детали
   // - Итог последнего этапа скрепления = итог скрепления
-  // - Если у скрепления нет собственных итогов, то итогом скрепления являются итоги последнего этапа последней детали
+  // - Если у скрепления нет собственных этапов, то итогом скрепления являются итоги последнего этапа последней детали
   
   let totals: CalculationStructureItem['totals']
   
@@ -83,10 +83,21 @@ function convertDetailToStructureItem(detail: CalculationDetailResult): Calculat
       basePrice: lastStage.outputs?.basePrice ?? lastStage.totalCost,
       currency: lastStage.currency || 'RUB',
     }
-  } else if (detail.type === 'binding' && children && children.length > 0) {
-    // If it's a binding with no stages but has children, use the last child's totals
+  } else if (detail.detailType === 'binding' && children && children.length > 0) {
+    // If it's a binding with no stages but has children, use the last child's last stage totals
     const lastChild = children[children.length - 1]
-    totals = lastChild.totals
+    // Get the last stage of the last child
+    if (lastChild.stages.length > 0) {
+      const lastStage = lastChild.stages[lastChild.stages.length - 1]
+      totals = {
+        purchasePrice: lastStage.outputs?.purchasingPrice ?? lastStage.totalCost,
+        basePrice: lastStage.outputs?.basePrice ?? lastStage.totalCost,
+        currency: lastStage.currency || 'RUB',
+      }
+    } else {
+      // If the last child also has no stages, use its totals
+      totals = lastChild.totals
+    }
   } else {
     // Fallback to detail's own totals
     totals = {
