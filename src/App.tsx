@@ -48,7 +48,7 @@ import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { DragOverlay } from '@/components/drag/DragOverlay'
 import { useDragContext, DragProvider } from '@/contexts/DragContext'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
-import { postMessageBridge, InitPayload, CalcInfoPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload } from '@/lib/postmessage-bridge'
+import { postMessageBridge, InitPayload, CalcInfoPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload, SaveCalcHistoryResponsePayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext, openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
@@ -58,6 +58,8 @@ import { useOperationVariantStore } from '@/stores/operation-variant-store'
 import { useMaterialVariantStore } from '@/stores/material-variant-store'
 import { transformBitrixTreeSelectElement, transformBitrixTreeSelectChild } from '@/lib/bitrix-transformers'
 import { calculateStageReadiness, hasDraftForStage } from '@/lib/stage-utils'
+import { buildCalculationHistoryJson } from '@/services/calculationHistoryBuilder'
+import type { CalculationOfferResult } from '@/services/calculationEngine'
 
 // Helper function to check if targetBinding is a descendant of sourceBinding
 function isDescendant(
@@ -124,6 +126,13 @@ function App() {
   
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
+  
+  // State for saving history
+  const [isSavingHistory, setIsSavingHistory] = useState(false)
+  const [savingHistoryProgress, setSavingHistoryProgress] = useState(0) // 0-100
+  const [savingHistoryTotal, setSavingHistoryTotal] = useState(0)
+  const [savingHistorySaved, setSavingHistorySaved] = useState(0)
+  const [savingHistoryErrors, setSavingHistoryErrors] = useState<string[]>([])
 
   const dragContext = useDragContext()
 
@@ -1360,26 +1369,107 @@ function App() {
   }
   
   // New state for calculation results
-  const [calculationResults, setCalculationResults] = useState<any[]>([])
+  const [calculationResults, setCalculationResults] = useState<CalculationOfferResult[]>([])
   const [hasSuccessfulCalculations, setHasSuccessfulCalculations] = useState(false)
   
-  // New function to save successful calculations
-  const handleSaveCalculations = () => {
+  // New function to save successful calculations with sequential history saving
+  const handleSaveCalculations = async () => {
     if (!hasSuccessfulCalculations || calculationResults.length === 0) {
       toast.warning('Нет успешных расчётов для сохранения')
       return
     }
     
-    console.log('[SAVE_CALC] Saving calculations', { count: calculationResults.length })
+    console.log('[SAVE_CALC_HISTORY] Starting sequential save', { count: calculationResults.length })
     
-    postMessageBridge.sendSaveCalculationRequest({
-      results: calculationResults,
-      timestamp: Date.now(),
-    })
+    // Initialize progress state
+    setIsSavingHistory(true)
+    setSavingHistoryTotal(calculationResults.length)
+    setSavingHistorySaved(0)
+    setSavingHistoryProgress(0)
+    setSavingHistoryErrors([])
     
-    toast.success('Результаты расчёта отправлены')
-    setCalculationResults([])
-    setHasSuccessfulCalculations(false)
+    const errors: string[] = []
+    
+    // Process each offer sequentially
+    for (let i = 0; i < calculationResults.length; i++) {
+      const result = calculationResults[i]
+      
+      try {
+        console.log(`[SAVE_CALC_HISTORY] Processing offer ${i + 1}/${calculationResults.length}`, {
+          offerId: result.offerId,
+          offerName: result.offerName
+        })
+        
+        // Build history JSON
+        const historyJson = buildCalculationHistoryJson(result, bitrixMeta)
+        
+        // Create promise that will be resolved when we receive SAVE_CALC_HISTORY_RESPONSE
+        const savePromise = new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error(`Timeout waiting for response for offer ${result.offerId}`))
+          }, 30000) // 30 second timeout
+          
+          // Set up one-time listener for this specific offer
+          const unsubscribe = postMessageBridge.on('SAVE_CALC_HISTORY_RESPONSE', (message) => {
+            const payload = message.payload as SaveCalcHistoryResponsePayload
+            
+            // Check if this is the response we're waiting for
+            if (payload.offerId === result.offerId && payload.currentIndex === i) {
+              clearTimeout(timeout)
+              unsubscribe()
+              
+              if (payload.success) {
+                console.log(`[SAVE_CALC_HISTORY] Offer ${result.offerId} saved successfully`, {
+                  hlblockRecordId: payload.hlblockRecordId
+                })
+                resolve()
+              } else {
+                console.error(`[SAVE_CALC_HISTORY] Failed to save offer ${result.offerId}`, payload.error)
+                reject(new Error(payload.error || 'Unknown error'))
+              }
+            }
+          })
+        })
+        
+        // Send save request
+        postMessageBridge.sendSaveCalcHistoryRequest({
+          offerId: result.offerId,
+          json: JSON.stringify(historyJson),
+          totalOffers: calculationResults.length,
+          currentIndex: i,
+        })
+        
+        // Wait for response
+        await savePromise
+        
+        // Update progress
+        setSavingHistorySaved(i + 1)
+        setSavingHistoryProgress(Math.round(((i + 1) / calculationResults.length) * 100))
+        
+      } catch (error) {
+        console.error(`[SAVE_CALC_HISTORY] Error saving offer ${result.offerId}:`, error)
+        const errorMsg = `${result.offerName}: ${error instanceof Error ? error.message : String(error)}`
+        errors.push(errorMsg)
+      }
+    }
+    
+    // Finalize
+    setIsSavingHistory(false)
+    
+    if (errors.length > 0) {
+      setSavingHistoryErrors(errors)
+      toast.error(`Сохранено ${calculationResults.length - errors.length} из ${calculationResults.length} ТП. Ошибки: ${errors.length}`)
+    } else {
+      toast.success(`Успешно сохранено ${calculationResults.length} торговых предложений!`)
+      // Clear results only if all succeeded
+      setCalculationResults([])
+      setHasSuccessfulCalculations(false)
+    }
+    
+    // Reset progress
+    setSavingHistoryProgress(0)
+    setSavingHistorySaved(0)
+    setSavingHistoryTotal(0)
   }
 
   const handleSaveCalculationResult = (
@@ -1942,6 +2032,22 @@ function App() {
           </div>
         )}
 
+        {isSavingHistory && (
+          <div className="px-4 py-2 border-t border-border bg-card">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <Progress value={savingHistoryProgress} className="flex-1" />
+                <span className="text-sm font-medium min-w-[4rem] text-right">
+                  {savingHistoryProgress}%
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Сохранение {savingHistorySaved} из {savingHistoryTotal} торговых предложений...
+              </span>
+            </div>
+          </div>
+        )}
+
         <PricePanel
           priceTypes={bitrixMeta?.priceTypes}
           presetPrices={bitrixMeta?.preset?.prices}
@@ -1974,6 +2080,7 @@ function App() {
                   size="sm" 
                   variant="default"
                   onClick={handleSaveCalculations}
+                  disabled={isSavingHistory}
                   data-pwcode="btn-save-calc"
                   title="Сохранить расчёты (успешные предложения)"
                 >

@@ -81,6 +81,10 @@ export type MessageType =
   // Информационные тексты (справка)
   | 'INFOTEXT_REQUEST'                // Запрос информационного текста
   | 'INFOTEXT_RESPONSE'               // Ответ с информационным текстом
+  
+  // История расчётов
+  | 'SAVE_CALC_HISTORY_REQUEST'       // iframe → bitrix: сохранение истории одного ТП
+  | 'SAVE_CALC_HISTORY_RESPONSE'      // bitrix → iframe: ответ о сохранении истории ТП
 
 export type MessageSource = 'prospektweb.calc' | 'bitrix'
 
@@ -286,6 +290,30 @@ export interface SaveCalcLogicRequestPayload {
   }
 }
 
+
+/**
+ * Payload for SAVE_CALC_HISTORY_REQUEST
+ * Отправляется для сохранения одного торгового предложения в историю расчётов
+ */
+export interface SaveCalcHistoryRequestPayload {
+  offerId: number
+  json: string // JSON.stringify(CalculationHistoryJson)
+  totalOffers: number // Общее количество ТП для сохранения
+  currentIndex: number // Текущий индекс (0-based)
+}
+
+/**
+ * Payload for SAVE_CALC_HISTORY_RESPONSE
+ * Ответ от сервера после успешного сохранения одного ТП
+ */
+export interface SaveCalcHistoryResponsePayload {
+  offerId: number
+  hlblockRecordId: number // ID созданной записи в HighloadBlock
+  currentIndex: number
+  totalOffers: number
+  success: boolean
+  error?: string
+}
 
 /**
  * Payload for RESPONSE (единый ответ)
@@ -757,6 +785,11 @@ class PostMessageBridge {
   // Info text operations
   sendInfoTextRequest(payload: { placeCode: string }): string | undefined {
     return this.sendMessage('INFOTEXT_REQUEST', payload)
+  }
+
+  // Calculation history operations
+  sendSaveCalcHistoryRequest(payload: SaveCalcHistoryRequestPayload): string | undefined {
+    return this.sendMessage('SAVE_CALC_HISTORY_REQUEST', payload)
   }
 
   on(type: MessageType | '*', callback: (message: PwrtMessage) => void): () => void {
