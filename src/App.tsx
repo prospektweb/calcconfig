@@ -48,7 +48,7 @@ import { SidebarMenu } from '@/components/calculator/SidebarMenu'
 import { DragOverlay } from '@/components/drag/DragOverlay'
 import { useDragContext, DragProvider } from '@/contexts/DragContext'
 import { initializeBitrixStore, getBitrixStore } from '@/services/configStore'
-import { postMessageBridge, InitPayload, CalcInfoPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload } from '@/lib/postmessage-bridge'
+import { postMessageBridge, InitPayload, CalcInfoPayload, SaveCalculationProgressPayload, CalcSettingsResponsePayload, CalcOperationResponsePayload, CalcMaterialResponsePayload, CalcOperationVariantResponsePayload, CalcMaterialVariantResponsePayload } from '@/lib/postmessage-bridge'
 import { setBitrixContext, openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore } from '@/stores/calculator-settings-store'
@@ -124,6 +124,8 @@ function App() {
   
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationProgress, setCalculationProgress] = useState(0)
+  const [isSavingCalculations, setIsSavingCalculations] = useState(false)
+  const [saveCalculationProgress, setSaveCalculationProgress] = useState(0)
 
   const dragContext = useDragContext()
 
@@ -737,6 +739,49 @@ function App() {
       }
     })
 
+    const unsubscribeSaveCalculationProgress = postMessageBridge.on('SAVE_CALCULATION_PROGRESS', (message) => {
+      console.info('[FROM_BITRIX] SAVE_CALCULATION_PROGRESS', message)
+
+      const payload = message.payload as SaveCalculationProgressPayload
+      if (!payload || typeof payload.percent !== 'number') return
+
+      if (payload.step === 'start') {
+        setIsSavingCalculations(true)
+        setSaveCalculationProgress(payload.percent)
+        return
+      }
+
+      if (payload.step === 'item') {
+        setIsSavingCalculations(true)
+        setSaveCalculationProgress(payload.percent)
+
+        if (payload.item) {
+          const statusText = payload.item.status === 'ok' ? 'успешно' : 'с ошибкой'
+          addInfoMessage(
+            payload.item.status === 'ok' ? 'success' : 'error',
+            `Сохранение ТП #${payload.item.offerId}: ${statusText} (historyId: ${payload.item.historyId})`
+          )
+        }
+        return
+      }
+
+      if (payload.step === 'complete') {
+        setSaveCalculationProgress(payload.percent)
+        const summary = `Сохранение завершено: успешно ${payload.success}, ошибок ${payload.failed}`
+
+        if (payload.failed > 0) {
+          toast.warning(summary)
+        } else {
+          toast.success(summary)
+        }
+
+        window.setTimeout(() => {
+          setIsSavingCalculations(false)
+          setSaveCalculationProgress(0)
+        }, 350)
+      }
+    })
+
     return () => {
       unsubscribeCalcSettings()
       unsubscribeOperation()
@@ -745,6 +790,7 @@ function App() {
       unsubscribeMaterialVariant()
       unsubscribeAddNewGroup()
       unsubscribeCalcInfo()
+      unsubscribeSaveCalculationProgress()
     }
   }, [])
 
@@ -1931,12 +1977,12 @@ function App() {
           </div>
         </main>
 
-        {isCalculating && (
+        {(isCalculating || isSavingCalculations) && (
           <div className="px-4 py-2 border-t border-border bg-card">
             <div className="flex items-center gap-3">
-              <Progress value={calculationProgress} className="flex-1" />
+              <Progress value={isSavingCalculations ? saveCalculationProgress : calculationProgress} className="flex-1" />
               <span className="text-sm font-medium min-w-[4rem] text-right">
-                {calculationProgress}%
+                {isSavingCalculations ? saveCalculationProgress : calculationProgress}%
               </span>
             </div>
           </div>
