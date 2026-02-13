@@ -1,6 +1,8 @@
 /**
  * Manual test to verify calculationHistoryBuilder output
- * Run with: node --loader tsx src/__tests__/calculation-history-builder.test.ts
+ * 
+ * Run with: npx tsx src/__tests__/calculation-history-builder.test.ts
+ * Requires Node.js 18+ and tsx package
  */
 
 import { buildCalculationHistoryJson } from '../services/calculationHistoryBuilder'

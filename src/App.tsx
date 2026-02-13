@@ -61,6 +61,9 @@ import { calculateStageReadiness, hasDraftForStage } from '@/lib/stage-utils'
 import { buildCalculationHistoryJson } from '@/services/calculationHistoryBuilder'
 import type { CalculationOfferResult } from '@/services/calculationEngine'
 
+// Constants
+const SAVE_HISTORY_TIMEOUT_MS = 30000 // 30 seconds per offer
+
 // Helper function to check if targetBinding is a descendant of sourceBinding
 function isDescendant(
   sourceBindingId: number,
@@ -1407,7 +1410,7 @@ function App() {
         const savePromise = new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error(`Timeout waiting for response for offer ${result.offerId}`))
-          }, 30000) // 30 second timeout
+          }, SAVE_HISTORY_TIMEOUT_MS)
           
           // Set up one-time listener for this specific offer
           const unsubscribe = postMessageBridge.on('SAVE_CALC_HISTORY_RESPONSE', (message) => {
@@ -1458,7 +1461,13 @@ function App() {
     
     if (errors.length > 0) {
       setSavingHistoryErrors(errors)
-      toast.error(`Сохранено ${calculationResults.length - errors.length} из ${calculationResults.length} ТП. Ошибки: ${errors.length}`)
+      // Show detailed error message with first few errors
+      const errorPreview = errors.slice(0, 3).join('; ')
+      const moreErrors = errors.length > 3 ? ` и ещё ${errors.length - 3}...` : ''
+      toast.error(
+        `Сохранено ${calculationResults.length - errors.length} из ${calculationResults.length} ТП. ` +
+        `Ошибки: ${errorPreview}${moreErrors}`
+      )
     } else {
       toast.success(`Успешно сохранено ${calculationResults.length} торговых предложений!`)
       // Clear results only if all succeeded

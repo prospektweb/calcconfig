@@ -21,10 +21,10 @@ export function buildCalculationHistoryJson(
   bitrixMeta: InitPayload | null
 ): CalculationHistoryJson {
   // Convert parametrValues array to Record format
-  const parametrValuesRecord: Record<string, string> = {}
+  const parametrValues: Record<string, string> = {}
   if (result.parametrValues && Array.isArray(result.parametrValues)) {
     result.parametrValues.forEach(param => {
-      parametrValuesRecord[param.name] = param.value
+      parametrValues[param.name] = param.value
     })
   }
 
@@ -37,7 +37,7 @@ export function buildCalculationHistoryJson(
     basePrice: result.purchasePrice, // Base price is the same as purchase price in most cases
     currency: result.currency || 'RUB',
     priceRangesWithMarkup: result.priceRangesWithMarkup,
-    parametrValues: parametrValuesRecord,
+    parametrValues: parametrValues,
   }
 
   const historyJson: CalculationHistoryJson = {
