@@ -1322,7 +1322,8 @@ function App() {
             productName: result.productName,
             presetId: result.presetId,
             presetName: result.presetName,
-            presetModified: result.presetModified,
+            timestamp_x: result.timestamp_x,
+            modified_by: result.modified_by,
             purchasePrice: result.purchasePrice,
             directPurchasePrice: result.directPurchasePrice,
             currency: result.currency,
@@ -1348,6 +1349,8 @@ function App() {
           calculationData: {
             detailName: detail.detailName,
             detailType: detail.detailType,
+            timestamp_x: detail.timestamp_x,
+            modified_by: detail.modified_by,
             purchasePrice: detail.purchasePrice,
             basePrice: detail.basePrice,
             currency: detail.currency,
@@ -1362,6 +1365,8 @@ function App() {
                 stageId: stage.stageId,
                 calculationData: {
                   stageName: stage.stageName,
+                  timestamp_x: stage.timestamp_x,
+                  modified_by: stage.modified_by,
                   purchasePrice: typeof stage.outputs?.purchasingPrice === 'number' ? stage.outputs.purchasingPrice : stage.totalCost,
                   basePrice: typeof stage.outputs?.basePrice === 'number' ? stage.outputs.basePrice : stage.totalCost,
                   currency: stage.currency,

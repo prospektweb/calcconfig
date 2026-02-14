@@ -25,6 +25,8 @@ import type { InitPayload } from '@/lib/postmessage-bridge'
 export interface CalculationStageResult {
   stageId: string
   stageName: string
+  timestamp_x?: string
+  modified_by?: string
   operationCost: number
   materialCost: number
   totalCost: number
@@ -52,6 +54,8 @@ export interface CalculationDetailResult {
   detailId: string
   detailName: string
   detailType: 'detail' | 'binding'
+  timestamp_x?: string
+  modified_by?: string
   stages: CalculationStageResult[]
   purchasePrice: number
   basePrice: number
@@ -71,7 +75,8 @@ export interface CalculationOfferResult {
   productName: string
   presetId?: number
   presetName?: string
-  presetModified?: string
+  timestamp_x?: string
+  modified_by?: string
   details: CalculationDetailResult[]
   directPurchasePrice: number
   purchasePrice: number
@@ -102,6 +107,22 @@ export interface CalculationProgress {
 
 export type ProgressCallback = (progress: CalculationProgress) => void
 export type StepCallback = (result: CalculationStageResult | CalculationDetailResult | CalculationOfferResult) => void
+
+function extractMetaFields(source: any): { timestamp_x?: string; modified_by?: string } {
+  const timestamp = source?.timestamp_x
+  const modifiedBy = source?.modified_by
+  return {
+    timestamp_x: timestamp !== undefined && timestamp !== null ? String(timestamp) : undefined,
+    modified_by: modifiedBy !== undefined && modifiedBy !== null ? String(modifiedBy) : undefined,
+  }
+}
+
+function getStoreElementById(initPayload: any, storeCode: string, id: number | null | undefined): any | undefined {
+  if (!id) return undefined
+  const elements = initPayload?.elementsStore?.[storeCode]
+  if (!Array.isArray(elements)) return undefined
+  return elements.find((item: any) => Number(item?.id) === Number(id))
+}
 
 function extractParametrScheme(stageElement: any, propertyCode: string): ParametrSchemeEntry[] {
   const property = stageElement?.properties?.[propertyCode]
@@ -424,6 +445,7 @@ async function calculateStage(
   const result: CalculationStageResult = {
     stageId: stage.id,
     stageName: stage.stageName || `Этап ${stage.id}`,
+    ...extractMetaFields(getStoreElementById(initPayload, 'CALC_STAGES', stage.stageId)),
     operationCost,
     materialCost,
     totalCost: operationCost + materialCost,
@@ -503,6 +525,7 @@ async function calculateDetail(
     detailId: detail.id,
     detailName: detail.name,
     detailType: 'detail',
+    ...extractMetaFields(getStoreElementById(initPayload, 'CALC_DETAILS', detail.bitrixId)),
     stages: stageResults,
     purchasePrice: typeof derivedPurchasePrice === 'number' ? derivedPurchasePrice : totalCost,
     basePrice: typeof derivedBasePrice === 'number' ? derivedBasePrice : totalCost, // Will be modified by markups later
@@ -551,6 +574,7 @@ async function calculateBinding(
       detailId: binding.id,
       detailName: binding.name,
       detailType: 'binding',
+      ...extractMetaFields(getStoreElementById(initPayload, 'CALC_DETAILS', binding.bitrixId)),
       stages: [],
       purchasePrice: 0,
       basePrice: 0,
@@ -663,6 +687,7 @@ async function calculateBinding(
     detailId: binding.id,
     detailName: binding.name,
     detailType: 'binding',
+    ...extractMetaFields(getStoreElementById(initPayload, 'CALC_DETAILS', binding.bitrixId)),
     stages: stageResults,
     purchasePrice: typeof derivedPurchasePrice === 'number'
       ? derivedPurchasePrice
@@ -939,7 +964,7 @@ export async function calculateOffer(
     productName: product?.name || 'Unknown Product',
     presetId: preset?.id,
     presetName: preset?.name,
-    presetModified: preset?.properties?.DATE_MODIFY ? String(preset.properties.DATE_MODIFY) : undefined,
+    ...extractMetaFields(preset),
     details: detailResults,
     directPurchasePrice,
     purchasePrice,
