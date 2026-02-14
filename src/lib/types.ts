@@ -261,7 +261,8 @@ export interface InfoMessage {
     productName?: string
     presetId?: number
     presetName?: string
-    presetModified?: string
+    timestamp_x?: string
+    modified_by?: string
     detailName?: string
     detailType?: 'detail' | 'binding'
     stageName?: string

@@ -47,8 +47,12 @@ export function buildFullReportText(message: InfoMessage): string {
   
   if (data.offerName) {
     if (data.presetId && data.presetName) {
-      const modified = data.presetModified ? ` | Изменён: ${data.presetModified}` : ''
-      bbcode += `[b]Пресет:[/b] ${data.presetName} | ${data.presetId}${modified}\n`
+      const metaParts = [
+        data.timestamp_x ? `timestamp_x: ${data.timestamp_x}` : null,
+        data.modified_by ? `modified_by: ${data.modified_by}` : null,
+      ].filter(Boolean)
+      const meta = metaParts.length ? ` | ${metaParts.join(' | ')}` : ''
+      bbcode += `[b]Пресет:[/b] ${data.presetName} | ${data.presetId}${meta}\n`
     }
 
     if (data.productId && data.productName) {
@@ -559,7 +563,10 @@ export function CalculationReport({ message, bitrixMeta, onChange }: Calculation
             >
               {data.presetName} | {data.presetId}
             </button>
-            {data.presetModified && ` | Изменён: ${data.presetModified}`}
+            {(data.timestamp_x || data.modified_by) && ` | ${[
+              data.timestamp_x ? `timestamp_x: ${data.timestamp_x}` : null,
+              data.modified_by ? `modified_by: ${data.modified_by}` : null,
+            ].filter(Boolean).join(' | ')}`}
           </div>
         )}
 
