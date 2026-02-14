@@ -1414,6 +1414,35 @@ function App() {
   const [calculationResults, setCalculationResults] = useState<any[]>([])
   const [hasSuccessfulCalculations, setHasSuccessfulCalculations] = useState(false)
   
+
+  const sanitizeStageForSave = (stage: any) => {
+    const outputs = stage?.outputs || {}
+    return {
+      ...stage,
+      outputs: {
+        ...outputs,
+        operationPurchasingPrice: Number(outputs.operationPurchasingPrice) || 0,
+        operationBasePrice: Number(outputs.operationBasePrice) || 0,
+        materialPurchasingPrice: Number(outputs.materialPurchasingPrice) || 0,
+        materialBasePrice: Number(outputs.materialBasePrice) || 0,
+      },
+      operationCost: undefined,
+      materialCost: undefined,
+      totalCost: undefined,
+    }
+  }
+
+  const sanitizeDetailTreeForSave = (detail: any): any => ({
+    ...detail,
+    stages: Array.isArray(detail?.stages) ? detail.stages.map(sanitizeStageForSave) : detail?.stages,
+    children: Array.isArray(detail?.children) ? detail.children.map(sanitizeDetailTreeForSave) : detail?.children,
+  })
+
+  const sanitizeResultForSave = (result: any) => ({
+    ...result,
+    details: Array.isArray(result?.details) ? result.details.map(sanitizeDetailTreeForSave) : result?.details,
+  })
+
   // New function to save successful calculations
   const handleSaveCalculations = () => {
     if (!hasSuccessfulCalculations || calculationResults.length === 0) {
@@ -1424,7 +1453,7 @@ function App() {
     console.log('[SAVE_CALC] Saving calculations', { count: calculationResults.length })
     
     postMessageBridge.sendSaveCalculationRequest({
-      results: calculationResults,
+      results: calculationResults.map(sanitizeResultForSave),
       timestamp: Date.now(),
     })
     
@@ -1455,7 +1484,7 @@ function App() {
     }
 
     postMessageBridge.sendSaveCalculationRequest({
-      results: [updatedTarget],
+      results: [sanitizeResultForSave(updatedTarget)],
       timestamp: Date.now(),
     })
 

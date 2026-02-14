@@ -56,6 +56,10 @@ export interface ResultsHL {
   weight: HLMapping
   purchasingPrice: HLMapping
   basePrice: HLMapping
+  operationPurchasingPrice?: HLMapping
+  operationBasePrice?: HLMapping
+  materialPurchasingPrice?: HLMapping
+  materialBasePrice?: HLMapping
 }
 
 // Правило записи в ТП

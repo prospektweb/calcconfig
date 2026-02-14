@@ -378,16 +378,13 @@ async function calculateStage(
         })
         
         // Use calculated values if available
-        // Priority: specific costs (operationCost/materialCost) > total (purchasingPrice)
-        
-        // 1. Check for specific operation and material costs first
-        if (outputValues.operationCost !== undefined || outputValues.materialCost !== undefined) {
-          operationCost = Number(outputValues.operationCost) || 0
-          materialCost = Number(outputValues.materialCost) || 0
-        }
-        // 2. If only purchasingPrice provided, treat as total operation cost
-        // (common for service-based calculations where material cost is separate or zero)
-        else if (outputValues.purchasingPrice !== undefined) {
+        const operationPurchasing = outputValues.operationPurchasingPrice
+        const materialPurchasing = outputValues.materialPurchasingPrice
+
+        if (operationPurchasing !== undefined || materialPurchasing !== undefined) {
+          operationCost = Number(operationPurchasing) || 0
+          materialCost = Number(materialPurchasing) || 0
+        } else if (outputValues.purchasingPrice !== undefined) {
           const totalCost = Number(outputValues.purchasingPrice) || 0
           operationCost = totalCost
           materialCost = 0
@@ -442,6 +439,25 @@ async function calculateStage(
     }
   }
   
+  const normalizedOutputs = logicApplied
+    ? {
+        ...outputValues,
+        operationPurchasingPrice: Number(outputValues.operationPurchasingPrice ?? operationCost) || 0,
+        operationBasePrice: Number(outputValues.operationBasePrice ?? outputValues.basePrice ?? operationCost) || 0,
+        materialPurchasingPrice: Number(outputValues.materialPurchasingPrice ?? materialCost) || 0,
+        materialBasePrice: Number(outputValues.materialBasePrice ?? outputValues.basePrice ?? materialCost) || 0,
+        purchasingPrice: Number(outputValues.purchasingPrice ?? (operationCost + materialCost)) || 0,
+        basePrice: Number(outputValues.basePrice ?? (operationCost + materialCost)) || 0,
+      }
+    : {
+        operationPurchasingPrice: operationCost,
+        operationBasePrice: operationCost,
+        materialPurchasingPrice: materialCost,
+        materialBasePrice: materialCost,
+        purchasingPrice: operationCost + materialCost,
+        basePrice: operationCost + materialCost,
+      }
+
   const result: CalculationStageResult = {
     stageId: stage.id,
     stageName: stage.stageName || `Этап ${stage.id}`,
@@ -452,7 +468,7 @@ async function calculateStage(
     currency,
     logicApplied,
     variables: logicApplied ? evaluatedVars : undefined,
-    outputs: logicApplied ? outputValues : undefined,
+    outputs: normalizedOutputs,
     logs: stageLogs.length > 0 ? stageLogs : undefined,
     inputs: inputEntries.length > 0 ? inputEntries : undefined,
   }

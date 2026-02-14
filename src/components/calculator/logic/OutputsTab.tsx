@@ -20,6 +20,8 @@ interface OutputsTabProps {
   onParametrValuesSchemeChange?: (entries: ParametrValuesSchemeEntry[]) => void
   parametrNamesPool?: string[]
   issues?: ValidationIssue[]
+  hasOperationVariant?: boolean
+  hasMaterialVariant?: boolean
   onTemplateFocus?: (entryId: string, cursorPosition: number) => void
   onInsertTemplateTag?: (tag: string) => void
 }
@@ -71,6 +73,10 @@ const sanitizeResultsHLForRender = (results: ResultsHL): ResultsHL => ({
   weight: { sourceKind: results?.weight?.sourceKind ?? null, sourceRef: typeof results?.weight?.sourceRef === 'string' ? results.weight.sourceRef : '' },
   purchasingPrice: { sourceKind: results?.purchasingPrice?.sourceKind ?? null, sourceRef: typeof results?.purchasingPrice?.sourceRef === 'string' ? results.purchasingPrice.sourceRef : '' },
   basePrice: { sourceKind: results?.basePrice?.sourceKind ?? null, sourceRef: typeof results?.basePrice?.sourceRef === 'string' ? results.basePrice.sourceRef : '' },
+  operationPurchasingPrice: { sourceKind: results?.operationPurchasingPrice?.sourceKind ?? null, sourceRef: typeof results?.operationPurchasingPrice?.sourceRef === 'string' ? results.operationPurchasingPrice.sourceRef : '' },
+  operationBasePrice: { sourceKind: results?.operationBasePrice?.sourceKind ?? null, sourceRef: typeof results?.operationBasePrice?.sourceRef === 'string' ? results.operationBasePrice.sourceRef : '' },
+  materialPurchasingPrice: { sourceKind: results?.materialPurchasingPrice?.sourceKind ?? null, sourceRef: typeof results?.materialPurchasingPrice?.sourceRef === 'string' ? results.materialPurchasingPrice.sourceRef : '' },
+  materialBasePrice: { sourceKind: results?.materialBasePrice?.sourceKind ?? null, sourceRef: typeof results?.materialBasePrice?.sourceRef === 'string' ? results.materialBasePrice.sourceRef : '' },
 })
 
 const sanitizeParametrValuesSchemeForRender = (items: ParametrValuesSchemeEntry[]) =>
@@ -100,6 +106,10 @@ const createEmptyResultsHL = (): ResultsHL => ({
   weight: { sourceKind: null, sourceRef: '' },
   purchasingPrice: { sourceKind: null, sourceRef: '' },
   basePrice: { sourceKind: null, sourceRef: '' },
+  operationPurchasingPrice: { sourceKind: null, sourceRef: '' },
+  operationBasePrice: { sourceKind: null, sourceRef: '' },
+  materialPurchasingPrice: { sourceKind: null, sourceRef: '' },
+  materialBasePrice: { sourceKind: null, sourceRef: '' },
 })
 
 /**
@@ -201,6 +211,8 @@ export function OutputsTab({
   onParametrValuesSchemeChange,
   parametrNamesPool = [],
   issues = [],
+  hasOperationVariant = false,
+  hasMaterialVariant = false,
   onTemplateFocus,
   onInsertTemplateTag,
 }: OutputsTabProps) {
@@ -212,7 +224,9 @@ export function OutputsTab({
     additionalResults: ensureArray<AdditionalResult>(additionalResults),
     parametrValuesScheme: ensureArray<ParametrValuesSchemeEntry>(parametrValuesScheme),
     issues: ensureArray<ValidationIssue>(issues),
-    parametrNamesPool: ensureArray<string>(parametrNamesPool)
+    parametrNamesPool: ensureArray<string>(parametrNamesPool),
+    hasOperationVariant: Boolean(hasOperationVariant),
+    hasMaterialVariant: Boolean(hasMaterialVariant),
   }
 
   // Second level sanitization with type safety
@@ -282,6 +296,19 @@ export function OutputsTab({
     { key: 'basePrice' as const, label: 'Базовая' },
   ]
 
+  const hasOperationVariantEnabled = safeProps.hasOperationVariant
+  const hasMaterialVariantEnabled = safeProps.hasMaterialVariant
+
+  const HL_FIELDS_OPERATION = [
+    { key: 'operationPurchasingPrice' as const, label: 'Закупочная стоимость операции' },
+    { key: 'operationBasePrice' as const, label: 'Базовая стоимость операции' },
+  ]
+
+  const HL_FIELDS_MATERIAL = [
+    { key: 'materialPurchasingPrice' as const, label: 'Закупочная стоимость материала' },
+    { key: 'materialBasePrice' as const, label: 'Базовая стоимость материала' },
+  ]
+
   // Filter only number sources for HL
   // Show vars with number type OR unknown type (validation will check at save)
   // and only number inputs
@@ -334,7 +361,7 @@ export function OutputsTab({
           <div>
             <h3 className="text-sm font-medium mb-3">Итоги этапа: Обязательные результаты</h3>
             <p className="text-xs text-muted-foreground mb-4">
-              Сопоставьте 6 обязательных полей этапа с числовыми источниками
+              Сопоставьте обязательные поля этапа с числовыми источниками (этап должен отражать нарастающий итог)
             </p>
           </div>
 
@@ -485,6 +512,130 @@ export function OutputsTab({
               })}
             </div>
           </div>
+
+          {hasOperationVariantEnabled && (
+            <div className="space-y-3">
+              <h4 className="text-xs font-medium text-muted-foreground">Стоимость операции</h4>
+              {HL_FIELDS_OPERATION.map(field => {
+                const mapping = currentResultsHL[field.key]
+                const fieldIssues = resultIssues.filter(i => i?.refId === `hl_${field.key}`)
+                const hasError = fieldIssues.some(i => i?.severity === 'error')
+
+                return (
+                  <div key={field.key} className={cn(
+                    "flex items-center gap-2",
+                    hasError && "p-2 rounded-md bg-destructive/10 border border-destructive/30"
+                  )}>
+                    <Label className="w-56 text-xs">{field.label}</Label>
+                    <Select
+                      value={mapping?.sourceRef && mapping?.sourceKind
+                        ? `${mapping.sourceKind}:${mapping.sourceRef}`
+                        : NONE_VALUE}
+                      onValueChange={(val) => {
+                        if (val === NONE_VALUE) {
+                          onResultsHLChange({
+                            ...currentResultsHL,
+                            [field.key]: { sourceKind: null, sourceRef: '' }
+                          })
+                        } else {
+                          const [kind, ref] = val.split(':')
+                          onResultsHLChange({
+                            ...currentResultsHL,
+                            [field.key]: { sourceKind: kind as 'var'|'input', sourceRef: ref }
+                          })
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs flex-1">
+                        <SelectValue placeholder="Не выбрано" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
+                        <SelectGroup>
+                          <SelectLabel>Переменные</SelectLabel>
+                          {numberSources.filter(src => src.kind === 'var').map(src => (
+                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                              {safeRenderString(src.ref)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Входные параметры</SelectLabel>
+                          {numberSources.filter(src => src.kind === 'input').map(src => (
+                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                              {safeRenderString(src.ref)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {hasMaterialVariantEnabled && (
+            <div className="space-y-3">
+              <h4 className="text-xs font-medium text-muted-foreground">Стоимость материала</h4>
+              {HL_FIELDS_MATERIAL.map(field => {
+                const mapping = currentResultsHL[field.key]
+                const fieldIssues = resultIssues.filter(i => i?.refId === `hl_${field.key}`)
+                const hasError = fieldIssues.some(i => i?.severity === 'error')
+
+                return (
+                  <div key={field.key} className={cn(
+                    "flex items-center gap-2",
+                    hasError && "p-2 rounded-md bg-destructive/10 border border-destructive/30"
+                  )}>
+                    <Label className="w-56 text-xs">{field.label}</Label>
+                    <Select
+                      value={mapping?.sourceRef && mapping?.sourceKind
+                        ? `${mapping.sourceKind}:${mapping.sourceRef}`
+                        : NONE_VALUE}
+                      onValueChange={(val) => {
+                        if (val === NONE_VALUE) {
+                          onResultsHLChange({
+                            ...currentResultsHL,
+                            [field.key]: { sourceKind: null, sourceRef: '' }
+                          })
+                        } else {
+                          const [kind, ref] = val.split(':')
+                          onResultsHLChange({
+                            ...currentResultsHL,
+                            [field.key]: { sourceKind: kind as 'var'|'input', sourceRef: ref }
+                          })
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs flex-1">
+                        <SelectValue placeholder="Не выбрано" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
+                        <SelectGroup>
+                          <SelectLabel>Переменные</SelectLabel>
+                          {numberSources.filter(src => src.kind === 'var').map(src => (
+                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                              {safeRenderString(src.ref)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Входные параметры</SelectLabel>
+                          {numberSources.filter(src => src.kind === 'input').map(src => (
+                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                              {safeRenderString(src.ref)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {numberSources.length === 0 && (
             <div className="text-xs text-muted-foreground p-2 bg-muted rounded-md">

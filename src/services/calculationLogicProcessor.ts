@@ -1099,7 +1099,7 @@ export function mapOutputs(
   const outputs: Record<string, any> = {}
   
   // Required HL output fields
-  const REQUIRED_KEYS = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
+  const REQUIRED_KEYS = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice', 'operationPurchasingPrice', 'operationBasePrice', 'materialPurchasingPrice', 'materialBasePrice']
 
   for (const mapping of outputMappings) {
     if (!mapping.sourceRef) continue
