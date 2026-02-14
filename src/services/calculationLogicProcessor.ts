@@ -564,7 +564,7 @@ const FORMULA_BUILTINS = {
       const from =
         fromRaw === null || fromRaw === undefined ? 1 : Number(fromRaw)
       const to = toRaw === null || toRaw === undefined ? Infinity : Number(toRaw)
-      if (!Number.isFinite(price) || !Number.isFinite(from) || !Number.isFinite(to)) {
+      if (!Number.isFinite(price) || !Number.isFinite(from) || (to !== Infinity && !Number.isFinite(to))) {
         continue
       }
       if (numericQuantity > to) {
