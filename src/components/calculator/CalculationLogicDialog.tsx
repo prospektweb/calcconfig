@@ -40,6 +40,10 @@ function createEmptyResultsHL(): ResultsHL {
     weight: { sourceKind: null, sourceRef: '' },
     purchasingPrice: { sourceKind: null, sourceRef: '' },
     basePrice: { sourceKind: null, sourceRef: '' },
+    operationPurchasingPrice: { sourceKind: null, sourceRef: '' },
+    operationBasePrice: { sourceKind: null, sourceRef: '' },
+    materialPurchasingPrice: { sourceKind: null, sourceRef: '' },
+    materialBasePrice: { sourceKind: null, sourceRef: '' },
   }
 }
 
@@ -116,7 +120,7 @@ function buildResultsFromInit(
   outputsDesc: string[] | undefined,
   inputNames: string[] = []
 ): { resultsHL: ResultsHL; additionalResults: AdditionalResult[] } {
-  const REQUIRED_KEYS: Array<keyof ResultsHL> = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
+  const REQUIRED_KEYS: Array<keyof ResultsHL> = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice', 'operationPurchasingPrice', 'operationBasePrice', 'materialPurchasingPrice', 'materialBasePrice']
   const resultsHL: ResultsHL = createEmptyResultsHL()
   const additionalResults: AdditionalResult[] = []
   
@@ -648,6 +652,12 @@ export function CalculationLogicDialog({
   }, [initPayload])
 
   const logicContext = useMemo(() => buildLogicContext(initPayload), [initPayload])
+
+  const stageElementForOutputs = useMemo(() => initPayload?.elementsStore?.CALC_STAGES?.find(
+    stage => stage.id === currentStageId
+  ), [initPayload, currentStageId])
+  const hasOperationVariant = Boolean(stageElementForOutputs?.properties?.OPERATION_VARIANT?.VALUE)
+  const hasMaterialVariant = Boolean(stageElementForOutputs?.properties?.MATERIAL_VARIANT?.VALUE)
 
 
   const inputsForRender = useMemo(() => sanitizeInputsForRender(inputs), [inputs])
@@ -1536,11 +1546,34 @@ export function CalculationLogicDialog({
       path: inp.sourcePath
     }))
     
+    const variantRequiredKeys: Array<keyof ResultsHL> = [
+      ...(hasOperationVariant ? (['operationPurchasingPrice', 'operationBasePrice'] as Array<keyof ResultsHL>) : []),
+      ...(hasMaterialVariant ? (['materialPurchasingPrice', 'materialBasePrice'] as Array<keyof ResultsHL>) : []),
+    ]
+
+    for (const key of variantRequiredKeys) {
+      const mapping = resultsHL[key]
+      if (!mapping?.sourceKind || !mapping?.sourceRef) {
+        toast.error('Заполните обязательные результаты для выбранного варианта операции/материала')
+        setIsSaving(false)
+        return
+      }
+    }
+
     // Build outputs array
     const outputs: Array<{ key: string; var: string }> = []
     
     // Add required results (6 fixed keys)
-    const requiredKeys: Array<keyof ResultsHL> = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
+    const requiredKeys: Array<keyof ResultsHL> = [
+      'width',
+      'length',
+      'height',
+      'weight',
+      'purchasingPrice',
+      'basePrice',
+      ...(hasOperationVariant ? (['operationPurchasingPrice', 'operationBasePrice'] as Array<keyof ResultsHL>) : []),
+      ...(hasMaterialVariant ? (['materialPurchasingPrice', 'materialBasePrice'] as Array<keyof ResultsHL>) : []),
+    ]
     for (const key of requiredKeys) {
       const mapping = resultsHL[key]
       outputs.push({
@@ -1863,6 +1896,8 @@ export function CalculationLogicDialog({
                         onResultsHLChange={setResultsHL}
                         onAdditionalResultsChange={setAdditionalResults}
                         issues={validationIssuesForRender}
+                        hasOperationVariant={hasOperationVariant}
+                        hasMaterialVariant={hasMaterialVariant}
                         parametrValuesScheme={parametrValuesSchemeForRender}
                         onParametrValuesSchemeChange={setParametrValuesScheme}
                         parametrNamesPool={globalParametrNames}

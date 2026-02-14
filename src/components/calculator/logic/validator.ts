@@ -264,6 +264,10 @@ function createEmptyResultsHL(): ResultsHL {
     weight: { sourceKind: null, sourceRef: '' },
     purchasingPrice: { sourceKind: null, sourceRef: '' },
     basePrice: { sourceKind: null, sourceRef: '' },
+    operationPurchasingPrice: { sourceKind: null, sourceRef: '' },
+    operationBasePrice: { sourceKind: null, sourceRef: '' },
+    materialPurchasingPrice: { sourceKind: null, sourceRef: '' },
+    materialBasePrice: { sourceKind: null, sourceRef: '' },
   }
 }
 
