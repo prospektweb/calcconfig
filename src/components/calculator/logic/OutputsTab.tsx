@@ -292,21 +292,16 @@ export function OutputsTab({
   
   const HL_FIELDS_RIGHT = [
     { key: 'weight' as const, label: 'Вес' },
-    { key: 'purchasingPrice' as const, label: 'Закупочная' },
-    { key: 'basePrice' as const, label: 'Базовая' },
   ]
 
-  const hasOperationVariantEnabled = safeProps.hasOperationVariant
-  const hasMaterialVariantEnabled = safeProps.hasMaterialVariant
-
   const HL_FIELDS_OPERATION = [
-    { key: 'operationPurchasingPrice' as const, label: 'Закупочная стоимость операции' },
-    { key: 'operationBasePrice' as const, label: 'Базовая стоимость операции' },
+    { key: 'operationPurchasingPrice' as const, label: 'Закупочная' },
+    { key: 'operationBasePrice' as const, label: 'Отпускная' },
   ]
 
   const HL_FIELDS_MATERIAL = [
-    { key: 'materialPurchasingPrice' as const, label: 'Закупочная стоимость материала' },
-    { key: 'materialBasePrice' as const, label: 'Базовая стоимость материала' },
+    { key: 'materialPurchasingPrice' as const, label: 'Закупочная' },
+    { key: 'materialBasePrice' as const, label: 'Отпускная' },
   ]
 
   // Filter only number sources for HL
@@ -359,16 +354,71 @@ export function OutputsTab({
         <HLResultsErrorBoundary>
         <div className="space-y-4">
           <div>
-            <h3 className="text-sm font-medium mb-3">Итоги этапа: Обязательные результаты</h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Сопоставьте обязательные поля этапа с числовыми источниками (этап должен отражать нарастающий итог)
-            </p>
+            <h3 className="text-sm font-medium mb-3">Итоги этапа: Основные результаты</h3>
           </div>
 
           <div className="grid grid-cols-2 gap-8">
-            {/* Левая колонка: Габариты */}
+            {/* Левая колонка: Вес + Габариты */}
             <div className="space-y-3">
-              <h4 className="text-xs font-medium text-muted-foreground">Габариты</h4>
+              <h4 className="text-xs font-medium text-muted-foreground">Вес</h4>
+              {HL_FIELDS_RIGHT?.filter(f => f?.key).map(field => {
+                const mapping = currentResultsHL[field.key]
+                const fieldIssues = resultIssues.filter(i => i?.refId === `hl_${field.key}`)
+                const hasError = fieldIssues.some(i => i?.severity === 'error')
+
+                return (
+                  <div key={field.key} className={cn(
+                    "flex items-center gap-2",
+                    hasError && "p-2 rounded-md bg-destructive/10 border border-destructive/30"
+                  )}>
+                    <Label className="w-24 text-xs">{field.label}</Label>
+                    <Select
+                      value={mapping.sourceRef && mapping.sourceKind
+                        ? `${mapping.sourceKind}:${mapping.sourceRef}`
+                        : NONE_VALUE}
+                      onValueChange={(val) => {
+                        if (val === NONE_VALUE) {
+                          onResultsHLChange({
+                            ...currentResultsHL,
+                            [field.key]: { sourceKind: null, sourceRef: '' }
+                          })
+                        } else {
+                          const [kind, ref] = val.split(':')
+                          onResultsHLChange({
+                            ...currentResultsHL,
+                            [field.key]: { sourceKind: kind as 'var'|'input', sourceRef: ref }
+                          })
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs flex-1">
+                        <SelectValue placeholder="Не выбрано" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
+                        <SelectGroup>
+                          <SelectLabel>Переменные</SelectLabel>
+                          {numberSources.filter(src => src.kind === 'var').map(src => (
+                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                              {safeRenderString(src.ref)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Входные параметры</SelectLabel>
+                          {numberSources.filter(src => src.kind === 'input').map(src => (
+                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
+                              {safeRenderString(src.ref)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )
+              })}
+
+              <h4 className="text-xs font-medium text-muted-foreground pt-2">Габариты</h4>
               {HL_FIELDS_LEFT?.filter(f => f?.key).map(field => {
                 const mapping = currentResultsHL[field.key]
                 const fieldIssues = resultIssues.filter(i => i?.refId === `hl_${field.key}`)
@@ -439,10 +489,10 @@ export function OutputsTab({
               })}
             </div>
             
-            {/* Правая колонка: Вес и цены */}
+            {/* Правая колонка: добавленные стоимости */}
             <div className="space-y-3">
-              <h4 className="text-xs font-medium text-muted-foreground">Вес и цены</h4>
-              {HL_FIELDS_RIGHT?.filter(f => f?.key).map(field => {
+              <h4 className="text-xs font-medium text-muted-foreground">Добавленная стоимость по операциям</h4>
+              {HL_FIELDS_OPERATION.map(field => {
                 const mapping = currentResultsHL[field.key]
                 const fieldIssues = resultIssues.filter(i => i?.refId === `hl_${field.key}`)
                 const hasError = fieldIssues.some(i => i?.severity === 'error')
@@ -473,14 +523,7 @@ export function OutputsTab({
                       }}
                     >
                       <SelectTrigger className="h-8 text-xs flex-1">
-                        <SelectValue placeholder="Не выбрано">
-                          {mapping.sourceRef && mapping.sourceKind ? (
-                            <span>
-                              {safeRenderString(mapping.sourceRef)}{' '}
-                              {mapping.sourceKind === 'var' ? '(переменная)' : '(вход)'}
-                            </span>
-                          ) : null}
-                        </SelectValue>
+                        <SelectValue placeholder="Не выбрано" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
@@ -510,74 +553,7 @@ export function OutputsTab({
                   </div>
                 )
               })}
-            </div>
-          </div>
-
-          {hasOperationVariantEnabled && (
-            <div className="space-y-3">
-              <h4 className="text-xs font-medium text-muted-foreground">Стоимость операции</h4>
-              {HL_FIELDS_OPERATION.map(field => {
-                const mapping = currentResultsHL[field.key]
-                const fieldIssues = resultIssues.filter(i => i?.refId === `hl_${field.key}`)
-                const hasError = fieldIssues.some(i => i?.severity === 'error')
-
-                return (
-                  <div key={field.key} className={cn(
-                    "flex items-center gap-2",
-                    hasError && "p-2 rounded-md bg-destructive/10 border border-destructive/30"
-                  )}>
-                    <Label className="w-56 text-xs">{field.label}</Label>
-                    <Select
-                      value={mapping?.sourceRef && mapping?.sourceKind
-                        ? `${mapping.sourceKind}:${mapping.sourceRef}`
-                        : NONE_VALUE}
-                      onValueChange={(val) => {
-                        if (val === NONE_VALUE) {
-                          onResultsHLChange({
-                            ...currentResultsHL,
-                            [field.key]: { sourceKind: null, sourceRef: '' }
-                          })
-                        } else {
-                          const [kind, ref] = val.split(':')
-                          onResultsHLChange({
-                            ...currentResultsHL,
-                            [field.key]: { sourceKind: kind as 'var'|'input', sourceRef: ref }
-                          })
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="h-8 text-xs flex-1">
-                        <SelectValue placeholder="Не выбрано" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
-                        <SelectGroup>
-                          <SelectLabel>Переменные</SelectLabel>
-                          {numberSources.filter(src => src.kind === 'var').map(src => (
-                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                              {safeRenderString(src.ref)}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                        <SelectGroup>
-                          <SelectLabel>Входные параметры</SelectLabel>
-                          {numberSources.filter(src => src.kind === 'input').map(src => (
-                            <SelectItem key={`${src.kind}:${src.ref}`} value={`${src.kind}:${src.ref}`}>
-                              {safeRenderString(src.ref)}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {hasMaterialVariantEnabled && (
-            <div className="space-y-3">
-              <h4 className="text-xs font-medium text-muted-foreground">Стоимость материала</h4>
+              <h4 className="text-xs font-medium text-muted-foreground pt-2">Добавленная стоимость по материалам</h4>
               {HL_FIELDS_MATERIAL.map(field => {
                 const mapping = currentResultsHL[field.key]
                 const fieldIssues = resultIssues.filter(i => i?.refId === `hl_${field.key}`)
@@ -588,7 +564,7 @@ export function OutputsTab({
                     "flex items-center gap-2",
                     hasError && "p-2 rounded-md bg-destructive/10 border border-destructive/30"
                   )}>
-                    <Label className="w-56 text-xs">{field.label}</Label>
+                    <Label className="w-24 text-xs">{field.label}</Label>
                     <Select
                       value={mapping?.sourceRef && mapping?.sourceKind
                         ? `${mapping.sourceKind}:${mapping.sourceRef}`
@@ -635,7 +611,7 @@ export function OutputsTab({
                 )
               })}
             </div>
-          )}
+          </div>
 
           {numberSources.length === 0 && (
             <div className="text-xs text-muted-foreground p-2 bg-muted rounded-md">

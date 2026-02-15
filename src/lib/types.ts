@@ -237,6 +237,22 @@ export interface CalculationStageLogEntry {
   }>
 }
 
+export interface CalculationStageAddedEntry {
+  operation: {
+    purchasingPrice: number
+    basePrice: number
+  }
+  material: {
+    purchasingPrice: number
+    basePrice: number
+  }
+}
+
+export interface CalculationStageDeltaEntry {
+  purchasingPrice: number
+  basePrice: number
+}
+
 export interface CalculationStageInputEntry {
   name: string
   value: unknown
@@ -269,6 +285,8 @@ export interface InfoMessage {
     stageLogs?: CalculationStageLogEntry[]
     stageInputs?: CalculationStageInputEntry[]
     stageOutputs?: Record<string, unknown>
+    stageAdded?: CalculationStageAddedEntry
+    stageDelta?: CalculationStageDeltaEntry
     purchasePrice?: number
     basePrice?: number
     directPurchasePrice?: number

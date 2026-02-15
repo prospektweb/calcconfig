@@ -1373,6 +1373,8 @@ function App() {
                   stageLogs: stage.logs,
                   stageInputs: stage.inputs,
                   stageOutputs: stage.outputs,
+                  stageAdded: stage.added,
+                  stageDelta: stage.delta,
                 },
               })),
             ],
@@ -1421,11 +1423,19 @@ function App() {
       ...stage,
       outputs: {
         ...outputs,
-        operationPurchasingPrice: Number(outputs.operationPurchasingPrice) || 0,
-        operationBasePrice: Number(outputs.operationBasePrice) || 0,
-        materialPurchasingPrice: Number(outputs.materialPurchasingPrice) || 0,
-        materialBasePrice: Number(outputs.materialBasePrice) || 0,
       },
+      added: stage?.added
+        ? {
+            operation: {
+              purchasingPrice: Number(stage.added?.operation?.purchasingPrice) || 0,
+              basePrice: Number(stage.added?.operation?.basePrice) || 0,
+            },
+            material: {
+              purchasingPrice: Number(stage.added?.material?.purchasingPrice) || 0,
+              basePrice: Number(stage.added?.material?.basePrice) || 0,
+            },
+          }
+        : undefined,
       operationCost: undefined,
       materialCost: undefined,
       totalCost: undefined,

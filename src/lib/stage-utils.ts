@@ -106,20 +106,9 @@ export function calculateStageReadiness(
     return { ready: false, reason: 'Есть несохранённые изменения' }
   }
   
-  // Проверяем HL заполненность - все 6 обязательных полей должны быть в outputs
-  const requiredKeys = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice']
-  
   if (!outputsValue || !Array.isArray(outputsValue)) {
     return { ready: false, reason: 'Логика не сохранена' }
   }
-  
-  // Проверяем что все обязательные ключи присутствуют
-  for (const key of requiredKeys) {
-    if (!outputsValue.includes(key)) {
-      return { ready: false, reason: `HL поле ${key} не заполнено` }
-    }
-  }
-  
-  // Все проверки пройдены
+
   return { ready: true }
 }
