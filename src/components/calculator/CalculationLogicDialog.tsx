@@ -1546,39 +1546,26 @@ export function CalculationLogicDialog({
       path: inp.sourcePath
     }))
     
-    const variantRequiredKeys: Array<keyof ResultsHL> = [
-      ...(hasOperationVariant ? (['operationPurchasingPrice', 'operationBasePrice'] as Array<keyof ResultsHL>) : []),
-      ...(hasMaterialVariant ? (['materialPurchasingPrice', 'materialBasePrice'] as Array<keyof ResultsHL>) : []),
-    ]
-
-    for (const key of variantRequiredKeys) {
-      const mapping = resultsHL[key]
-      if (!mapping?.sourceKind || !mapping?.sourceRef) {
-        toast.error('Заполните обязательные результаты для выбранного варианта операции/материала')
-        setIsSaving(false)
-        return
-      }
-    }
-
     // Build outputs array
     const outputs: Array<{ key: string; var: string }> = []
     
-    // Add required results (6 fixed keys)
-    const requiredKeys: Array<keyof ResultsHL> = [
+    // Add stage result mappings (all optional)
+    const resultKeys: Array<keyof ResultsHL> = [
       'width',
       'length',
       'height',
       'weight',
-      'purchasingPrice',
-      'basePrice',
-      ...(hasOperationVariant ? (['operationPurchasingPrice', 'operationBasePrice'] as Array<keyof ResultsHL>) : []),
-      ...(hasMaterialVariant ? (['materialPurchasingPrice', 'materialBasePrice'] as Array<keyof ResultsHL>) : []),
+      'operationPurchasingPrice',
+      'operationBasePrice',
+      'materialPurchasingPrice',
+      'materialBasePrice',
     ]
-    for (const key of requiredKeys) {
+    for (const key of resultKeys) {
       const mapping = resultsHL[key]
+      if (!mapping?.sourceKind || !mapping?.sourceRef) continue
       outputs.push({
         key,
-        var: mapping.sourceRef || ''
+        var: mapping.sourceRef
       })
     }
     

@@ -304,18 +304,12 @@ export function validateResults(
   }
   
   // Validate HL
-  const hlFields = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice'] as const
+  const hlFields = ['width', 'length', 'height', 'weight', 'operationPurchasingPrice', 'operationBasePrice', 'materialPurchasingPrice', 'materialBasePrice'] as const
   
   for (const field of hlFields) {
     const mapping = resultsHL?.[field]
     
     if (!mapping?.sourceRef || !mapping?.sourceKind) {
-      issues.push({
-        severity: 'error',
-        scope: 'result',
-        refId: `hl_${field}`,
-        message: `Поле HL ${field} не сопоставлено с источником`
-      })
       continue
     }
     

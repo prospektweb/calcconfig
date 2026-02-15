@@ -236,6 +236,7 @@ function StageLogItem({
   const inputCount = data.stageInputs?.length ?? 0
   const variableCount = variableEntries.length
   const outputCount = data.stageOutputs ? Object.keys(data.stageOutputs).length : 0
+  const hasAdded = Boolean(data.stageAdded)
   const defaultSections = [
     inputCount > 0 ? 'inputs' : null,
     variableCount > 0 ? 'variables' : null,
@@ -355,10 +356,32 @@ function StageLogItem({
               </AccordionContent>
             </AccordionItem>
           )}
+
+          {hasAdded && data.stageAdded && (
+            <AccordionItem value="added" className="border border-border/60 rounded-md">
+              <AccordionTrigger className="px-2 py-1.5 text-xs font-medium text-foreground hover:no-underline">
+                Добавленная стоимость
+              </AccordionTrigger>
+              <AccordionContent className="px-2 pb-2">
+                <ul className="list-disc list-inside space-y-1">
+                  <li><strong>Операции / Закупочная</strong>: {formatLogValue(data.stageAdded.operation.purchasingPrice)}</li>
+                  <li><strong>Операции / Отпускная</strong>: {formatLogValue(data.stageAdded.operation.basePrice)}</li>
+                  <li><strong>Материалы / Закупочная</strong>: {formatLogValue(data.stageAdded.material.purchasingPrice)}</li>
+                  <li><strong>Материалы / Отпускная</strong>: {formatLogValue(data.stageAdded.material.basePrice)}</li>
+                  {data.stageDelta ? (
+                    <>
+                      <li><strong>Δ Закупочная</strong>: {formatLogValue(data.stageDelta.purchasingPrice)}</li>
+                      <li><strong>Δ Базовая</strong>: {formatLogValue(data.stageDelta.basePrice)}</li>
+                    </>
+                  ) : null}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          )}
         </Accordion>
         {variableEntries.length === 0 &&
           (!data.stageInputs || data.stageInputs.length === 0) &&
-          (!data.stageOutputs || Object.keys(data.stageOutputs).length === 0) && (
+          (!data.stageOutputs || Object.keys(data.stageOutputs).length === 0) && !hasAdded && (
             <div>Нет данных по этапу.</div>
           )}
       </AccordionContent>
