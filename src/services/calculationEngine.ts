@@ -404,14 +404,16 @@ async function calculateStage(
         // Use calculated values if available
         const operationPurchasing = outputValues.operationPurchasingPrice
         const materialPurchasing = outputValues.materialPurchasingPrice
+        const hasLegacyPurchasingOutputs = outputValues.purchasingPrice !== undefined || outputValues.basePrice !== undefined
 
         if (operationPurchasing !== undefined || materialPurchasing !== undefined) {
           operationCost = Number(operationPurchasing) || 0
           materialCost = Number(materialPurchasing) || 0
-        } else if (outputValues.purchasingPrice !== undefined) {
-          const totalCost = Number(outputValues.purchasingPrice) || 0
-          operationCost = totalCost
-          materialCost = 0
+        } else if (hasLegacyPurchasingOutputs) {
+          console.warn('[CALC] Legacy OUTPUTS keys purchasingPrice/basePrice are ignored for added costs. Use operation*/material* mappings instead.', {
+            stageId: stage.id,
+            outputs: outputValues,
+          })
         }
       } else {
         console.log('[CALC] No logic definition or outputs for stage:', stage.id)
@@ -464,16 +466,16 @@ async function calculateStage(
   }
   
   const operationPurchasingPrice = logicApplied
-    ? Number(outputValues.operationPurchasingPrice ?? operationCost) || 0
+    ? Number(outputValues.operationPurchasingPrice) || 0
     : operationCost
   const operationBasePrice = logicApplied
-    ? Number(outputValues.operationBasePrice ?? operationCost) || 0
+    ? Number(outputValues.operationBasePrice) || 0
     : operationCost
   const materialPurchasingPrice = logicApplied
-    ? Number(outputValues.materialPurchasingPrice ?? materialCost) || 0
+    ? Number(outputValues.materialPurchasingPrice) || 0
     : materialCost
   const materialBasePrice = logicApplied
-    ? Number(outputValues.materialBasePrice ?? materialCost) || 0
+    ? Number(outputValues.materialBasePrice) || 0
     : materialCost
 
   const previousPurchasingPrice = Number(pricingState?.purchasingPrice || 0)

@@ -120,12 +120,20 @@ function buildResultsFromInit(
   outputsDesc: string[] | undefined,
   inputNames: string[] = []
 ): { resultsHL: ResultsHL; additionalResults: AdditionalResult[] } {
-  const REQUIRED_KEYS: Array<keyof ResultsHL> = ['width', 'length', 'height', 'weight', 'purchasingPrice', 'basePrice', 'operationPurchasingPrice', 'operationBasePrice', 'materialPurchasingPrice', 'materialBasePrice']
+  const REQUIRED_KEYS: Array<keyof ResultsHL> = ['width', 'length', 'height', 'weight', 'operationPurchasingPrice', 'operationBasePrice', 'materialPurchasingPrice', 'materialBasePrice']
+  const LEGACY_OUTPUT_KEYS = new Set(['purchasingPrice', 'basePrice'])
+  const ADDED_COST_KEYS = new Set(['operationPurchasingPrice', 'operationBasePrice', 'materialPurchasingPrice', 'materialBasePrice'])
   const resultsHL: ResultsHL = createEmptyResultsHL()
   const additionalResults: AdditionalResult[] = []
   
   if (!outputsValue || !Array.isArray(outputsValue)) {
     return { resultsHL, additionalResults }
+  }
+
+  const hasLegacyAddedCosts = outputsValue.some(key => LEGACY_OUTPUT_KEYS.has(key))
+  const hasNewAddedCosts = outputsValue.some(key => ADDED_COST_KEYS.has(key))
+  if (hasLegacyAddedCosts && !hasNewAddedCosts) {
+    console.warn('[calcconfig] Legacy OUTPUTS keys purchasingPrice/basePrice detected without operation*/material* mappings. Added costs will stay at 0 until migrated.')
   }
   
   // Type guard for ResultsHL keys
@@ -135,6 +143,10 @@ function buildResultsFromInit(
   
   outputsValue.forEach((keyValue, i) => {
     const varName = outputsDesc?.[i] || ''
+
+    if (LEGACY_OUTPUT_KEYS.has(keyValue)) {
+      return
+    }
     
     // Определяем sourceKind на основе списка inputs
     const sourceKind = inputNames.includes(varName) ? 'input' : 'var'
@@ -1576,6 +1588,9 @@ export function CalculationLogicDialog({
         var: additional.sourceRef || ''
       })
     }
+
+    const LEGACY_STAGE_OUTPUT_KEYS = new Set(['purchasingPrice', 'basePrice'])
+    const sanitizedOutputs = outputs.filter(output => !LEGACY_STAGE_OUTPUT_KEYS.has(output.key))
     
     const parametrValuesPayload = parametrValuesScheme
       .filter(entry => entry.name.trim() || entry.template.trim())
@@ -1593,7 +1608,7 @@ export function CalculationLogicDialog({
       },
       stageWiring: {
         inputs: inputsWiring,
-        outputs
+        outputs: sanitizedOutputs
       },
       stageParametrValuesScheme: {
         offer: parametrValuesPayload,
