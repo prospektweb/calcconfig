@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, Trash, ArrowsOut, ArrowsIn } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { InitPayload } from '@/lib/postmessage-bridge'
@@ -43,8 +44,7 @@ interface Property {
 }
 
 interface MappingRow {
-  value: string
-  xmlId: string
+  values: Record<string, { value: string; xmlId: string }>
   variantId: string
 }
 
@@ -60,8 +60,7 @@ export function OptionsDialog({
   onSave,
   onClear,
 }: OptionsDialogProps) {
-  const [selectedPropertyCode, setSelectedPropertyCode] = useState<string>('')
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
+  const [selectedPropertyCodes, setSelectedPropertyCodes] = useState<string[]>([])
   const [mappingRows, setMappingRows] = useState<MappingRow[]>([])
   const [hasInitialized, setHasInitialized] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -163,19 +162,41 @@ export function OptionsDialog({
       try {
         const decodedOptions = decodeHtmlEntities(existingOptions)
         const parsed = JSON.parse(decodedOptions)
-        if (parsed.propertyCode && parsed.mappings) {
-          setSelectedPropertyCode(parsed.propertyCode)
-          
-          // Find the property
-          const prop = propertiesList.find(p => p.CODE === parsed.propertyCode)
-          if (prop) {
-            setSelectedProperty(prop)
-            setMappingRows(parsed.mappings.map((mapping: any) => ({
-              value: mapping.value || '',
-              xmlId: mapping.xmlId || '',
+        const parsedPropertyCodes = Array.isArray(parsed.propertyCodes)
+          ? parsed.propertyCodes.map((item: any) => String(item))
+          : parsed.propertyCode
+            ? [String(parsed.propertyCode)]
+            : []
+
+        if (parsedPropertyCodes.length > 0 && Array.isArray(parsed.mappings)) {
+          setSelectedPropertyCodes(parsedPropertyCodes)
+          setMappingRows(parsed.mappings.map((mapping: any) => {
+            if (mapping.values && typeof mapping.values === 'object') {
+              const normalizedValues: Record<string, { value: string; xmlId: string }> = {}
+              parsedPropertyCodes.forEach((code) => {
+                const rawValue = mapping.values?.[code] ?? {}
+                normalizedValues[code] = {
+                  value: String(rawValue.value || ''),
+                  xmlId: String(rawValue.xmlId || ''),
+                }
+              })
+              return {
+                values: normalizedValues,
+                variantId: String(mapping.variantId || ''),
+              }
+            }
+
+            const legacyCode = parsedPropertyCodes[0]
+            return {
+              values: {
+                [legacyCode]: {
+                  value: String(mapping.value || ''),
+                  xmlId: String(mapping.xmlId || ''),
+                },
+              },
               variantId: String(mapping.variantId || ''),
-            })))
-          }
+            }
+          }))
         }
         setHasInitialized(true)
       } catch (error) {
@@ -187,74 +208,86 @@ export function OptionsDialog({
   // Reset when dialog closes
   useEffect(() => {
     if (!open) {
-      setSelectedPropertyCode('')
-      setSelectedProperty(null)
+      setSelectedPropertyCodes([])
       setMappingRows([])
       setHasInitialized(false)
       setIsFullscreen(false)
     }
   }, [open])
 
-  const handlePropertySelect = (code: string) => {
-    setSelectedPropertyCode(code)
-    const prop = propertiesList.find(p => p.CODE === code)
-    setSelectedProperty(prop || null)
-    
-    // Initialize rows based on property type
-    if (prop && prop.PROPERTY_TYPE === 'L' && prop.ENUMS) {
-      // For list type, create rows for each enum value
-      // Sort by SORT if available
-      const sortedEnums = [...prop.ENUMS].sort((a, b) => {
-        const sortA = a.SORT ?? 500
-        const sortB = b.SORT ?? 500
-        return sortA - sortB
-      })
-      
-      setMappingRows(sortedEnums.map(enumItem => ({
-        value: enumItem.VALUE,
-        xmlId: enumItem.VALUE_XML_ID || enumItem.XML_ID || '',
-        variantId: '',
-      })))
-    } else {
-      // For other types, start with one empty row
-      setMappingRows([{ value: '', xmlId: '', variantId: '' }])
+  const getEmptyRow = (codes: string[]): MappingRow => ({
+    values: codes.reduce((acc, code) => {
+      acc[code] = { value: '', xmlId: '' }
+      return acc
+    }, {} as Record<string, { value: string; xmlId: string }>),
+    variantId: '',
+  })
+
+  const handlePropertyToggle = (code: string, checked: boolean) => {
+    const nextCodes = checked
+      ? [...selectedPropertyCodes, code]
+      : selectedPropertyCodes.filter((item) => item !== code)
+
+    setSelectedPropertyCodes(nextCodes)
+
+    if (nextCodes.length === 0) {
+      setMappingRows([])
+      return
     }
+
+    setMappingRows((prevRows) => {
+      if (prevRows.length === 0) {
+        return [getEmptyRow(nextCodes)]
+      }
+
+      return prevRows.map((row) => ({
+        variantId: row.variantId,
+        values: nextCodes.reduce((acc, propertyCode) => {
+          acc[propertyCode] = row.values[propertyCode] || { value: '', xmlId: '' }
+          return acc
+        }, {} as Record<string, { value: string; xmlId: string }>),
+      }))
+    })
   }
 
   const handleAddRow = () => {
-    setMappingRows([...mappingRows, { value: '', xmlId: '', variantId: '' }])
+    if (selectedPropertyCodes.length === 0) return
+    setMappingRows([...mappingRows, getEmptyRow(selectedPropertyCodes)])
   }
 
   const handleRemoveRow = (index: number) => {
     setMappingRows(mappingRows.filter((_, i) => i !== index))
   }
 
-  const handleUpdateRow = (index: number, field: 'value' | 'xmlId' | 'variantId', value: string) => {
+  const handleUpdateRow = (
+    index: number,
+    field: 'variantId' | 'value',
+    value: string,
+    propertyCode?: string
+  ) => {
     const newRows = [...mappingRows]
-    newRows[index][field] = value
-    setMappingRows(newRows)
-    
-    // For non-list types, auto-add a new row when the last row is filled
-    if (selectedProperty && selectedProperty.PROPERTY_TYPE !== 'L') {
-      if (index === mappingRows.length - 1 && field === 'variantId' && value) {
-        const lastRow = newRows[index]
-        if (lastRow.value && lastRow.variantId) {
-          setMappingRows([...newRows, { value: '', xmlId: '', variantId: '' }])
-        }
+    if (field === 'variantId') {
+      newRows[index].variantId = value
+    } else if (propertyCode) {
+      const currentValue = newRows[index].values[propertyCode] || { value: '', xmlId: '' }
+      newRows[index].values[propertyCode] = {
+        value,
+        xmlId: currentValue.xmlId,
       }
     }
+    setMappingRows(newRows)
   }
 
   const canSave = () => {
-    if (!selectedPropertyCode) return false
-    
-    if (selectedProperty && selectedProperty.PROPERTY_TYPE === 'L') {
-      // For list type, all rows must have a variant selected
-      return mappingRows.every(row => row.variantId)
-    } else {
-      // For other types, at least one complete row
-      return mappingRows.some(row => row.value && row.variantId)
-    }
+    if (selectedPropertyCodes.length === 0) return false
+
+    return mappingRows.some((row) => {
+      if (!row.variantId) return false
+      return selectedPropertyCodes.every((code) => {
+        const propValue = row.values[code]
+        return Boolean(propValue?.value)
+      })
+    })
   }
 
   const handleSave = () => {
@@ -262,16 +295,23 @@ export function OptionsDialog({
     
     // Build mappings array
     const mappings = mappingRows
-      .filter(row => row.variantId)
+      .filter((row) => {
+        if (!row.variantId) return false
+        return selectedPropertyCodes.every((code) => Boolean(row.values[code]?.value))
+      })
       .map(row => ({
-        value: row.value,
-        xmlId: row.xmlId,
+        values: selectedPropertyCodes.reduce((acc, code) => {
+          acc[code] = {
+            value: row.values[code]?.value || '',
+            xmlId: row.values[code]?.xmlId || '',
+          }
+          return acc
+        }, {} as Record<string, { value: string; xmlId: string }>),
         variantId: parseInt(row.variantId, 10)
       }))
     
     const optionsJson = JSON.stringify({
-      propertyCode: selectedPropertyCode,
-      propertyType: selectedProperty?.PROPERTY_TYPE || 'S',
+      propertyCodes: selectedPropertyCodes,
       mappings,
     })
     
@@ -455,61 +495,93 @@ export function OptionsDialog({
           <div className="space-y-4">
             {/* Property Selection */}
             <div>
-              <Label className="pb-[10px] inline-block">Свойство ТП</Label>
-              <Select value={selectedPropertyCode} onValueChange={handlePropertySelect}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите свойство..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {propertiesList.map(prop => (
-                    <SelectItem key={prop.CODE} value={prop.CODE}>
-                      {prop.NAME} ({prop.PROPERTY_TYPE})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="pb-[10px] inline-block">Свойства ТП</Label>
+              <div className="border rounded-md p-3 space-y-2 max-h-52 overflow-auto">
+                {propertiesList.map((prop) => (
+                  <label key={prop.CODE} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={selectedPropertyCodes.includes(prop.CODE)}
+                      onCheckedChange={(checked) => handlePropertyToggle(prop.CODE, Boolean(checked))}
+                    />
+                    <span>{prop.NAME} ({prop.PROPERTY_TYPE})</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             {/* Mapping Table */}
-            {selectedProperty && (
+            {selectedPropertyCodes.length > 0 && (
               <div className="space-y-3">
                 <Label className="pb-[10px] inline-block">
-                  Сопоставление{' '}
-                  {selectedProperty.PROPERTY_TYPE === 'L' && '(тип: список)'}
+                  Сопоставление значений свойств
                 </Label>
                 
                 <div className="border rounded-lg overflow-hidden">
                   <table className="w-full">
                     <thead className="bg-muted">
                       <tr>
-                        <th className="px-4 py-2 text-left text-sm font-medium whitespace-nowrap">
-                          {selectedProperty.PROPERTY_TYPE === 'L' 
-                            ? 'Значение свойства' 
-                            : 'Произвольное значение'}
-                        </th>
+                        {selectedPropertyCodes.map((propertyCode) => {
+                          const property = propertiesList.find((prop) => prop.CODE === propertyCode)
+                          return (
+                            <th key={propertyCode} className="px-4 py-2 text-left text-sm font-medium whitespace-nowrap">
+                              {property?.NAME || propertyCode}
+                            </th>
+                          )
+                        })}
                         <th className="px-4 py-2 text-left text-sm font-medium whitespace-nowrap">
                           Вариант {type === 'operation' ? 'операции' : 'материала'}
                         </th>
-                        {selectedProperty.PROPERTY_TYPE !== 'L' && (
-                          <th className="px-4 py-2 w-12"></th>
-                        )}
+                        <th className="px-4 py-2 w-12"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {mappingRows.map((row, index) => (
                         <tr key={index} className="border-t">
-                          <td className="px-4 py-2">
-                            {selectedProperty.PROPERTY_TYPE === 'L' ? (
-                              <span className="text-sm">{row.value}</span>
-                            ) : (
+                          {selectedPropertyCodes.map((propertyCode) => {
+                            const property = propertiesList.find((prop) => prop.CODE === propertyCode)
+                            const currentValue = row.values[propertyCode]?.value || ''
+                            if (property?.PROPERTY_TYPE === 'L' && property.ENUMS) {
+                              const sortedEnums = [...property.ENUMS].sort((a, b) => (a.SORT ?? 500) - (b.SORT ?? 500))
+                              return (
+                                <td key={propertyCode} className="px-4 py-2">
+                                  <Select
+                                    value={currentValue}
+                                    onValueChange={(value) => {
+                                      const selectedEnum = sortedEnums.find((item) => item.VALUE === value)
+                                      const newRows = [...mappingRows]
+                                      newRows[index].values[propertyCode] = {
+                                        value,
+                                        xmlId: selectedEnum?.VALUE_XML_ID || selectedEnum?.XML_ID || '',
+                                      }
+                                      setMappingRows(newRows)
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-8">
+                                      <SelectValue placeholder="Выберите..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {sortedEnums.map((enumItem) => (
+                                        <SelectItem key={`${propertyCode}-${enumItem.VALUE_XML_ID || enumItem.XML_ID || enumItem.VALUE}`} value={enumItem.VALUE}>
+                                          {enumItem.VALUE}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                              )
+                            }
+
+                            return (
+                              <td key={propertyCode} className="px-4 py-2">
                               <Input
-                                value={row.value}
-                                onChange={(e) => handleUpdateRow(index, 'value', e.target.value)}
+                                value={currentValue}
+                                onChange={(e) => handleUpdateRow(index, 'value', e.target.value, propertyCode)}
                                 placeholder="Введите значение..."
                                 className="h-8"
                               />
-                            )}
-                          </td>
+                              </td>
+                            )
+                          })}
                           <td className="px-4 py-2">
                             <Select
                               value={row.variantId}
@@ -527,37 +599,33 @@ export function OptionsDialog({
                               </SelectContent>
                             </Select>
                           </td>
-                          {selectedProperty.PROPERTY_TYPE !== 'L' && (
-                            <td className="px-4 py-2">
-                              {mappingRows.length > 1 && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0"
-                                  onClick={() => handleRemoveRow(index)}
-                                >
-                                  <Trash className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </td>
-                          )}
+                          <td className="px-4 py-2">
+                            {mappingRows.length > 1 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={() => handleRemoveRow(index)}
+                              >
+                                <Trash className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
 
-                {selectedProperty.PROPERTY_TYPE !== 'L' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddRow}
-                    className="w-full"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Добавить строку
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddRow}
+                  className="w-full"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Добавить строку
+                </Button>
               </div>
             )}
           </div>
