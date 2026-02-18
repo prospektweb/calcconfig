@@ -1560,6 +1560,7 @@ export function CalculationLogicDialog({
     
     // Build outputs array
     const outputs: Array<{ key: string; var: string }> = []
+    const reference: Array<{ name: string; value: string }> = []
     
     // Add stage result mappings (all optional)
     const resultKeys: Array<keyof ResultsHL> = [
@@ -1581,11 +1582,11 @@ export function CalculationLogicDialog({
       })
     }
     
-    // Add additional results (key format: "slug|title")
+    // Add additional results to dedicated reference payload section
     for (const additional of additionalResults) {
-      outputs.push({
-        key: `${additional.key}|${additional.title}`,
-        var: additional.sourceRef || ''
+      reference.push({
+        name: additional.title || additional.key,
+        value: additional.sourceRef || ''
       })
     }
 
@@ -1608,7 +1609,8 @@ export function CalculationLogicDialog({
       },
       stageWiring: {
         inputs: inputsWiring,
-        outputs: sanitizedOutputs
+        outputs: sanitizedOutputs,
+        reference
       },
       stageParametrValuesScheme: {
         offer: parametrValuesPayload,

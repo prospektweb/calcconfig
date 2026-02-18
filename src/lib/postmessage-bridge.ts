@@ -292,8 +292,9 @@ export interface SaveCalcLogicRequestPayload {
   stageWiring: {
     inputs: Array<{ name: string; path: string }>
     outputs: Array<{ key: string; var: string }>
+    reference?: Array<{ name: string; value: string }>
     // key для обязательных: "width", "length", etc.
-    // key для дополнительных: "${slug}|${title}"
+    // reference для дополнительных: { name, value }
   }
 
   stageParametrValuesScheme?: {
