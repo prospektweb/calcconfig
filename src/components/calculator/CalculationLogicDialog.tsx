@@ -1560,7 +1560,7 @@ export function CalculationLogicDialog({
     
     // Build outputs array
     const outputs: Array<{ key: string; var: string }> = []
-    const reference: Array<{ code: string; name: string; value: string }> = []
+    const reference: Array<{ name: string; value: string }> = []
     
     // Add stage result mappings (all optional)
     const resultKeys: Array<keyof ResultsHL> = [
@@ -1585,8 +1585,7 @@ export function CalculationLogicDialog({
     // Add additional results to dedicated reference payload section
     for (const additional of additionalResults) {
       reference.push({
-        code: additional.key,
-        name: additional.title,
+        name: additional.title || additional.key,
         value: additional.sourceRef || ''
       })
     }

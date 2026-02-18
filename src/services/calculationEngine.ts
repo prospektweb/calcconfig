@@ -24,12 +24,17 @@ import type { InitPayload } from '@/lib/postmessage-bridge'
 
 export interface CalculationStageAddedCosts {
   operation: {
+    name?: string
     purchasingPrice: number
     basePrice: number
   }
   material: {
+    name?: string
     purchasingPrice: number
     basePrice: number
+  }
+  equipment: {
+    name?: string
   }
 }
 
@@ -145,6 +150,15 @@ function getStoreElementById(initPayload: any, storeCode: string, id: number | n
   const elements = initPayload?.elementsStore?.[storeCode]
   if (!Array.isArray(elements)) return undefined
   return elements.find((item: any) => Number(item?.id) === Number(id))
+}
+
+function getStoreElementNameById(initPayload: any, storeCode: string, id: number | null | undefined): string | undefined {
+  const element = getStoreElementById(initPayload, storeCode, id)
+  const rawName = element?.name
+  if (rawName === undefined || rawName === null) {
+    return undefined
+  }
+  return String(rawName)
 }
 
 function extractParametrScheme(stageElement: any, propertyCode: string): ParametrSchemeEntry[] {
@@ -315,6 +329,14 @@ async function calculateStage(
       )
     }
   }
+
+  const operationVariantId = Number(stageElement?.properties?.OPERATION_VARIANT?.VALUE ?? stage.operationVariantId ?? 0) || null
+  const materialVariantId = Number(stageElement?.properties?.MATERIAL_VARIANT?.VALUE ?? stage.materialVariantId ?? 0) || null
+  const equipmentId = Number(stageElement?.properties?.EQUIPMENT?.VALUE ?? stage.equipmentId ?? 0) || null
+
+  const operationVariantName = getStoreElementNameById(initPayload, 'CALC_OPERATIONS_VARIANTS', operationVariantId)
+  const materialVariantName = getStoreElementNameById(initPayload, 'CALC_MATERIALS_VARIANTS', materialVariantId)
+  const equipmentName = getStoreElementNameById(initPayload, 'CALC_EQUIPMENT', equipmentId)
   
   // Process LOGIC_JSON if available
   if (settingsElement && stageElement && stage.stageId) {
@@ -441,9 +463,9 @@ async function calculateStage(
     }
     
     // Calculate operation cost
-    if (stage.operationVariantId) {
+    if (operationVariantId) {
       const operationVariantStore = useOperationVariantStore.getState()
-      const operationVariant = operationVariantStore.getVariant(stage.operationVariantId.toString())
+      const operationVariant = operationVariantStore.getVariant(operationVariantId.toString())
       
       if (operationVariant) {
         // Use price from variant if available
@@ -453,9 +475,9 @@ async function calculateStage(
     }
     
     // Calculate material cost
-    if (stage.materialVariantId) {
+    if (materialVariantId) {
       const materialVariantStore = useMaterialVariantStore.getState()
-      const materialVariant = materialVariantStore.getVariant(stage.materialVariantId.toString())
+      const materialVariant = materialVariantStore.getVariant(materialVariantId.toString())
       
       if (materialVariant) {
         // Use price from variant if available
@@ -522,12 +544,17 @@ async function calculateStage(
     inputs: inputEntries.length > 0 ? inputEntries : undefined,
     added: {
       operation: {
+        name: operationVariantName,
         purchasingPrice: operationPurchasingPrice,
         basePrice: operationBasePrice,
       },
       material: {
+        name: materialVariantName,
         purchasingPrice: materialPurchasingPrice,
         basePrice: materialBasePrice,
+      },
+      equipment: {
+        name: equipmentName,
       },
     },
     delta: stageDelta,
@@ -551,8 +578,7 @@ async function calculateDetail(
   progressCallback?: ProgressCallback,
   currentStep?: { value: number },
   totalSteps?: number,
-  parametrAccumulator?: ParametrAccumulator,
-  pricingState?: GlobalPricingState
+  parametrAccumulator?: ParametrAccumulator
 ): Promise<CalculationDetailResult> {
   console.log('[CALC] ===> Processing detail:', {
     detailId: detail.id,
@@ -561,6 +587,7 @@ async function calculateDetail(
   })
   
   const stageResults: CalculationStageResult[] = []
+  const detailPricingState: GlobalPricingState = { purchasingPrice: 0, basePrice: 0 }
   
   // Calculate all stages for this detail
   for (const stage of detail.stages || []) {
@@ -574,7 +601,7 @@ async function calculateDetail(
       })
     }
     
-    const stageResult = await calculateStage(stage, detail, initPayload, stepCallback, parametrAccumulator, pricingState)
+    const stageResult = await calculateStage(stage, detail, initPayload, stepCallback, parametrAccumulator, detailPricingState)
     stageResults.push(stageResult)
   }
   
@@ -636,8 +663,7 @@ async function calculateBinding(
   currentStep?: { value: number },
   totalSteps?: number,
   visited: Set<string> = new Set(),
-  parametrAccumulator?: ParametrAccumulator,
-  pricingState?: GlobalPricingState
+  parametrAccumulator?: ParametrAccumulator
 ): Promise<CalculationDetailResult> {
   console.log('[CALC] ===> Processing binding:', {
     bindingId: binding.id,
@@ -671,7 +697,7 @@ async function calculateBinding(
   for (const detailId of binding.detailIds || []) {
     const childDetail = details.find(d => d.id === detailId)
     if (childDetail) {
-      const childResult = await calculateDetail(childDetail, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps, parametrAccumulator, pricingState)
+      const childResult = await calculateDetail(childDetail, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps, parametrAccumulator)
       children.push(childResult)
     }
   }
@@ -680,34 +706,11 @@ async function calculateBinding(
   for (const bindingId of binding.bindingIds || []) {
     const childBinding = bindings.find(b => b.id === bindingId)
     if (childBinding) {
-      const childResult = await calculateBinding(childBinding, details, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps, visited, parametrAccumulator, pricingState)
+      const childResult = await calculateBinding(childBinding, details, bindings, initPayload, stepCallback, progressCallback, currentStep, totalSteps, visited, parametrAccumulator)
       children.push(childResult)
     }
   }
   
-  // Calculate binding's own stages
-  for (const stage of binding.stages || []) {
-    if (currentStep && totalSteps && progressCallback) {
-      currentStep.value++
-      progressCallback({
-        currentStep: currentStep.value,
-        totalSteps,
-        message: `Расчёт этапа скрепления: ${stage.stageName || stage.id}`,
-        percentage: Math.round((currentStep.value / totalSteps) * 100),
-      })
-    }
-    
-    const stageResult = await calculateStage(stage, binding, initPayload, stepCallback, parametrAccumulator, pricingState)
-    stageResults.push(stageResult)
-  }
-  
-  const childrenCost = children.reduce((sum, child) => sum + child.purchasePrice, 0)
-  const bindingStageCost = stageResults.reduce((sum, stage) => sum + stage.totalCost, 0)
-  const bindingStagePurchase = stageResults.reduce((sum, stage) => sum + Number(stage.delta?.purchasingPrice || stage.totalCost || 0), 0)
-  const bindingStageBase = stageResults.reduce((sum, stage) => sum + Number(stage.delta?.basePrice || stage.totalCost || 0), 0)
-  const totalCost = childrenCost + bindingStageCost
-  const lastStageWithOutputs = [...stageResults].reverse().find(stage => stage.outputs && Object.keys(stage.outputs).length > 0)
-
   const aggregateChildren = (items: CalculationDetailResult[]) => {
     let purchasePrice = 0
     let basePrice = 0
@@ -743,6 +746,35 @@ async function calculateBinding(
     }
   }
 
+  const aggregatedChildren = aggregateChildren(children)
+  const bindingPricingState: GlobalPricingState = {
+    purchasingPrice: aggregatedChildren.purchasePrice,
+    basePrice: aggregatedChildren.basePrice,
+  }
+
+  // Calculate binding's own stages
+  for (const stage of binding.stages || []) {
+    if (currentStep && totalSteps && progressCallback) {
+      currentStep.value++
+      progressCallback({
+        currentStep: currentStep.value,
+        totalSteps,
+        message: `Расчёт этапа скрепления: ${stage.stageName || stage.id}`,
+        percentage: Math.round((currentStep.value / totalSteps) * 100),
+      })
+    }
+
+    const stageResult = await calculateStage(stage, binding, initPayload, stepCallback, parametrAccumulator, bindingPricingState)
+    stageResults.push(stageResult)
+  }
+
+  const childrenCost = aggregatedChildren.purchasePrice
+  const bindingStageCost = stageResults.reduce((sum, stage) => sum + stage.totalCost, 0)
+  const bindingStagePurchase = stageResults.reduce((sum, stage) => sum + Number(stage.delta?.purchasingPrice || stage.totalCost || 0), 0)
+  const bindingStageBase = stageResults.reduce((sum, stage) => sum + Number(stage.delta?.basePrice || stage.totalCost || 0), 0)
+  const totalCost = childrenCost + bindingStageCost
+  const lastStageWithOutputs = [...stageResults].reverse().find(stage => stage.outputs && Object.keys(stage.outputs).length > 0)
+
   const derivedOutputs = lastStageWithOutputs?.outputs
   const derivedPurchasePrice = derivedOutputs?.purchasingPrice
   const derivedBasePrice = derivedOutputs?.basePrice
@@ -750,7 +782,6 @@ async function calculateBinding(
   const derivedLength = derivedOutputs?.length
   const derivedHeight = derivedOutputs?.height
   const derivedWeight = derivedOutputs?.weight
-  const aggregatedChildren = stageResults.length === 0 ? aggregateChildren(children) : null
   
   console.log('[CALC] Binding calculation complete:', {
     bindingId: binding.id,
@@ -986,7 +1017,6 @@ export async function calculateOffer(
     offer: new Map(),
     offerName: offer.name,
   }
-  const pricingState: GlobalPricingState = { purchasingPrice: 0, basePrice: 0 }
   
   // Get top-level details (not in any binding)
   const topLevelDetails = details.filter(detail => 
@@ -1013,13 +1043,13 @@ export async function calculateOffer(
 
   // Calculate top-level details
   for (const detail of topLevelDetails) {
-    const result = await calculateDetail(detail, bindings, offerPayload, stepCallback, progressCallback, currentStep, totalSteps, parametrAccumulator, pricingState)
+    const result = await calculateDetail(detail, bindings, offerPayload, stepCallback, progressCallback, currentStep, totalSteps, parametrAccumulator)
     detailResults.push(result)
   }
   
   // Calculate top-level bindings
   for (const binding of topLevelBindings) {
-    const result = await calculateBinding(binding, details, bindings, offerPayload, stepCallback, progressCallback, currentStep, totalSteps, new Set(), parametrAccumulator, pricingState)
+    const result = await calculateBinding(binding, details, bindings, offerPayload, stepCallback, progressCallback, currentStep, totalSteps, new Set(), parametrAccumulator)
     detailResults.push(result)
   }
   
