@@ -16,13 +16,15 @@ interface PricePanelProps {
   presetId?: number
   defaultExtraCurrency?: 'RUB' | 'PRC'
   defaultExtraValue?: number
+  onPricesChange?: (prices: PriceRangeItem[]) => void
 }
 
-export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defaultExtraCurrency, defaultExtraValue }: PricePanelProps) {
+export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defaultExtraCurrency, defaultExtraValue, onPricesChange }: PricePanelProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [prices, setPrices] = useState<PriceRangeItem[]>([])
   const [activeTypeIds, setActiveTypeIds] = useState<number[]>([])
   const isInitializedRef = useRef(false)
+  const pricesRef = useRef<PriceRangeItem[]>([])
 
   // Find base price type
   const basePriceType = priceTypes.find(pt => pt.base)
@@ -50,12 +52,28 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defau
     })
   }
 
+  const notifyPricesChange = (currentPrices: PriceRangeItem[]) => {
+    const payload = preparePayloadForSend(currentPrices)
+    onPricesChange?.(payload)
+    return payload
+  }
+
+  const updatePrices = (nextPrices: PriceRangeItem[]) => {
+    pricesRef.current = nextPrices
+    setPrices(nextPrices)
+    notifyPricesChange(nextPrices)
+  }
+
+  useEffect(() => {
+    pricesRef.current = prices
+  }, [prices])
+
   // Initialize from presetPrices
   useEffect(() => {
     if (isInitializedRef.current || !basePriceType) return
     
     if (presetPrices.length > 0) {
-      setPrices(presetPrices)
+      updatePrices(presetPrices)
       
       // Auto-activate price types that have data
       const activeIds = new Set(presetPrices.map(p => p.typeId))
@@ -69,7 +87,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defau
         quantityFrom: 0,
         quantityTo: null,
       }
-      setPrices([defaultRange])
+      updatePrices([defaultRange])
       setActiveTypeIds([basePriceType.id])
     }
     
@@ -117,7 +135,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defau
         }
       })
       
-      setPrices(newPrices)
+      updatePrices(newPrices)
       const newActiveTypeIds = [...activeTypeIds, typeId]
       setActiveTypeIds(newActiveTypeIds)
       
@@ -127,7 +145,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defau
     } else {
       // Remove all ranges for this type
       const newPrices = prices.filter(p => p.typeId !== typeId)
-      setPrices(newPrices)
+      updatePrices(newPrices)
       const newActiveTypeIds = activeTypeIds.filter(id => id !== typeId)
       setActiveTypeIds(newActiveTypeIds)
       
@@ -176,7 +194,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defau
       })
     })
     
-    setPrices(newPrices)
+    updatePrices(newPrices)
     
     // Send unified update
     const payload = preparePayloadForSend(newPrices)
@@ -193,7 +211,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defau
     // Remove this range for all types
     const newPrices = prices.filter(p => p.quantityFrom !== rangeToRemove.quantityFrom)
     
-    setPrices(newPrices)
+    updatePrices(newPrices)
     
     // Send unified update
     const payload = preparePayloadForSend(newPrices)
@@ -207,12 +225,12 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defau
         ? { ...p, price: newPrice }
         : p
     )
-    setPrices(newPrices)
+    updatePrices(newPrices)
   }
 
   const handlePriceBlur = () => {
     // Send unified update
-    const payload = preparePayloadForSend(prices)
+    const payload = preparePayloadForSend(pricesRef.current)
     postMessageBridge.sendChangePricePresetRequest(payload)
   }
 
@@ -223,7 +241,7 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defau
         ? { ...p, currency: newCurrency }
         : p
     )
-    setPrices(newPrices)
+    updatePrices(newPrices)
     
     // Send unified update
     const payload = preparePayloadForSend(newPrices)
@@ -252,12 +270,12 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defau
         : p
     )
     
-    setPrices(newPrices)
+    updatePrices(newPrices)
   }
 
   const handleRangeFromBlur = () => {
     // Send unified update
-    const payload = preparePayloadForSend(prices)
+    const payload = preparePayloadForSend(pricesRef.current)
     postMessageBridge.sendChangePricePresetRequest(payload)
   }
 
