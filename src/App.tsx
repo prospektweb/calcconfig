@@ -87,6 +87,7 @@ function App() {
   const [selectedVariantIds, setSelectedVariantIds] = useState<number[]>([])
   const [bitrixMeta, setBitrixMeta] = useState<InitPayload | null>(null)
   const bitrixMetaRef = useRef<InitPayload | null>(null)
+  const latestPriceRangesRef = useRef<InitPayload['preset']['prices']>([])
   
   const [selectedOffers, setSelectedOffers] = useState<InitPayload['selectedOffers']>([])
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -120,6 +121,7 @@ function App() {
   const [isInfoPanelExpanded, setIsInfoPanelExpanded] = useState(false)
   useEffect(() => {
     bitrixMetaRef.current = bitrixMeta
+    latestPriceRangesRef.current = bitrixMeta?.preset?.prices || []
   }, [bitrixMeta])
   
   const [isCalculating, setIsCalculating] = useState(false)
@@ -133,6 +135,7 @@ function App() {
     selectedTypes: [],
     types: {},
   })
+
 
   const dedupeById = useCallback(<T extends { id: number | string }>(items: T[]): T[] => {
     const seen = new Set<number | string>()
@@ -1386,7 +1389,12 @@ function App() {
       await calculateAllOffers(
         selectedOffers,
         bitrixMeta?.product || null,
-        bitrixMeta?.preset || null,
+        bitrixMeta
+          ? {
+              ...bitrixMeta.preset,
+              prices: latestPriceRangesRef.current,
+            }
+          : null,
         details || [],
         bindings || [],
         bitrixMeta?.priceTypes || [],
@@ -2132,6 +2140,9 @@ function App() {
           presetId={bitrixMeta?.preset?.id}
           defaultExtraCurrency={bitrixMeta?.context?.defaultExtraCurrency}
           defaultExtraValue={bitrixMeta?.context?.defaultExtraValue}
+          onPricesChange={(nextPrices) => {
+            latestPriceRangesRef.current = nextPrices
+          }}
         />
 
         <VariantsFooter
