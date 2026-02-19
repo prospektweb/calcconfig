@@ -1427,13 +1427,20 @@ function App() {
       added: stage?.added
         ? {
             operation: {
+              name: stage.added?.operation?.name,
               purchasingPrice: Number(stage.added?.operation?.purchasingPrice) || 0,
               basePrice: Number(stage.added?.operation?.basePrice) || 0,
             },
             material: {
+              name: stage.added?.material?.name,
               purchasingPrice: Number(stage.added?.material?.purchasingPrice) || 0,
               basePrice: Number(stage.added?.material?.basePrice) || 0,
             },
+            equipment: stage.added?.equipment
+              ? {
+                  name: stage.added?.equipment?.name,
+                }
+              : undefined,
           }
         : undefined,
       operationCost: undefined,
@@ -1442,11 +1449,23 @@ function App() {
     }
   }
 
-  const sanitizeDetailTreeForSave = (detail: any): any => ({
-    ...detail,
-    stages: Array.isArray(detail?.stages) ? detail.stages.map(sanitizeStageForSave) : detail?.stages,
-    children: Array.isArray(detail?.children) ? detail.children.map(sanitizeDetailTreeForSave) : detail?.children,
-  })
+  const sanitizeDetailTreeForSave = (detail: any): any => {
+    const sanitizedChildren = Array.isArray(detail?.children)
+      ? detail.children.map(sanitizeDetailTreeForSave)
+      : detail?.children
+
+    return {
+      detailId: detail?.detailId,
+      detailName: detail?.detailName,
+      detailType: detail?.detailType,
+      timestamp_x: detail?.timestamp_x,
+      modified_by: detail?.modified_by,
+      currency: detail?.currency,
+      outputs: detail?.outputs,
+      stages: Array.isArray(detail?.stages) ? detail.stages.map(sanitizeStageForSave) : detail?.stages,
+      children: sanitizedChildren,
+    }
+  }
 
   const sanitizeResultForSave = (result: any) => ({
     ...result,
