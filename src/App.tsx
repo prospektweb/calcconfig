@@ -1418,12 +1418,45 @@ function App() {
   
 
   const sanitizeStageForSave = (stage: any) => {
-    const outputs = stage?.outputs || {}
-    return {
-      ...stage,
-      outputs: {
-        ...outputs,
-      },
+    const rawOutputs = stage?.outputs || {}
+    const requiredOutputKeys = new Set([
+      'width',
+      'length',
+      'height',
+      'weight',
+      'purchasingPrice',
+      'basePrice',
+      'operationPurchasingPrice',
+      'operationBasePrice',
+      'materialPurchasingPrice',
+      'materialBasePrice',
+    ])
+
+    const outputs = Object.entries(rawOutputs).reduce<Record<string, any>>((acc, [key, value]) => {
+      if (requiredOutputKeys.has(key)) {
+        acc[key] = value
+      }
+      return acc
+    }, {})
+
+    const reference = Object.entries(rawOutputs)
+      .filter(([key, value]) => !requiredOutputKeys.has(key) && value !== undefined)
+      .map(([name, value]) => ({
+        name,
+        value: value === null ? '' : String(value),
+      }))
+
+    const sanitized: Record<string, any> = {
+      stageId: stage?.stageId,
+      stageName: stage?.stageName,
+      timestamp_x: stage?.timestamp_x,
+      modified_by: stage?.modified_by,
+      currency: stage?.currency,
+      logicApplied: stage?.logicApplied,
+      variables: stage?.variables,
+      logs: stage?.logs,
+      inputs: stage?.inputs,
+      outputs,
       added: stage?.added
         ? {
             operation: {
@@ -1443,10 +1476,12 @@ function App() {
               : undefined,
           }
         : undefined,
-      operationCost: undefined,
-      materialCost: undefined,
-      totalCost: undefined,
+      delta: stage?.delta,
     }
+
+    sanitized.reference = reference
+
+    return sanitized
   }
 
   const sanitizeDetailTreeForSave = (detail: any): any => {
