@@ -73,11 +73,6 @@ interface ParametrAccumulator {
   offerName?: string
 }
 
-interface GlobalPricingState {
-  purchasingPrice: number
-  basePrice: number
-}
-
 export interface CalculationDetailResult {
   detailId: string
   detailName: string
@@ -260,8 +255,7 @@ async function calculateStage(
   detail: Detail | Binding,
   initPayload: any,
   stepCallback?: StepCallback,
-  parametrAccumulator?: ParametrAccumulator,
-  pricingState?: GlobalPricingState
+  parametrAccumulator?: ParametrAccumulator
 ): Promise<CalculationStageResult> {
   console.log('[CALC] ==> Processing stage:', {
     stageId: stage.id,
@@ -500,9 +494,6 @@ async function calculateStage(
     ? Number(outputValues.materialBasePrice) || 0
     : materialCost
 
-  const previousPurchasingPrice = Number(pricingState?.purchasingPrice || 0)
-  const previousBasePrice = Number(pricingState?.basePrice || 0)
-
   const stageDelta = {
     purchasingPrice: operationPurchasingPrice + materialPurchasingPrice,
     basePrice: operationBasePrice + materialBasePrice,
@@ -520,13 +511,8 @@ async function calculateStage(
 
   const normalizedOutputs = {
     ...restOutputValues,
-    purchasingPrice: previousPurchasingPrice + stageDelta.purchasingPrice,
-    basePrice: previousBasePrice + stageDelta.basePrice,
-  }
-
-  if (pricingState) {
-    pricingState.purchasingPrice = normalizedOutputs.purchasingPrice
-    pricingState.basePrice = normalizedOutputs.basePrice
+    purchasingPrice: stageDelta.purchasingPrice,
+    basePrice: stageDelta.basePrice,
   }
 
   const result: CalculationStageResult = {
@@ -587,8 +573,6 @@ async function calculateDetail(
   })
   
   const stageResults: CalculationStageResult[] = []
-  const detailPricingState: GlobalPricingState = { purchasingPrice: 0, basePrice: 0 }
-  
   // Calculate all stages for this detail
   for (const stage of detail.stages || []) {
     if (currentStep && totalSteps && progressCallback) {
@@ -601,7 +585,7 @@ async function calculateDetail(
       })
     }
     
-    const stageResult = await calculateStage(stage, detail, initPayload, stepCallback, parametrAccumulator, detailPricingState)
+    const stageResult = await calculateStage(stage, detail, initPayload, stepCallback, parametrAccumulator)
     stageResults.push(stageResult)
   }
   
@@ -747,11 +731,6 @@ async function calculateBinding(
   }
 
   const aggregatedChildren = aggregateChildren(children)
-  const bindingPricingState: GlobalPricingState = {
-    purchasingPrice: aggregatedChildren.purchasePrice,
-    basePrice: aggregatedChildren.basePrice,
-  }
-
   // Calculate binding's own stages
   for (const stage of binding.stages || []) {
     if (currentStep && totalSteps && progressCallback) {
@@ -764,7 +743,7 @@ async function calculateBinding(
       })
     }
 
-    const stageResult = await calculateStage(stage, binding, initPayload, stepCallback, parametrAccumulator, bindingPricingState)
+    const stageResult = await calculateStage(stage, binding, initPayload, stepCallback, parametrAccumulator)
     stageResults.push(stageResult)
   }
 
