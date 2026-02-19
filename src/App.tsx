@@ -1418,35 +1418,89 @@ function App() {
   
 
   const sanitizeStageForSave = (stage: any) => {
-    const outputs = stage?.outputs || {}
-    return {
-      ...stage,
-      outputs: {
-        ...outputs,
-      },
+    const rawOutputs = stage?.outputs || {}
+    const requiredOutputKeys = new Set([
+      'width',
+      'length',
+      'height',
+      'weight',
+      'purchasingPrice',
+      'basePrice',
+      'operationPurchasingPrice',
+      'operationBasePrice',
+      'materialPurchasingPrice',
+      'materialBasePrice',
+    ])
+
+    const outputs = Object.entries(rawOutputs).reduce<Record<string, any>>((acc, [key, value]) => {
+      if (requiredOutputKeys.has(key)) {
+        acc[key] = value
+      }
+      return acc
+    }, {})
+
+    const reference = Object.entries(rawOutputs)
+      .filter(([key, value]) => !requiredOutputKeys.has(key) && value !== undefined)
+      .map(([name, value]) => ({
+        name,
+        value: value === null ? '' : String(value),
+      }))
+
+    const sanitized: Record<string, any> = {
+      stageId: stage?.stageId,
+      stageName: stage?.stageName,
+      timestamp_x: stage?.timestamp_x,
+      modified_by: stage?.modified_by,
+      currency: stage?.currency,
+      logicApplied: stage?.logicApplied,
+      variables: stage?.variables,
+      logs: stage?.logs,
+      inputs: stage?.inputs,
+      outputs,
       added: stage?.added
         ? {
             operation: {
+              name: stage.added?.operation?.name,
               purchasingPrice: Number(stage.added?.operation?.purchasingPrice) || 0,
               basePrice: Number(stage.added?.operation?.basePrice) || 0,
             },
             material: {
+              name: stage.added?.material?.name,
               purchasingPrice: Number(stage.added?.material?.purchasingPrice) || 0,
               basePrice: Number(stage.added?.material?.basePrice) || 0,
             },
+            equipment: stage.added?.equipment
+              ? {
+                  name: stage.added?.equipment?.name,
+                }
+              : undefined,
           }
         : undefined,
-      operationCost: undefined,
-      materialCost: undefined,
-      totalCost: undefined,
+      delta: stage?.delta,
     }
+
+    sanitized.reference = reference
+
+    return sanitized
   }
 
-  const sanitizeDetailTreeForSave = (detail: any): any => ({
-    ...detail,
-    stages: Array.isArray(detail?.stages) ? detail.stages.map(sanitizeStageForSave) : detail?.stages,
-    children: Array.isArray(detail?.children) ? detail.children.map(sanitizeDetailTreeForSave) : detail?.children,
-  })
+  const sanitizeDetailTreeForSave = (detail: any): any => {
+    const sanitizedChildren = Array.isArray(detail?.children)
+      ? detail.children.map(sanitizeDetailTreeForSave)
+      : detail?.children
+
+    return {
+      detailId: detail?.detailId,
+      detailName: detail?.detailName,
+      detailType: detail?.detailType,
+      timestamp_x: detail?.timestamp_x,
+      modified_by: detail?.modified_by,
+      currency: detail?.currency,
+      outputs: detail?.outputs,
+      stages: Array.isArray(detail?.stages) ? detail.stages.map(sanitizeStageForSave) : detail?.stages,
+      children: sanitizedChildren,
+    }
+  }
 
   const sanitizeResultForSave = (result: any) => ({
     ...result,
