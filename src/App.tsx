@@ -1417,6 +1417,46 @@ function App() {
   const [hasSuccessfulCalculations, setHasSuccessfulCalculations] = useState(false)
   
 
+  const resolveStageReferenceName = (stage: any, key: string): string => {
+    const rawStageId = stage?.stageId
+    const stageNumericId = typeof rawStageId === 'string' && rawStageId.startsWith('stage_')
+      ? Number(rawStageId.replace('stage_', '')) || null
+      : Number(rawStageId) || null
+
+    const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find((item: any) => {
+      if (stageNumericId && Number(item?.id) === stageNumericId) {
+        return true
+      }
+      return String(item?.id) === String(rawStageId)
+    })
+
+    const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE
+    if (Array.isArray(outputsValue)) {
+      for (const outputEntry of outputsValue) {
+        const outputKey = String(outputEntry || '')
+        if (!outputKey.includes('|')) continue
+        const [slug, title] = outputKey.split('|', 2)
+        if (slug === key && title) {
+          return title
+        }
+      }
+    }
+
+    const referenceValues = stageElement?.properties?.REFERENCE?.VALUE
+    const referenceDescriptions = stageElement?.properties?.REFERENCE?.DESCRIPTION
+    if (Array.isArray(referenceDescriptions) && Array.isArray(referenceValues)) {
+      const matchIndex = referenceDescriptions.findIndex((sourceRef: any) => String(sourceRef || '') === key)
+      if (matchIndex >= 0) {
+        const title = String(referenceValues[matchIndex] || '').trim()
+        if (title) {
+          return title
+        }
+      }
+    }
+
+    return key
+  }
+
   const sanitizeStageForSave = (stage: any) => {
     const rawOutputs = stage?.outputs || {}
     const requiredOutputKeys = new Set([
@@ -1441,8 +1481,8 @@ function App() {
 
     const reference = Object.entries(rawOutputs)
       .filter(([key, value]) => !requiredOutputKeys.has(key) && value !== undefined)
-      .map(([name, value]) => ({
-        name,
+      .map(([key, value]) => ({
+        name: resolveStageReferenceName(stage, key),
         value: value === null ? '' : String(value),
       }))
 
