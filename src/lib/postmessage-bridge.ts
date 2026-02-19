@@ -278,7 +278,7 @@ export interface UpdatePresetPricesRequestPayload {
 
 /**
  * Payload for SAVE_CALC_LOGIC_REQUEST
- * Атомарно обновляет CALC_SETTINGS (params + logicJson) и CALC_STAGES (inputs + outputs)
+ * Атомарно обновляет CALC_SETTINGS (params + logicJson) и CALC_STAGES (inputs + outputs + reference)
  */
 export interface SaveCalcLogicRequestPayload {
   settingsId: number    // CALC_SETTINGS ID
@@ -293,8 +293,8 @@ export interface SaveCalcLogicRequestPayload {
     inputs: Array<{ name: string; path: string }>
     outputs: Array<{ key: string; var: string }>
     reference?: Array<{ name: string; value: string }>
-    // key для обязательных: "width", "length", etc.
-    // reference для дополнительных: { name, value }
+    // outputs: только обязательные HL-результаты (width/length/height/weight/operation*/material*)
+    // reference: дополнительные результаты этапа в формате { name, value } (без code)
   }
 
   stageParametrValuesScheme?: {
