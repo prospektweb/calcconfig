@@ -1417,36 +1417,130 @@ function App() {
   const [hasSuccessfulCalculations, setHasSuccessfulCalculations] = useState(false)
   
 
+  const resolveStageReferenceName = (stage: any, key: string): string => {
+    const rawStageId = stage?.stageId
+    const stageNumericId = typeof rawStageId === 'string' && rawStageId.startsWith('stage_')
+      ? Number(rawStageId.replace('stage_', '')) || null
+      : Number(rawStageId) || null
+
+    const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find((item: any) => {
+      if (stageNumericId && Number(item?.id) === stageNumericId) {
+        return true
+      }
+      return String(item?.id) === String(rawStageId)
+    })
+
+    const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE
+    if (Array.isArray(outputsValue)) {
+      for (const outputEntry of outputsValue) {
+        const outputKey = String(outputEntry || '')
+        if (!outputKey.includes('|')) continue
+        const [slug, title] = outputKey.split('|', 2)
+        if (slug === key && title) {
+          return title
+        }
+      }
+    }
+
+    const referenceValues = stageElement?.properties?.REFERENCE?.VALUE
+    const referenceDescriptions = stageElement?.properties?.REFERENCE?.DESCRIPTION
+    if (Array.isArray(referenceDescriptions) && Array.isArray(referenceValues)) {
+      const matchIndex = referenceDescriptions.findIndex((sourceRef: any) => String(sourceRef || '') === key)
+      if (matchIndex >= 0) {
+        const title = String(referenceValues[matchIndex] || '').trim()
+        if (title) {
+          return title
+        }
+      }
+    }
+
+    return key
+  }
+
   const sanitizeStageForSave = (stage: any) => {
-    const outputs = stage?.outputs || {}
-    return {
-      ...stage,
-      outputs: {
-        ...outputs,
-      },
+    const rawOutputs = stage?.outputs || {}
+    const requiredOutputKeys = new Set([
+      'width',
+      'length',
+      'height',
+      'weight',
+      'purchasingPrice',
+      'basePrice',
+      'operationPurchasingPrice',
+      'operationBasePrice',
+      'materialPurchasingPrice',
+      'materialBasePrice',
+    ])
+
+    const outputs = Object.entries(rawOutputs).reduce<Record<string, any>>((acc, [key, value]) => {
+      if (requiredOutputKeys.has(key)) {
+        acc[key] = value
+      }
+      return acc
+    }, {})
+
+    const reference = Object.entries(rawOutputs)
+      .filter(([key, value]) => !requiredOutputKeys.has(key) && value !== undefined)
+      .map(([key, value]) => ({
+        name: resolveStageReferenceName(stage, key),
+        value: value === null ? '' : String(value),
+      }))
+
+    const sanitized: Record<string, any> = {
+      stageId: stage?.stageId,
+      stageName: stage?.stageName,
+      timestamp_x: stage?.timestamp_x,
+      modified_by: stage?.modified_by,
+      currency: stage?.currency,
+      logicApplied: stage?.logicApplied,
+      variables: stage?.variables,
+      logs: stage?.logs,
+      inputs: stage?.inputs,
+      outputs,
       added: stage?.added
         ? {
             operation: {
+              name: stage.added?.operation?.name,
               purchasingPrice: Number(stage.added?.operation?.purchasingPrice) || 0,
               basePrice: Number(stage.added?.operation?.basePrice) || 0,
             },
             material: {
+              name: stage.added?.material?.name,
               purchasingPrice: Number(stage.added?.material?.purchasingPrice) || 0,
               basePrice: Number(stage.added?.material?.basePrice) || 0,
             },
+            equipment: stage.added?.equipment
+              ? {
+                  name: stage.added?.equipment?.name,
+                }
+              : undefined,
           }
         : undefined,
-      operationCost: undefined,
-      materialCost: undefined,
-      totalCost: undefined,
+      delta: stage?.delta,
     }
+
+    sanitized.reference = reference
+
+    return sanitized
   }
 
-  const sanitizeDetailTreeForSave = (detail: any): any => ({
-    ...detail,
-    stages: Array.isArray(detail?.stages) ? detail.stages.map(sanitizeStageForSave) : detail?.stages,
-    children: Array.isArray(detail?.children) ? detail.children.map(sanitizeDetailTreeForSave) : detail?.children,
-  })
+  const sanitizeDetailTreeForSave = (detail: any): any => {
+    const sanitizedChildren = Array.isArray(detail?.children)
+      ? detail.children.map(sanitizeDetailTreeForSave)
+      : detail?.children
+
+    return {
+      detailId: detail?.detailId,
+      detailName: detail?.detailName,
+      detailType: detail?.detailType,
+      timestamp_x: detail?.timestamp_x,
+      modified_by: detail?.modified_by,
+      currency: detail?.currency,
+      outputs: detail?.outputs,
+      stages: Array.isArray(detail?.stages) ? detail.stages.map(sanitizeStageForSave) : detail?.stages,
+      children: sanitizedChildren,
+    }
+  }
 
   const sanitizeResultForSave = (result: any) => ({
     ...result,
