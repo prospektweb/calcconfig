@@ -1305,10 +1305,11 @@ export function CalculationLogicDialog({
   // Current state as JSON
   const currentStateJson = JSON.stringify({
     version: 1,
-    inputs,
-    vars,
-    resultsHL,
-    additionalResults
+    inputs: sanitizeInputs(inputs, 'current inputs'),
+    vars: sanitizeVars(vars, 'current vars'),
+    resultsHL: sanitizeResultsHL(resultsHL),
+    additionalResults: sanitizeAdditionalResults(additionalResults, 'current additionalResults'),
+    parametrValuesScheme: sanitizeParametrValuesScheme(parametrValuesScheme, 'current parametrValuesScheme'),
   })
 
   // Saved state from INIT as JSON (for comparison)
@@ -1319,7 +1320,8 @@ export function CalculationLogicDialog({
         inputs: [],
         vars: [],
         resultsHL: createEmptyResultsHL(),
-        additionalResults: []
+        additionalResults: [],
+        parametrValuesScheme: [],
       })
     }
     
@@ -1344,14 +1346,32 @@ export function CalculationLogicDialog({
     const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION
     const referenceValue = stageElement?.properties?.REFERENCE?.VALUE ?? stageElement?.properties?.REFERENCE
     const referenceDesc = stageElement?.properties?.REFERENCE?.DESCRIPTION
-    const { resultsHL: savedResultsHL, additionalResults: savedAdditionalResults } = buildResultsFromInit(outputsValue, outputsDesc, referenceValue, referenceDesc)
-    
+    const inputNames = savedInputs.map(inp => inp.name)
+    const { resultsHL: rawSavedResultsHL, additionalResults: rawSavedAdditionalResults } = buildResultsFromInit(
+      outputsValue,
+      outputsDesc,
+      referenceValue,
+      referenceDesc,
+      inputNames,
+    )
+
+    const savedResultsHL = sanitizeResultsHL(rawSavedResultsHL)
+    const savedAdditionalResults = sanitizeAdditionalResults(rawSavedAdditionalResults, 'saved additionalResults')
+
+    const schemeValue = stageElement?.properties?.SCHEME_PARAMETR_VALUES?.VALUE as string[] | undefined
+    const schemeDescription = stageElement?.properties?.SCHEME_PARAMETR_VALUES?.DESCRIPTION as string[] | undefined
+    const savedParametrValuesScheme = sanitizeParametrValuesScheme(
+      buildParametrValuesSchemeFromInit(schemeValue, schemeDescription),
+      'saved parametrValuesScheme'
+    )
+
     return JSON.stringify({
       version: 1,
-      inputs: savedInputs,
-      vars: savedVars,
+      inputs: sanitizeInputs(savedInputs, 'saved inputs'),
+      vars: sanitizeVars(savedVars, 'saved vars'),
       resultsHL: savedResultsHL,
-      additionalResults: savedAdditionalResults
+      additionalResults: savedAdditionalResults,
+      parametrValuesScheme: savedParametrValuesScheme,
     })
   }
   
