@@ -116,10 +116,10 @@ function buildVarsFromInit(logicJsonProp: any): FormulaVar[] {
  * Following new protocol spec section 3.3
  */
 function buildResultsFromInit(
-  outputsValue: string[] | undefined,
-  outputsDesc: string[] | undefined,
-  referenceValue: string[] | undefined,
-  referenceDesc: string[] | undefined,
+  outputsValue: string[] | string | undefined,
+  outputsDesc: string[] | string | undefined,
+  referenceValue: string[] | string | undefined,
+  referenceDesc: string[] | string | undefined,
   inputNames: string[] = []
 ): { resultsHL: ResultsHL; additionalResults: AdditionalResult[] } {
   const REQUIRED_KEYS: Array<keyof ResultsHL> = ['width', 'length', 'height', 'weight', 'operationPurchasingPrice', 'operationBasePrice', 'materialPurchasingPrice', 'materialBasePrice']
@@ -128,12 +128,27 @@ function buildResultsFromInit(
   const resultsHL: ResultsHL = createEmptyResultsHL()
   const additionalResults: AdditionalResult[] = []
   
-  if (!outputsValue || !Array.isArray(outputsValue)) {
+  const normalizeToArray = (value: string[] | string | undefined): string[] => {
+    if (Array.isArray(value)) {
+      return value.map(item => String(item ?? ''))
+    }
+    if (typeof value === 'string') {
+      return [value]
+    }
+    return []
+  }
+
+  const normalizedOutputsValue = normalizeToArray(outputsValue)
+  const normalizedOutputsDesc = normalizeToArray(outputsDesc)
+  const normalizedReferenceValue = normalizeToArray(referenceValue)
+  const normalizedReferenceDesc = normalizeToArray(referenceDesc)
+
+  if (normalizedOutputsValue.length === 0) {
     return { resultsHL, additionalResults }
   }
 
-  const hasLegacyAddedCosts = outputsValue.some(key => LEGACY_OUTPUT_KEYS.has(key))
-  const hasNewAddedCosts = outputsValue.some(key => ADDED_COST_KEYS.has(key))
+  const hasLegacyAddedCosts = normalizedOutputsValue.some(key => LEGACY_OUTPUT_KEYS.has(key))
+  const hasNewAddedCosts = normalizedOutputsValue.some(key => ADDED_COST_KEYS.has(key))
   if (hasLegacyAddedCosts && !hasNewAddedCosts) {
     console.warn('[calcconfig] Legacy OUTPUTS keys purchasingPrice/basePrice detected without operation*/material* mappings. Added costs will stay at 0 until migrated.')
   }
@@ -143,8 +158,8 @@ function buildResultsFromInit(
     return REQUIRED_KEYS.includes(key as keyof ResultsHL)
   }
   
-  outputsValue.forEach((keyValue, i) => {
-    const varName = outputsDesc?.[i] || ''
+  normalizedOutputsValue.forEach((keyValue, i) => {
+    const varName = normalizedOutputsDesc[i] || ''
 
     if (LEGACY_OUTPUT_KEYS.has(keyValue)) {
       return
@@ -176,25 +191,23 @@ function buildResultsFromInit(
   })
 
   // New format: additional results are stored in dedicated stage.reference list.
-  if (Array.isArray(referenceValue)) {
-    referenceValue.forEach((name, i) => {
-      const sourceRef = referenceDesc?.[i] || ''
-      if (!name || !sourceRef) {
-        return
-      }
-      const slug = String(name)
-        .toLowerCase()
-        .replace(/\s+/g, '_')
-      const sourceKind = inputNames.includes(sourceRef) ? 'input' : 'var'
-      additionalResults.push({
-        id: `additional_${slug}_${i}`,
-        key: slug,
-        title: String(name),
-        sourceKind,
-        sourceRef,
-      })
+  normalizedReferenceValue.forEach((name, i) => {
+    const sourceRef = normalizedReferenceDesc[i] || ''
+    if (!name || !sourceRef) {
+      return
+    }
+    const slug = String(name)
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+    const sourceKind = inputNames.includes(sourceRef) ? 'input' : 'var'
+    additionalResults.push({
+      id: `additional_${slug}_${i}`,
+      key: slug,
+      title: String(name),
+      sourceKind,
+      sourceRef,
     })
-  }
+  })
   
   return { resultsHL, additionalResults }
 }
