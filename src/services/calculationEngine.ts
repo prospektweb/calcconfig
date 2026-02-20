@@ -73,6 +73,42 @@ interface ParametrAccumulator {
   offerName?: string
 }
 
+type StageDimensionWeightFields = {
+  width?: number
+  length?: number
+  height?: number
+  weight?: number
+}
+
+function extractStageDimensionWeight(outputs?: Record<string, unknown>): StageDimensionWeightFields {
+  return {
+    width: typeof outputs?.width === 'number' ? outputs.width : undefined,
+    length: typeof outputs?.length === 'number' ? outputs.length : undefined,
+    height: typeof outputs?.height === 'number' ? outputs.height : undefined,
+    weight: typeof outputs?.weight === 'number' ? outputs.weight : undefined,
+  }
+}
+
+function applyStageOutputDefaults(
+  stageResult: CalculationStageResult,
+  fallback: StageDimensionWeightFields,
+): CalculationStageResult {
+  const nextOutputs = {
+    ...(stageResult.outputs || {}),
+  }
+
+  for (const key of ['width', 'length', 'height', 'weight'] as const) {
+    if (typeof nextOutputs[key] !== 'number' && typeof fallback[key] === 'number') {
+      nextOutputs[key] = fallback[key]
+    }
+  }
+
+  return {
+    ...stageResult,
+    outputs: nextOutputs,
+  }
+}
+
 export interface CalculationDetailResult {
   detailId: string
   detailName: string
@@ -573,6 +609,8 @@ async function calculateDetail(
   })
   
   const stageResults: CalculationStageResult[] = []
+  let previousStageOutputs: StageDimensionWeightFields = {}
+
   // Calculate all stages for this detail
   for (const stage of detail.stages || []) {
     if (currentStep && totalSteps && progressCallback) {
@@ -585,7 +623,9 @@ async function calculateDetail(
       })
     }
     
-    const stageResult = await calculateStage(stage, detail, initPayload, stepCallback, parametrAccumulator)
+    const rawStageResult = await calculateStage(stage, detail, initPayload, stepCallback, parametrAccumulator)
+    const stageResult = applyStageOutputDefaults(rawStageResult, previousStageOutputs)
+    previousStageOutputs = extractStageDimensionWeight(stageResult.outputs)
     stageResults.push(stageResult)
   }
   
@@ -676,6 +716,7 @@ async function calculateBinding(
   
   const children: CalculationDetailResult[] = []
   const stageResults: CalculationStageResult[] = []
+  let previousStageOutputs: StageDimensionWeightFields = {}
   
   // Calculate all child details
   for (const detailId of binding.detailIds || []) {
@@ -743,7 +784,9 @@ async function calculateBinding(
       })
     }
 
-    const stageResult = await calculateStage(stage, binding, initPayload, stepCallback, parametrAccumulator)
+    const rawStageResult = await calculateStage(stage, binding, initPayload, stepCallback, parametrAccumulator)
+    const stageResult = applyStageOutputDefaults(rawStageResult, previousStageOutputs)
+    previousStageOutputs = extractStageDimensionWeight(stageResult.outputs)
     stageResults.push(stageResult)
   }
 
