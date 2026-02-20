@@ -116,10 +116,10 @@ function buildVarsFromInit(logicJsonProp: any): FormulaVar[] {
  * Following new protocol spec section 3.3
  */
 function buildResultsFromInit(
-  outputsValue: string[] | string | undefined,
-  outputsDesc: string[] | string | undefined,
-  referenceValue: string[] | string | undefined,
-  referenceDesc: string[] | string | undefined,
+  outputsValue: unknown,
+  outputsDesc: unknown,
+  referenceValue: unknown,
+  referenceDesc: unknown,
   inputNames: string[] = []
 ): { resultsHL: ResultsHL; additionalResults: AdditionalResult[] } {
   const REQUIRED_KEYS: Array<keyof ResultsHL> = ['width', 'length', 'height', 'weight', 'operationPurchasingPrice', 'operationBasePrice', 'materialPurchasingPrice', 'materialBasePrice']
@@ -127,47 +127,67 @@ function buildResultsFromInit(
   const ADDED_COST_KEYS = new Set(['operationPurchasingPrice', 'operationBasePrice', 'materialPurchasingPrice', 'materialBasePrice'])
   const resultsHL: ResultsHL = createEmptyResultsHL()
   const additionalResults: AdditionalResult[] = []
-  
-  const normalizeToArray = (value: string[] | string | undefined): string[] => {
-    if (Array.isArray(value)) {
-      return value.map(item => String(item ?? ''))
+  const additionalResultKeys = new Set<string>()
+
+  const pushAdditionalResult = (result: AdditionalResult) => {
+    const dedupeKey = `${result.key}::${result.sourceRef}`
+    if (additionalResultKeys.has(dedupeKey)) {
+      return
     }
-    if (typeof value === 'string') {
-      return [value]
-    }
-    return []
+    additionalResultKeys.add(dedupeKey)
+    additionalResults.push(result)
   }
 
-  const normalizedOutputsValue = normalizeToArray(outputsValue)
-  const normalizedOutputsDesc = normalizeToArray(outputsDesc)
-  const normalizedReferenceValue = normalizeToArray(referenceValue)
-  const normalizedReferenceDesc = normalizeToArray(referenceDesc)
+  const normalizeToPairs = (
+    value: unknown,
+    desc: unknown
+  ): { values: string[]; descriptions: string[] } => {
+    if (Array.isArray(value) && value.every(item => item && typeof item === 'object' && 'VALUE' in (item as Record<string, unknown>))) {
+      return {
+        values: value.map(item => String((item as { VALUE?: unknown }).VALUE ?? '')),
+        descriptions: value.map(item => String((item as { DESCRIPTION?: unknown }).DESCRIPTION ?? '')),
+      }
+    }
 
-  if (normalizedOutputsValue.length === 0) {
-    return { resultsHL, additionalResults }
+    const values = Array.isArray(value)
+      ? value.map(item => String(item ?? ''))
+      : typeof value === 'string'
+        ? [value]
+        : []
+
+    const descriptions = Array.isArray(desc)
+      ? desc.map(item => String(item ?? ''))
+      : typeof desc === 'string'
+        ? [desc]
+        : []
+
+    return { values, descriptions }
   }
 
-  const hasLegacyAddedCosts = normalizedOutputsValue.some(key => LEGACY_OUTPUT_KEYS.has(key))
-  const hasNewAddedCosts = normalizedOutputsValue.some(key => ADDED_COST_KEYS.has(key))
+  const outputPairs = normalizeToPairs(outputsValue, outputsDesc)
+  const referencePairs = normalizeToPairs(referenceValue, referenceDesc)
+
+  const hasLegacyAddedCosts = outputPairs.values.some(key => LEGACY_OUTPUT_KEYS.has(key))
+  const hasNewAddedCosts = outputPairs.values.some(key => ADDED_COST_KEYS.has(key))
   if (hasLegacyAddedCosts && !hasNewAddedCosts) {
     console.warn('[calcconfig] Legacy OUTPUTS keys purchasingPrice/basePrice detected without operation*/material* mappings. Added costs will stay at 0 until migrated.')
   }
-  
+
   // Type guard for ResultsHL keys
   const isResultsHLKey = (key: string): key is keyof ResultsHL => {
     return REQUIRED_KEYS.includes(key as keyof ResultsHL)
   }
-  
-  normalizedOutputsValue.forEach((keyValue, i) => {
-    const varName = normalizedOutputsDesc[i] || ''
+
+  outputPairs.values.forEach((keyValue, i) => {
+    const varName = outputPairs.descriptions[i] || ''
 
     if (LEGACY_OUTPUT_KEYS.has(keyValue)) {
       return
     }
-    
+
     // Определяем sourceKind на основе списка inputs
     const sourceKind = inputNames.includes(varName) ? 'input' : 'var'
-    
+
     if (isResultsHLKey(keyValue)) {
       // Обязательный результат
       resultsHL[keyValue] = {
@@ -177,7 +197,7 @@ function buildResultsFromInit(
     } else if (keyValue.includes('|')) {
       // Legacy fallback: дополнительные результаты в OUTPUTS
       const [slug, title] = keyValue.split('|', 2)
-      additionalResults.push({
+      pushAdditionalResult({
         id: `additional_${slug}`,
         key: slug,
         title: title || '',
@@ -191,8 +211,8 @@ function buildResultsFromInit(
   })
 
   // New format: additional results are stored in dedicated stage.reference list.
-  normalizedReferenceValue.forEach((name, i) => {
-    const sourceRef = normalizedReferenceDesc[i] || ''
+  referencePairs.values.forEach((name, i) => {
+    const sourceRef = referencePairs.descriptions[i] || ''
     if (!name || !sourceRef) {
       return
     }
@@ -200,7 +220,7 @@ function buildResultsFromInit(
       .toLowerCase()
       .replace(/\s+/g, '_')
     const sourceKind = inputNames.includes(sourceRef) ? 'input' : 'var'
-    additionalResults.push({
+    pushAdditionalResult({
       id: `additional_${slug}_${i}`,
       key: slug,
       title: String(name),
@@ -208,7 +228,7 @@ function buildResultsFromInit(
       sourceRef,
     })
   })
-  
+
   return { resultsHL, additionalResults }
 }
 
@@ -801,10 +821,10 @@ export function CalculationLogicDialog({
       savedVars = sanitizeVars(buildVarsFromInit(logicJsonProp), 'init vars')
       
       // Build results from OUTPUTS
-      const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
-      const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-      const referenceValue = stageElement?.properties?.REFERENCE?.VALUE as string[] | undefined
-      const referenceDesc = stageElement?.properties?.REFERENCE?.DESCRIPTION as string[] | undefined
+      const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE ?? stageElement?.properties?.OUTPUTS
+      const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION
+      const referenceValue = stageElement?.properties?.REFERENCE?.VALUE ?? stageElement?.properties?.REFERENCE
+      const referenceDesc = stageElement?.properties?.REFERENCE?.DESCRIPTION
       const inputNames = savedInputs.map(inp => inp.name)
       const results = buildResultsFromInit(outputsValue, outputsDesc, referenceValue, referenceDesc, inputNames)
       savedResultsHL = sanitizeResultsHL(results.resultsHL)
@@ -965,10 +985,10 @@ export function CalculationLogicDialog({
         const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
         const savedVars = sanitizeVars(buildVarsFromInit(logicJsonProp), 'init vars')
         
-        const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
-        const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-        const referenceValue = stageElement?.properties?.REFERENCE?.VALUE as string[] | undefined
-        const referenceDesc = stageElement?.properties?.REFERENCE?.DESCRIPTION as string[] | undefined
+        const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE ?? stageElement?.properties?.OUTPUTS
+        const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION
+        const referenceValue = stageElement?.properties?.REFERENCE?.VALUE ?? stageElement?.properties?.REFERENCE
+        const referenceDesc = stageElement?.properties?.REFERENCE?.DESCRIPTION
         const inputNames = savedInputs.map(inp => inp.name)
         const { resultsHL: rawResultsHL, additionalResults: rawAdditionalResults } = buildResultsFromInit(
           outputsValue,
@@ -1320,10 +1340,10 @@ export function CalculationLogicDialog({
     const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
     const savedVars = buildVarsFromInit(logicJsonProp)
     
-    const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
-    const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-    const referenceValue = stageElement?.properties?.REFERENCE?.VALUE as string[] | undefined
-    const referenceDesc = stageElement?.properties?.REFERENCE?.DESCRIPTION as string[] | undefined
+    const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE ?? stageElement?.properties?.OUTPUTS
+    const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION
+    const referenceValue = stageElement?.properties?.REFERENCE?.VALUE ?? stageElement?.properties?.REFERENCE
+    const referenceDesc = stageElement?.properties?.REFERENCE?.DESCRIPTION
     const { resultsHL: savedResultsHL, additionalResults: savedAdditionalResults } = buildResultsFromInit(outputsValue, outputsDesc, referenceValue, referenceDesc)
     
     return JSON.stringify({
@@ -1626,11 +1646,25 @@ export function CalculationLogicDialog({
       })
     }
     
-    // Add additional results to dedicated reference payload section
+    // Add additional results to dedicated reference payload section.
+    // Also duplicate to OUTPUTS (legacy "slug|title" format) for Bitrix handlers
+    // that still persist only OUTPUTS and ignore REFERENCE updates.
     for (const additional of additionalResults) {
+      const sourceRef = additional.sourceRef?.trim()
+      const title = (additional.title || additional.key || '').trim()
+      const key = (additional.key || '').trim()
+      if (!sourceRef || !title || !key) {
+        continue
+      }
+
       reference.push({
-        name: additional.title || additional.key,
-        value: additional.sourceRef || ''
+        name: title,
+        value: sourceRef,
+      })
+
+      outputs.push({
+        key: `${key}|${title}`,
+        var: sourceRef,
       })
     }
 
@@ -1713,10 +1747,10 @@ export function CalculationLogicDialog({
       const vars = buildVarsFromInit(logicJsonProp)
       
       // Build results from OUTPUTS
-      const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE as string[] | undefined
-      const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION as string[] | undefined
-      const referenceValue = stageElement?.properties?.REFERENCE?.VALUE as string[] | undefined
-      const referenceDesc = stageElement?.properties?.REFERENCE?.DESCRIPTION as string[] | undefined
+      const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE ?? stageElement?.properties?.OUTPUTS
+      const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION
+      const referenceValue = stageElement?.properties?.REFERENCE?.VALUE ?? stageElement?.properties?.REFERENCE
+      const referenceDesc = stageElement?.properties?.REFERENCE?.DESCRIPTION
       const inputNames = inputs.map(inp => inp.name)
       const { resultsHL, additionalResults } = buildResultsFromInit(outputsValue, outputsDesc, referenceValue, referenceDesc, inputNames)
 
