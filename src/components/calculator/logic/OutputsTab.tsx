@@ -450,14 +450,7 @@ export function OutputsTab({
                       }}
                     >
                       <SelectTrigger className="h-8 text-xs flex-1">
-                        <SelectValue placeholder="Не выбрано">
-                          {mapping.sourceRef && mapping.sourceKind ? (
-                            <span>
-                              {safeRenderString(mapping.sourceRef)}{' '}
-                              {mapping.sourceKind === 'var' ? '(переменная)' : '(вход)'}
-                            </span>
-                          ) : null}
-                        </SelectValue>
+                        <SelectValue placeholder="Не выбрано" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE_VALUE}>Не выбрано</SelectItem>
