@@ -788,7 +788,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, detailId }
                         if (name === null) return
                         handleUpdateCalculator(index, { stageName: name })
                         if (calc.stageId) {
-                          postMessageBridge.sendChangeStageNameRequest({ stageId: calc.stageId, name })
+                          postMessageBridge.sendChangeStageNameRequest({ stageId: calc.stageId, name: name })
                         }
                       }}><PencilSimple className="w-3 h-3" /></Button>
                       {/* Readiness indicator */}
@@ -1260,8 +1260,8 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, detailId }
                     <div className="flex items-center gap-2">
                       <Label className="text-sm font-medium">Дополнительные параметры</Label>
                       <Button variant="ghost" size="icon" className="h-7 w-7" data-pwcode="btn-select-custom-fields" onClick={() => {
-                        if (calc.stageId && bitrixMeta?.preset?.id) {
-                          postMessageBridge.sendSelectFieldsRequest({ stageId: calc.stageId, presetId: bitrixMeta.preset.id })
+                        if (calc.stageId && bitrixMeta?.preset?.id && calc.settingsId) {
+                          postMessageBridge.sendSelectFieldsRequest({ stageId: calc.stageId, presetId: bitrixMeta.preset.id, settingsId: calc.settingsId })
                         }
                       }}>
                         <Plus className="w-4 h-4" />

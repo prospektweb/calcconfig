@@ -648,7 +648,7 @@ class PostMessageBridge {
     return this.sendMessage('SELECT_DETAILS_REQUEST', payload)
   }
 
-  sendSelectFieldsRequest(payload: { stageId: number, presetId: number }) {
+  sendSelectFieldsRequest(payload: { stageId: number, presetId: number, settingsId: number }) {
     return this.sendMessage('SELECT_FIELDS_REQUEST', payload)
   }
 
