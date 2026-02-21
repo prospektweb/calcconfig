@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, X, DotsSixVertical, Package, Wrench, Hammer, ArrowSquareOut, Gear, PencilSimple } from '@phosphor-icons/react'
+import { Plus, X, DotsSixVertical, ArrowSquareOut, Gear, PencilSimple } from '@phosphor-icons/react'
 import { StageInstance, createEmptyStage } from '@/lib/types'
 import { MultiLevelSelect, MultiLevelItem } from './MultiLevelSelect'
 import { CalculationLogicDialog } from './CalculationLogicDialog'
@@ -94,22 +94,6 @@ const getProperty = (settings: CalcSettingsItem | undefined, key: string): Bitri
   return settings?.properties?.[key]
 }
 
-// Проверка активности свойства
-const isPropertyEnabled = (prop: BitrixProperty | undefined): boolean => {
-  if (!prop) return false
-  
-  // VALUE_XML_ID имеет приоритет
-  const xmlId = prop.VALUE_XML_ID
-  if (typeof xmlId === 'string') {
-    return xmlId === 'Y' || xmlId === 'yes' || xmlId === '1'
-  }
-  // Затем проверяем VALUE
-  const value = prop.VALUE
-  if (typeof value === 'string') {
-    return value === 'Y' || value === 'Да' || value === '1'
-  }
-  return false
-}
 
 // Получение строкового значения свойства
 const getPropertyStringValue = (prop:  BitrixProperty | undefined): string | null => {
@@ -118,12 +102,19 @@ const getPropertyStringValue = (prop:  BitrixProperty | undefined): string | nul
   return typeof value === 'string' ? value : null
 }
 
-// Получение массива значений свойства
-const getPropertyArrayValue = (prop:  BitrixProperty | undefined): string[] => {
+
+const getUsedEntities = (settings: CalcSettingsItem | undefined): string[] => {
+  const prop = settings?.properties?.USED_ENTITYS
   if (!prop) return []
+
+  const xml = prop.VALUE_XML_ID
+  if (Array.isArray(xml)) return xml.filter((item): item is string => typeof item === 'string')
+  if (typeof xml === 'string' && xml) return [xml]
+
   const value = prop.VALUE
-  if (Array.isArray(value)) return value
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string')
   if (typeof value === 'string' && value) return [value]
+
   return []
 }
 
@@ -181,17 +172,6 @@ const getSupportedList = (value: unknown): string[] => {
   return []
 }
 
-// Парсинг extraOptions из OTHER_OPTIONS
-interface ExtraOption {
-  code: string
-  label: string
-  type: 'checkbox' | 'number'
-  default: boolean | number
-  min?: number
-  max?: number
-  unit?: string
-}
-
 // Новые интерфейсы для расширенной поддержки OTHER_OPTIONS
 interface OtherOptionField {
   code:  string
@@ -207,27 +187,6 @@ interface OtherOptionField {
   options?: Array<{ value: string; label:  string }>
 }
 
-interface OtherOptionsConfig {
-  fields: OtherOptionField[]
-}
-
-const getExtraOptions = (settings: CalcSettingsItem | undefined): ExtraOption[] => {
-  if (!settings) return []
-  
-  const defaultOptions = getProperty(settings, 'OTHER_OPTIONS')
-  const optionsValue = getPropertyStringValue(defaultOptions)
-  
-  if (!optionsValue) return []
-  
-  try {
-    // Предполагается, что OTHER_OPTIONS содержит JSON массив опций
-    const parsed = JSON.parse(optionsValue)
-    return Array.isArray(parsed) ? parsed : []
-  } catch (error) {
-    console.error('Failed to parse OTHER_OPTIONS:', error)
-    return []
-  }
-}
 
 // Парсинг расширенных опций из OTHER_OPTIONS
 const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionField[] => {
@@ -267,13 +226,10 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, detailId }
   const [activeTab, setActiveTab] = useState(0)
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
-  const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
-  const [materialDropZoneHover, setMaterialDropZoneHover] = useState<number | null>(null)
-  const [operationDropZoneHover, setOperationDropZoneHover] = useState<number | null>(null)
-  const [equipmentDropZoneHover, setEquipmentDropZoneHover] = useState<number | null>(null)
   const [calculationLogicDialogOpen, setCalculationLogicDialogOpen] = useState(false)
   const [calculationLogicStageIndex, setCalculationLogicStageIndex] = useState<number | null>(null)
   const [optionsDialogOpen, setOptionsDialogOpen] = useState(false)
+  void onValidationMessage
   const [optionsDialogType, setOptionsDialogType] = useState<'operation' | 'material'>('operation')
   const [optionsDialogStageIndex, setOptionsDialogStageIndex] = useState<number | null>(null)
 
@@ -464,10 +420,6 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, detailId }
   // Get calculator settings from store
   const calculatorSettings = useCalculatorSettingsStore(s => s.settings)
   const operationSettings = useOperationSettingsStore(s => s.operations)
-  const materialSettings = useMaterialSettingsStore(s => s.materials)
-  
-  // Get variant stores for units
-  const operationVariants = useOperationVariantStore(s => s.variants)
   const materialVariants = useMaterialVariantStore(s => s.variants)
   
   
