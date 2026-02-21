@@ -112,3 +112,22 @@ export function calculateStageReadiness(
 
   return { ready: true }
 }
+
+
+/**
+ * Extract USED_ENTITYS values from calculator settings properties.
+ */
+export function getUsedEntitiesFromSettings(settings: { properties?: Record<string, any> } | null | undefined): string[] {
+  const prop = settings?.properties?.USED_ENTITYS
+  if (!prop) return []
+
+  const xml = prop.VALUE_XML_ID
+  if (Array.isArray(xml)) return xml.filter((item: unknown): item is string => typeof item === 'string' && item.length > 0)
+  if (typeof xml === 'string' && xml.length > 0) return [xml]
+
+  const value = prop.VALUE
+  if (Array.isArray(value)) return value.filter((item: unknown): item is string => typeof item === 'string' && item.length > 0)
+  if (typeof value === 'string' && value.length > 0) return [value]
+
+  return []
+}
