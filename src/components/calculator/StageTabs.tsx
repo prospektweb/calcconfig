@@ -193,7 +193,8 @@ const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionF
   }
 }
 
-export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidationMessage: _onValidationMessage, detailId }: StageTabsProps) {
+export function StageTabs(props: StageTabsProps) {
+  const { calculators, onChange, bitrixMeta = null, detailId } = props
   const [activeTab, setActiveTab] = useState(0)
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
