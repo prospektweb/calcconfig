@@ -2,7 +2,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Binding, Detail } from '@/lib/types'
-import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut, DotsSixVertical, Plus, Selection } from '@phosphor-icons/react'
+import { CaretDown, CaretUp, X, Link as LinkIcon, ArrowSquareOut, DotsSixVertical, Plus, Selection, Copy } from '@phosphor-icons/react'
 import { DetailCard } from './DetailCard'
 import { StageTabs } from './StageTabs'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
@@ -130,6 +130,16 @@ interface BindingCardProps {
     onUpdate({ name: e.target.value })
   }
   
+
+  const handleDuplicate = () => {
+    if (binding.bitrixId && bitrixMeta?.preset?.id) {
+      postMessageBridge.sendDublicateDetailRequest({
+        detailId: binding.bitrixId,
+        presetId: bitrixMeta.preset.id,
+      })
+    }
+  }
+
   const handleNameBlur = () => {
     // Send RENAME_DETAIL_REQUEST when binding name changes
     if (binding.bitrixId && binding.name) {
@@ -223,6 +233,16 @@ interface BindingCardProps {
             data-pwcode="btn-open-binding-bitrix"
           >
             <ArrowSquareOut className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 flex-shrink-0 hover:bg-accent hover:text-accent-foreground"
+            onClick={handleDuplicate}
+            data-pwcode="btn-duplicate-binding"
+            title="Дублировать скрепление"
+          >
+            <Copy className="w-4 h-4" />
           </Button>
         </div>
 

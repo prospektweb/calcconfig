@@ -2,7 +2,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Detail } from '@/lib/types'
-import { CaretDown, CaretUp, X, DotsSixVertical, ArrowSquareOut } from '@phosphor-icons/react'
+import { CaretDown, CaretUp, X, DotsSixVertical, ArrowSquareOut, Copy } from '@phosphor-icons/react'
 import { StageTabs } from './StageTabs'
 import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { openBitrixAdmin, getBitrixContext, getIblockByCode } from '@/lib/bitrix-utils'
@@ -70,6 +70,16 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
     onUpdate({ name: e.target.value })
   }
   
+
+  const handleDuplicate = () => {
+    if (detail.bitrixId && bitrixMeta?.preset?.id) {
+      postMessageBridge.sendDublicateDetailRequest({
+        detailId: detail.bitrixId,
+        presetId: bitrixMeta.preset.id,
+      })
+    }
+  }
+
   const handleNameBlur = () => {
     // Send RENAME_DETAIL_REQUEST to Bitrix when name changes
     if (detail.bitrixId && detail.name) {
@@ -166,6 +176,16 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
               data-pwcode="btn-open-detail-bitrix"
             >
               <ArrowSquareOut className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 flex-shrink-0 hover:bg-accent hover:text-accent-foreground"
+              onClick={handleDuplicate}
+              data-pwcode="btn-duplicate-detail"
+              title="Дублировать деталь"
+            >
+              <Copy className="w-4 h-4" />
             </Button>
           </div>
         </div>

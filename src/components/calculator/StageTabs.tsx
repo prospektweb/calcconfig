@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, X, DotsSixVertical, Package, Wrench, Hammer, ArrowSquareOut, Gear } from '@phosphor-icons/react'
+import { Plus, X, DotsSixVertical, ArrowSquareOut, Gear, PencilSimple } from '@phosphor-icons/react'
 import { StageInstance, createEmptyStage } from '@/lib/types'
 import { MultiLevelSelect, MultiLevelItem } from './MultiLevelSelect'
 import { CalculationLogicDialog } from './CalculationLogicDialog'
@@ -21,8 +21,6 @@ import { OptionsDialog } from './OptionsDialog'
 import { useReferencesStore } from '@/stores/references-store'
 import { useCalculatorSettingsStore, CalcSettingsItem } from '@/stores/calculator-settings-store'
 import { useOperationSettingsStore } from '@/stores/operation-settings-store'
-import { useMaterialSettingsStore } from '@/stores/material-settings-store'
-import { useOperationVariantStore } from '@/stores/operation-variant-store'
 import { useMaterialVariantStore } from '@/stores/material-variant-store'
 import { useCustomDrag } from '@/hooks/use-custom-drag'
 import { cn } from '@/lib/utils'
@@ -30,7 +28,7 @@ import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { getBitrixContext, openBitrixAdmin, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
 import { BitrixProperty } from '@/lib/bitrix-transformers'
-import { getDraftKey, calculateStageReadiness, hasDraftForStage, extractLogicJsonString } from '@/lib/stage-utils'
+import { getDraftKey, calculateStageReadiness, hasDraftForStage, extractLogicJsonString, getUsedEntitiesFromSettings } from '@/lib/stage-utils'
 
 interface StageTabsProps {
   calculators: StageInstance[]
@@ -97,22 +95,6 @@ const getProperty = (settings: CalcSettingsItem | undefined, key: string): Bitri
   return settings?.properties?.[key]
 }
 
-// Проверка активности свойства (USE_OPERATION_VARIANT, USE_MATERIAL_VARIANT, CAN_BE_FIRST и т.д.)
-const isPropertyEnabled = (prop: BitrixProperty | undefined): boolean => {
-  if (!prop) return false
-  
-  // VALUE_XML_ID имеет приоритет
-  const xmlId = prop.VALUE_XML_ID
-  if (typeof xmlId === 'string') {
-    return xmlId === 'Y' || xmlId === 'yes' || xmlId === '1'
-  }
-  // Затем проверяем VALUE
-  const value = prop.VALUE
-  if (typeof value === 'string') {
-    return value === 'Y' || value === 'Да' || value === '1'
-  }
-  return false
-}
 
 // Получение строкового значения свойства
 const getPropertyStringValue = (prop:  BitrixProperty | undefined): string | null => {
@@ -121,14 +103,7 @@ const getPropertyStringValue = (prop:  BitrixProperty | undefined): string | nul
   return typeof value === 'string' ? value : null
 }
 
-// Получение массива значений свойства
-const getPropertyArrayValue = (prop:  BitrixProperty | undefined): string[] => {
-  if (!prop) return []
-  const value = prop.VALUE
-  if (Array.isArray(value)) return value
-  if (typeof value === 'string' && value) return [value]
-  return []
-}
+
 
 /**
  * Проверка что значение является валидной строкой для фильтрации.
@@ -169,17 +144,6 @@ const getSupportedList = (value: unknown): string[] => {
   return []
 }
 
-// Парсинг extraOptions из OTHER_OPTIONS
-interface ExtraOption {
-  code: string
-  label: string
-  type: 'checkbox' | 'number'
-  default: boolean | number
-  min?: number
-  max?: number
-  unit?: string
-}
-
 // Новые интерфейсы для расширенной поддержки OTHER_OPTIONS
 interface OtherOptionField {
   code:  string
@@ -195,27 +159,6 @@ interface OtherOptionField {
   options?: Array<{ value: string; label:  string }>
 }
 
-interface OtherOptionsConfig {
-  fields: OtherOptionField[]
-}
-
-const getExtraOptions = (settings: CalcSettingsItem | undefined): ExtraOption[] => {
-  if (!settings) return []
-  
-  const defaultOptions = getProperty(settings, 'OTHER_OPTIONS')
-  const optionsValue = getPropertyStringValue(defaultOptions)
-  
-  if (!optionsValue) return []
-  
-  try {
-    // Предполагается, что OTHER_OPTIONS содержит JSON массив опций
-    const parsed = JSON.parse(optionsValue)
-    return Array.isArray(parsed) ? parsed : []
-  } catch (error) {
-    console.error('Failed to parse OTHER_OPTIONS:', error)
-    return []
-  }
-}
 
 // Парсинг расширенных опций из OTHER_OPTIONS
 const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionField[] => {
@@ -255,14 +198,10 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   const [activeTab, setActiveTab] = useState(0)
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
-  const dropZoneRefs = useRef<Map<number, HTMLElement>>(new Map())
-  const [materialDropZoneHover, setMaterialDropZoneHover] = useState<number | null>(null)
-  const [operationDropZoneHover, setOperationDropZoneHover] = useState<number | null>(null)
-  const [equipmentDropZoneHover, setEquipmentDropZoneHover] = useState<number | null>(null)
-  const reportedValidationKeysRef = useRef<Set<string>>(new Set())
   const [calculationLogicDialogOpen, setCalculationLogicDialogOpen] = useState(false)
   const [calculationLogicStageIndex, setCalculationLogicStageIndex] = useState<number | null>(null)
   const [optionsDialogOpen, setOptionsDialogOpen] = useState(false)
+  void onValidationMessage
   const [optionsDialogType, setOptionsDialogType] = useState<'operation' | 'material'>('operation')
   const [optionsDialogStageIndex, setOptionsDialogStageIndex] = useState<number | null>(null)
 
@@ -453,53 +392,8 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   // Get calculator settings from store
   const calculatorSettings = useCalculatorSettingsStore(s => s.settings)
   const operationSettings = useOperationSettingsStore(s => s.operations)
-  const materialSettings = useMaterialSettingsStore(s => s.materials)
-  
-  // Get variant stores for units
-  const operationVariants = useOperationVariantStore(s => s.variants)
   const materialVariants = useMaterialVariantStore(s => s.variants)
   
-  // Helper function to get operation unit from measure.symbol
-  const getOperationUnit = (operationId: number | null): string => {
-    if (!operationId) return 'ед.'
-    const variant = operationVariants[operationId.toString()]
-    // Сначала проверяем measure.symbol
-    if (variant?.measure?.symbol) {
-      return variant.measure.symbol
-    }
-    // Fallback на свойство MEASURE_UNIT
-    if (variant?.properties?.MEASURE_UNIT?.VALUE) {
-      const value = variant.properties.MEASURE_UNIT.VALUE
-      return typeof value === 'string' ? value : 'ед.'
-    }
-    return 'ед.'
-  }
-  
-  // Helper function to get material unit from measure.symbol
-  const getMaterialUnit = (materialId: number | null): string => {
-    if (! materialId) return 'шт.'
-    
-    // Пробуем оба варианта ключа
-    const variant = materialVariants[materialId.toString()] || materialVariants[materialId]
-    
-    console.log('[getMaterialUnit] Debug:', {
-      materialId,
-      variantFound: !!variant,
-      measureSymbol: variant?.measure?.symbol,
-      measureUnit: variant?.properties?.MEASURE_UNIT?.VALUE,
-    })
-    
-    // Сначала проверяем measure.symbol
-    if (variant?.measure?.symbol) {
-      return variant.measure.symbol
-    }
-    // Fallback на свойство MEASURE_UNIT
-    if (variant?.properties?.MEASURE_UNIT?.VALUE) {
-      const value = variant.properties.MEASURE_UNIT.VALUE
-      return typeof value === 'string' ? value : 'шт.'
-    }
-    return 'шт.'
-  }
   
   const safeCalculators = calculators || []
 
@@ -546,23 +440,6 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
     onChange(newCalculators)
   }
 
-  const handleQuantityBlur = (index: number, field: 'operationQuantity' | 'materialQuantity') => {
-    const stage = safeCalculators[index]
-    if (stage?.stageId && bitrixMeta) {
-      // Send specific quantity change request based on field
-      if (field === 'operationQuantity') {
-        postMessageBridge.sendChangeOperationQuantityRequest({
-          stageId: stage.stageId,
-          quantityValue: stage.operationQuantity,
-        })
-      } else if (field === 'materialQuantity') {
-        postMessageBridge.sendChangeMaterialQuantityRequest({
-          stageId: stage.stageId,
-          quantityValue: stage.materialQuantity,
-        })
-      }
-    }
-  }
 
   const handleCustomFieldsBlur = (index: number) => {
     const stage = safeCalculators[index]
@@ -660,176 +537,40 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
     }
   }, [dragState, safeCalculators, setDropTarget, endDrag, cancelDrag])
 
-  // Handle validation and auto-selection when settings are loaded
+  // Handle auto-selection when settings are loaded
   useEffect(() => {
-    console.log('[CalculatorTabs][DEBUG] Settings validation effect triggered', {
-      calculatorsCount:  safeCalculators.length,
-      calculatorSettingsKeys: Object.keys(calculatorSettings),
-      calculatorSettings: calculatorSettings,
-    })
-
-    const previousViolations = reportedValidationKeysRef.current
-    const nextViolations = new Set<string>()
-
     safeCalculators.forEach((calc, index) => {
-      console.log('[CalculatorTabs][DEBUG] Processing calculator', {
-        index,
-        id: calc.id,
-        settingsId: calc.settingsId,
-        operationVariantId: calc.operationVariantId,
-        materialVariantId: calc.materialVariantId,
-        equipmentId: calc.equipmentId,
-      })
+      if (!calc.settingsId) return
 
-      if (! calc.settingsId) {
-        console.log('[CalculatorTabs][DEBUG] No calculatorCode, skipping')
-        return
-      }
-      
       const settings = calculatorSettings[calc.settingsId]
-      console.log('[CalculatorTabs][DEBUG] Found settings for code', {
-        code:  calc.settingsId,
-        hasSettings: !!settings,
-        settingsId: settings?.id,
-        settingsName: settings?.name,
-        hasProperties: !!settings?.properties,
-        propertiesKeys: settings?.properties ?  Object.keys(settings.properties) : [],
-      })
+      if (!settings?.properties) return
 
-      if (!settings?.properties) {
-        console.log('[CalculatorTabs][DEBUG] No properties in settings')
-        return
-      }
-
-      // Log property checks
-      const useOperationVariant = getProperty(settings, 'USE_OPERATION_VARIANT')
-      const useMaterialVariant = getProperty(settings, 'USE_MATERIAL_VARIANT')
-      
-      console.log('[CalculatorTabs][DEBUG] Property check results', {
-        useOperationVariant:  useOperationVariant,
-        useOperationVariantEnabled: isPropertyEnabled(useOperationVariant),
-        useMaterialVariant: useMaterialVariant,
-        useMaterialVariantEnabled: isPropertyEnabled(useMaterialVariant),
-      })
-      
-      // Validation:  CAN_BE_FIRST
-      const canBeFirst = getProperty(settings, 'CAN_BE_FIRST')
-      const violationKeyBase = `${calc.id ??  calc.settingsId ??  'calculator'}-${index}`
-
-      const reportValidationOnce = (key: string, message: string) => {
-        nextViolations.add(key)
-        if (onValidationMessage && ! previousViolations.has(key)) {
-          onValidationMessage('error', message)
-        }
-      }
-
-      if (index === 0 && ! isPropertyEnabled(canBeFirst)) {
-        reportValidationOnce(`${violationKeyBase}-cannot-be-first`, `Калькулятор ${settings.name} не может быть размещен на первом этапе`)
-        return
-      }
-      
-      // Validation: REQUIRES_BEFORE (check both for index === 0 AND index > 0)
-      const requiresBefore = getProperty(settings, 'REQUIRES_BEFORE')
-      const requiresBeforeValue = getPropertyStringValue(requiresBefore)
-      if (requiresBeforeValue) {
-        if (index === 0) {
-          // Калькулятор требует предшественника, но размещен на первом этапе
-          reportValidationOnce(
-            `${violationKeyBase}-requires-before-first`,
-            `Калькулятор ${settings.name} не может быть размещен на первом этапе (требует предшественника)`
-          )
-          return
-        } else {
-          // Проверяем, что предыдущий калькулятор соответствует требованию
-          const prevCalc = safeCalculators[index - 1]
-          if (! prevCalc.settingsId || prevCalc.settingsId !== requiresBeforeValue) {
-            const prevSettings = prevCalc.settingsId ? calculatorSettings[prevCalc.settingsId] : null
-            const prevName = prevSettings?.name || 'неизвестный калькулятор'
-            reportValidationOnce(
-              `${violationKeyBase}-requires-before-${requiresBeforeValue}`,
-              `Калькулятор ${settings.name} не может быть размещен после калькулятора ${prevName}`
-            )
-            return
-          }
-        }
-      }
-
-      // Auto-select DEFAULT_OPERATION_VARIANT
       const defaultOperationVariant = getProperty(settings, 'DEFAULT_OPERATION_VARIANT')
       const defaultOpValue = getPropertyStringValue(defaultOperationVariant)
-      if (defaultOpValue && !calc.operationVariantId) {
+      if (defaultOpValue && !calc.operationVariantId && getUsedEntitiesFromSettings(settings).includes('VARIANT_OPERATION')) {
         const defaultOpId = parseInt(defaultOpValue, 10)
-        if (! isNaN(defaultOpId) && calc.operationVariantId !== defaultOpId) {
-          handleUpdateCalculator(index, { operationVariantId:  defaultOpId })
-          
-          // Send CHANGE_OPERATION_VARIANT_REQUEST if stageId exists
+        if (!isNaN(defaultOpId)) {
+          handleUpdateCalculator(index, { operationVariantId: defaultOpId })
           if (calc.stageId && bitrixMeta) {
-            postMessageBridge.sendChangeOperationVariantRequest({
-              operationVariantId: defaultOpId,
-              stageId: calc.stageId,
-            })
-          }
-          
-          // Send request to get operation data (to receive itemParent with filters)
-          if (bitrixMeta) {
-            const context = getBitrixContext()
-            const operationsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_OPERATIONS')
-            
-            if (context && operationsIblock) {
-              postMessageBridge.sendCalcOperationVariantRequest(
-                defaultOpId,
-                operationsIblock.id,
-                operationsIblock.type,
-                context.lang
-              )
-            }
+            postMessageBridge.sendChangeOperationVariantRequest({ operationVariantId: defaultOpId, stageId: calc.stageId })
           }
         }
       }
-      
-      // Auto-select DEFAULT_MATERIAL_VARIANT  
+
       const defaultMaterialVariant = getProperty(settings, 'DEFAULT_MATERIAL_VARIANT')
       const defaultMatValue = getPropertyStringValue(defaultMaterialVariant)
-      if (defaultMatValue && !calc.materialVariantId) {
+      if (defaultMatValue && !calc.materialVariantId && getUsedEntitiesFromSettings(settings).includes('VARIANT_MATERIAL')) {
         const defaultMatId = parseInt(defaultMatValue, 10)
-        if (!isNaN(defaultMatId) && calc.materialVariantId !== defaultMatId) {
-          console.log('[CalculatorTabs] Setting default material:', {
-            materialVariantId: defaultMatId,
-            storeHasVariant: !!materialVariants[defaultMatId?.toString()],
-            allStoreKeys: Object.keys(materialVariants),
-          })
-          
+        if (!isNaN(defaultMatId)) {
           handleUpdateCalculator(index, { materialVariantId: defaultMatId })
-          
-          // Send CHANGE_MATERIAL_VARIANT_REQUEST if stageId exists
           if (calc.stageId && bitrixMeta) {
-            postMessageBridge.sendChangeMaterialVariantRequest({
-              materialVariantId: defaultMatId,
-              stageId: calc.stageId,
-            })
-          }
-          
-          // Send request to get material variant data
-          if (bitrixMeta) {
-            const context = getBitrixContext()
-            const materialsVariantsIblock = getIblockByCode(bitrixMeta.iblocks, 'CALC_MATERIALS_VARIANTS')
-            
-            if (context && materialsVariantsIblock) {
-              postMessageBridge.sendCalcMaterialVariantRequest(
-                defaultMatId,
-                materialsVariantsIblock.id,
-                materialsVariantsIblock.type,
-                context.lang
-              )
-            }
+            postMessageBridge.sendChangeMaterialVariantRequest({ materialVariantId: defaultMatId, stageId: calc.stageId })
           }
         }
       }
     })
+  }, [safeCalculators, calculatorSettings, bitrixMeta])
 
-    reportedValidationKeysRef.current = nextViolations
-  }, [safeCalculators, calculatorSettings, onValidationMessage])
-  
   // Auto-select first equipment/material when operation settings are loaded
   useEffect(() => {
     safeCalculators.forEach((calc, index) => {
@@ -965,6 +706,15 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                         <DotsSixVertical className="w-3.5 h-3.5" />
                       </div>
                       <span>{calc.stageName ? `Этап #${index + 1}: ${calc.stageName}` : `Этап #${index + 1}`}</span>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" data-pwcode="btn-edit-stage-name" onClick={(e) => {
+                        e.stopPropagation()
+                        const name = window.prompt('Новое название этапа', calc.stageName || '')
+                        if (name === null) return
+                        handleUpdateCalculator(index, { stageName: name })
+                        if (calc.stageId) {
+                          postMessageBridge.sendChangeStageNameRequest({ stageId: calc.stageId, name: name })
+                        }
+                      }}><PencilSimple className="w-3 h-3" /></Button>
                       {/* Readiness indicator */}
                       {calc.stageId && calc.settingsId && (() => {
                         const stageElement = bitrixMeta?.elementsStore?.CALC_STAGES?.find(
@@ -1186,17 +936,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                 </div>
               </div>
 
-              {(() => {
-                  console.log('[CalculatorTabs][DEBUG] Render check for Operation field', {
-                    hasSettings: !!settings,
-                    settingsId: settings?.id,
-                    useOperationVariantProp: settings ?  getProperty(settings, 'USE_OPERATION_VARIANT') : null,
-                    isEnabled: settings ?  isPropertyEnabled(getProperty(settings, 'USE_OPERATION_VARIANT')) : false,
-                  })
-                  return null
-                })()}
-
-              {settings && isPropertyEnabled(getProperty(settings, 'USE_OPERATION_VARIANT')) && (
+              {settings && getUsedEntitiesFromSettings(settings).includes('VARIANT_OPERATION') && (
                 <div className="space-y-2">
                   <Label>Операция</Label>
                     <div className="flex gap-2 items-center">
@@ -1265,29 +1005,11 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                       )}
                       {renderSelectedId(toNumber(calc.operationVariantId), 'operation', 'btn-open-operation-bitrix')}
                       
-                      {/* Поле количества операции */}
-                      {isPropertyEnabled(getProperty(settings, 'USE_OPERATION_QUANTITY')) && (
-                        <div className="flex gap-1 items-center">
-                          <Input
-                            type="number"
-                            min="1"
-                            value={calc.operationQuantity}
-                            onChange={(e) => handleUpdateCalculator(index, {
-                              operationQuantity: parseInt(e.target.value) || 1
-                            })}
-                            onBlur={() => handleQuantityBlur(index, 'operationQuantity')}
-                            className="w-20 max-w-[80px]"
-                          />
-                          <span className="text-sm text-muted-foreground w-[40px] text-right">
-                            {getOperationUnit(calc.operationVariantId) || 'ед.'}
-                          </span>
-                        </div>
-                      )}
                   </div>
                 </div>
               )}
 
-              {settings && calc.operationVariantId && (
+              {settings && getUsedEntitiesFromSettings(settings).includes('EQUIPMENT') && (
                 <div className="space-y-2">
                   <Label>Оборудование</Label>
                     <div className="flex gap-2 items-center">
@@ -1313,7 +1035,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                             // UI не обновляем вручную — ждём INIT
                           }}
                           placeholder="Выберите оборудование..."
-                          disabled={!calc.operationVariantId}
+                          disabled={false}
                           bitrixMeta={bitrixMeta}
                         />
                       </div>
@@ -1321,6 +1043,27 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                       {/* ID и кнопка открытия в Bitrix */}
                       {calc.equipmentId && (
                         <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9"
+                          data-pwcode="btn-equipment-options"
+                          onClick={() => {
+                            const raw = window.prompt('Свойства оборудования (JSON)', '{}')
+                            if (!raw || !calc.equipmentId) return
+                            try {
+                              const properties = JSON.parse(raw)
+                              postMessageBridge.sendSaveSettingsEquipmentRequest({
+                                eqipmentId: calc.equipmentId,
+                                properties,
+                              })
+                            } catch {
+                              toast.error('Некорректный JSON')
+                            }
+                          }}
+                        >
+                          <Gear className="w-4 h-4" />
+                        </Button>
                           <span className="text-xs text-muted-foreground">ID:{calc.equipmentId}</span>
                           <Button 
                             variant="ghost" 
@@ -1360,7 +1103,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                   </div>
                 )}
 
-              {settings && isPropertyEnabled(getProperty(settings, 'USE_MATERIAL_VARIANT')) && (
+              {settings && getUsedEntitiesFromSettings(settings).includes('VARIANT_MATERIAL') && (
                 <div className="space-y-2">
                   <Label>Материал</Label>
                   <div className="flex gap-2 items-center">
@@ -1427,128 +1170,73 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
                       </Button>
                     )}
                     {renderSelectedId(toNumber(calc.materialVariantId), 'material', 'btn-open-material-bitrix')}
-                    
-                    {/* Поле количества материала */}
-                    {isPropertyEnabled(getProperty(settings, 'USE_MATERIAL_QUANTITY')) && (
-                      <div className="flex gap-1 items-center">
-                        <Input
-                          type="number"
-                          min="1"
-                          value={calc.materialQuantity}
-                          onChange={(e) => handleUpdateCalculator(index, {
-                            materialQuantity: parseInt(e.target.value) || 1
-                          })}
-                          onBlur={() => handleQuantityBlur(index, 'materialQuantity')}
-                          className="w-20 max-w-[80px]"
-                        />
-                        <span className="text-sm text-muted-foreground w-[40px] text-right">
-                          {getMaterialUnit(calc.materialVariantId) || 'шт.'}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
-              
+
               {/* Дополнительные поля из CUSTOM_FIELDS */}
               {(() => {
                 const customFieldsConfig = settings?.customFields || []
                 if (customFieldsConfig.length === 0) return null
-                  
+
                 return (
                   <div className="space-y-3 pt-3 border-t">
-                    <Label className="text-sm font-medium">Дополнительные параметры</Label>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">Дополнительные параметры</Label>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" data-pwcode="btn-select-custom-fields" onClick={() => {
+                        if (calc.stageId && bitrixMeta?.preset?.id && calc.settingsId) {
+                          postMessageBridge.sendSelectFieldsRequest({ stageId: calc.stageId, presetId: bitrixMeta.preset.id, settingsId: calc.settingsId })
+                        }
+                      }}>
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       {customFieldsConfig.map((field) => (
                         <div key={field.code} className="space-y-1">
-                          <Label className="text-xs">
-                            {field.name}
-                            {field.required && <span className="text-destructive ml-1">*</span>}
-                          </Label>
-                          
+                          <Label className="text-xs">{field.name}</Label>
                           {field.type === 'number' && (
-                            <div className="flex items-center gap-1">
-                              <Input
-                                type="number"
-                                value={calc.customFields?.[field.code] !== undefined 
-                                  ? calc.customFields[field.code] 
-                                  : (field.default ??  '')}
-                                onChange={(e) => handleUpdateCalculator(index, {
-                                  customFields: {
-                                    ...calc.customFields,
-                                    [field.code]: e.target.value
-                                  }
-                                })}
-                                onBlur={() => handleCustomFieldsBlur(index)}
-                                min={field.min}
-                                max={field.max}
-                                step={field.step}
-                                className="w-24"
-                              />
-                              {field.unit && (
-                                <span className="text-xs text-muted-foreground">{field.unit}</span>
-                              )}
-                            </div>
+                            <Input
+                              type="number"
+                              value={calc.customFields?.[field.code] !== undefined ? calc.customFields[field.code] : (field.default ?? '')}
+                              onChange={(e) => handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: e.target.value } })}
+                              onBlur={() => handleCustomFieldsBlur(index)}
+                            />
                           )}
-                          
                           {field.type === 'checkbox' && (
                             <Checkbox
                               checked={
-                                calc.customFields?.[field.code] === 'Y' || 
+                                calc.customFields?.[field.code] === 'N' ||
                                 calc.customFields?.[field.code] === true ||
                                 calc.customFields?.[field.code] === '1' ||
                                 (calc.customFields?.[field.code] === undefined && field.default === true)
                               }
                               onCheckedChange={(checked) => {
-                                handleUpdateCalculator(index, {
-                                  customFields: {
-                                    ...calc.customFields,
-                                    [field.code]: checked ?  'Y' :  'N'
-                                  }
-                                })
-                                // Send immediately on change for checkboxes
+                                handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: checked ? 'N' : 'Y' } })
                                 setTimeout(() => handleCustomFieldsBlur(index), 0)
                               }}
                             />
                           )}
-                          
                           {field.type === 'text' && (
                             <Input
                               type="text"
-                              value={String(calc.customFields?.[field.code] ??  field.default ?? '')}
-                              onChange={(e) => handleUpdateCalculator(index, {
-                                customFields: {
-                                  ...calc.customFields,
-                                  [field.code]:  e.target.value
-                                }
-                              })}
+                              value={String(calc.customFields?.[field.code] ?? field.default ?? '')}
+                              onChange={(e) => handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: e.target.value } })}
                               onBlur={() => handleCustomFieldsBlur(index)}
-                              maxLength={field.maxLength}
                             />
                           )}
-                          
                           {field.type === 'select' && field.options && (
                             <Select
                               value={String(calc.customFields?.[field.code] ?? field.default ?? '')}
                               onValueChange={(value) => {
-                                handleUpdateCalculator(index, {
-                                  customFields: {
-                                    ...calc.customFields,
-                                    [field.code]: value
-                                  }
-                                })
-                                // Send immediately on change for selects
+                                handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: value } })
                                 setTimeout(() => handleCustomFieldsBlur(index), 0)
                               }}
                             >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Выберите..." />
-                              </SelectTrigger>
+                              <SelectTrigger className="w-full"><SelectValue placeholder="Выберите..." /></SelectTrigger>
                               <SelectContent>
                                 {field.options.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </SelectItem>
+                                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
