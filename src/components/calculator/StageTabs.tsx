@@ -1274,7 +1274,7 @@ export function StageTabs(props: StageTabsProps) {
                                 return normalized === 'Y' || normalized === '1' || normalized === 'TRUE'
                               })()}
                               onCheckedChange={(checked) => {
-                                handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: checked ? 'Y' : 'N' } })
+                                handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: checked ? 'N' : 'Y' } })
                                 setTimeout(() => handleCustomFieldsBlur(index), 0)
                               }}
                             />
