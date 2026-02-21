@@ -34,7 +34,6 @@ interface StageTabsProps {
   calculators: StageInstance[]
   onChange: (calculators: StageInstance[]) => void
   bitrixMeta?: InitPayload | null
-  onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
   detailId?: number  // ID детали (Bitrix) для отправки ADD_STAGE_REQUEST
 }
 
@@ -201,6 +200,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidati
   const [calculationLogicDialogOpen, setCalculationLogicDialogOpen] = useState(false)
   const [calculationLogicStageIndex, setCalculationLogicStageIndex] = useState<number | null>(null)
   const [optionsDialogOpen, setOptionsDialogOpen] = useState(false)
+  void onValidationMessage
   const [optionsDialogType, setOptionsDialogType] = useState<'operation' | 'material'>('operation')
   const [optionsDialogStageIndex, setOptionsDialogStageIndex] = useState<number | null>(null)
 
