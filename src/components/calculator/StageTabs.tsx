@@ -512,11 +512,12 @@ export function StageTabs(props: StageTabsProps) {
   }
 
 
-  const handleCustomFieldsBlur = (index: number) => {
+  const handleCustomFieldsBlur = (index: number, customFieldsOverride?: Record<string, string | number | boolean>) => {
     const stage = safeCalculators[index]
-    if (stage?.stageId && bitrixMeta && stage.customFields) {
+    const customFields = customFieldsOverride ?? stage?.customFields
+    if (stage?.stageId && bitrixMeta && customFields) {
       // Convert customFields object to array format expected by Bitrix
-      const customFieldsArray = Object.entries(stage.customFields).map(([code, value]) => ({
+      const customFieldsArray = Object.entries(customFields).map(([code, value]) => ({
         CODE: code,
         VALUE: String(value),
       }))
@@ -1274,8 +1275,9 @@ export function StageTabs(props: StageTabsProps) {
                                 return normalized === 'Y' || normalized === '1' || normalized === 'TRUE'
                               })()}
                               onCheckedChange={(checked) => {
-                                handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: checked ? 'Y' : 'N' } })
-                                setTimeout(() => handleCustomFieldsBlur(index), 0)
+                                const nextCustomFields = { ...calc.customFields, [field.code]: checked === true ? 'Y' : 'N' }
+                                handleUpdateCalculator(index, { customFields: nextCustomFields })
+                                handleCustomFieldsBlur(index, nextCustomFields)
                               }}
                             />
                           )}
@@ -1291,8 +1293,9 @@ export function StageTabs(props: StageTabsProps) {
                             <Select
                               value={String(calc.customFields?.[field.code] ?? field.default ?? '')}
                               onValueChange={(value) => {
-                                handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: value } })
-                                setTimeout(() => handleCustomFieldsBlur(index), 0)
+                                const nextCustomFields = { ...calc.customFields, [field.code]: value }
+                                handleUpdateCalculator(index, { customFields: nextCustomFields })
+                                handleCustomFieldsBlur(index, nextCustomFields)
                               }}
                             >
                               <SelectTrigger className="w-full"><SelectValue placeholder="Выберите..." /></SelectTrigger>
