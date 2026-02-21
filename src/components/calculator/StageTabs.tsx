@@ -1263,12 +1263,16 @@ export function StageTabs(props: StageTabsProps) {
                           )}
                           {field.type === 'checkbox' && (
                             <Checkbox
-                              checked={
-                                calc.customFields?.[field.code] === 'N' ||
-                                calc.customFields?.[field.code] === false ||
-                                calc.customFields?.[field.code] === '0' ||
-                                (calc.customFields?.[field.code] === undefined && (field.default === true || field.default === 'N'))
-                              }
+                              checked={(() => {
+                                const rawValue = calc.customFields?.[field.code]
+
+                                if (rawValue === undefined || rawValue === null || rawValue === '') {
+                                  return field.default === true || field.default === 'Y'
+                                }
+
+                                const normalized = String(rawValue).trim().toUpperCase()
+                                return normalized === 'Y' || normalized === '1' || normalized === 'TRUE'
+                              })()}
                               onCheckedChange={(checked) => {
                                 handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: checked ? 'N' : 'Y' } })
                                 setTimeout(() => handleCustomFieldsBlur(index), 0)
