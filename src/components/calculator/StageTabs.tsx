@@ -1267,11 +1267,11 @@ export function StageTabs(props: StageTabsProps) {
                                 const rawValue = calc.customFields?.[field.code]
 
                                 if (rawValue === undefined || rawValue === null || rawValue === '') {
-                                  return field.default === true || field.default === 'N'
+                                  return field.default === true || field.default === 'Y'
                                 }
 
                                 const normalized = String(rawValue).trim().toUpperCase()
-                                return normalized === 'N' || normalized === '0' || normalized === 'FALSE'
+                                return normalized === 'Y' || normalized === '1' || normalized === 'TRUE'
                               })()}
                               onCheckedChange={(checked) => {
                                 handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: checked ? 'N' : 'Y' } })
