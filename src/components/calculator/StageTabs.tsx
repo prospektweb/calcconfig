@@ -34,7 +34,6 @@ interface StageTabsProps {
   calculators: StageInstance[]
   onChange: (calculators: StageInstance[]) => void
   bitrixMeta?: InitPayload | null
-  onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
   detailId?: number  // ID детали (Bitrix) для отправки ADD_STAGE_REQUEST
 }
 
@@ -194,7 +193,7 @@ const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionF
   }
 }
 
-export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidationMessage, detailId }: StageTabsProps) {
+export function StageTabs({ calculators, onChange, bitrixMeta = null, detailId }: StageTabsProps) {
   const [activeTab, setActiveTab] = useState(0)
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
