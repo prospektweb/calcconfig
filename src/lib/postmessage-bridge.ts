@@ -70,7 +70,7 @@ export type MessageType =
   // Добавление элементов в скрепление
   | 'ADD_DETAIL_TO_BINDING_REQUEST'       // Создать новую деталь внутри скрепления
   | 'SELECT_DETAILS_TO_BINDING_REQUEST'   // Выбрать существующие детали для скрепления
-  | 'DUBLICATE_DETAIL_REQUEST'
+  | 'CLONE_DETAIL_REQUEST'
   | 'SAVE_SETTINGS_EQUIPMENT_REQUEST'
   | 'CHANGE_STAGE_NAME_REQUEST'
   
@@ -763,7 +763,7 @@ class PostMessageBridge {
   }
 
   sendDublicateDetailRequest(payload: { detailId: number, presetId: number }) {
-    return this.sendMessage('DUBLICATE_DETAIL_REQUEST', payload)
+    return this.sendMessage('CLONE_DETAIL_REQUEST', payload)
   }
 
   sendSaveSettingsEquipmentRequest(payload: { eqipmentId: number, properties: Record<string, string> }) {
