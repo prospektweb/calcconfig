@@ -1264,13 +1264,13 @@ export function StageTabs(props: StageTabsProps) {
                           {field.type === 'checkbox' && (
                             <Checkbox
                               checked={
-                                calc.customFields?.[field.code] === 'Y' ||
-                                calc.customFields?.[field.code] === true ||
-                                calc.customFields?.[field.code] === '1' ||
-                                (calc.customFields?.[field.code] === undefined && field.default === true)
+                                calc.customFields?.[field.code] === 'N' ||
+                                calc.customFields?.[field.code] === false ||
+                                calc.customFields?.[field.code] === '0' ||
+                                (calc.customFields?.[field.code] === undefined && (field.default === true || field.default === 'N'))
                               }
                               onCheckedChange={(checked) => {
-                                handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: checked ? 'Y' : 'N' } })
+                                handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: checked ? 'N' : 'Y' } })
                                 setTimeout(() => handleCustomFieldsBlur(index), 0)
                               }}
                             />
