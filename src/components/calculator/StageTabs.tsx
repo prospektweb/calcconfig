@@ -34,7 +34,6 @@ interface StageTabsProps {
   calculators: StageInstance[]
   onChange: (calculators: StageInstance[]) => void
   bitrixMeta?: InitPayload | null
-  onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
   detailId?: number  // ID детали (Bitrix) для отправки ADD_STAGE_REQUEST
 }
 
@@ -103,6 +102,21 @@ const getPropertyStringValue = (prop:  BitrixProperty | undefined): string | nul
   return typeof value === 'string' ? value : null
 }
 
+
+const getUsedEntities = (settings: CalcSettingsItem | undefined): string[] => {
+  const prop = settings?.properties?.USED_ENTITYS
+  if (!prop) return []
+
+  const xml = prop.VALUE_XML_ID
+  if (Array.isArray(xml)) return xml.filter((item): item is string => typeof item === 'string')
+  if (typeof xml === 'string' && xml) return [xml]
+
+  const value = prop.VALUE
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string')
+  if (typeof value === 'string' && value) return [value]
+
+  return []
+}
 
 const getUsedEntities = (settings: CalcSettingsItem | undefined): string[] => {
   const prop = settings?.properties?.USED_ENTITYS
@@ -208,7 +222,7 @@ const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionF
   }
 }
 
-export function StageTabs({ calculators, onChange, bitrixMeta = null, onValidationMessage, detailId }: StageTabsProps) {
+export function StageTabs({ calculators, onChange, bitrixMeta = null, detailId }: StageTabsProps) {
   const [activeTab, setActiveTab] = useState(0)
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
