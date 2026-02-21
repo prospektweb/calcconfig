@@ -28,7 +28,7 @@ import { InitPayload, postMessageBridge } from '@/lib/postmessage-bridge'
 import { getBitrixContext, openBitrixAdmin, getIblockByCode } from '@/lib/bitrix-utils'
 import { toast } from 'sonner'
 import { BitrixProperty } from '@/lib/bitrix-transformers'
-import { getDraftKey, calculateStageReadiness, hasDraftForStage, extractLogicJsonString } from '@/lib/stage-utils'
+import { getDraftKey, calculateStageReadiness, hasDraftForStage, extractLogicJsonString, getUsedEntitiesFromSettings } from '@/lib/stage-utils'
 
 interface StageTabsProps {
   calculators: StageInstance[]
@@ -103,35 +103,6 @@ const getPropertyStringValue = (prop:  BitrixProperty | undefined): string | nul
 }
 
 
-const getUsedEntities = (settings: CalcSettingsItem | undefined): string[] => {
-  const prop = settings?.properties?.USED_ENTITYS
-  if (!prop) return []
-
-  const xml = prop.VALUE_XML_ID
-  if (Array.isArray(xml)) return xml.filter((item): item is string => typeof item === 'string')
-  if (typeof xml === 'string' && xml) return [xml]
-
-  const value = prop.VALUE
-  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string')
-  if (typeof value === 'string' && value) return [value]
-
-  return []
-}
-
-const getUsedEntities = (settings: CalcSettingsItem | undefined): string[] => {
-  const prop = settings?.properties?.USED_ENTITYS
-  if (!prop) return []
-
-  const xml = prop.VALUE_XML_ID
-  if (Array.isArray(xml)) return xml.filter((item): item is string => typeof item === 'string')
-  if (typeof xml === 'string' && xml) return [xml]
-
-  const value = prop.VALUE
-  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string')
-  if (typeof value === 'string' && value) return [value]
-
-  return []
-}
 
 /**
  * Проверка что значение является валидной строкой для фильтрации.
@@ -575,7 +546,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, detailId }
 
       const defaultOperationVariant = getProperty(settings, 'DEFAULT_OPERATION_VARIANT')
       const defaultOpValue = getPropertyStringValue(defaultOperationVariant)
-      if (defaultOpValue && !calc.operationVariantId && getUsedEntities(settings).includes('VARIANT_OPERATION')) {
+      if (defaultOpValue && !calc.operationVariantId && getUsedEntitiesFromSettings(settings).includes('VARIANT_OPERATION')) {
         const defaultOpId = parseInt(defaultOpValue, 10)
         if (!isNaN(defaultOpId)) {
           handleUpdateCalculator(index, { operationVariantId: defaultOpId })
@@ -587,7 +558,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, detailId }
 
       const defaultMaterialVariant = getProperty(settings, 'DEFAULT_MATERIAL_VARIANT')
       const defaultMatValue = getPropertyStringValue(defaultMaterialVariant)
-      if (defaultMatValue && !calc.materialVariantId && getUsedEntities(settings).includes('VARIANT_MATERIAL')) {
+      if (defaultMatValue && !calc.materialVariantId && getUsedEntitiesFromSettings(settings).includes('VARIANT_MATERIAL')) {
         const defaultMatId = parseInt(defaultMatValue, 10)
         if (!isNaN(defaultMatId)) {
           handleUpdateCalculator(index, { materialVariantId: defaultMatId })
@@ -964,7 +935,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, detailId }
                 </div>
               </div>
 
-              {settings && getUsedEntities(settings).includes('VARIANT_OPERATION') && (
+              {settings && getUsedEntitiesFromSettings(settings).includes('VARIANT_OPERATION') && (
                 <div className="space-y-2">
                   <Label>Операция</Label>
                     <div className="flex gap-2 items-center">
@@ -1037,7 +1008,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, detailId }
                 </div>
               )}
 
-              {settings && getUsedEntities(settings).includes('EQUIPMENT') && (
+              {settings && getUsedEntitiesFromSettings(settings).includes('EQUIPMENT') && (
                 <div className="space-y-2">
                   <Label>Оборудование</Label>
                     <div className="flex gap-2 items-center">
@@ -1131,7 +1102,7 @@ export function StageTabs({ calculators, onChange, bitrixMeta = null, detailId }
                   </div>
                 )}
 
-              {settings && getUsedEntities(settings).includes('VARIANT_MATERIAL') && (
+              {settings && getUsedEntitiesFromSettings(settings).includes('VARIANT_MATERIAL') && (
                 <div className="space-y-2">
                   <Label>Материал</Label>
                   <div className="flex gap-2 items-center">
