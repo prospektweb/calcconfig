@@ -35,6 +35,7 @@ interface StageTabsProps {
   onChange: (calculators: StageInstance[]) => void
   bitrixMeta?: InitPayload | null
   detailId?: number  // ID детали (Bitrix) для отправки ADD_STAGE_REQUEST
+  onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
 }
 
 const TAB_COLORS = [
@@ -194,16 +195,31 @@ const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionF
 }
 
 export function StageTabs(props: StageTabsProps) {
-  const { calculators, onChange, bitrixMeta = null, detailId } = props
+  const { calculators, onChange, bitrixMeta = null, detailId, onValidationMessage } = props
   const [activeTab, setActiveTab] = useState(0)
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
   const [calculationLogicDialogOpen, setCalculationLogicDialogOpen] = useState(false)
   const [calculationLogicStageIndex, setCalculationLogicStageIndex] = useState<number | null>(null)
   const [optionsDialogOpen, setOptionsDialogOpen] = useState(false)
-  void onValidationMessage
   const [optionsDialogType, setOptionsDialogType] = useState<'operation' | 'material'>('operation')
   const [optionsDialogStageIndex, setOptionsDialogStageIndex] = useState<number | null>(null)
+
+  const notifyValidationMessage = useCallback((type: 'info' | 'warning' | 'error' | 'success', message: string) => {
+    if (onValidationMessage) {
+      onValidationMessage(type, message)
+      return
+    }
+
+    const prefix = '[StageTabs Validation]'
+    if (type === 'error') {
+      console.error(prefix, message)
+    } else if (type === 'warning') {
+      console.warn(prefix, message)
+    } else {
+      console.info(prefix, message)
+    }
+  }, [onValidationMessage])
 
   // Track pending save to detect when save completes using hash comparison
   const pendingSaveRef = useRef<{
@@ -309,8 +325,9 @@ export function StageTabs(props: StageTabsProps) {
       }
     } catch (e) {
       console.error('Failed to parse payload for hash comparison', e)
+      notifyValidationMessage('warning', 'Не удалось обработать данные сохранения логики этапа. Окно останется открытым, данные не потеряны.')
     }
-  }, [])
+  }, [notifyValidationMessage])
 
   const getEntityIblockInfo = (entity: 'calculator' | 'operation' | 'material' | 'stage' | 'config') => {
     if (!bitrixMeta) return null
@@ -360,6 +377,7 @@ export function StageTabs(props: StageTabsProps) {
         })
       } catch (error) {
         const message = error instanceof Error ?  error.message : 'Не удалось открыть элемент Bitrix'
+        notifyValidationMessage('error', message)
         toast.error(message)
       }
     } else {
