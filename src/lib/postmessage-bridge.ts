@@ -29,6 +29,7 @@ export type MessageType =
   | 'REFRESH_RESULT'
   | 'ADD_NEW_GROUP_RESPONSE'
   | 'SELECT_DETAILS_REQUEST'
+  | 'SELECT_FIELDS_REQUEST'
   
   // Детали
   | 'ADD_DETAIL_REQUEST'      // переименован из ADD_NEW_DETAIL_REQUEST
@@ -69,6 +70,9 @@ export type MessageType =
   // Добавление элементов в скрепление
   | 'ADD_DETAIL_TO_BINDING_REQUEST'       // Создать новую деталь внутри скрепления
   | 'SELECT_DETAILS_TO_BINDING_REQUEST'   // Выбрать существующие детали для скрепления
+  | 'DUBLICATE_DETAIL_REQUEST'
+  | 'SAVE_SETTINGS_EQUIPMENT_REQUEST'
+  | 'CHANGE_STAGE_NAME_REQUEST'
   
   // Диапазоны цен
   | 'ADD_PRICE_RANGE_REQUEST'
@@ -644,6 +648,10 @@ class PostMessageBridge {
     return this.sendMessage('SELECT_DETAILS_REQUEST', payload)
   }
 
+  sendSelectFieldsRequest(payload: { stageId: number, presetId: number, settingsId: number }) {
+    return this.sendMessage('SELECT_FIELDS_REQUEST', payload)
+  }
+
   sendRenameDetailRequest(payload: { detailId: number, name: string }) {
     return this.sendMessage('RENAME_DETAIL_REQUEST', payload)
   }
@@ -663,6 +671,10 @@ class PostMessageBridge {
 
   sendDeleteStageRequest(payload: DeleteStageRequestPayload) {
     return this.sendMessage('DELETE_STAGE_REQUEST', payload)
+  }
+
+  sendChangeStageNameRequest(payload: { stageId: number, name: string }) {
+    return this.sendMessage('CHANGE_STAGE_NAME_REQUEST', payload)
   }
 
   // Element selection in stages
@@ -748,6 +760,14 @@ class PostMessageBridge {
 
   sendSelectDetailsToBindingRequest(payload: SelectDetailsToBindingRequestPayload) {
     return this.sendMessage('SELECT_DETAILS_TO_BINDING_REQUEST', payload)
+  }
+
+  sendDublicateDetailRequest(payload: { detailId: number, presetId: number }) {
+    return this.sendMessage('DUBLICATE_DETAIL_REQUEST', payload)
+  }
+
+  sendSaveSettingsEquipmentRequest(payload: { eqipmentId: number, properties: Record<string, string> }) {
+    return this.sendMessage('SAVE_SETTINGS_EQUIPMENT_REQUEST', payload)
   }
 
   // Preset prices operation
