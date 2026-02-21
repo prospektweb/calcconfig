@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Plus, X, DotsSixVertical, ArrowSquareOut, Gear, PencilSimple } from '@phosphor-icons/react'
 import { StageInstance, createEmptyStage } from '@/lib/types'
 import { MultiLevelSelect, MultiLevelItem } from './MultiLevelSelect'
@@ -204,6 +205,10 @@ export function StageTabs(props: StageTabsProps) {
   const [optionsDialogOpen, setOptionsDialogOpen] = useState(false)
   const [optionsDialogType, setOptionsDialogType] = useState<'operation' | 'material'>('operation')
   const [optionsDialogStageIndex, setOptionsDialogStageIndex] = useState<number | null>(null)
+  const [equipmentDialogOpen, setEquipmentDialogOpen] = useState(false)
+  const [equipmentDialogStageIndex, setEquipmentDialogStageIndex] = useState<number | null>(null)
+  const [equipmentPropertiesDraft, setEquipmentPropertiesDraft] = useState<Record<string, string>>({})
+  const safeCalculators = calculators || []
 
   const notifyValidationMessage = useCallback((type: 'info' | 'warning' | 'error' | 'success', message: string) => {
     if (onValidationMessage) {
@@ -234,6 +239,56 @@ export function StageTabs(props: StageTabsProps) {
   // Simple hash functions for comparing data
   const hashString = (str: string): string => str
   const hashArray = (arr: string[]): string => JSON.stringify(arr)
+
+  const getEquipmentPropertiesConfig = useCallback(() => {
+    const equipmentIblock = bitrixMeta ? getIblockByCode(bitrixMeta.iblocks, 'CALC_EQUIPMENT') : null
+    return equipmentIblock?.properties || []
+  }, [bitrixMeta])
+
+  const openEquipmentPropertiesDialog = useCallback((stageIndex: number) => {
+    const stage = safeCalculators[stageIndex]
+    if (!stage?.equipmentId || !bitrixMeta) return
+
+    const equipmentElement = bitrixMeta.elementsStore?.CALC_EQUIPMENT?.find(
+      (item) => item.id === stage.equipmentId
+    )
+    const propsConfig = getEquipmentPropertiesConfig()
+    const nextDraft: Record<string, string> = {}
+
+    propsConfig.forEach((prop) => {
+      const value = equipmentElement?.properties?.[prop.CODE]?.VALUE
+      if (Array.isArray(value)) {
+        nextDraft[prop.CODE] = value.map((item) => String(item)).join(', ')
+      } else if (value === null || value === undefined || value === false) {
+        nextDraft[prop.CODE] = ''
+      } else {
+        nextDraft[prop.CODE] = String(value)
+      }
+    })
+
+    setEquipmentPropertiesDraft(nextDraft)
+    setEquipmentDialogStageIndex(stageIndex)
+    setEquipmentDialogOpen(true)
+  }, [bitrixMeta, getEquipmentPropertiesConfig, safeCalculators])
+
+  const saveEquipmentProperties = useCallback(() => {
+    if (equipmentDialogStageIndex === null) return
+    const stage = safeCalculators[equipmentDialogStageIndex]
+    if (!stage?.equipmentId) return
+
+    const preparedProperties: Record<string, string> = Object.entries(equipmentPropertiesDraft)
+      .reduce<Record<string, string>>((acc, [code, value]) => {
+        acc[code] = value.trim()
+        return acc
+      }, {})
+
+    postMessageBridge.sendSaveSettingsEquipmentRequest({
+      eqipmentId: stage.equipmentId,
+      properties: preparedProperties,
+    })
+    toast.success('Параметры оборудования сохранены')
+    setEquipmentDialogOpen(false)
+  }, [equipmentDialogStageIndex, equipmentPropertiesDraft, safeCalculators])
 
   // Handle INIT updates - close logic dialog and clear draft after successful save
   // This only triggers when there's a pending save (not just because LOGIC_JSON exists)
@@ -413,8 +468,6 @@ export function StageTabs(props: StageTabsProps) {
   const materialVariants = useMaterialVariantStore(s => s.variants)
   
   
-  const safeCalculators = calculators || []
-
   const handleAddCalculator = () => {
     // Только отправить запрос с detailId, НЕ обновлять UI
     // UI обновится при получении RESPONSE
@@ -1066,19 +1119,7 @@ export function StageTabs(props: StageTabsProps) {
                           size="icon"
                           className="h-9 w-9"
                           data-pwcode="btn-equipment-options"
-                          onClick={() => {
-                            const raw = window.prompt('Свойства оборудования (JSON)', '{}')
-                            if (!raw || !calc.equipmentId) return
-                            try {
-                              const properties = JSON.parse(raw)
-                              postMessageBridge.sendSaveSettingsEquipmentRequest({
-                                eqipmentId: calc.equipmentId,
-                                properties,
-                              })
-                            } catch {
-                              toast.error('Некорректный JSON')
-                            }
-                          }}
+                          onClick={() => openEquipmentPropertiesDialog(index)}
                         >
                           <Gear className="w-4 h-4" />
                         </Button>
@@ -1195,7 +1236,6 @@ export function StageTabs(props: StageTabsProps) {
               {/* Дополнительные поля из CUSTOM_FIELDS */}
               {(() => {
                 const customFieldsConfig = settings?.customFields || []
-                if (customFieldsConfig.length === 0) return null
 
                 return (
                   <div className="space-y-3 pt-3 border-t">
@@ -1209,7 +1249,7 @@ export function StageTabs(props: StageTabsProps) {
                         <Plus className="w-4 h-4" />
                       </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       {customFieldsConfig.map((field) => (
                         <div key={field.code} className="space-y-1">
                           <Label className="text-xs">{field.name}</Label>
@@ -1224,13 +1264,13 @@ export function StageTabs(props: StageTabsProps) {
                           {field.type === 'checkbox' && (
                             <Checkbox
                               checked={
-                                calc.customFields?.[field.code] === 'N' ||
+                                calc.customFields?.[field.code] === 'Y' ||
                                 calc.customFields?.[field.code] === true ||
                                 calc.customFields?.[field.code] === '1' ||
                                 (calc.customFields?.[field.code] === undefined && field.default === true)
                               }
                               onCheckedChange={(checked) => {
-                                handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: checked ? 'N' : 'Y' } })
+                                handleUpdateCalculator(index, { customFields: { ...calc.customFields, [field.code]: checked ? 'Y' : 'N' } })
                                 setTimeout(() => handleCustomFieldsBlur(index), 0)
                               }}
                             />
@@ -1262,6 +1302,9 @@ export function StageTabs(props: StageTabsProps) {
                         </div>
                       ))}
                     </div>
+                    {customFieldsConfig.length === 0 && (
+                      <p className="text-xs text-muted-foreground">Дополнительные поля не выбраны</p>
+                    )}
                   </div>
                 )
               })()}
@@ -1365,6 +1408,44 @@ export function StageTabs(props: StageTabsProps) {
             }
           }}
         />
+      )}
+
+      {equipmentDialogStageIndex !== null && safeCalculators[equipmentDialogStageIndex] && (
+        <Dialog open={equipmentDialogOpen} onOpenChange={setEquipmentDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Параметры оборудования</DialogTitle>
+            </DialogHeader>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[55vh] overflow-y-auto pr-1">
+              {getEquipmentPropertiesConfig().map((property) => (
+                <div key={property.CODE} className="space-y-1">
+                  <Label className="text-xs">{property.NAME}</Label>
+                  <Input
+                    type="text"
+                    value={equipmentPropertiesDraft[property.CODE] ?? ''}
+                    onChange={(event) => {
+                      const value = event.target.value
+                      setEquipmentPropertiesDraft((prev) => ({ ...prev, [property.CODE]: value }))
+                    }}
+                    placeholder={property.CODE}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {getEquipmentPropertiesConfig().length === 0 && (
+              <p className="text-sm text-muted-foreground">В инфоблоке оборудования нет настраиваемых свойств.</p>
+            )}
+
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Отмена</Button>
+              </DialogClose>
+              <Button onClick={saveEquipmentProperties}>Сохранить</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )
