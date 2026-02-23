@@ -4,6 +4,8 @@ export interface InputParam {
   id: string
   name: string
   sourcePath: string
+  sourceKind?: 'context' | 'literal'
+  literalValue?: string
   sourceType: 'string' | 'number' | 'boolean' | 'null' | 'object' | 'array'
   valueType?: ValueType
   typeSource?: 'auto' | 'manual'
