@@ -31,6 +31,36 @@ function buildLogicContext(initPayload: InitPayload | null | undefined): any {
   return initPayload
 }
 
+
+function parseInputSourceForUi(rawSourcePath: unknown): {
+  sourcePath: string
+  sourceKind: 'context' | 'literal'
+  literalValue?: string
+} {
+  const sourcePath = String(rawSourcePath ?? '')
+  const literalPrefix = '__literal__:'
+
+  if (!sourcePath.startsWith(literalPrefix)) {
+    return { sourcePath, sourceKind: 'context' }
+  }
+
+  const encodedLiteral = sourcePath.slice(literalPrefix.length)
+  try {
+    const parsed = JSON.parse(encodedLiteral)
+    return {
+      sourcePath: typeof parsed === 'string' ? parsed : JSON.stringify(parsed),
+      sourceKind: 'literal',
+      literalValue: typeof parsed === 'string' ? parsed : JSON.stringify(parsed),
+    }
+  } catch (_error) {
+    return {
+      sourcePath: encodedLiteral,
+      sourceKind: 'literal',
+      literalValue: encodedLiteral,
+    }
+  }
+}
+
 // Helper to create empty ResultsHL
 function createEmptyResultsHL(): ResultsHL {
   return {
@@ -79,12 +109,15 @@ function buildInputsFromInit(
       ? (typeStr as ValueType) 
       : 'unknown'
     
+    const parsedSource = parseInputSourceForUi(wiringMap.get(name) || '')
+
     return {
       id: `input_${name}`,
       name,
       valueType,
-      sourcePath: wiringMap.get(name) || '',
-      sourceKind: 'context',
+      sourcePath: parsedSource.sourcePath,
+      sourceKind: parsedSource.sourceKind,
+      literalValue: parsedSource.literalValue,
       sourceType: 'string',  // default, will be inferred
       typeSource: 'auto'
     }
@@ -268,13 +301,21 @@ function sanitizeInputs(rawInputs: InputParam[], label: string): InputParam[] {
       }
       return true
     })
-    .map(input => ({
-      ...input,
-      name: String(input.name),
-      sourcePath: String(input.sourcePath ?? ''),
-      sourceKind: input.sourceKind === 'literal' ? 'literal' : 'context',
-      literalValue: input.literalValue !== undefined ? String(input.literalValue) : undefined,
-    }))
+    .map(input => {
+      const parsedSource = parseInputSourceForUi(input.sourcePath)
+      const sourceKind = input.sourceKind === 'literal' ? 'literal' : parsedSource.sourceKind
+      const literalValue = input.literalValue !== undefined
+        ? String(input.literalValue)
+        : parsedSource.literalValue
+
+      return {
+        ...input,
+        name: String(input.name),
+        sourcePath: sourceKind === 'literal' ? (literalValue ?? '') : parsedSource.sourcePath,
+        sourceKind,
+        literalValue,
+      }
+    })
 
   warnOnFiltered(label, filteredCount)
   return sanitized
@@ -383,13 +424,21 @@ function sanitizeIssues(rawIssues: ValidationIssue[], label: string): Validation
 function sanitizeInputsForRender(rawInputs: InputParam[]): InputParam[] {
   return rawInputs
     .filter(input => typeof input?.name === 'string')
-    .map(input => ({
-      ...input,
-      name: String(input.name),
-      sourcePath: String(input.sourcePath ?? ''),
-      sourceKind: input.sourceKind === 'literal' ? 'literal' : 'context',
-      literalValue: input.literalValue !== undefined ? String(input.literalValue) : undefined,
-    }))
+    .map(input => {
+      const parsedSource = parseInputSourceForUi(input.sourcePath)
+      const sourceKind = input.sourceKind === 'literal' ? 'literal' : parsedSource.sourceKind
+      const literalValue = input.literalValue !== undefined
+        ? String(input.literalValue)
+        : parsedSource.literalValue
+
+      return {
+        ...input,
+        name: String(input.name),
+        sourcePath: sourceKind === 'literal' ? (literalValue ?? '') : parsedSource.sourcePath,
+        sourceKind,
+        literalValue,
+      }
+    })
 }
 
 function sanitizeVarsForRender(rawVars: FormulaVar[]): FormulaVar[] {
