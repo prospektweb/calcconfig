@@ -43,6 +43,8 @@ export interface InputParam {
 export interface InputWiring {
   paramName: string
   sourcePath: string
+  sourceKind?: 'context' | 'literal'
+  literalValue?: any
 }
 
 /**
@@ -72,6 +74,31 @@ export function extractParams(settingsElement: ElementsStoreItem | null | undefi
     name: String(name),
     type: Array.isArray(paramsDesc) ? String(paramsDesc[i] || 'unknown') : 'unknown',
   }))
+}
+
+
+function parseInputSource(rawSource: string): { sourcePath: string; sourceKind: 'context' | 'literal'; literalValue?: any } {
+  const source = String(rawSource || '')
+  const literalPrefix = '__literal__:'
+
+  if (!source.startsWith(literalPrefix)) {
+    return { sourcePath: source, sourceKind: 'context' }
+  }
+
+  const encodedLiteral = source.slice(literalPrefix.length)
+  try {
+    return {
+      sourcePath: source,
+      sourceKind: 'literal',
+      literalValue: JSON.parse(encodedLiteral),
+    }
+  } catch (_error) {
+    return {
+      sourcePath: source,
+      sourceKind: 'literal',
+      literalValue: encodedLiteral,
+    }
+  }
 }
 
 /**
@@ -104,10 +131,17 @@ export function extractInputs(stageElement: ElementsStoreItem | null | undefined
     )
   }
 
-  return inputsValue.map((paramName, i) => ({
-    paramName: String(paramName),
-    sourcePath: Array.isArray(inputsDesc) ? String(inputsDesc[i] || '') : '',
-  }))
+  return inputsValue.map((paramName, i) => {
+    const source = Array.isArray(inputsDesc) ? String(inputsDesc[i] || '') : ''
+    const parsed = parseInputSource(source)
+
+    return {
+      paramName: String(paramName),
+      sourcePath: parsed.sourcePath,
+      sourceKind: parsed.sourceKind,
+      literalValue: parsed.literalValue,
+    }
+  })
 }
 
 /**
@@ -433,6 +467,12 @@ export function buildCalculationContext(
 
   // Wire inputs from initPayload to context based on INPUTS mappings
   for (const wiring of inputWirings) {
+    if (wiring.sourceKind === 'literal') {
+      context[wiring.paramName] = wiring.literalValue
+      console.log('[CALC] Wired input literal:', wiring.paramName, '=', wiring.literalValue)
+      continue
+    }
+
     if (wiring.sourcePath) {
       const stageAliasMatch = wiring.sourcePath.match(
         /^stage_(\d+)\.(operationVariant|materialVariant)(?:\.(.+))?$/
