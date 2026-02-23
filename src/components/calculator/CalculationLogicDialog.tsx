@@ -84,6 +84,7 @@ function buildInputsFromInit(
       name,
       valueType,
       sourcePath: wiringMap.get(name) || '',
+      sourceKind: 'context',
       sourceType: 'string',  // default, will be inferred
       typeSource: 'auto'
     }
@@ -271,6 +272,8 @@ function sanitizeInputs(rawInputs: InputParam[], label: string): InputParam[] {
       ...input,
       name: String(input.name),
       sourcePath: String(input.sourcePath ?? ''),
+      sourceKind: input.sourceKind === 'literal' ? 'literal' : 'context',
+      literalValue: input.literalValue !== undefined ? String(input.literalValue) : undefined,
     }))
 
   warnOnFiltered(label, filteredCount)
@@ -384,6 +387,8 @@ function sanitizeInputsForRender(rawInputs: InputParam[]): InputParam[] {
       ...input,
       name: String(input.name),
       sourcePath: String(input.sourcePath ?? ''),
+      sourceKind: input.sourceKind === 'literal' ? 'literal' : 'context',
+      literalValue: input.literalValue !== undefined ? String(input.literalValue) : undefined,
     }))
 }
 
@@ -1394,6 +1399,8 @@ export function CalculationLogicDialog({
           return {
             ...inp,
             sourcePath: path,
+            sourceKind: 'context',
+            literalValue: undefined,
             sourceType: type as any,
             valueType: inferred.type !== 'unknown' ? inferred.type : inp.valueType,
             typeSource: 'auto',
@@ -1427,6 +1434,7 @@ export function CalculationLogicDialog({
       id,
       name,
       sourcePath: path,
+      sourceKind: 'context',
       sourceType: type as any,
       valueType: inferred.type !== 'unknown' ? inferred.type : undefined,
       typeSource: 'auto',
@@ -1436,6 +1444,50 @@ export function CalculationLogicDialog({
     setInputs([...inputs, newInput])
     handleTabChange('inputs')
     toast.success(`Параметр "${name}" добавлен`)
+  }
+
+
+  const inferTypeFromLiteralValue = (rawValue: string): ValueType => {
+    const trimmed = rawValue.trim()
+    if (!trimmed) return 'string'
+
+    const lower = trimmed.toLowerCase()
+    if (lower === 'true' || lower === 'false') return 'bool'
+
+    if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (Array.isArray(parsed)) return 'array'
+        if (typeof parsed === 'boolean') return 'bool'
+        if (typeof parsed === 'number' && Number.isFinite(parsed)) return 'number'
+        if (typeof parsed === 'string') return 'string'
+      } catch (_error) {
+        // ignore parse errors and fallback to heuristics below
+      }
+    }
+
+    const asNumber = Number(trimmed)
+    if (!Number.isNaN(asNumber) && Number.isFinite(asNumber)) return 'number'
+
+    return 'string'
+  }
+
+  const handleInputLiteralChange = (id: string, rawValue: string) => {
+    const inferredType = inferTypeFromLiteralValue(rawValue)
+    setInputs(prevInputs => prevInputs.map(inp =>
+      inp.id === id
+        ? {
+            ...inp,
+            sourceKind: 'literal',
+            literalValue: rawValue,
+            sourcePath: rawValue,
+            sourceType: inferredType === 'number' ? 'number' : inferredType === 'bool' ? 'boolean' : inferredType === 'array' ? 'array' : 'string',
+            valueType: inferredType,
+            typeSource: 'auto',
+            autoTypeReason: 'Тип определён автоматически по введённому значению'
+          }
+        : inp
+    ))
   }
 
   const isPathDisabled = (path: string): boolean => {
@@ -1457,6 +1509,8 @@ export function CalculationLogicDialog({
           return {
             ...inp,
             sourcePath: path,
+            sourceKind: 'context',
+            literalValue: undefined,
             sourceType: 'context' as any,
             valueType: valueType !== 'unknown' ? valueType : inp.valueType,
             typeSource: 'auto',
@@ -1482,6 +1536,7 @@ export function CalculationLogicDialog({
       id: `input_${Date.now()}`,
       name: uniqueName,
       sourcePath: path,
+      sourceKind: 'context',
       sourceType: 'context' as any,
       valueType: valueType !== 'unknown' ? valueType : undefined,
       typeSource: 'auto',
@@ -1537,6 +1592,33 @@ export function CalculationLogicDialog({
       navigator.clipboard.writeText(text)
       toast.success(`"${text}" скопирован в буфер обмена`)
     }
+  }
+
+  const handleCreateManualInput = () => {
+    let counter = inputs.length + 1
+    let name = `newParam${counter}`
+    while (inputs.some(inp => inp.name === name)) {
+      counter += 1
+      name = `newParam${counter}`
+    }
+
+    const id = `input_${Date.now()}`
+    const newInput: InputParam = {
+      id,
+      name,
+      sourcePath: '',
+      sourceKind: 'context',
+      sourceType: 'number',
+      valueType: 'number',
+      typeSource: 'manual',
+      autoTypeReason: 'Создан вручную'
+    }
+
+    setInputs(prev => [...prev, newInput])
+    handleTabChange('inputs')
+    setActiveInputId(id)
+    setNewlyAddedInputId(id)
+    toast.success(`Параметр "${name}" добавлен`)
   }
 
   const handleCopyInputParams = () => {
@@ -1639,7 +1721,9 @@ export function CalculationLogicDialog({
     // Build inputs wiring array
     const inputsWiring = inputs.map(inp => ({
       name: inp.name,
-      path: inp.sourcePath
+      path: inp.sourceKind === 'literal'
+        ? `__literal__:${JSON.stringify(inp.literalValue ?? '')}`
+        : inp.sourcePath
     }))
     
     // Build outputs array
@@ -1967,6 +2051,7 @@ export function CalculationLogicDialog({
                         onInputSelect={setActiveInputId}
                         newlyAddedId={newlyAddedInputId}
                         onNewlyAddedIdChange={setNewlyAddedInputId}
+                        onLiteralChange={handleInputLiteralChange}
                       />
                     </DiagnosticErrorBoundary>
                     </ScrollArea>
@@ -2462,7 +2547,7 @@ export function CalculationLogicDialog({
         </div>
 
         {/* Fixed Footer */}
-        <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0">
+        <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0 sticky bottom-0 bg-background z-20">
           <div className="flex items-center justify-between w-full">
             <div className="flex gap-2">
               <Button 
@@ -2485,14 +2570,23 @@ export function CalculationLogicDialog({
                 </Button>
               )}
               {activeTab === 'inputs' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyInputParams}
-                  title="Названия входных параметров будут скопированы в буфер обмена"
-                >
-                  Скопировать параметры
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCreateManualInput}
+                  >
+                    Создать параметр
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyInputParams}
+                    title="Названия входных параметров будут скопированы в буфер обмена"
+                  >
+                    Скопировать параметры
+                  </Button>
+                </>
               )}
               {activeTab === 'formulas' && (
                 <>

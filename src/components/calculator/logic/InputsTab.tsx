@@ -29,16 +29,18 @@ interface InputsTabProps {
   onInputSelect?: (id: string | null) => void
   newlyAddedId?: string | null
   onNewlyAddedIdChange?: (id: string | null) => void
+  onLiteralChange?: (id: string, value: string) => void
 }
 
 const HIGHLIGHT_DURATION_MS = 2000
 
-export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInputSelect, newlyAddedId, onNewlyAddedIdChange }: InputsTabProps) {
+export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInputSelect, newlyAddedId, onNewlyAddedIdChange, onLiteralChange }: InputsTabProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const newlyAddedRef = useRef<HTMLDivElement>(null)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [literalEditId, setLiteralEditId] = useState<string | null>(null)
 
   // Handle scroll and animation for newly added input
   useEffect(() => {
@@ -204,7 +206,18 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
               >
                 {isActive && (
                   <div className="text-xs text-primary font-medium">
-                    📍 Укажите новый путь в Контексте
+                    📍 Укажите путь в Контексте или{' '}
+                    <button
+                      type="button"
+                      className="underline hover:no-underline"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setLiteralEditId(input.id)
+                        onInputSelect?.(input.id)
+                      }}
+                    >
+                      задайте своё значение
+                    </button>
                   </div>
                 )}
                 <div className="flex items-center gap-2">
@@ -244,11 +257,27 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
                       </div>
                     )}
                     
-                    <span className="text-sm text-muted-foreground font-mono flex-1 truncate">
-                      {input.sourcePath}
-                    </span>
+                    {literalEditId === input.id || input.sourceKind === 'literal' ? (
+                      <Input
+                        value={input.literalValue ?? input.sourcePath ?? ''}
+                        onChange={(e) => onLiteralChange?.(input.id, e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onBlur={() => {
+                          if ((input.literalValue ?? input.sourcePath ?? '').trim() === '') {
+                            setLiteralEditId(null)
+                          }
+                        }}
+                        autoFocus={literalEditId === input.id}
+                        className="h-7 text-sm flex-1 font-mono"
+                        placeholder="Введите значение"
+                      />
+                    ) : (
+                      <span className="text-sm text-muted-foreground font-mono flex-1 truncate">
+                        {input.sourcePath}
+                      </span>
+                    )}
                     <Badge variant="secondary" className="text-xs">
-                      {input.sourceType}
+                      {input.sourceKind === 'literal' ? 'literal' : input.sourceType}
                     </Badge>
                   </div>
                   
@@ -280,7 +309,7 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
                           className="h-7 w-7 p-0"
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleCopyPath(input.sourcePath)
+                            handleCopyPath(input.sourceKind === 'literal' ? (input.literalValue ?? '') : input.sourcePath)
                           }}
                         >
                           <FileCode className="w-3.5 h-3.5" />
