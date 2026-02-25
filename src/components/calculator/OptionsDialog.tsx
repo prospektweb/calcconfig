@@ -15,6 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, Trash, ArrowsOut, ArrowsIn } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { InitPayload } from '@/lib/postmessage-bridge'
+import { MultiLevelSelect, MultiLevelItem } from './MultiLevelSelect'
 
 interface OptionsDialogProps {
   open: boolean
@@ -45,8 +46,24 @@ interface Property {
 
 interface MappingRow {
   values: Record<string, { value: string; xmlId: string }>
+  dimensions: Record<DimensionKey, { min: string; max: string }>
   variantId: string
 }
+
+type DimensionKey = 'width' | 'length' | 'height' | 'weight'
+
+interface DetailStageSelection {
+  bindingId?: number | null
+  detailId?: number | null
+  stageId: number
+}
+
+const DIMENSION_OPTIONS: Array<{ key: DimensionKey; label: string; unit: string }> = [
+  { key: 'width', label: 'Ширина', unit: 'мм' },
+  { key: 'length', label: 'Длина', unit: 'мм' },
+  { key: 'height', label: 'Высота', unit: 'мм' },
+  { key: 'weight', label: 'Вес', unit: 'г' },
+]
 
 export function OptionsDialog({
   open,
@@ -62,6 +79,8 @@ export function OptionsDialog({
 }: OptionsDialogProps) {
   const [selectedPropertyCodes, setSelectedPropertyCodes] = useState<string[]>([])
   const [mappingRows, setMappingRows] = useState<MappingRow[]>([])
+  const [selectedDetailStage, setSelectedDetailStage] = useState<DetailStageSelection | null>(null)
+  const [selectedDimensions, setSelectedDimensions] = useState<DimensionKey[]>([])
   const [hasInitialized, setHasInitialized] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
@@ -168,8 +187,27 @@ export function OptionsDialog({
             ? [String(parsed.propertyCode)]
             : []
 
-        if (parsedPropertyCodes.length > 0 && Array.isArray(parsed.mappings)) {
+        if (Array.isArray(parsed.mappings)) {
           setSelectedPropertyCodes(parsedPropertyCodes)
+          const parsedDetailStage = parsed.detailStageSelection && typeof parsed.detailStageSelection === 'object'
+            ? {
+                bindingId: parsed.detailStageSelection.bindingId
+                  ? Number(parsed.detailStageSelection.bindingId)
+                  : null,
+                detailId: parsed.detailStageSelection.detailId !== undefined && parsed.detailStageSelection.detailId !== null
+                  ? Number(parsed.detailStageSelection.detailId)
+                  : null,
+                stageId: Number(parsed.detailStageSelection.stageId),
+              }
+            : null
+          const parsedDimensions = Array.isArray(parsed.dimensionKeys)
+            ? parsed.dimensionKeys
+                .map((item: unknown) => String(item))
+                .filter((item): item is DimensionKey => DIMENSION_OPTIONS.some((option) => option.key === item))
+            : []
+          setSelectedDetailStage(parsedDetailStage)
+          setSelectedDimensions(parsedDimensions)
+
           setMappingRows(parsed.mappings.map((mapping: any) => {
             if (mapping.values && typeof mapping.values === 'object') {
               const normalizedValues: Record<string, { value: string; xmlId: string }> = {}
@@ -182,18 +220,34 @@ export function OptionsDialog({
               })
               return {
                 values: normalizedValues,
+                dimensions: DIMENSION_OPTIONS.reduce((acc, option) => {
+                  const rawDimension = mapping.dimensions?.[option.key] || {}
+                  const rawMin = rawDimension.min ?? ''
+                  const rawMax = rawDimension.max ?? ''
+                  acc[option.key] = {
+                    min: rawMin === '' ? '0' : String(rawMin),
+                    max: String(rawMax),
+                  }
+                  return acc
+                }, {} as Record<DimensionKey, { min: string; max: string }>),
                 variantId: String(mapping.variantId || ''),
               }
             }
 
             const legacyCode = parsedPropertyCodes[0]
             return {
-              values: {
-                [legacyCode]: {
-                  value: String(mapping.value || ''),
-                  xmlId: String(mapping.xmlId || ''),
-                },
-              },
+              values: legacyCode
+                ? {
+                    [legacyCode]: {
+                      value: String(mapping.value || ''),
+                      xmlId: String(mapping.xmlId || ''),
+                    },
+                  }
+                : {},
+              dimensions: DIMENSION_OPTIONS.reduce((acc, option) => {
+                acc[option.key] = { min: '0', max: '' }
+                return acc
+              }, {} as Record<DimensionKey, { min: string; max: string }>),
               variantId: String(mapping.variantId || ''),
             }
           }))
@@ -210,6 +264,8 @@ export function OptionsDialog({
     if (!open) {
       setSelectedPropertyCodes([])
       setMappingRows([])
+      setSelectedDetailStage(null)
+      setSelectedDimensions([])
       setHasInitialized(false)
       setIsFullscreen(false)
     }
@@ -220,6 +276,10 @@ export function OptionsDialog({
       acc[code] = { value: '', xmlId: '' }
       return acc
     }, {} as Record<string, { value: string; xmlId: string }>),
+    dimensions: DIMENSION_OPTIONS.reduce((acc, option) => {
+      acc[option.key] = { min: '0', max: '' }
+      return acc
+    }, {} as Record<DimensionKey, { min: string; max: string }>),
     variantId: '',
   })
 
@@ -230,7 +290,7 @@ export function OptionsDialog({
 
     setSelectedPropertyCodes(nextCodes)
 
-    if (nextCodes.length === 0) {
+    if (nextCodes.length === 0 && selectedDimensions.length === 0) {
       setMappingRows([])
       return
     }
@@ -246,12 +306,42 @@ export function OptionsDialog({
           acc[propertyCode] = row.values[propertyCode] || { value: '', xmlId: '' }
           return acc
         }, {} as Record<string, { value: string; xmlId: string }>),
+        dimensions: row.dimensions,
       }))
     })
   }
 
+  const handleDimensionToggle = (key: DimensionKey, checked: boolean) => {
+    const nextDimensions = checked
+      ? [...selectedDimensions, key]
+      : selectedDimensions.filter((item) => item !== key)
+
+    setSelectedDimensions(nextDimensions)
+
+    if (checked && mappingRows.length === 0) {
+      setMappingRows([getEmptyRow(selectedPropertyCodes)])
+      return
+    }
+
+    if (!checked && nextDimensions.length === 0 && selectedPropertyCodes.length === 0) {
+      setMappingRows([])
+      return
+    }
+
+    setMappingRows((prevRows) => prevRows.map((row) => {
+      const nextRow = {
+        ...row,
+        dimensions: { ...row.dimensions },
+      }
+      if (!checked) {
+        nextRow.dimensions[key] = { min: '0', max: '' }
+      }
+      return nextRow
+    }))
+  }
+
   const handleAddRow = () => {
-    if (selectedPropertyCodes.length === 0) return
+    if (selectedPropertyCodes.length === 0 && selectedDimensions.length === 0) return
     setMappingRows([...mappingRows, getEmptyRow(selectedPropertyCodes)])
   }
 
@@ -261,9 +351,10 @@ export function OptionsDialog({
 
   const handleUpdateRow = (
     index: number,
-    field: 'variantId' | 'value',
+    field: 'variantId' | 'value' | 'dimensionMin' | 'dimensionMax',
     value: string,
-    propertyCode?: string
+    propertyCode?: string,
+    dimensionKey?: DimensionKey
   ) => {
     const newRows = [...mappingRows]
     if (field === 'variantId') {
@@ -274,18 +365,158 @@ export function OptionsDialog({
         value,
         xmlId: currentValue.xmlId,
       }
+    } else if (dimensionKey && (field === 'dimensionMin' || field === 'dimensionMax')) {
+      const currentDimension = newRows[index].dimensions[dimensionKey] || { min: '0', max: '' }
+      newRows[index].dimensions[dimensionKey] = {
+        ...currentDimension,
+        [field === 'dimensionMin' ? 'min' : 'max']: value,
+      }
     }
     setMappingRows(newRows)
   }
 
+  const detailsHierarchy = (): MultiLevelItem[] => {
+    const details = bitrixMeta?.elementsStore?.CALC_DETAILS
+    const stages = bitrixMeta?.elementsStore?.CALC_STAGES
+    if (!Array.isArray(details) || !Array.isArray(stages)) return []
+
+    const detailsById = new Map<number, any>(details.map((item: any) => [Number(item.id), item]))
+
+    const buildStageItems = (
+      source: any,
+      parentId: string,
+      selection: { bindingId?: number | null; detailId?: number | null }
+    ): MultiLevelItem[] => {
+      const stageIds = Array.isArray(source?.properties?.CALC_STAGES?.VALUE)
+        ? source.properties.CALC_STAGES.VALUE.map((value: any) => Number(value)).filter((value: number) => !Number.isNaN(value))
+        : []
+
+      return stageIds
+        .map((stageId: number) => stages.find((stage: any) => Number(stage.id) === stageId))
+        .filter(Boolean)
+        .map((stage: any) => ({
+          id: `${parentId}-stage-${stage.id}`,
+          label: stage.name || `Этап ${stage.id}`,
+          value: JSON.stringify({
+            bindingId: selection.bindingId ?? null,
+            detailId: selection.detailId ?? null,
+            stageId: Number(stage.id),
+          }),
+        }))
+    }
+
+    const buildDetailStageItems = (detail: any, parentId: string, bindingId?: number | null): MultiLevelItem | null => {
+      const stageItems = buildStageItems(detail, `${parentId}-detail-${detail.id}`, {
+        bindingId: bindingId ?? null,
+        detailId: Number(detail.id),
+      })
+
+      if (stageItems.length === 0) return null
+
+      return {
+        id: `${parentId}-detail-${detail.id}`,
+        label: detail.name || `Деталь ${detail.id}`,
+        children: stageItems,
+      }
+    }
+
+    const isBinding = (item: any) => String(item?.properties?.TYPE?.VALUE_XML_ID || '').toUpperCase() === 'BINDING'
+    const bindingElements = details.filter((item: any) => isBinding(item))
+    const childDetailIds = new Set<number>()
+
+    const buildBindingNode = (binding: any, chain: number[] = []): MultiLevelItem | null => {
+      const bindingId = Number(binding.id)
+      if (chain.includes(bindingId)) return null
+
+      const bindingStageItems = buildStageItems(binding, `binding-${bindingId}`, {
+        bindingId,
+        detailId: null,
+      })
+
+      const childrenRaw = Array.isArray(binding?.properties?.DETAILS?.VALUE)
+        ? binding.properties.DETAILS.VALUE
+        : []
+      const childItems: MultiLevelItem[] = []
+
+      childrenRaw.forEach((childIdRaw: any) => {
+        const childId = Number(childIdRaw)
+        if (Number.isNaN(childId)) return
+        childDetailIds.add(childId)
+
+        const child = detailsById.get(childId)
+        if (!child) return
+
+        if (isBinding(child)) {
+          const childBindingNode = buildBindingNode(child, [...chain, bindingId])
+          if (childBindingNode) {
+            childItems.push(childBindingNode)
+          }
+          return
+        }
+
+        const detailNode = buildDetailStageItems(child, `binding-${bindingId}`, bindingId)
+        if (detailNode) {
+          childItems.push(detailNode)
+        }
+      })
+
+      const children = [...bindingStageItems, ...childItems]
+      if (children.length === 0) return null
+
+      return {
+        id: `binding-${bindingId}`,
+        label: binding.name || `Скрепление ${bindingId}`,
+        children,
+      }
+    }
+
+    const parentBindingIds = new Set<number>()
+    bindingElements.forEach((binding: any) => {
+      const childrenRaw = Array.isArray(binding?.properties?.DETAILS?.VALUE)
+        ? binding.properties.DETAILS.VALUE
+        : []
+      childrenRaw.forEach((childIdRaw: any) => {
+        const child = detailsById.get(Number(childIdRaw))
+        if (child && isBinding(child)) {
+          parentBindingIds.add(Number(child.id))
+        }
+      })
+    })
+
+    const hierarchy = bindingElements
+      .filter((binding: any) => !parentBindingIds.has(Number(binding.id)))
+      .map((binding: any) => buildBindingNode(binding))
+      .filter(Boolean) as MultiLevelItem[]
+
+    const unboundDetails = details
+      .filter((item: any) => !isBinding(item) && !childDetailIds.has(Number(item.id)))
+      .map((detail: any) => buildDetailStageItems(detail, 'root'))
+      .filter(Boolean) as MultiLevelItem[]
+
+    if (unboundDetails.length > 0) {
+      hierarchy.push(...unboundDetails)
+    }
+
+    return hierarchy
+  }
+
+  const hierarchyItems = detailsHierarchy()
+
   const canSave = () => {
-    if (selectedPropertyCodes.length === 0) return false
+    if (selectedPropertyCodes.length === 0 && selectedDimensions.length === 0) return false
+    if (selectedDimensions.length > 0 && !selectedDetailStage) return false
 
     return mappingRows.some((row) => {
       if (!row.variantId) return false
-      return selectedPropertyCodes.every((code) => {
+      const hasPropertyValues = selectedPropertyCodes.length === 0 || selectedPropertyCodes.every((code) => {
         const propValue = row.values[code]
         return Boolean(propValue?.value)
+      })
+      if (!hasPropertyValues) return false
+
+      return selectedDimensions.every((dimensionKey) => {
+        const dimensionRange = row.dimensions[dimensionKey]
+        return Boolean(dimensionRange?.max)
       })
     })
   }
@@ -297,7 +528,9 @@ export function OptionsDialog({
     const mappings = mappingRows
       .filter((row) => {
         if (!row.variantId) return false
-        return selectedPropertyCodes.every((code) => Boolean(row.values[code]?.value))
+        const hasPropertyValues = selectedPropertyCodes.length === 0 || selectedPropertyCodes.every((code) => Boolean(row.values[code]?.value))
+        if (!hasPropertyValues) return false
+        return selectedDimensions.every((dimensionKey) => Boolean(row.dimensions[dimensionKey]?.max))
       })
       .map(row => ({
         values: selectedPropertyCodes.reduce((acc, code) => {
@@ -307,11 +540,20 @@ export function OptionsDialog({
           }
           return acc
         }, {} as Record<string, { value: string; xmlId: string }>),
+        dimensions: selectedDimensions.reduce((acc, dimensionKey) => {
+          acc[dimensionKey] = {
+            min: Number(row.dimensions[dimensionKey]?.min || '0'),
+            max: Number(row.dimensions[dimensionKey]?.max || '0'),
+          }
+          return acc
+        }, {} as Record<DimensionKey, { min: number; max: number }>),
         variantId: parseInt(row.variantId, 10)
       }))
-    
+
     const optionsJson = JSON.stringify({
       propertyCodes: selectedPropertyCodes,
+      detailStageSelection: selectedDetailStage,
+      dimensionKeys: selectedDimensions,
       mappings,
     })
     
@@ -455,7 +697,7 @@ export function OptionsDialog({
                 Настройки {type === 'operation' ? 'операции' : 'материала'}
               </DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Сопоставление свойств ТП с вариантами {type === 'operation' ? 'операций' : 'материалов'}
+                Выбор варианта {type === 'operation' ? 'операции' : 'материала'} в зависимости от свойств ТП и характеристик детали
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -494,23 +736,74 @@ export function OptionsDialog({
         <ScrollArea className="flex-1 min-h-0 p-6 bg-background">
           <div className="space-y-4">
             {/* Property Selection */}
-            <div>
-              <Label className="pb-[10px] inline-block">Свойства ТП</Label>
-              <div className="border rounded-md p-3 space-y-2 max-h-52 overflow-auto">
-                {propertiesList.map((prop) => (
-                  <label key={prop.CODE} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={selectedPropertyCodes.includes(prop.CODE)}
-                      onCheckedChange={(checked) => handlePropertyToggle(prop.CODE, Boolean(checked))}
-                    />
-                    <span>{prop.NAME} ({prop.PROPERTY_TYPE})</span>
-                  </label>
-                ))}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div>
+                <Label className="pb-[10px] inline-block">Свойства ТП</Label>
+                <div className="border rounded-md p-3 space-y-2 max-h-52 overflow-auto">
+                  {propertiesList.map((prop) => (
+                    <label key={prop.CODE} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={selectedPropertyCodes.includes(prop.CODE)}
+                        onCheckedChange={(checked) => handlePropertyToggle(prop.CODE, Boolean(checked))}
+                      />
+                      <span>{prop.NAME} ({prop.PROPERTY_TYPE})</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <Label className="pb-[10px] inline-block">Скрепление → Деталь → Этап</Label>
+                  <MultiLevelSelect
+                    items={hierarchyItems}
+                    value={selectedDetailStage
+                      ? JSON.stringify({
+                          bindingId: selectedDetailStage.bindingId ?? null,
+                          detailId: selectedDetailStage.detailId ?? null,
+                          stageId: selectedDetailStage.stageId,
+                        })
+                      : null}
+                    onValueChange={(value) => {
+                      try {
+                        const parsed = JSON.parse(value)
+                        setSelectedDetailStage({
+                          bindingId: parsed.bindingId !== undefined && parsed.bindingId !== null
+                            ? Number(parsed.bindingId)
+                            : null,
+                          detailId: parsed.detailId !== undefined && parsed.detailId !== null
+                            ? Number(parsed.detailId)
+                            : null,
+                          stageId: Number(parsed.stageId),
+                        })
+                      } catch (_error) {
+                        setSelectedDetailStage(null)
+                      }
+                    }}
+                    placeholder="Выберите этап детали или скрепления"
+                    bitrixMeta={bitrixMeta}
+                  />
+                </div>
+
+                <div>
+                  <Label className="pb-[10px] inline-block">Характеристики детали (мм/г)</Label>
+                  <div className="border rounded-md p-3 space-y-2">
+                    {DIMENSION_OPTIONS.map((dimension) => (
+                      <label key={dimension.key} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={selectedDimensions.includes(dimension.key)}
+                          onCheckedChange={(checked) => handleDimensionToggle(dimension.key, Boolean(checked))}
+                        />
+                        <span>{dimension.label} ({dimension.unit})</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Mapping Table */}
-            {selectedPropertyCodes.length > 0 && (
+            {(selectedPropertyCodes.length > 0 || selectedDimensions.length > 0) && (
               <div className="space-y-3">
                 <Label className="pb-[10px] inline-block">
                   Сопоставление значений свойств
@@ -525,6 +818,14 @@ export function OptionsDialog({
                           return (
                             <th key={propertyCode} className="px-4 py-2 text-left text-sm font-medium whitespace-nowrap">
                               {property?.NAME || propertyCode}
+                            </th>
+                          )
+                        })}
+                        {selectedDimensions.map((dimensionKey) => {
+                          const dimensionOption = DIMENSION_OPTIONS.find((item) => item.key === dimensionKey)
+                          return (
+                            <th key={dimensionKey} className="px-4 py-2 text-left text-sm font-medium whitespace-nowrap">
+                              {dimensionOption?.label || dimensionKey} ({dimensionOption?.unit || ''})
                             </th>
                           )
                         })}
@@ -582,6 +883,30 @@ export function OptionsDialog({
                               </td>
                             )
                           })}
+                          {selectedDimensions.map((dimensionKey) => (
+                            <td key={dimensionKey} className="px-4 py-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  value={row.dimensions[dimensionKey]?.min ?? '0'}
+                                  onChange={(e) => handleUpdateRow(index, 'dimensionMin', e.target.value, undefined, dimensionKey)}
+                                  placeholder="min"
+                                  className="h-8"
+                                />
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  value={row.dimensions[dimensionKey]?.max ?? ''}
+                                  onChange={(e) => handleUpdateRow(index, 'dimensionMax', e.target.value, undefined, dimensionKey)}
+                                  placeholder="max*"
+                                  className="h-8"
+                                />
+                              </div>
+                            </td>
+                          ))}
                           <td className="px-4 py-2">
                             <Select
                               value={row.variantId}
