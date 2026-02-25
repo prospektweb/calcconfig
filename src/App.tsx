@@ -1458,21 +1458,23 @@ function App() {
     return key
   }
 
-  const sanitizeStageForSave = (stage: any) => {
-    const rawOutputs = stage?.outputs || {}
-    const requiredOutputKeys = new Set([
-      'width',
-      'length',
-      'height',
-      'weight',
-      'purchasingPrice',
-      'basePrice',
-      'operationPurchasingPrice',
-      'operationBasePrice',
-      'materialPurchasingPrice',
-      'materialBasePrice',
-    ])
+  const requiredOutputKeys = new Set([
+    'width',
+    'length',
+    'height',
+    'weight',
+    'purchasingPrice',
+    'basePrice',
+    'operationPurchasingPrice',
+    'operationBasePrice',
+    'materialPurchasingPrice',
+    'materialBasePrice',
+  ])
 
+  const splitOutputsAndReference = (
+    rawOutputs: Record<string, any>,
+    resolveReferenceName: (key: string) => string,
+  ) => {
     const outputs = Object.entries(rawOutputs).reduce<Record<string, any>>((acc, [key, value]) => {
       if (requiredOutputKeys.has(key)) {
         acc[key] = value
@@ -1483,9 +1485,28 @@ function App() {
     const reference = Object.entries(rawOutputs)
       .filter(([key, value]) => !requiredOutputKeys.has(key) && value !== undefined)
       .map(([key, value]) => ({
-        name: resolveStageReferenceName(stage, key),
+        name: resolveReferenceName(key),
         value: value === null ? '' : String(value),
       }))
+
+    return { outputs, reference }
+  }
+
+  const resolveDetailReferenceName = (detail: any, key: string): string => {
+    const stages = Array.isArray(detail?.stages) ? detail.stages : []
+
+    for (const stage of stages) {
+      if (stage?.outputs && Object.prototype.hasOwnProperty.call(stage.outputs, key)) {
+        return resolveStageReferenceName(stage, key)
+      }
+    }
+
+    return key
+  }
+
+  const sanitizeStageForSave = (stage: any) => {
+    const rawOutputs = stage?.outputs || {}
+    const { outputs, reference } = splitOutputsAndReference(rawOutputs, (key) => resolveStageReferenceName(stage, key))
 
     const sanitized: Record<string, any> = {
       stageId: stage?.stageId,
@@ -1530,6 +1551,9 @@ function App() {
       ? detail.children.map(sanitizeDetailTreeForSave)
       : detail?.children
 
+    const rawOutputs = detail?.outputs || {}
+    const { outputs, reference } = splitOutputsAndReference(rawOutputs, (key) => resolveDetailReferenceName(detail, key))
+
     return {
       detailId: detail?.detailId,
       detailName: detail?.detailName,
@@ -1537,7 +1561,8 @@ function App() {
       timestamp_x: detail?.timestamp_x,
       modified_by: detail?.modified_by,
       currency: detail?.currency,
-      outputs: detail?.outputs,
+      outputs,
+      reference,
       stages: Array.isArray(detail?.stages) ? detail.stages.map(sanitizeStageForSave) : detail?.stages,
       children: sanitizedChildren,
     }
