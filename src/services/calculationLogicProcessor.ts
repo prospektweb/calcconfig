@@ -336,6 +336,49 @@ const resolveVariantForStageAlias = (
   targetStageId: number,
   type: 'operation' | 'material'
 ): any | null => {
+  const findStageById = (id: number): any | null => {
+    const stages = initPayload?.elementsStore?.CALC_STAGES
+    if (!Array.isArray(stages)) return null
+    return stages.find((stage: any) => Number(stage.id) === Number(id)) ?? null
+  }
+
+  const getPrevStageId = (stage: any): number | null => {
+    const prevRaw = stage?.properties?.PREV_STAGE?.VALUE
+    if (Array.isArray(prevRaw)) {
+      const first = prevRaw.find((item) => item !== null && item !== undefined && String(item) !== '')
+      const parsed = Number(first)
+      return Number.isFinite(parsed) ? parsed : null
+    }
+    const parsed = Number(prevRaw)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  const resolveStageDimensionWithInheritance = (
+    stageId: number,
+    key: 'width' | 'length' | 'height' | 'weight'
+  ): number | null => {
+    const visited = new Set<number>()
+    let currentStage = findStageById(stageId)
+
+    while (currentStage) {
+      const currentId = Number(currentStage.id)
+      if (visited.has(currentId)) break
+      visited.add(currentId)
+
+      const rawValue = currentStage?.fields?.[key]
+      const value = Number(rawValue)
+      if (Number.isFinite(value) && value >= 0) {
+        return value
+      }
+
+      const prevStageId = getPrevStageId(currentStage)
+      if (!prevStageId) break
+      currentStage = findStageById(prevStageId)
+    }
+
+    return null
+  }
+
   const currentStageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
     (stage: any) => stage.id === currentStageId
   )
@@ -356,18 +399,17 @@ const resolveVariantForStageAlias = (
       const hasDimensionFilter = Boolean(optionsMapping.detailStageSelection && dimensionKeys.length > 0)
 
       if (hasDimensionFilter) {
-        const selectedStage = initPayload?.elementsStore?.CALC_STAGES?.find(
-          (stage: any) => Number(stage.id) === Number(optionsMapping.detailStageSelection?.stageId)
-        )
+        const selectedStageId = Number(optionsMapping.detailStageSelection?.stageId)
+        const selectedStage = findStageById(selectedStageId)
         const selectedDetail = initPayload?.elementsStore?.CALC_DETAILS?.find(
           (detail: any) => Number(detail.id) === Number(optionsMapping.detailStageSelection?.detailId)
         )
 
         const sourceDimensions = {
-          width: Number(selectedStage?.fields?.width ?? selectedDetail?.fields?.width),
-          length: Number(selectedStage?.fields?.length ?? selectedDetail?.fields?.length),
-          height: Number(selectedStage?.fields?.height ?? selectedDetail?.fields?.height),
-          weight: Number(selectedStage?.fields?.weight ?? selectedDetail?.fields?.weight),
+          width: resolveStageDimensionWithInheritance(selectedStageId, 'width') ?? Number(selectedDetail?.fields?.width),
+          length: resolveStageDimensionWithInheritance(selectedStageId, 'length') ?? Number(selectedDetail?.fields?.length),
+          height: resolveStageDimensionWithInheritance(selectedStageId, 'height') ?? Number(selectedDetail?.fields?.height),
+          weight: resolveStageDimensionWithInheritance(selectedStageId, 'weight') ?? Number(selectedDetail?.fields?.weight),
         }
 
         const allDimensionsMatched = dimensionKeys.every((dimensionKey) => {
