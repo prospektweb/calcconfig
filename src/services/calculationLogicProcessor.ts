@@ -207,11 +207,21 @@ const decodeHtmlEntities = (value: string): string => {
 
 type OptionsMapping = {
   propertyCodes: string[]
+  detailStageSelection?: {
+    bindingId?: number | null
+    detailId: number
+    stageId: number
+  } | null
+  dimensionKeys?: Array<'width' | 'length' | 'height' | 'weight'>
   mappings: Array<{
     values?: Record<string, {
       value?: string
       xmlId?: string
     }>
+    dimensions?: Partial<Record<'width' | 'length' | 'height' | 'weight', {
+      min?: number
+      max?: number
+    }>>
     value?: string
     xmlId?: string
     variantId?: number | string
@@ -252,8 +262,29 @@ const extractOptionsMapping = (
     if (propertyCodes.length === 0 || !Array.isArray(parsed?.mappings)) {
       return null
     }
+
+    const detailStageSelection = parsed?.detailStageSelection && typeof parsed.detailStageSelection === 'object'
+      ? {
+          bindingId: parsed.detailStageSelection.bindingId !== undefined && parsed.detailStageSelection.bindingId !== null
+            ? Number(parsed.detailStageSelection.bindingId)
+            : null,
+          detailId: Number(parsed.detailStageSelection.detailId),
+          stageId: Number(parsed.detailStageSelection.stageId),
+        }
+      : null
+
+    const dimensionKeys = Array.isArray(parsed?.dimensionKeys)
+      ? parsed.dimensionKeys
+          .map((item: any) => String(item))
+          .filter((item: string): item is 'width' | 'length' | 'height' | 'weight' => (
+            item === 'width' || item === 'length' || item === 'height' || item === 'weight'
+          ))
+      : []
+
     return {
       propertyCodes,
+      detailStageSelection,
+      dimensionKeys,
       mappings: parsed.mappings,
     }
   } catch (error) {
@@ -321,6 +352,38 @@ const resolveVariantForStageAlias = (
     const offerMatchValues = getOfferPropertyMatchValues(offerProperties, optionsMapping)
 
     const mappingMatch = optionsMapping.mappings.find((mapping) => {
+      const dimensionKeys = optionsMapping.dimensionKeys || []
+      const hasDimensionFilter = Boolean(optionsMapping.detailStageSelection && dimensionKeys.length > 0)
+
+      if (hasDimensionFilter) {
+        const selectedStage = initPayload?.elementsStore?.CALC_STAGES?.find(
+          (stage: any) => Number(stage.id) === Number(optionsMapping.detailStageSelection?.stageId)
+        )
+        const selectedDetail = initPayload?.elementsStore?.CALC_DETAILS?.find(
+          (detail: any) => Number(detail.id) === Number(optionsMapping.detailStageSelection?.detailId)
+        )
+
+        const sourceDimensions = {
+          width: Number(selectedStage?.fields?.width ?? selectedDetail?.fields?.width),
+          length: Number(selectedStage?.fields?.length ?? selectedDetail?.fields?.length),
+          height: Number(selectedStage?.fields?.height ?? selectedDetail?.fields?.height),
+          weight: Number(selectedStage?.fields?.weight ?? selectedDetail?.fields?.weight),
+        }
+
+        const allDimensionsMatched = dimensionKeys.every((dimensionKey) => {
+          const dimValue = sourceDimensions[dimensionKey]
+          if (!Number.isFinite(dimValue) || dimValue < 0) return false
+
+          const min = Number(mapping?.dimensions?.[dimensionKey]?.min ?? 0)
+          const max = Number(mapping?.dimensions?.[dimensionKey]?.max)
+          if (!Number.isFinite(max)) return false
+          if (min > max) return false
+          return dimValue >= min && dimValue <= max
+        })
+
+        if (!allDimensionsMatched) return false
+      }
+
       const hasStructuredValues = Boolean(mapping?.values && typeof mapping.values === 'object')
 
       if (!hasStructuredValues && optionsMapping.propertyCodes.length === 1) {
