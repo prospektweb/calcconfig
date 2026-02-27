@@ -147,7 +147,7 @@ export function OptionsDialog({
         NAME: prop.NAME || prop.CODE,
         PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
         ENUMS: prop.ENUMS || [],
-      }))
+      })).filter((prop) => prop.CODE.startsWith('CALC_'))
     }
     
     // Get properties from elementsStore if available
@@ -161,7 +161,7 @@ export function OptionsDialog({
             NAME: prop.NAME || code,
             PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
             ENUMS: prop.ENUMS || [],
-          }))
+          })).filter((prop) => prop.CODE.startsWith('CALC_'))
         }
       }
     }
@@ -175,7 +175,7 @@ export function OptionsDialog({
           NAME: prop.NAME || code,
           PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
           ENUMS: prop.ENUMS || [],
-        }))
+        })).filter((prop) => prop.CODE.startsWith('CALC_'))
       }
     }
     
@@ -197,7 +197,7 @@ export function OptionsDialog({
         NAME: prop.NAME || prop.CODE,
         PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
         ENUMS: prop.ENUMS || [],
-      }))
+      })).filter((prop) => prop.CODE.startsWith('CALC_'))
     }
 
     if (bitrixMeta.product?.properties) {
@@ -206,7 +206,7 @@ export function OptionsDialog({
         NAME: prop.NAME || code,
         PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
         ENUMS: prop.ENUMS || [],
-      }))
+      })).filter((prop) => prop.CODE.startsWith('CALC_'))
     }
 
     return []
@@ -814,22 +814,9 @@ export function OptionsDialog({
         <ScrollArea className="flex-1 min-h-0 p-6 bg-background">
           <div className="space-y-4">
             {/* Property Selection */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <div>
-                <Label className="pb-[10px] inline-block">Свойства ТП</Label>
-                <div className="border rounded-md p-3 space-y-2 max-h-52 overflow-auto">
-                  {offerPropertiesList.map((prop) => (
-                    <label key={prop.CODE} className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={selectedOfferPropertyCodes.includes(prop.CODE)}
-                        onCheckedChange={(checked) => handlePropertyToggle('offer', prop.CODE, Boolean(checked))}
-                      />
-                      <span>{prop.NAME} ({prop.PROPERTY_TYPE})</span>
-                    </label>
-                  ))}
-                </div>
-
-                <Label className="pb-[10px] pt-4 inline-block">Свойства товара</Label>
+                <Label className="pb-[10px] inline-block">Свойства товара</Label>
                 <div className="border rounded-md p-3 space-y-2 max-h-52 overflow-auto">
                   {productPropertiesList.map((prop) => (
                     <label key={prop.CODE} className="flex items-center gap-2 text-sm">
@@ -843,9 +830,24 @@ export function OptionsDialog({
                 </div>
               </div>
 
+              <div>
+                <Label className="pb-[10px] inline-block">Свойства ТП</Label>
+                <div className="border rounded-md p-3 space-y-2 max-h-52 overflow-auto">
+                  {offerPropertiesList.map((prop) => (
+                    <label key={prop.CODE} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={selectedOfferPropertyCodes.includes(prop.CODE)}
+                        onCheckedChange={(checked) => handlePropertyToggle('offer', prop.CODE, Boolean(checked))}
+                      />
+                      <span>{prop.NAME} ({prop.PROPERTY_TYPE})</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <div>
-                  <Label className="pb-[10px] inline-block">Скрепление → Деталь → Этап</Label>
+                  <Label className="pb-[10px] inline-block">Скрепление - Деталь - Этап</Label>
                   <MultiLevelSelect
                     items={hierarchyItems}
                     value={selectedDetailStage
@@ -877,7 +879,7 @@ export function OptionsDialog({
                 </div>
 
                 <div>
-                  <Label className="pb-[10px] inline-block">Характеристики детали (мм/г)</Label>
+                  <Label className="pb-[10px] inline-block">Характеристики Детали (мм/г)</Label>
                   <div className="border rounded-md p-3 space-y-2">
                     {DIMENSION_OPTIONS.map((dimension) => (
                       <label key={dimension.key} className="flex items-center gap-2 text-sm">
