@@ -206,7 +206,8 @@ const decodeHtmlEntities = (value: string): string => {
 }
 
 type OptionsMapping = {
-  propertyCodes: string[]
+  offerPropertyCodes: string[]
+  productPropertyCodes: string[]
   detailStageSelection?: {
     bindingId?: number | null
     detailId: number
@@ -214,6 +215,14 @@ type OptionsMapping = {
   } | null
   dimensionKeys?: Array<'width' | 'length' | 'height' | 'weight'>
   mappings: Array<{
+    offerValues?: Record<string, {
+      value?: string
+      xmlId?: string
+    }>
+    productValues?: Record<string, {
+      value?: string
+      xmlId?: string
+    }>
     values?: Record<string, {
       value?: string
       xmlId?: string
@@ -253,13 +262,18 @@ const extractOptionsMapping = (
   try {
     const decoded = decodeHtmlEntities(valueToParse)
     const parsed = JSON.parse(decoded)
-    const propertyCodes = Array.isArray(parsed?.propertyCodes)
-      ? parsed.propertyCodes.map((item: any) => String(item))
-      : parsed?.propertyCode
-        ? [String(parsed.propertyCode)]
-        : []
+    const offerPropertyCodes = Array.isArray(parsed?.offerPropertyCodes)
+      ? parsed.offerPropertyCodes.map((item: any) => String(item))
+      : Array.isArray(parsed?.propertyCodes)
+        ? parsed.propertyCodes.map((item: any) => String(item))
+        : parsed?.propertyCode
+          ? [String(parsed.propertyCode)]
+          : []
+    const productPropertyCodes = Array.isArray(parsed?.productPropertyCodes)
+      ? parsed.productPropertyCodes.map((item: any) => String(item))
+      : []
 
-    if (propertyCodes.length === 0 || !Array.isArray(parsed?.mappings)) {
+    if ((offerPropertyCodes.length === 0 && productPropertyCodes.length === 0) || !Array.isArray(parsed?.mappings)) {
       return null
     }
 
@@ -282,7 +296,8 @@ const extractOptionsMapping = (
       : []
 
     return {
-      propertyCodes,
+      offerPropertyCodes,
+      productPropertyCodes,
       detailStageSelection,
       dimensionKeys,
       mappings: parsed.mappings,
@@ -293,9 +308,9 @@ const extractOptionsMapping = (
   }
 }
 
-const getOfferPropertyMatchValues = (
-  offerProperties: Record<string, any> | undefined,
-  optionsMapping: OptionsMapping
+const getPropertyMatchValues = (
+  properties: Record<string, any> | undefined,
+  propertyCodes: string[]
 ): Record<string, { value: string | null; xmlId: string | null }> => {
   const normalizeValue = (val: any): string | null => {
     if (val === null || val === undefined || val === false) return null
@@ -306,20 +321,20 @@ const getOfferPropertyMatchValues = (
     return String(val)
   }
 
-  return optionsMapping.propertyCodes.reduce((acc, propertyCode) => {
-    if (!offerProperties) {
+  return propertyCodes.reduce((acc, propertyCode) => {
+    if (!properties) {
       acc[propertyCode] = { value: null, xmlId: null }
       return acc
     }
 
-    const offerProp = offerProperties[propertyCode]
-    if (!offerProp) {
+    const prop = properties[propertyCode]
+    if (!prop) {
       acc[propertyCode] = { value: null, xmlId: null }
       return acc
     }
 
-    const rawValue = offerProp['~VALUE'] ?? offerProp.VALUE ?? offerProp.value ?? null
-    const rawXmlId = offerProp.VALUE_XML_ID ?? offerProp.XML_ID ?? offerProp.valueXmlId ?? null
+    const rawValue = prop['~VALUE'] ?? prop.VALUE ?? prop.value ?? null
+    const rawXmlId = prop.VALUE_XML_ID ?? prop.XML_ID ?? prop.valueXmlId ?? null
 
     acc[propertyCode] = {
       value: normalizeValue(rawValue),
@@ -392,7 +407,9 @@ const resolveVariantForStageAlias = (
   if (optionsMapping) {
     const offerProperties =
       initPayload?.offer?.properties ?? initPayload?.selectedOffers?.[0]?.properties
-    const offerMatchValues = getOfferPropertyMatchValues(offerProperties, optionsMapping)
+    const productProperties = initPayload?.product?.properties
+    const offerMatchValues = getPropertyMatchValues(offerProperties, optionsMapping.offerPropertyCodes)
+    const productMatchValues = getPropertyMatchValues(productProperties, optionsMapping.productPropertyCodes)
 
     const mappingMatch = optionsMapping.mappings.find((mapping) => {
       const dimensionKeys = optionsMapping.dimensionKeys || []
@@ -426,10 +443,14 @@ const resolveVariantForStageAlias = (
         if (!allDimensionsMatched) return false
       }
 
-      const hasStructuredValues = Boolean(mapping?.values && typeof mapping.values === 'object')
+      const hasStructuredValues = Boolean(
+        (mapping?.values && typeof mapping.values === 'object')
+        || (mapping?.offerValues && typeof mapping.offerValues === 'object')
+        || (mapping?.productValues && typeof mapping.productValues === 'object')
+      )
 
-      if (!hasStructuredValues && optionsMapping.propertyCodes.length === 1) {
-        const legacyCode = optionsMapping.propertyCodes[0]
+      if (!hasStructuredValues && optionsMapping.offerPropertyCodes.length === 1 && optionsMapping.productPropertyCodes.length === 0) {
+        const legacyCode = optionsMapping.offerPropertyCodes[0]
         const offerMatch = offerMatchValues[legacyCode]
         const mappingValue = mapping?.value ? String(mapping.value) : null
         const mappingXmlId = mapping?.xmlId ? String(mapping.xmlId) : null
@@ -439,18 +460,47 @@ const resolveVariantForStageAlias = (
         return false
       }
 
-      return optionsMapping.propertyCodes.every((propertyCode) => {
+      const offerMatched = optionsMapping.offerPropertyCodes.every((propertyCode) => {
         const offerMatch = offerMatchValues[propertyCode]
-        const mappingValue = mapping?.values?.[propertyCode]?.value
-          ? String(mapping.values[propertyCode].value)
-          : null
-        const mappingXmlId = mapping?.values?.[propertyCode]?.xmlId
-          ? String(mapping.values[propertyCode].xmlId)
-          : null
+        const mappingValue = mapping?.offerValues?.[propertyCode]?.value
+          ? String(mapping.offerValues[propertyCode].value)
+          : mapping?.values?.[`offer:${propertyCode}`]?.value
+            ? String(mapping.values[`offer:${propertyCode}`].value)
+            : mapping?.values?.[propertyCode]?.value
+              ? String(mapping.values[propertyCode].value)
+              : null
+        const mappingXmlId = mapping?.offerValues?.[propertyCode]?.xmlId
+          ? String(mapping.offerValues[propertyCode].xmlId)
+          : mapping?.values?.[`offer:${propertyCode}`]?.xmlId
+            ? String(mapping.values[`offer:${propertyCode}`].xmlId)
+            : mapping?.values?.[propertyCode]?.xmlId
+              ? String(mapping.values[propertyCode].xmlId)
+              : null
 
         if (offerMatch?.xmlId && mappingXmlId && offerMatch.xmlId === mappingXmlId) return true
         if (offerMatch?.value && mappingValue && offerMatch.value === mappingValue) return true
         if (offerMatch?.value && mappingXmlId && offerMatch.value === mappingXmlId) return true
+        return false
+      })
+
+      if (!offerMatched) return false
+
+      return optionsMapping.productPropertyCodes.every((propertyCode) => {
+        const productMatch = productMatchValues[propertyCode]
+        const mappingValue = mapping?.productValues?.[propertyCode]?.value
+          ? String(mapping.productValues[propertyCode].value)
+          : mapping?.values?.[`product:${propertyCode}`]?.value
+            ? String(mapping.values[`product:${propertyCode}`].value)
+            : null
+        const mappingXmlId = mapping?.productValues?.[propertyCode]?.xmlId
+          ? String(mapping.productValues[propertyCode].xmlId)
+          : mapping?.values?.[`product:${propertyCode}`]?.xmlId
+            ? String(mapping.values[`product:${propertyCode}`].xmlId)
+            : null
+
+        if (productMatch?.xmlId && mappingXmlId && productMatch.xmlId === mappingXmlId) return true
+        if (productMatch?.value && mappingValue && productMatch.value === mappingValue) return true
+        if (productMatch?.value && mappingXmlId && productMatch.value === mappingXmlId) return true
         return false
       })
     })
