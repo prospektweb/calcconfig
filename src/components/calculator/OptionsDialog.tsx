@@ -50,6 +50,14 @@ interface MappingRow {
   variantId: string
 }
 
+type PropertySource = 'offer' | 'product'
+
+interface SelectedCriterion {
+  key: string
+  code: string
+  source: PropertySource
+}
+
 type DimensionKey = 'width' | 'length' | 'height' | 'weight'
 
 interface DetailStageSelection {
@@ -77,7 +85,8 @@ export function OptionsDialog({
   onSave,
   onClear,
 }: OptionsDialogProps) {
-  const [selectedPropertyCodes, setSelectedPropertyCodes] = useState<string[]>([])
+  const [selectedOfferPropertyCodes, setSelectedOfferPropertyCodes] = useState<string[]>([])
+  const [selectedProductPropertyCodes, setSelectedProductPropertyCodes] = useState<string[]>([])
   const [mappingRows, setMappingRows] = useState<MappingRow[]>([])
   const [selectedDetailStage, setSelectedDetailStage] = useState<DetailStageSelection | null>(null)
   const [selectedDimensions, setSelectedDimensions] = useState<DimensionKey[]>([])
@@ -117,7 +126,7 @@ export function OptionsDialog({
   }, [open, type, stageId, currentVariantId, bitrixMeta])
 
   // Get iblock properties based on type
-  const getPropertiesList = (): Property[] => {
+  const getOfferPropertiesList = (): Property[] => {
     if (!bitrixMeta) return []
     
     // Find the SKU (offers) iblock - торговые предложения
@@ -138,7 +147,7 @@ export function OptionsDialog({
         NAME: prop.NAME || prop.CODE,
         PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
         ENUMS: prop.ENUMS || [],
-      }))
+      })).filter((prop) => prop.CODE.startsWith('CALC_'))
     }
     
     // Get properties from elementsStore if available
@@ -152,7 +161,7 @@ export function OptionsDialog({
             NAME: prop.NAME || code,
             PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
             ENUMS: prop.ENUMS || [],
-          }))
+          })).filter((prop) => prop.CODE.startsWith('CALC_'))
         }
       }
     }
@@ -166,14 +175,50 @@ export function OptionsDialog({
           NAME: prop.NAME || code,
           PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
           ENUMS: prop.ENUMS || [],
-        }))
+        })).filter((prop) => prop.CODE.startsWith('CALC_'))
       }
     }
     
     return []
   }
 
-  const propertiesList = getPropertiesList()
+  const getProductPropertiesList = (): Property[] => {
+    if (!bitrixMeta) return []
+
+    const productIblock = bitrixMeta.iblocks.find((ib) => {
+      if (bitrixMeta.product?.iblockId && Number(ib.id) === Number(bitrixMeta.product.iblockId)) return true
+      if (ib.code === 'PRODUCTS' || ib.code === 'CATALOG') return true
+      return false
+    })
+
+    if (Array.isArray(productIblock?.properties)) {
+      return productIblock.properties.map((prop: any) => ({
+        CODE: prop.CODE,
+        NAME: prop.NAME || prop.CODE,
+        PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
+        ENUMS: prop.ENUMS || [],
+      })).filter((prop) => prop.CODE.startsWith('CALC_'))
+    }
+
+    if (bitrixMeta.product?.properties) {
+      return Object.entries(bitrixMeta.product.properties).map(([code, prop]: [string, any]) => ({
+        CODE: code,
+        NAME: prop.NAME || code,
+        PROPERTY_TYPE: prop.PROPERTY_TYPE || 'S',
+        ENUMS: prop.ENUMS || [],
+      })).filter((prop) => prop.CODE.startsWith('CALC_'))
+    }
+
+    return []
+  }
+
+  const offerPropertiesList = getOfferPropertiesList()
+  const productPropertiesList = getProductPropertiesList()
+
+  const selectedCriteria: SelectedCriterion[] = [
+    ...selectedOfferPropertyCodes.map((code) => ({ key: `offer:${code}`, code, source: 'offer' as const })),
+    ...selectedProductPropertyCodes.map((code) => ({ key: `product:${code}`, code, source: 'product' as const })),
+  ]
 
   // Initialize from existing options
   useEffect(() => {
@@ -181,14 +226,20 @@ export function OptionsDialog({
       try {
         const decodedOptions = decodeHtmlEntities(existingOptions)
         const parsed = JSON.parse(decodedOptions)
-        const parsedPropertyCodes = Array.isArray(parsed.propertyCodes)
+        const parsedOfferPropertyCodes = Array.isArray(parsed.offerPropertyCodes)
+          ? parsed.offerPropertyCodes.map((item: any) => String(item))
+          : Array.isArray(parsed.propertyCodes)
           ? parsed.propertyCodes.map((item: any) => String(item))
           : parsed.propertyCode
             ? [String(parsed.propertyCode)]
             : []
+        const parsedProductPropertyCodes = Array.isArray(parsed.productPropertyCodes)
+          ? parsed.productPropertyCodes.map((item: any) => String(item))
+          : []
 
         if (Array.isArray(parsed.mappings)) {
-          setSelectedPropertyCodes(parsedPropertyCodes)
+          setSelectedOfferPropertyCodes(parsedOfferPropertyCodes)
+          setSelectedProductPropertyCodes(parsedProductPropertyCodes)
           const parsedDetailStage = parsed.detailStageSelection && typeof parsed.detailStageSelection === 'object'
             ? {
                 bindingId: parsed.detailStageSelection.bindingId
@@ -209,11 +260,18 @@ export function OptionsDialog({
           setSelectedDimensions(parsedDimensions)
 
           setMappingRows(parsed.mappings.map((mapping: any) => {
-            if (mapping.values && typeof mapping.values === 'object') {
+            if ((mapping.values && typeof mapping.values === 'object') || (mapping.offerValues && typeof mapping.offerValues === 'object') || (mapping.productValues && typeof mapping.productValues === 'object')) {
               const normalizedValues: Record<string, { value: string; xmlId: string }> = {}
-              parsedPropertyCodes.forEach((code) => {
-                const rawValue = mapping.values?.[code] ?? {}
-                normalizedValues[code] = {
+              const allCodes = [
+                ...parsedOfferPropertyCodes.map((code) => `offer:${code}`),
+                ...parsedProductPropertyCodes.map((code) => `product:${code}`),
+              ]
+              allCodes.forEach((criterionKey) => {
+                const [source, code] = criterionKey.split(':')
+                const rawValue = source === 'offer'
+                  ? mapping.offerValues?.[code] ?? mapping.values?.[criterionKey] ?? mapping.values?.[code] ?? {}
+                  : mapping.productValues?.[code] ?? mapping.values?.[criterionKey] ?? {}
+                normalizedValues[criterionKey] = {
                   value: String(rawValue.value || ''),
                   xmlId: String(rawValue.xmlId || ''),
                 }
@@ -234,11 +292,11 @@ export function OptionsDialog({
               }
             }
 
-            const legacyCode = parsedPropertyCodes[0]
+            const legacyCode = parsedOfferPropertyCodes[0]
             return {
               values: legacyCode
                 ? {
-                    [legacyCode]: {
+                    [`offer:${legacyCode}`]: {
                       value: String(mapping.value || ''),
                       xmlId: String(mapping.xmlId || ''),
                     },
@@ -257,12 +315,13 @@ export function OptionsDialog({
         console.error('[OptionsDialog] Failed to parse existing options:', error)
       }
     }
-  }, [open, existingOptions, propertiesList, hasInitialized])
+  }, [open, existingOptions, hasInitialized])
 
   // Reset when dialog closes
   useEffect(() => {
     if (!open) {
-      setSelectedPropertyCodes([])
+      setSelectedOfferPropertyCodes([])
+      setSelectedProductPropertyCodes([])
       setMappingRows([])
       setSelectedDetailStage(null)
       setSelectedDimensions([])
@@ -271,9 +330,9 @@ export function OptionsDialog({
     }
   }, [open])
 
-  const getEmptyRow = (codes: string[]): MappingRow => ({
-    values: codes.reduce((acc, code) => {
-      acc[code] = { value: '', xmlId: '' }
+  const getEmptyRow = (criteria: SelectedCriterion[]): MappingRow => ({
+    values: criteria.reduce((acc, criterion) => {
+      acc[criterion.key] = { value: '', xmlId: '' }
       return acc
     }, {} as Record<string, { value: string; xmlId: string }>),
     dimensions: DIMENSION_OPTIONS.reduce((acc, option) => {
@@ -283,27 +342,36 @@ export function OptionsDialog({
     variantId: '',
   })
 
-  const handlePropertyToggle = (code: string, checked: boolean) => {
-    const nextCodes = checked
-      ? [...selectedPropertyCodes, code]
-      : selectedPropertyCodes.filter((item) => item !== code)
+  const handlePropertyToggle = (source: PropertySource, code: string, checked: boolean) => {
+    const updater = source === 'offer' ? setSelectedOfferPropertyCodes : setSelectedProductPropertyCodes
+    const currentCodes = source === 'offer' ? selectedOfferPropertyCodes : selectedProductPropertyCodes
+    const nextCodes = checked ? [...currentCodes, code] : currentCodes.filter((item) => item !== code)
+    updater(nextCodes)
 
-    setSelectedPropertyCodes(nextCodes)
+    const nextCriteria = source === 'offer'
+      ? [
+          ...nextCodes.map((item) => ({ key: `offer:${item}`, code: item, source: 'offer' as const })),
+          ...selectedProductPropertyCodes.map((item) => ({ key: `product:${item}`, code: item, source: 'product' as const })),
+        ]
+      : [
+          ...selectedOfferPropertyCodes.map((item) => ({ key: `offer:${item}`, code: item, source: 'offer' as const })),
+          ...nextCodes.map((item) => ({ key: `product:${item}`, code: item, source: 'product' as const })),
+        ]
 
-    if (nextCodes.length === 0 && selectedDimensions.length === 0) {
+    if (nextCriteria.length === 0 && selectedDimensions.length === 0) {
       setMappingRows([])
       return
     }
 
     setMappingRows((prevRows) => {
       if (prevRows.length === 0) {
-        return [getEmptyRow(nextCodes)]
+        return [getEmptyRow(nextCriteria)]
       }
 
       return prevRows.map((row) => ({
         variantId: row.variantId,
-        values: nextCodes.reduce((acc, propertyCode) => {
-          acc[propertyCode] = row.values[propertyCode] || { value: '', xmlId: '' }
+        values: nextCriteria.reduce((acc, criterion) => {
+          acc[criterion.key] = row.values[criterion.key] || { value: '', xmlId: '' }
           return acc
         }, {} as Record<string, { value: string; xmlId: string }>),
         dimensions: row.dimensions,
@@ -319,11 +387,11 @@ export function OptionsDialog({
     setSelectedDimensions(nextDimensions)
 
     if (checked && mappingRows.length === 0) {
-      setMappingRows([getEmptyRow(selectedPropertyCodes)])
+      setMappingRows([getEmptyRow(selectedCriteria)])
       return
     }
 
-    if (!checked && nextDimensions.length === 0 && selectedPropertyCodes.length === 0) {
+    if (!checked && nextDimensions.length === 0 && selectedCriteria.length === 0) {
       setMappingRows([])
       return
     }
@@ -341,8 +409,8 @@ export function OptionsDialog({
   }
 
   const handleAddRow = () => {
-    if (selectedPropertyCodes.length === 0 && selectedDimensions.length === 0) return
-    setMappingRows([...mappingRows, getEmptyRow(selectedPropertyCodes)])
+    if (selectedCriteria.length === 0 && selectedDimensions.length === 0) return
+    setMappingRows([...mappingRows, getEmptyRow(selectedCriteria)])
   }
 
   const handleRemoveRow = (index: number) => {
@@ -503,13 +571,13 @@ export function OptionsDialog({
   const hierarchyItems = detailsHierarchy()
 
   const canSave = () => {
-    if (selectedPropertyCodes.length === 0 && selectedDimensions.length === 0) return false
+    if (selectedCriteria.length === 0 && selectedDimensions.length === 0) return false
     if (selectedDimensions.length > 0 && !selectedDetailStage) return false
 
     return mappingRows.some((row) => {
       if (!row.variantId) return false
-      const hasPropertyValues = selectedPropertyCodes.length === 0 || selectedPropertyCodes.every((code) => {
-        const propValue = row.values[code]
+      const hasPropertyValues = selectedCriteria.length === 0 || selectedCriteria.every((criterion) => {
+        const propValue = row.values[criterion.key]
         return Boolean(propValue?.value)
       })
       if (!hasPropertyValues) return false
@@ -528,15 +596,24 @@ export function OptionsDialog({
     const mappings = mappingRows
       .filter((row) => {
         if (!row.variantId) return false
-        const hasPropertyValues = selectedPropertyCodes.length === 0 || selectedPropertyCodes.every((code) => Boolean(row.values[code]?.value))
+        const hasPropertyValues = selectedCriteria.length === 0 || selectedCriteria.every((criterion) => Boolean(row.values[criterion.key]?.value))
         if (!hasPropertyValues) return false
         return selectedDimensions.every((dimensionKey) => Boolean(row.dimensions[dimensionKey]?.max))
       })
       .map(row => ({
-        values: selectedPropertyCodes.reduce((acc, code) => {
+        offerValues: selectedOfferPropertyCodes.reduce((acc, code) => {
+          const key = `offer:${code}`
           acc[code] = {
-            value: row.values[code]?.value || '',
-            xmlId: row.values[code]?.xmlId || '',
+            value: row.values[key]?.value || '',
+            xmlId: row.values[key]?.xmlId || '',
+          }
+          return acc
+        }, {} as Record<string, { value: string; xmlId: string }>),
+        productValues: selectedProductPropertyCodes.reduce((acc, code) => {
+          const key = `product:${code}`
+          acc[code] = {
+            value: row.values[key]?.value || '',
+            xmlId: row.values[key]?.xmlId || '',
           }
           return acc
         }, {} as Record<string, { value: string; xmlId: string }>),
@@ -551,7 +628,8 @@ export function OptionsDialog({
       }))
 
     const optionsJson = JSON.stringify({
-      propertyCodes: selectedPropertyCodes,
+      offerPropertyCodes: selectedOfferPropertyCodes,
+      productPropertyCodes: selectedProductPropertyCodes,
       detailStageSelection: selectedDetailStage,
       dimensionKeys: selectedDimensions,
       mappings,
@@ -697,7 +775,7 @@ export function OptionsDialog({
                 Настройки {type === 'operation' ? 'операции' : 'материала'}
               </DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Выбор варианта {type === 'operation' ? 'операции' : 'материала'} в зависимости от свойств ТП и характеристик детали
+                Выбор варианта {type === 'operation' ? 'операции' : 'материала'} в зависимости от свойств ТП / товара и характеристик детали
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -736,15 +814,30 @@ export function OptionsDialog({
         <ScrollArea className="flex-1 min-h-0 p-6 bg-background">
           <div className="space-y-4">
             {/* Property Selection */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div>
+                <Label className="pb-[10px] inline-block">Свойства товара</Label>
+                <div className="border rounded-md p-3 space-y-2 max-h-52 overflow-auto">
+                  {productPropertiesList.map((prop) => (
+                    <label key={prop.CODE} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={selectedProductPropertyCodes.includes(prop.CODE)}
+                        onCheckedChange={(checked) => handlePropertyToggle('product', prop.CODE, Boolean(checked))}
+                      />
+                      <span>{prop.NAME} ({prop.PROPERTY_TYPE})</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <Label className="pb-[10px] inline-block">Свойства ТП</Label>
                 <div className="border rounded-md p-3 space-y-2 max-h-52 overflow-auto">
-                  {propertiesList.map((prop) => (
+                  {offerPropertiesList.map((prop) => (
                     <label key={prop.CODE} className="flex items-center gap-2 text-sm">
                       <Checkbox
-                        checked={selectedPropertyCodes.includes(prop.CODE)}
-                        onCheckedChange={(checked) => handlePropertyToggle(prop.CODE, Boolean(checked))}
+                        checked={selectedOfferPropertyCodes.includes(prop.CODE)}
+                        onCheckedChange={(checked) => handlePropertyToggle('offer', prop.CODE, Boolean(checked))}
                       />
                       <span>{prop.NAME} ({prop.PROPERTY_TYPE})</span>
                     </label>
@@ -754,7 +847,7 @@ export function OptionsDialog({
 
               <div className="space-y-3">
                 <div>
-                  <Label className="pb-[10px] inline-block">Скрепление → Деталь → Этап</Label>
+                  <Label className="pb-[10px] inline-block">Скрепление - Деталь - Этап</Label>
                   <MultiLevelSelect
                     items={hierarchyItems}
                     value={selectedDetailStage
@@ -786,7 +879,7 @@ export function OptionsDialog({
                 </div>
 
                 <div>
-                  <Label className="pb-[10px] inline-block">Характеристики детали (мм/г)</Label>
+                  <Label className="pb-[10px] inline-block">Характеристики Детали (мм/г)</Label>
                   <div className="border rounded-md p-3 space-y-2">
                     {DIMENSION_OPTIONS.map((dimension) => (
                       <label key={dimension.key} className="flex items-center gap-2 text-sm">
@@ -803,7 +896,7 @@ export function OptionsDialog({
             </div>
 
             {/* Mapping Table */}
-            {(selectedPropertyCodes.length > 0 || selectedDimensions.length > 0) && (
+            {(selectedCriteria.length > 0 || selectedDimensions.length > 0) && (
               <div className="space-y-3">
                 <Label className="pb-[10px] inline-block">
                   Сопоставление значений свойств
@@ -813,11 +906,12 @@ export function OptionsDialog({
                   <table className="w-full">
                     <thead className="bg-muted">
                       <tr>
-                        {selectedPropertyCodes.map((propertyCode) => {
-                          const property = propertiesList.find((prop) => prop.CODE === propertyCode)
+                        {selectedCriteria.map((criterion) => {
+                          const list = criterion.source === 'offer' ? offerPropertiesList : productPropertiesList
+                          const property = list.find((prop) => prop.CODE === criterion.code)
                           return (
-                            <th key={propertyCode} className="px-4 py-2 text-left text-sm font-medium whitespace-nowrap">
-                              {property?.NAME || propertyCode}
+                            <th key={criterion.key} className="px-4 py-2 text-left text-sm font-medium whitespace-nowrap">
+                              {criterion.source === 'offer' ? 'ТП' : 'Товар'}: {property?.NAME || criterion.code}
                             </th>
                           )
                         })}
@@ -838,19 +932,20 @@ export function OptionsDialog({
                     <tbody>
                       {mappingRows.map((row, index) => (
                         <tr key={index} className="border-t">
-                          {selectedPropertyCodes.map((propertyCode) => {
-                            const property = propertiesList.find((prop) => prop.CODE === propertyCode)
-                            const currentValue = row.values[propertyCode]?.value || ''
+                          {selectedCriteria.map((criterion) => {
+                            const list = criterion.source === 'offer' ? offerPropertiesList : productPropertiesList
+                            const property = list.find((prop) => prop.CODE === criterion.code)
+                            const currentValue = row.values[criterion.key]?.value || ''
                             if (property?.PROPERTY_TYPE === 'L' && property.ENUMS) {
                               const sortedEnums = [...property.ENUMS].sort((a, b) => (a.SORT ?? 500) - (b.SORT ?? 500))
                               return (
-                                <td key={propertyCode} className="px-4 py-2">
+                                <td key={criterion.key} className="px-4 py-2">
                                   <Select
                                     value={currentValue}
                                     onValueChange={(value) => {
                                       const selectedEnum = sortedEnums.find((item) => item.VALUE === value)
                                       const newRows = [...mappingRows]
-                                      newRows[index].values[propertyCode] = {
+                                      newRows[index].values[criterion.key] = {
                                         value,
                                         xmlId: selectedEnum?.VALUE_XML_ID || selectedEnum?.XML_ID || '',
                                       }
@@ -862,7 +957,7 @@ export function OptionsDialog({
                                     </SelectTrigger>
                                     <SelectContent>
                                       {sortedEnums.map((enumItem) => (
-                                        <SelectItem key={`${propertyCode}-${enumItem.VALUE_XML_ID || enumItem.XML_ID || enumItem.VALUE}`} value={enumItem.VALUE}>
+                                        <SelectItem key={`${criterion.key}-${enumItem.VALUE_XML_ID || enumItem.XML_ID || enumItem.VALUE}`} value={enumItem.VALUE}>
                                           {enumItem.VALUE}
                                         </SelectItem>
                                       ))}
@@ -873,10 +968,10 @@ export function OptionsDialog({
                             }
 
                             return (
-                              <td key={propertyCode} className="px-4 py-2">
+                              <td key={criterion.key} className="px-4 py-2">
                               <Input
                                 value={currentValue}
-                                onChange={(e) => handleUpdateRow(index, 'value', e.target.value, propertyCode)}
+                                onChange={(e) => handleUpdateRow(index, 'value', e.target.value, criterion.key)}
                                 placeholder="Введите значение..."
                                 className="h-8"
                               />
