@@ -23,8 +23,11 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defau
   const [isExpanded, setIsExpanded] = useState(false)
   const [prices, setPrices] = useState<PriceRangeItem[]>([])
   const [activeTypeIds, setActiveTypeIds] = useState<number[]>([])
+  const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({})
   const isInitializedRef = useRef(false)
   const pricesRef = useRef<PriceRangeItem[]>([])
+
+  const getPriceDraftKey = (typeId: number, quantityFrom: number | null) => `${typeId}:${quantityFrom ?? 0}`
 
   // Find base price type
   const basePriceType = priceTypes.find(pt => pt.base)
@@ -234,6 +237,39 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defau
     postMessageBridge.sendChangePricePresetRequest(payload)
   }
 
+  const handlePriceInputChange = (typeId: number, quantityFrom: number | null, rawValue: string) => {
+    const draftKey = getPriceDraftKey(typeId, quantityFrom)
+    setPriceDrafts(prev => ({ ...prev, [draftKey]: rawValue }))
+
+    if (rawValue === '' || rawValue === '-' || rawValue === '.' || rawValue === '-.') {
+      return
+    }
+
+    const parsed = Number(rawValue)
+    if (!Number.isFinite(parsed)) return
+    handlePriceChange(typeId, quantityFrom, parsed)
+  }
+
+  const handlePriceInputBlur = (typeId: number, quantityFrom: number | null) => {
+    const draftKey = getPriceDraftKey(typeId, quantityFrom)
+    const rawValue = priceDrafts[draftKey]
+
+    if (rawValue !== undefined) {
+      const parsed = Number(rawValue)
+      if (!Number.isFinite(parsed)) {
+        handlePriceChange(typeId, quantityFrom, 0)
+      }
+
+      setPriceDrafts(prev => {
+        const next = { ...prev }
+        delete next[draftKey]
+        return next
+      })
+    }
+
+    handlePriceBlur()
+  }
+
   // Update currency
   const handleCurrencyChange = (typeId: number, quantityFrom: number | null, newCurrency: 'RUB' | 'PRC') => {
     const newPrices = prices.map(p => 
@@ -413,18 +449,18 @@ export function PricePanel({ priceTypes = [], presetPrices = [], presetId, defau
                               .filter(pt => activeTypeIds.includes(pt.id))
                               .map(priceType => {
                                 const priceItem = getPriceForTypeAndRange(priceType.id, range.quantityFrom)
-                                const isBaseType = priceType.base
+                                const draftKey = getPriceDraftKey(priceType.id, range.quantityFrom)
+                                const inputValue = priceDrafts[draftKey] ?? String(priceItem?.price ?? 0)
                                 
                                 return (
                                   <td key={priceType.id} className="p-2">
                                     <div className="flex items-center gap-1">
                                       <Input
                                         type="number"
-                                        value={priceItem?.price || 0}
-                                        onChange={(e) => handlePriceChange(priceType.id, range.quantityFrom, parseFloat(e.target.value) || 0)}
-                                        onBlur={handlePriceBlur}
+                                        value={inputValue}
+                                        onChange={(e) => handlePriceInputChange(priceType.id, range.quantityFrom, e.target.value)}
+                                        onBlur={() => handlePriceInputBlur(priceType.id, range.quantityFrom)}
                                         className="w-20 h-8 text-xs"
-                                        min={0}
                                         step={0.1}
                                         data-pwcode="input-markup-value"
                                       />
