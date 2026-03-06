@@ -1286,6 +1286,7 @@ function App() {
       selectedOffers: selectedOffers.length
     })
     
+    setInfoMessages([])
     setIsCalculating(true)
     setCalculationProgress(0)
     
@@ -1398,7 +1399,7 @@ function App() {
       )
       
       // Store results for later use (when saving)
-      setHasSuccessfulCalculations(true)
+      setHasSuccessfulCalculations(results.length > 0)
       setCalculationResults(results)
       
       toast.success(`Расчёт завершён успешно! Обработано ${results.length} торговых предложений`)
@@ -1588,8 +1589,6 @@ function App() {
     })
     
     toast.success('Результаты расчёта отправлены')
-    setCalculationResults([])
-    setHasSuccessfulCalculations(false)
   }
 
   const handleSaveCalculationResult = (
@@ -1618,11 +1617,6 @@ function App() {
       timestamp: Date.now(),
     })
 
-    setCalculationResults(prev => {
-      const remaining = prev.filter(result => result.offerId !== offerId)
-      setHasSuccessfulCalculations(remaining.length > 0)
-      return remaining
-    })
     toast.success('Результат расчёта отправлен')
   }
   
