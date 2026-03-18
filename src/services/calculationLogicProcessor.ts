@@ -444,6 +444,26 @@ const resolveVariantForStageAlias = (
           }
         })
 
+        const outputAliases = new Map<string, string>()
+        const rawOutputs = selectedStage?.properties?.OUTPUTS?.VALUE
+        const outputValues = Array.isArray(rawOutputs)
+          ? rawOutputs.map((item: any) => String(item ?? ''))
+          : rawOutputs !== undefined && rawOutputs !== null
+            ? [String(rawOutputs)]
+            : []
+
+        outputValues.forEach((output) => {
+          const [slugRaw, titleRaw] = String(output).split('|', 2)
+          const slug = String(slugRaw || '').trim()
+          const title = String(titleRaw || '').trim()
+          if (!slug) return
+
+          outputAliases.set(slug, slug)
+          if (title) {
+            outputAliases.set(title, slug)
+          }
+        })
+
         const runtimeOutputsRaw = selectedStage?.properties?.OUTPUTS_RUNTIME
         const runtimeOutputs = Array.isArray(runtimeOutputsRaw)
           ? runtimeOutputsRaw
