@@ -424,12 +424,25 @@ const resolveVariantForStageAlias = (
           (detail: any) => Number(detail.id) === Number(optionsMapping.detailStageSelection?.detailId)
         )
 
-        const sourceDimensions: Record<string, number> = {
-          width: resolveStageDimensionWithInheritance(selectedStageId, 'width') ?? Number(selectedDetail?.fields?.width),
-          length: resolveStageDimensionWithInheritance(selectedStageId, 'length') ?? Number(selectedDetail?.fields?.length),
-          height: resolveStageDimensionWithInheritance(selectedStageId, 'height') ?? Number(selectedDetail?.fields?.height),
-          weight: resolveStageDimensionWithInheritance(selectedStageId, 'weight') ?? Number(selectedDetail?.fields?.weight),
-        }
+        const outputAliases = new Map<string, string>()
+        const rawOutputs = selectedStage?.properties?.OUTPUTS?.VALUE
+        const outputValues = Array.isArray(rawOutputs)
+          ? rawOutputs.map((item: any) => String(item ?? ''))
+          : rawOutputs !== undefined && rawOutputs !== null
+            ? [String(rawOutputs)]
+            : []
+
+        outputValues.forEach((output) => {
+          const [slugRaw, titleRaw] = String(output).split('|', 2)
+          const slug = String(slugRaw || '').trim()
+          const title = String(titleRaw || '').trim()
+          if (!slug) return
+
+          outputAliases.set(slug, slug)
+          if (title) {
+            outputAliases.set(title, slug)
+          }
+        })
 
         const outputAliases = new Map<string, string>()
         const rawOutputs = selectedStage?.properties?.OUTPUTS?.VALUE
@@ -455,16 +468,48 @@ const resolveVariantForStageAlias = (
         const runtimeOutputs = Array.isArray(runtimeOutputsRaw)
           ? runtimeOutputsRaw
           : []
+        const runtimeOutputValues: Record<string, number> = {}
         runtimeOutputs.forEach((entry: any) => {
-          const keyRaw = String(entry?.DESCRIPTION ?? '').trim()
-          const [keySlugRaw] = keyRaw.split('|', 2)
-          const keySlug = String(keySlugRaw || '').trim()
-          const resolvedSlug = outputAliases.get(keyRaw) || outputAliases.get(keySlug) || keySlug
-          if (!resolvedSlug) return
-
           const numericValue = Number(entry?.VALUE)
-          if (Number.isFinite(numericValue)) {
-            sourceDimensions[`output:${resolvedSlug}`] = numericValue
+          if (!Number.isFinite(numericValue)) return
+
+          const candidates = [
+            entry?.DESCRIPTION,
+            entry?.KEY,
+            entry?.CODE,
+            entry?.NAME,
+          ]
+            .filter((item) => item !== undefined && item !== null)
+            .map((item) => String(item).trim())
+            .filter((item) => Boolean(item))
+
+          candidates.forEach((candidate) => {
+            const [candidateSlugRaw] = candidate.split('|', 2)
+            const candidateSlug = String(candidateSlugRaw || '').trim()
+            const resolvedSlug = outputAliases.get(candidate) || outputAliases.get(candidateSlug) || candidateSlug
+            if (!resolvedSlug) return
+            runtimeOutputValues[resolvedSlug] = numericValue
+          })
+        })
+
+        const sourceDimensions: Record<string, number> = {
+          width: runtimeOutputValues.width
+            ?? resolveStageDimensionWithInheritance(selectedStageId, 'width')
+            ?? Number(selectedDetail?.fields?.width),
+          length: runtimeOutputValues.length
+            ?? resolveStageDimensionWithInheritance(selectedStageId, 'length')
+            ?? Number(selectedDetail?.fields?.length),
+          height: runtimeOutputValues.height
+            ?? resolveStageDimensionWithInheritance(selectedStageId, 'height')
+            ?? Number(selectedDetail?.fields?.height),
+          weight: runtimeOutputValues.weight
+            ?? resolveStageDimensionWithInheritance(selectedStageId, 'weight')
+            ?? Number(selectedDetail?.fields?.weight),
+        }
+
+        Object.entries(runtimeOutputValues).forEach(([slug, value]) => {
+          if (Number.isFinite(value)) {
+            sourceDimensions[`output:${slug}`] = value
           }
         })
 
