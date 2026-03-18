@@ -397,10 +397,10 @@ const resolveVariantForStageAlias = (
   }
 
   const currentStageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
-    (stage: any) => stage.id === currentStageId
+    (stage: any) => Number(stage.id) === Number(currentStageId)
   )
   const targetStageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
-    (stage: any) => stage.id === targetStageId
+    (stage: any) => Number(stage.id) === Number(targetStageId)
   )
 
   const optionsMapping = extractOptionsMapping(currentStageElement, type)
@@ -583,6 +583,22 @@ const resolveVariantForStageAlias = (
   }
 
   return null
+}
+
+export const resolveStageVariantByOptions = (
+  initPayload: any,
+  currentStageId: number,
+  type: 'operation' | 'material'
+): number | null => {
+  const variant = resolveVariantForStageAlias(
+    initPayload,
+    currentStageId,
+    currentStageId,
+    type
+  )
+
+  const parsedVariantId = Number(variant?.id)
+  return Number.isFinite(parsedVariantId) ? parsedVariantId : null
 }
 
 export function getValueByPath(obj: any, path: string): any {

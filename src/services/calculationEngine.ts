@@ -19,6 +19,7 @@ import {
   buildCalculationContext,
   evaluateLogicVars,
   mapOutputs,
+  resolveStageVariantByOptions,
 } from './calculationLogicProcessor'
 import type { InitPayload } from '@/lib/postmessage-bridge'
 
@@ -360,12 +361,9 @@ async function calculateStage(
     }
   }
 
-  const operationVariantId = Number(stageElement?.properties?.OPERATION_VARIANT?.VALUE ?? stage.operationVariantId ?? 0) || null
-  const materialVariantId = Number(stageElement?.properties?.MATERIAL_VARIANT?.VALUE ?? stage.materialVariantId ?? 0) || null
+  let operationVariantId = Number(stageElement?.properties?.OPERATION_VARIANT?.VALUE ?? stage.operationVariantId ?? 0) || null
+  let materialVariantId = Number(stageElement?.properties?.MATERIAL_VARIANT?.VALUE ?? stage.materialVariantId ?? 0) || null
   const equipmentId = Number(stageElement?.properties?.EQUIPMENT?.VALUE ?? stage.equipmentId ?? 0) || null
-
-  const operationVariantName = getStoreElementNameById(initPayload, 'CALC_OPERATIONS_VARIANTS', operationVariantId)
-  const materialVariantName = getStoreElementNameById(initPayload, 'CALC_MATERIALS_VARIANTS', materialVariantId)
   const equipmentName = getStoreElementNameById(initPayload, 'CALC_EQUIPMENT', equipmentId)
   
   // Process LOGIC_JSON if available
@@ -474,6 +472,21 @@ async function calculateStage(
       console.warn('[CALC] Logic processing failed for stage:', stage.id, error)
     }
   }
+
+  if (stage.stageId) {
+    const mappedOperationVariantId = resolveStageVariantByOptions(initPayload, stage.stageId, 'operation')
+    if (mappedOperationVariantId) {
+      operationVariantId = mappedOperationVariantId
+    }
+
+    const mappedMaterialVariantId = resolveStageVariantByOptions(initPayload, stage.stageId, 'material')
+    if (mappedMaterialVariantId) {
+      materialVariantId = mappedMaterialVariantId
+    }
+  }
+
+  const operationVariantName = getStoreElementNameById(initPayload, 'CALC_OPERATIONS_VARIANTS', operationVariantId)
+  const materialVariantName = getStoreElementNameById(initPayload, 'CALC_MATERIALS_VARIANTS', materialVariantId)
   
   // Fallback to basic calculation if logic not applied or produced no output values
   // Note: Zero costs can be legitimate, so we check if outputs were actually produced
