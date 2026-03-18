@@ -431,17 +431,40 @@ const resolveVariantForStageAlias = (
           weight: resolveStageDimensionWithInheritance(selectedStageId, 'weight') ?? Number(selectedDetail?.fields?.weight),
         }
 
+        const outputAliases = new Map<string, string>()
+        const rawOutputs = selectedStage?.properties?.OUTPUTS?.VALUE
+        const outputValues = Array.isArray(rawOutputs)
+          ? rawOutputs.map((item: any) => String(item ?? ''))
+          : rawOutputs !== undefined && rawOutputs !== null
+            ? [String(rawOutputs)]
+            : []
+
+        outputValues.forEach((output) => {
+          const [slugRaw, titleRaw] = String(output).split('|', 2)
+          const slug = String(slugRaw || '').trim()
+          const title = String(titleRaw || '').trim()
+          if (!slug) return
+
+          outputAliases.set(slug, slug)
+          if (title) {
+            outputAliases.set(title, slug)
+          }
+        })
+
         const runtimeOutputsRaw = selectedStage?.properties?.OUTPUTS_RUNTIME
         const runtimeOutputs = Array.isArray(runtimeOutputsRaw)
           ? runtimeOutputsRaw
           : []
         runtimeOutputs.forEach((entry: any) => {
-          const keyRaw = String(entry?.DESCRIPTION ?? '')
-          const [slug] = keyRaw.split('|', 2)
-          if (!slug) return
+          const keyRaw = String(entry?.DESCRIPTION ?? '').trim()
+          const [keySlugRaw] = keyRaw.split('|', 2)
+          const keySlug = String(keySlugRaw || '').trim()
+          const resolvedSlug = outputAliases.get(keyRaw) || outputAliases.get(keySlug) || keySlug
+          if (!resolvedSlug) return
+
           const numericValue = Number(entry?.VALUE)
           if (Number.isFinite(numericValue)) {
-            sourceDimensions[`output:${slug}`] = numericValue
+            sourceDimensions[`output:${resolvedSlug}`] = numericValue
           }
         })
 
