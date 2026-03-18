@@ -213,7 +213,7 @@ type OptionsMapping = {
     detailId: number
     stageId: number
   } | null
-  dimensionKeys?: Array<'width' | 'length' | 'height' | 'weight'>
+  dimensionKeys?: string[]
   mappings: Array<{
     offerValues?: Record<string, {
       value?: string
@@ -227,7 +227,7 @@ type OptionsMapping = {
       value?: string
       xmlId?: string
     }>
-    dimensions?: Partial<Record<'width' | 'length' | 'height' | 'weight', {
+    dimensions?: Partial<Record<string, {
       min?: number
       max?: number
     }>>
@@ -273,7 +273,7 @@ const extractOptionsMapping = (
       ? parsed.productPropertyCodes.map((item: any) => String(item))
       : []
 
-    if ((offerPropertyCodes.length === 0 && productPropertyCodes.length === 0) || !Array.isArray(parsed?.mappings)) {
+    if (!Array.isArray(parsed?.mappings)) {
       return null
     }
 
@@ -290,10 +290,12 @@ const extractOptionsMapping = (
     const dimensionKeys = Array.isArray(parsed?.dimensionKeys)
       ? parsed.dimensionKeys
           .map((item: any) => String(item))
-          .filter((item: string): item is 'width' | 'length' | 'height' | 'weight' => (
-            item === 'width' || item === 'length' || item === 'height' || item === 'weight'
-          ))
+          .filter((item: string) => Boolean(item))
       : []
+
+    if (offerPropertyCodes.length === 0 && productPropertyCodes.length === 0 && dimensionKeys.length === 0) {
+      return null
+    }
 
     return {
       offerPropertyCodes,
@@ -395,10 +397,10 @@ const resolveVariantForStageAlias = (
   }
 
   const currentStageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
-    (stage: any) => stage.id === currentStageId
+    (stage: any) => Number(stage.id) === Number(currentStageId)
   )
   const targetStageElement = initPayload?.elementsStore?.CALC_STAGES?.find(
-    (stage: any) => stage.id === targetStageId
+    (stage: any) => Number(stage.id) === Number(targetStageId)
   )
 
   const optionsMapping = extractOptionsMapping(currentStageElement, type)
@@ -412,8 +414,8 @@ const resolveVariantForStageAlias = (
     const productMatchValues = getPropertyMatchValues(productProperties, optionsMapping.productPropertyCodes)
 
     const mappingMatch = optionsMapping.mappings.find((mapping) => {
-      const dimensionKeys = optionsMapping.dimensionKeys || []
-      const hasDimensionFilter = Boolean(optionsMapping.detailStageSelection && dimensionKeys.length > 0)
+      const metricKeys = optionsMapping.dimensionKeys || []
+      const hasDimensionFilter = Boolean(optionsMapping.detailStageSelection && metricKeys.length > 0)
 
       if (hasDimensionFilter) {
         const selectedStageId = Number(optionsMapping.detailStageSelection?.stageId)
@@ -422,14 +424,46 @@ const resolveVariantForStageAlias = (
           (detail: any) => Number(detail.id) === Number(optionsMapping.detailStageSelection?.detailId)
         )
 
-        const sourceDimensions = {
+        const sourceDimensions: Record<string, number> = {
           width: resolveStageDimensionWithInheritance(selectedStageId, 'width') ?? Number(selectedDetail?.fields?.width),
           length: resolveStageDimensionWithInheritance(selectedStageId, 'length') ?? Number(selectedDetail?.fields?.length),
           height: resolveStageDimensionWithInheritance(selectedStageId, 'height') ?? Number(selectedDetail?.fields?.height),
           weight: resolveStageDimensionWithInheritance(selectedStageId, 'weight') ?? Number(selectedDetail?.fields?.weight),
         }
 
-        const allDimensionsMatched = dimensionKeys.every((dimensionKey) => {
+        const runtimeOutputsRaw = selectedStage?.properties?.OUTPUTS_RUNTIME
+        const runtimeOutputs = Array.isArray(runtimeOutputsRaw)
+          ? runtimeOutputsRaw
+          : []
+        runtimeOutputs.forEach((entry: any) => {
+          const keyRaw = String(entry?.DESCRIPTION ?? '')
+          const [slug] = keyRaw.split('|', 2)
+          if (!slug) return
+          const numericValue = Number(entry?.VALUE)
+          if (Number.isFinite(numericValue)) {
+            sourceDimensions[`output:${slug}`] = numericValue
+          }
+        })
+
+        metricKeys
+          .filter((key) => key.startsWith('output:'))
+          .forEach((metricKey) => {
+            if (metricKey in sourceDimensions) return
+            const slug = metricKey.slice('output:'.length)
+            if (!slug) return
+            const fallbackValue = Number(selectedStage?.fields?.[slug])
+            if (Number.isFinite(fallbackValue)) {
+              sourceDimensions[metricKey] = fallbackValue
+            }
+          })
+
+        Object.keys(sourceDimensions).forEach((key) => {
+          if (!Number.isFinite(sourceDimensions[key])) {
+            delete sourceDimensions[key]
+          }
+        })
+
+        const allDimensionsMatched = metricKeys.every((dimensionKey) => {
           const dimValue = sourceDimensions[dimensionKey]
           if (!Number.isFinite(dimValue) || dimValue < 0) return false
 
@@ -549,6 +583,22 @@ const resolveVariantForStageAlias = (
   }
 
   return null
+}
+
+export const resolveStageVariantByOptions = (
+  initPayload: any,
+  currentStageId: number,
+  type: 'operation' | 'material'
+): number | null => {
+  const variant = resolveVariantForStageAlias(
+    initPayload,
+    currentStageId,
+    currentStageId,
+    type
+  )
+
+  const parsedVariantId = Number(variant?.id)
+  return Number.isFinite(parsedVariantId) ? parsedVariantId : null
 }
 
 export function getValueByPath(obj: any, path: string): any {
