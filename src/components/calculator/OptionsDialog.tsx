@@ -46,7 +46,7 @@ interface Property {
 
 interface MappingRow {
   values: Record<string, { value: string; xmlId: string }>
-  dimensions: Record<DimensionKey, { min: string; max: string }>
+  dimensions: Record<string, { min: string; max: string }>
   variantId: string
 }
 
@@ -59,6 +59,7 @@ interface SelectedCriterion {
 }
 
 type DimensionKey = 'width' | 'length' | 'height' | 'weight'
+type MetricKey = DimensionKey | `output:${string}`
 
 interface DetailStageSelection {
   bindingId?: number | null
@@ -72,6 +73,12 @@ const DIMENSION_OPTIONS: Array<{ key: DimensionKey; label: string; unit: string 
   { key: 'height', label: 'Высота', unit: 'мм' },
   { key: 'weight', label: 'Вес', unit: 'г' },
 ]
+
+interface AdditionalOutputOption {
+  key: `output:${string}`
+  slug: string
+  label: string
+}
 
 export function OptionsDialog({
   open,
@@ -89,7 +96,7 @@ export function OptionsDialog({
   const [selectedProductPropertyCodes, setSelectedProductPropertyCodes] = useState<string[]>([])
   const [mappingRows, setMappingRows] = useState<MappingRow[]>([])
   const [selectedDetailStage, setSelectedDetailStage] = useState<DetailStageSelection | null>(null)
-  const [selectedDimensions, setSelectedDimensions] = useState<DimensionKey[]>([])
+  const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>([])
   const [hasInitialized, setHasInitialized] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
@@ -254,10 +261,17 @@ export function OptionsDialog({
           const parsedDimensions = Array.isArray(parsed.dimensionKeys)
             ? parsed.dimensionKeys
                 .map((item: unknown) => String(item))
-                .filter((item): item is DimensionKey => DIMENSION_OPTIONS.some((option) => option.key === item))
+                .filter((item): item is MetricKey => (
+                  DIMENSION_OPTIONS.some((option) => option.key === item)
+                  || (item.startsWith('output:') && item.length > 'output:'.length)
+                ))
             : []
           setSelectedDetailStage(parsedDetailStage)
-          setSelectedDimensions(parsedDimensions)
+          setSelectedMetrics(parsedDimensions)
+          const allMetricKeys = Array.from(new Set<MetricKey>([
+            ...DIMENSION_OPTIONS.map((option) => option.key),
+            ...parsedDimensions,
+          ]))
 
           setMappingRows(parsed.mappings.map((mapping: any) => {
             if ((mapping.values && typeof mapping.values === 'object') || (mapping.offerValues && typeof mapping.offerValues === 'object') || (mapping.productValues && typeof mapping.productValues === 'object')) {
@@ -278,16 +292,16 @@ export function OptionsDialog({
               })
               return {
                 values: normalizedValues,
-                dimensions: DIMENSION_OPTIONS.reduce((acc, option) => {
-                  const rawDimension = mapping.dimensions?.[option.key] || {}
+                dimensions: allMetricKeys.reduce((acc, metricKey) => {
+                  const rawDimension = mapping.dimensions?.[metricKey] || {}
                   const rawMin = rawDimension.min ?? ''
                   const rawMax = rawDimension.max ?? ''
-                  acc[option.key] = {
+                  acc[metricKey] = {
                     min: rawMin === '' ? '0' : String(rawMin),
                     max: String(rawMax),
                   }
                   return acc
-                }, {} as Record<DimensionKey, { min: string; max: string }>),
+                }, {} as Record<string, { min: string; max: string }>),
                 variantId: String(mapping.variantId || ''),
               }
             }
@@ -302,10 +316,10 @@ export function OptionsDialog({
                     },
                   }
                 : {},
-              dimensions: DIMENSION_OPTIONS.reduce((acc, option) => {
-                acc[option.key] = { min: '0', max: '' }
+              dimensions: allMetricKeys.reduce((acc, metricKey) => {
+                acc[metricKey] = { min: '0', max: '' }
                 return acc
-              }, {} as Record<DimensionKey, { min: string; max: string }>),
+              }, {} as Record<string, { min: string; max: string }>),
               variantId: String(mapping.variantId || ''),
             }
           }))
@@ -324,21 +338,24 @@ export function OptionsDialog({
       setSelectedProductPropertyCodes([])
       setMappingRows([])
       setSelectedDetailStage(null)
-      setSelectedDimensions([])
+      setSelectedMetrics([])
       setHasInitialized(false)
       setIsFullscreen(false)
     }
   }, [open])
 
-  const getEmptyRow = (criteria: SelectedCriterion[]): MappingRow => ({
+  const getEmptyRow = (criteria: SelectedCriterion[], metricKeys: MetricKey[] = selectedMetrics): MappingRow => ({
     values: criteria.reduce((acc, criterion) => {
       acc[criterion.key] = { value: '', xmlId: '' }
       return acc
     }, {} as Record<string, { value: string; xmlId: string }>),
-    dimensions: DIMENSION_OPTIONS.reduce((acc, option) => {
-      acc[option.key] = { min: '0', max: '' }
+    dimensions: Array.from(new Set<MetricKey>([
+      ...DIMENSION_OPTIONS.map((option) => option.key),
+      ...metricKeys,
+    ])).reduce((acc, metricKey) => {
+      acc[metricKey] = { min: '0', max: '' }
       return acc
-    }, {} as Record<DimensionKey, { min: string; max: string }>),
+    }, {} as Record<string, { min: string; max: string }>),
     variantId: '',
   })
 
@@ -358,14 +375,14 @@ export function OptionsDialog({
           ...nextCodes.map((item) => ({ key: `product:${item}`, code: item, source: 'product' as const })),
         ]
 
-    if (nextCriteria.length === 0 && selectedDimensions.length === 0) {
+    if (nextCriteria.length === 0 && selectedMetrics.length === 0) {
       setMappingRows([])
       return
     }
 
     setMappingRows((prevRows) => {
       if (prevRows.length === 0) {
-        return [getEmptyRow(nextCriteria)]
+        return [getEmptyRow(nextCriteria, selectedMetrics)]
       }
 
       return prevRows.map((row) => ({
@@ -379,19 +396,19 @@ export function OptionsDialog({
     })
   }
 
-  const handleDimensionToggle = (key: DimensionKey, checked: boolean) => {
-    const nextDimensions = checked
-      ? [...selectedDimensions, key]
-      : selectedDimensions.filter((item) => item !== key)
+  const handleMetricToggle = (key: MetricKey, checked: boolean) => {
+    const nextMetrics = checked
+      ? [...selectedMetrics, key]
+      : selectedMetrics.filter((item) => item !== key)
 
-    setSelectedDimensions(nextDimensions)
+    setSelectedMetrics(nextMetrics)
 
     if (checked && mappingRows.length === 0) {
-      setMappingRows([getEmptyRow(selectedCriteria)])
+      setMappingRows([getEmptyRow(selectedCriteria, nextMetrics)])
       return
     }
 
-    if (!checked && nextDimensions.length === 0 && selectedCriteria.length === 0) {
+    if (!checked && nextMetrics.length === 0 && selectedCriteria.length === 0) {
       setMappingRows([])
       return
     }
@@ -409,8 +426,8 @@ export function OptionsDialog({
   }
 
   const handleAddRow = () => {
-    if (selectedCriteria.length === 0 && selectedDimensions.length === 0) return
-    setMappingRows([...mappingRows, getEmptyRow(selectedCriteria)])
+    if (selectedCriteria.length === 0 && selectedMetrics.length === 0) return
+    setMappingRows([...mappingRows, getEmptyRow(selectedCriteria, selectedMetrics)])
   }
 
   const handleRemoveRow = (index: number) => {
@@ -422,7 +439,7 @@ export function OptionsDialog({
     field: 'variantId' | 'value' | 'dimensionMin' | 'dimensionMax',
     value: string,
     propertyCode?: string,
-    dimensionKey?: DimensionKey
+    dimensionKey?: string
   ) => {
     const newRows = [...mappingRows]
     if (field === 'variantId') {
@@ -570,9 +587,54 @@ export function OptionsDialog({
 
   const hierarchyItems = detailsHierarchy()
 
+  const getAdditionalOutputOptions = (): AdditionalOutputOption[] => {
+    const selectedStageId = Number(selectedDetailStage?.stageId)
+    if (!selectedStageId || !Array.isArray(bitrixMeta?.elementsStore?.CALC_STAGES)) return []
+
+    const selectedStage = bitrixMeta.elementsStore.CALC_STAGES.find((stage: any) => Number(stage.id) === selectedStageId)
+    if (!selectedStage) return []
+
+    const rawOutputs = selectedStage?.properties?.OUTPUTS?.VALUE
+    const values = Array.isArray(rawOutputs)
+      ? rawOutputs.map((item: any) => String(item ?? ''))
+      : typeof rawOutputs === 'string'
+        ? [rawOutputs]
+        : []
+
+    const seen = new Set<string>()
+    return values.reduce((acc, rawValue) => {
+      if (!rawValue.includes('|')) return acc
+      const [slugRaw, titleRaw] = rawValue.split('|', 2)
+      const slug = String(slugRaw || '').trim()
+      const title = String(titleRaw || '').trim()
+      if (!slug || !title || seen.has(slug)) return acc
+      seen.add(slug)
+      acc.push({
+        key: `output:${slug}`,
+        slug,
+        label: title,
+      })
+      return acc
+    }, [] as AdditionalOutputOption[])
+  }
+
+  const additionalOutputOptions = getAdditionalOutputOptions()
+  const metricOptions = [
+    ...DIMENSION_OPTIONS.map((dimension) => ({
+      key: dimension.key as MetricKey,
+      label: dimension.label,
+      unit: dimension.unit,
+    })),
+    ...additionalOutputOptions.map((output) => ({
+      key: output.key as MetricKey,
+      label: output.label,
+      unit: '',
+    })),
+  ]
+
   const canSave = () => {
-    if (selectedCriteria.length === 0 && selectedDimensions.length === 0) return false
-    if (selectedDimensions.length > 0 && !selectedDetailStage) return false
+    if (selectedCriteria.length === 0 && selectedMetrics.length === 0) return false
+    if (selectedMetrics.length > 0 && !selectedDetailStage) return false
 
     return mappingRows.some((row) => {
       if (!row.variantId) return false
@@ -582,7 +644,7 @@ export function OptionsDialog({
       })
       if (!hasPropertyValues) return false
 
-      return selectedDimensions.every((dimensionKey) => {
+      return selectedMetrics.every((dimensionKey) => {
         const dimensionRange = row.dimensions[dimensionKey]
         return Boolean(dimensionRange?.max)
       })
@@ -598,7 +660,7 @@ export function OptionsDialog({
         if (!row.variantId) return false
         const hasPropertyValues = selectedCriteria.length === 0 || selectedCriteria.every((criterion) => Boolean(row.values[criterion.key]?.value))
         if (!hasPropertyValues) return false
-        return selectedDimensions.every((dimensionKey) => Boolean(row.dimensions[dimensionKey]?.max))
+        return selectedMetrics.every((dimensionKey) => Boolean(row.dimensions[dimensionKey]?.max))
       })
       .map(row => ({
         offerValues: selectedOfferPropertyCodes.reduce((acc, code) => {
@@ -617,13 +679,13 @@ export function OptionsDialog({
           }
           return acc
         }, {} as Record<string, { value: string; xmlId: string }>),
-        dimensions: selectedDimensions.reduce((acc, dimensionKey) => {
+        dimensions: selectedMetrics.reduce((acc, dimensionKey) => {
           acc[dimensionKey] = {
             min: Number(row.dimensions[dimensionKey]?.min || '0'),
             max: Number(row.dimensions[dimensionKey]?.max || '0'),
           }
           return acc
-        }, {} as Record<DimensionKey, { min: number; max: number }>),
+        }, {} as Record<string, { min: number; max: number }>),
         variantId: parseInt(row.variantId, 10)
       }))
 
@@ -631,7 +693,7 @@ export function OptionsDialog({
       offerPropertyCodes: selectedOfferPropertyCodes,
       productPropertyCodes: selectedProductPropertyCodes,
       detailStageSelection: selectedDetailStage,
-      dimensionKeys: selectedDimensions,
+      dimensionKeys: selectedMetrics,
       mappings,
     })
     
@@ -881,13 +943,13 @@ export function OptionsDialog({
                 <div>
                   <Label className="pb-[10px] inline-block">Характеристики Детали (мм/г)</Label>
                   <div className="border rounded-md p-3 space-y-2">
-                    {DIMENSION_OPTIONS.map((dimension) => (
+                    {metricOptions.map((dimension) => (
                       <label key={dimension.key} className="flex items-center gap-2 text-sm">
                         <Checkbox
-                          checked={selectedDimensions.includes(dimension.key)}
-                          onCheckedChange={(checked) => handleDimensionToggle(dimension.key, Boolean(checked))}
+                          checked={selectedMetrics.includes(dimension.key)}
+                          onCheckedChange={(checked) => handleMetricToggle(dimension.key, Boolean(checked))}
                         />
-                        <span>{dimension.label} ({dimension.unit})</span>
+                        <span>{dimension.label}{dimension.unit ? ` (${dimension.unit})` : ''}</span>
                       </label>
                     ))}
                   </div>
@@ -896,7 +958,7 @@ export function OptionsDialog({
             </div>
 
             {/* Mapping Table */}
-            {(selectedCriteria.length > 0 || selectedDimensions.length > 0) && (
+            {(selectedCriteria.length > 0 || selectedMetrics.length > 0) && (
               <div className="space-y-3">
                 <Label className="pb-[10px] inline-block">
                   Сопоставление значений свойств
@@ -915,11 +977,11 @@ export function OptionsDialog({
                             </th>
                           )
                         })}
-                        {selectedDimensions.map((dimensionKey) => {
-                          const dimensionOption = DIMENSION_OPTIONS.find((item) => item.key === dimensionKey)
+                        {selectedMetrics.map((dimensionKey) => {
+                          const dimensionOption = metricOptions.find((item) => item.key === dimensionKey)
                           return (
                             <th key={dimensionKey} className="px-4 py-2 text-left text-sm font-medium whitespace-nowrap">
-                              {dimensionOption?.label || dimensionKey} ({dimensionOption?.unit || ''})
+                              {dimensionOption?.label || dimensionKey}{dimensionOption?.unit ? ` (${dimensionOption.unit})` : ''}
                             </th>
                           )
                         })}
@@ -978,7 +1040,7 @@ export function OptionsDialog({
                               </td>
                             )
                           })}
-                          {selectedDimensions.map((dimensionKey) => (
+                          {selectedMetrics.map((dimensionKey) => (
                             <td key={dimensionKey} className="px-4 py-2">
                               <div className="grid grid-cols-2 gap-2">
                                 <Input
