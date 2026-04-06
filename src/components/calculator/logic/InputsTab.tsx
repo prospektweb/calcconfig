@@ -30,11 +30,12 @@ interface InputsTabProps {
   newlyAddedId?: string | null
   onNewlyAddedIdChange?: (id: string | null) => void
   onLiteralChange?: (id: string, value: string) => void
+  invalidPaths?: Set<string>
 }
 
 const HIGHLIGHT_DURATION_MS = 2000
 
-export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInputSelect, newlyAddedId, onNewlyAddedIdChange, onLiteralChange }: InputsTabProps) {
+export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInputSelect, newlyAddedId, onNewlyAddedIdChange, onLiteralChange, invalidPaths }: InputsTabProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const newlyAddedRef = useRef<HTMLDivElement>(null)
@@ -183,6 +184,7 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
             const isNewlyAdded = newlyAddedId === input.id
             const isDragging = draggedIndex === idx
             const isDragOver = dragOverIndex === idx
+            const hasBrokenPath = input.sourceKind !== 'literal' && Boolean(invalidPaths?.has(input.sourcePath))
             
             return (
               <div 
@@ -194,6 +196,7 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
                 onDragEnd={handleDragEnd}
                 className={cn(
                   "flex flex-col gap-2 p-2 border rounded-md bg-card cursor-pointer transition-colors",
+                  hasBrokenPath && "border-red-600 bg-red-50/40 dark:bg-red-950/10",
                   hasError && "border-destructive",
                   hasWarning && !hasError && "border-yellow-500",
                   isActive && "border-primary bg-primary/5 shadow-md",
@@ -371,6 +374,11 @@ export function InputsTab({ inputs, onChange, issues = [], activeInputId, onInpu
                         hasError ? "text-destructive" : "text-yellow-500"
                       )} />
                     </div>
+                  )}
+                  {hasBrokenPath && !hasError && (
+                    <Badge variant="destructive" className="ml-auto text-[10px]">
+                      invalid stage link
+                    </Badge>
                   )}
                 </div>
                 

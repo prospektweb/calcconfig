@@ -37,6 +37,7 @@ interface StageTabsProps {
   bitrixMeta?: InitPayload | null
   detailId?: number  // ID детали (Bitrix) для отправки ADD_STAGE_REQUEST
   onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
+  invalidStageIds?: Set<number>
 }
 
 const TAB_COLORS = [
@@ -196,7 +197,7 @@ const parseOtherOptions = (settings: CalcSettingsItem | undefined): OtherOptionF
 }
 
 export function StageTabs(props: StageTabsProps) {
-  const { calculators, onChange, bitrixMeta = null, detailId, onValidationMessage } = props
+  const { calculators, onChange, bitrixMeta = null, detailId, onValidationMessage, invalidStageIds } = props
   const [activeTab, setActiveTab] = useState(0)
   const { dragState, startDrag, setDropTarget, endDrag, cancelDrag } = useCustomDrag()
   const tabRefs = useRef<Map<number, HTMLElement>>(new Map())
@@ -738,6 +739,7 @@ export function StageTabs(props: StageTabsProps) {
             {safeCalculators.map((calc, index) => {
               const isDraggingThis = dragState.isDragging && dragState.draggedItemId === calc.id
               const isDropTarget = dragState.dropTargetIndex === index
+              const hasBrokenLinks = Boolean(calc.stageId && invalidStageIds?.has(calc.stageId))
               
               return (
                 <div key={calc.id} className="relative flex items-center">
@@ -778,6 +780,11 @@ export function StageTabs(props: StageTabsProps) {
                         <DotsSixVertical className="w-3.5 h-3.5" />
                       </div>
                       <span>{calc.stageName ? `Этап #${index + 1}: ${calc.stageName}` : `Этап #${index + 1}`}</span>
+                      {hasBrokenLinks && (
+                        <Badge variant="destructive" className="ml-1 text-[10px]">
+                          broken link
+                        </Badge>
+                      )}
                       <Button variant="ghost" size="sm" className="h-5 w-5 p-0" data-pwcode="btn-edit-stage-name" onClick={(e) => {
                         e.stopPropagation()
                         const name = window.prompt('Новое название этапа', calc.stageName || '')

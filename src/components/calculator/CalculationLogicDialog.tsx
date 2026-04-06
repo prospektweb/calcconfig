@@ -19,6 +19,7 @@ import { InputParam, FormulaVar, StageLogic, ValidationIssue, ValueType, Results
 import { saveLogic, loadLogic } from './logic/storage'
 import { validateAll, inferType, inferTypeFromSourcePath } from './logic/validator'
 import { getDraftKey, extractLogicJsonString } from '@/lib/stage-utils'
+import { isBrokenSourcePath } from '@/lib/path-validation'
 
 /**
  * Build logic context for the context tree panel
@@ -59,6 +60,89 @@ function parseInputSourceForUi(rawSourcePath: unknown): {
       literalValue: encodedLiteral,
     }
   }
+}
+
+function migrateLegacyInputSourcePath(rawSourcePath: string, initPayload: InitPayload | null | undefined): string {
+  const sourcePath = String(rawSourcePath || '')
+  const legacyMatch = sourcePath.match(/elementsStore\.CALC_STAGES\[(\d+)\]\.properties\.OUTPUTS\.(VALUE|DESCRIPTION)\[(\d+)\]/)
+  if (legacyMatch) {
+    const stageIndex = Number(legacyMatch[1])
+    const sourceKind = legacyMatch[2]
+    const outputIndex = Number(legacyMatch[3])
+    const stageElement = initPayload?.elementsStore?.CALC_STAGES?.[stageIndex]
+    if (!stageElement?.id) {
+      return sourcePath
+    }
+
+    const stageId = Number(stageElement.id)
+    const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION
+    const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE
+
+    const varName = Array.isArray(outputsDesc) ? String(outputsDesc[outputIndex] || '').trim() : ''
+    if (varName) {
+      return `stage_${stageId}.outputVar.${varName}`
+    }
+
+    const valueEntry = Array.isArray(outputsValue) ? String(outputsValue[outputIndex] || '') : ''
+    const [slug] = valueEntry.split('|')
+    if (slug) {
+      return `stage_${stageId}.outputSlug.${slug}`
+    }
+
+    return sourceKind === 'VALUE'
+      ? `stage_${stageId}.outputSlug.output_${outputIndex}`
+      : sourcePath
+  }
+
+  const legacyStagePathMatch = sourcePath.match(/^elementsStore\.CALC_STAGES\[(\d+)\](\..+)?$/)
+  if (legacyStagePathMatch) {
+    const stageIndex = Number(legacyStagePathMatch[1])
+    const suffix = legacyStagePathMatch[2] || ''
+    const stageElement = initPayload?.elementsStore?.CALC_STAGES?.[stageIndex]
+    if (stageElement?.id) {
+      return `stage_${stageElement.id}${suffix}`
+    }
+  }
+
+  return sourcePath
+}
+
+function normalizeInputDescriptions(
+  inputsDesc: string[] | undefined,
+  initPayload: InitPayload | null | undefined
+): string[] | undefined {
+  if (!Array.isArray(inputsDesc)) {
+    return inputsDesc
+  }
+
+  return inputsDesc.map(source => migrateLegacyInputSourcePath(source, initPayload))
+}
+
+function normalizeDraftInputs(
+  rawInputs: any[],
+  initPayload: InitPayload | null | undefined
+): any[] {
+  if (!Array.isArray(rawInputs)) {
+    return []
+  }
+
+  return rawInputs.map(input => {
+    if (!input || typeof input !== 'object') {
+      return input
+    }
+
+    const sourceKind = String((input as any).sourceKind || 'context')
+    const sourcePath = String((input as any).sourcePath || '')
+
+    if (sourceKind === 'literal') {
+      return input
+    }
+
+    return {
+      ...input,
+      sourcePath: migrateLegacyInputSourcePath(sourcePath, initPayload),
+    }
+  })
 }
 
 // Helper to create empty ResultsHL
@@ -797,6 +881,16 @@ export function CalculationLogicDialog({
     () => sanitizeIssuesForRender(validationIssues),
     [validationIssues]
   )
+  const invalidInputPathsForRender = useMemo(() => {
+    const broken = new Set<string>()
+    inputsForRender.forEach(input => {
+      if (input.sourceKind === 'literal') return
+      if (isBrokenSourcePath(input.sourcePath, initPayload)) {
+        broken.add(input.sourcePath)
+      }
+    })
+    return broken
+  }, [inputsForRender, initPayload])
 
   const logicContextForRender = useMemo(
     () => sanitizeContextValue(logicContext),
@@ -864,7 +958,10 @@ export function CalculationLogicDialog({
       const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
       const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
       const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
-      const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+      const inputsDesc = normalizeInputDescriptions(
+        stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined,
+        initPayload
+      )
       savedInputs = sanitizeInputs(
         buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc),
         'init inputs'
@@ -897,7 +994,10 @@ export function CalculationLogicDialog({
     if (draftJson) {
       try {
         const parsed = JSON.parse(draftJson)
-        const rawDraftInputs = Array.isArray(parsed?.inputs) ? parsed.inputs : []
+        const rawDraftInputs = normalizeDraftInputs(
+          Array.isArray(parsed?.inputs) ? parsed.inputs : [],
+          initPayload
+        )
         const rawDraftVars = Array.isArray(parsed?.vars) ? parsed.vars : []
         const rawDraftResultsHL = parsed?.resultsHL || createEmptyResultsHL()
         const rawDraftAdditionalResults = Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : []
@@ -1030,7 +1130,10 @@ export function CalculationLogicDialog({
         const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
         const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
         const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
-        const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+        const inputsDesc = normalizeInputDescriptions(
+          stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined,
+          initPayload
+        )
         const savedInputs = sanitizeInputs(
           buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc),
           'init inputs'
@@ -1390,7 +1493,10 @@ export function CalculationLogicDialog({
     const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
     const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
     const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
-    const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+    const inputsDesc = normalizeInputDescriptions(
+      stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined,
+      initPayload
+    )
     const savedInputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
     
     const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
@@ -1892,7 +1998,10 @@ export function CalculationLogicDialog({
       const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
       const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
       const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
-      const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+      const inputsDesc = normalizeInputDescriptions(
+        stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined,
+        initPayload
+      )
       const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
       
       // Build vars from LOGIC_JSON
@@ -2096,6 +2205,7 @@ export function CalculationLogicDialog({
                         inputs={inputsForRender} 
                         onChange={setInputs} 
                         issues={validationIssuesForRender}
+                        invalidPaths={invalidInputPathsForRender}
                         activeInputId={activeInputId}
                         onInputSelect={setActiveInputId}
                         newlyAddedId={newlyAddedInputId}

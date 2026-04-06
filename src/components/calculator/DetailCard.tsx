@@ -22,9 +22,11 @@ interface DetailCardProps {
   onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
   isTopLevel?: boolean
   parentBindingId?: number | null
+  hasInvalidLinks?: boolean
+  invalidStageIds?: Set<number>
 }
 
-export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, isDragging = false, bitrixMeta, onValidationMessage, isTopLevel = false, parentBindingId }: DetailCardProps) {
+export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, orderNumber, onDragStart, isDragging = false, bitrixMeta, onValidationMessage, isTopLevel = false, parentBindingId, hasInvalidLinks = false, invalidStageIds }: DetailCardProps) {
   const dragContext = useDragContext()
   
   const handleToggleExpand = () => {
@@ -128,7 +130,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
     <Card 
       data-detail-card
       data-detail-id={detail.id}
-      className={`overflow-hidden transition-all ${isDragging ?  'invisible' : ''}`}
+      className={`overflow-hidden transition-all ${hasInvalidLinks ? 'border-red-600 shadow-[0_0_0_1px_rgba(220,38,38,0.35)]' : ''} ${isDragging ?  'invisible' : ''}`}
       data-pwcode="detail-card"
     >
       <div 
@@ -220,6 +222,7 @@ export function DetailCard({ detail, onUpdate, onDelete, isInBinding = false, or
             detailId={detail.bitrixId ?? undefined}
             bitrixMeta={bitrixMeta}
             onValidationMessage={onValidationMessage}
+            invalidStageIds={invalidStageIds}
           />
         </div>
       )}

@@ -695,6 +695,50 @@ export function buildCalculationContext(
   inputWirings: InputWiring[],
   currentStageId: number
 ): Record<string, any> {
+  const resolveStageOutputAlias = (sourcePath: string): any | undefined => {
+    if (!sourcePath) return undefined
+
+    const byVarMatch = sourcePath.match(/^stage_(\d+)\.outputVar\.(.+)$/)
+    const bySlugMatch = sourcePath.match(/^stage_(\d+)\.outputSlug\.([^.\]]+)$/)
+    if (!byVarMatch && !bySlugMatch) {
+      return undefined
+    }
+
+    const targetStageId = Number((byVarMatch || bySlugMatch)?.[1])
+    const targetStage = initPayload?.elementsStore?.CALC_STAGES?.find(
+      (stage: any) => Number(stage?.id) === targetStageId
+    )
+    if (!targetStage) return undefined
+
+    const runtimeOutputs = Array.isArray(targetStage?.properties?.OUTPUTS_RUNTIME)
+      ? targetStage.properties.OUTPUTS_RUNTIME
+      : []
+
+    if (byVarMatch) {
+      const targetVarName = String(byVarMatch[2] || '').trim()
+      if (!targetVarName) return undefined
+
+      const descriptions = targetStage?.properties?.OUTPUTS?.DESCRIPTION
+      if (!Array.isArray(descriptions)) return undefined
+
+      const outputIndex = descriptions.findIndex((desc: any) => String(desc) === targetVarName)
+      if (outputIndex < 0) return undefined
+      return runtimeOutputs[outputIndex]?.VALUE
+    }
+
+    const targetSlug = String(bySlugMatch?.[2] || '').trim()
+    if (!targetSlug) return undefined
+
+    const outputsValueRaw = targetStage?.properties?.OUTPUTS?.VALUE
+    const outputsValue = Array.isArray(outputsValueRaw) ? outputsValueRaw : []
+    const outputIndex = outputsValue.findIndex((entry: any) => {
+      const [slugPart] = String(entry || '').split('|')
+      return slugPart === targetSlug
+    })
+    if (outputIndex < 0) return undefined
+    return runtimeOutputs[outputIndex]?.VALUE
+  }
+
   const getRuntimePrevStageValue = (sourcePath: string): any | undefined => {
     if (!sourcePath) return undefined
 
@@ -748,7 +792,68 @@ export function buildCalculationContext(
         continue
       }
 
-      const runtimeValue = getRuntimePrevStageValue(wiring.sourcePath)
+      const stagePathMatch = wiring.sourcePath.match(/^stage_(\d+)(?:\.(.+))?$/)
+      if (stagePathMatch) {
+        const targetStageId = Number(stagePathMatch[1])
+        const remainder = String(stagePathMatch[2] || '')
+        const isOutputAlias = remainder.startsWith('outputVar.') || remainder.startsWith('outputSlug.')
+        const isOperationAlias = remainder.startsWith('operation.')
+        const isEquipmentAlias = remainder.startsWith('equipment.')
+        const isMaterialAlias = remainder.startsWith('material.')
+
+        if (!isOutputAlias) {
+          if (isOperationAlias || isEquipmentAlias || isMaterialAlias) {
+            const targetStage = initPayload?.elementsStore?.CALC_STAGES?.find(
+              (stage: any) => Number(stage?.id) === targetStageId
+            ) ?? null
+
+            const aliasType = isOperationAlias ? 'operation' : isEquipmentAlias ? 'equipment' : 'material'
+            const tailPath = remainder.replace(/^(operation|equipment|material)\.?/, '')
+
+            const operationVariantId = Number(targetStage?.properties?.OPERATION_VARIANT?.VALUE ?? 0) || null
+            const materialVariantId = Number(targetStage?.properties?.MATERIAL_VARIANT?.VALUE ?? 0) || null
+            const equipmentId = Number(targetStage?.properties?.EQUIPMENT?.VALUE ?? 0) || null
+
+            const operationVariant = operationVariantId
+              ? initPayload?.elementsStore?.CALC_OPERATIONS_VARIANTS?.find((v: any) => Number(v?.id) === operationVariantId)
+              : null
+            const materialVariant = materialVariantId
+              ? initPayload?.elementsStore?.CALC_MATERIALS_VARIANTS?.find((v: any) => Number(v?.id) === materialVariantId)
+              : null
+
+            const operation = operationVariant?.productId
+              ? initPayload?.elementsStore?.CALC_OPERATIONS?.find((op: any) => Number(op?.id) === Number(operationVariant.productId))
+              : null
+            const material = materialVariant?.productId
+              ? initPayload?.elementsStore?.CALC_MATERIALS?.find((mat: any) => Number(mat?.id) === Number(materialVariant.productId))
+              : null
+            const equipment = equipmentId
+              ? initPayload?.elementsStore?.CALC_EQUIPMENT?.find((eq: any) => Number(eq?.id) === equipmentId)
+              : null
+
+            const aliasEntity = isOperationAlias ? operation : isEquipmentAlias ? equipment : material
+            const aliasValue = tailPath ? getValueByPath(aliasEntity, tailPath) : aliasEntity
+            context[wiring.paramName] = aliasValue
+            console.log('[CALC] Wired input:', wiring.paramName, '=', aliasValue, 'from', wiring.sourcePath)
+            continue
+          }
+
+          const targetStage = initPayload?.elementsStore?.CALC_STAGES?.find(
+            (stage: any) => Number(stage?.id) === targetStageId
+          ) ?? null
+          const aliasValue = remainder
+            ? getValueByPath(targetStage, remainder)
+            : targetStage
+          context[wiring.paramName] = aliasValue
+          console.log('[CALC] Wired input:', wiring.paramName, '=', aliasValue, 'from', wiring.sourcePath)
+          continue
+        }
+      }
+
+      const aliasOutputValue = resolveStageOutputAlias(wiring.sourcePath)
+      const runtimeValue = aliasOutputValue !== undefined
+        ? aliasOutputValue
+        : getRuntimePrevStageValue(wiring.sourcePath)
       const value = runtimeValue !== undefined
         ? runtimeValue
         : getValueByPath(initPayload, wiring.sourcePath)
