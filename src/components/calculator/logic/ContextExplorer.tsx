@@ -1122,11 +1122,15 @@ export function ContextExplorer({
                                         // Get type from vars map, default to 'unknown'
                                         const varType = varName && varsMap.has(varName) ? varsMap.get(varName)! : 'unknown'
                                         
+                                        const resultPath = varName
+                                          ? `stage_${prevStage.stageId}.outputVar.${varName}`
+                                          : `stage_${prevStage.stageId}.outputSlug.${slug}`
+
                                         resultsTagItems.push({
                                           code: slug,
                                           label: label,
                                           name: paramName,
-                                          path: `elementsStore.CALC_STAGES[${prevStage.stageIndex}].properties.OUTPUTS.DESCRIPTION[${outputIndex}]`,
+                                          path: resultPath,
                                           type: varType
                                         })
                                       })
