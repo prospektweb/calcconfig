@@ -34,6 +34,9 @@ interface BindingCardProps {
   onValidationMessage?: (type: 'info' | 'warning' | 'error' | 'success', message: string) => void
   isTopLevel?: boolean
   parentBindingId?: number | null
+  invalidStageIds?: Set<number>
+  invalidDetailIds?: Set<string>
+  invalidBindingIds?: Set<string>
 }
 
   export function BindingCard({
@@ -55,7 +58,10 @@ interface BindingCardProps {
   bitrixMeta = null,
   onValidationMessage,
   isTopLevel = false,
-  parentBindingId
+  parentBindingId,
+  invalidStageIds,
+  invalidDetailIds,
+  invalidBindingIds
 }: BindingCardProps) {
   // Use global drag context
   const dragContext = useDragContext()
@@ -184,7 +190,7 @@ interface BindingCardProps {
     <Card 
       data-binding-card
       data-binding-id={binding.id}
-      className={`overflow-hidden border-2 border-accent/30 ${isDragging ? 'invisible' : ''}`}
+      className={`overflow-hidden border-2 border-accent/30 ${invalidBindingIds?.has(binding.id) ? 'border-red-600 shadow-[0_0_0_1px_rgba(220,38,38,0.35)]' : ''} ${isDragging ? 'invisible' : ''}`}
       data-pwcode="binding-card"
     >
       <div 
@@ -361,6 +367,8 @@ interface BindingCardProps {
                           onValidationMessage={onValidationMessage}
                           isDragging={isDraggingThis}
                           parentBindingId={binding.bitrixId ?? null}
+                          hasInvalidLinks={invalidDetailIds?.has(child.id)}
+                          invalidStageIds={invalidStageIds}
                         />
                       ) : (
                         <BindingCard
@@ -389,6 +397,9 @@ interface BindingCardProps {
                           onValidationMessage={onValidationMessage}
                           isDragging={isDraggingThis}
                           parentBindingId={binding.bitrixId ?? null}
+                          invalidStageIds={invalidStageIds}
+                          invalidDetailIds={invalidDetailIds}
+                          invalidBindingIds={invalidBindingIds}
                         />
                       )}
                     </div>
@@ -438,6 +449,7 @@ interface BindingCardProps {
                   detailId={binding.bitrixId ?? undefined}
                   bitrixMeta={bitrixMeta}
                   onValidationMessage={onValidationMessage}
+                  invalidStageIds={invalidStageIds}
                 />
               </div>
             )}

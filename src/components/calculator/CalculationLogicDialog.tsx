@@ -19,6 +19,7 @@ import { InputParam, FormulaVar, StageLogic, ValidationIssue, ValueType, Results
 import { saveLogic, loadLogic } from './logic/storage'
 import { validateAll, inferType, inferTypeFromSourcePath } from './logic/validator'
 import { getDraftKey, extractLogicJsonString } from '@/lib/stage-utils'
+import { isBrokenSourcePath } from '@/lib/path-validation'
 
 /**
  * Build logic context for the context tree panel
@@ -880,6 +881,16 @@ export function CalculationLogicDialog({
     () => sanitizeIssuesForRender(validationIssues),
     [validationIssues]
   )
+  const invalidInputPathsForRender = useMemo(() => {
+    const broken = new Set<string>()
+    inputsForRender.forEach(input => {
+      if (input.sourceKind === 'literal') return
+      if (isBrokenSourcePath(input.sourcePath, initPayload)) {
+        broken.add(input.sourcePath)
+      }
+    })
+    return broken
+  }, [inputsForRender, initPayload])
 
   const logicContextForRender = useMemo(
     () => sanitizeContextValue(logicContext),
@@ -2194,6 +2205,7 @@ export function CalculationLogicDialog({
                         inputs={inputsForRender} 
                         onChange={setInputs} 
                         issues={validationIssuesForRender}
+                        invalidPaths={invalidInputPathsForRender}
                         activeInputId={activeInputId}
                         onInputSelect={setActiveInputId}
                         newlyAddedId={newlyAddedInputId}

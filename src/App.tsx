@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useConfigKV } from '@/hooks/use-config-kv'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -38,6 +38,7 @@ import {
 } from '@/lib/types'
 import { transformPresetToUI } from '@/lib/bitrix-to-ui-transformer'
 import { loadExpandedById } from '@/lib/ui-state-storage'
+import { collectInvalidStageIds } from '@/lib/path-validation'
 import { HeaderSection } from '@/components/calculator/HeaderSection'
 import { VariantsFooter } from '@/components/calculator/VariantsFooter'
 import { DetailCard } from '@/components/calculator/DetailCard'
@@ -288,6 +289,50 @@ function App() {
     const { canCalculate: calculable } = checkAllStagesReadiness()
     setCanCalculate(calculable)
   }, [checkAllStagesReadiness])
+
+  const invalidStageIds = useMemo(() => collectInvalidStageIds(bitrixMeta), [bitrixMeta])
+
+  const invalidDetailIds = useMemo(() => {
+    const set = new Set<string>()
+    ;(details || []).forEach(detail => {
+      const hasInvalid = (detail.stages || []).some(stage => stage.stageId && invalidStageIds.has(stage.stageId))
+      if (hasInvalid) {
+        set.add(detail.id)
+      }
+    })
+    return set
+  }, [details, invalidStageIds])
+
+  const invalidBindingIds = useMemo(() => {
+    const set = new Set<string>()
+    const byId = new Map((bindings || []).map(binding => [binding.id, binding]))
+
+    const hasInvalidBinding = (bindingId: string, visited = new Set<string>()): boolean => {
+      if (visited.has(bindingId)) return false
+      visited.add(bindingId)
+
+      const binding = byId.get(bindingId)
+      if (!binding) return false
+
+      if ((binding.stages || []).some(stage => stage.stageId && invalidStageIds.has(stage.stageId))) {
+        return true
+      }
+
+      if ((binding.detailIds || []).some(detailId => invalidDetailIds.has(detailId))) {
+        return true
+      }
+
+      return (binding.bindingIds || []).some(childId => hasInvalidBinding(childId, visited))
+    }
+
+    ;(bindings || []).forEach(binding => {
+      if (hasInvalidBinding(binding.id)) {
+        set.add(binding.id)
+      }
+    })
+
+    return set
+  }, [bindings, invalidDetailIds, invalidStageIds])
 
   // Helper function to send REMOVE_DETAIL_REQUEST
   const sendRemoveDetailRequestHelper = useCallback((detailBitrixId: number, parentId: number | null) => {
@@ -2066,6 +2111,8 @@ function App() {
                     onValidationMessage={addInfoMessage}
                     isTopLevel={true}
                     parentBindingId={null}
+                    hasInvalidLinks={invalidDetailIds.has(item.id)}
+                    invalidStageIds={invalidStageIds}
                   />
                 ) : (
                   <BindingCard
@@ -2091,6 +2138,9 @@ function App() {
                     onValidationMessage={addInfoMessage}
                     isTopLevel={true}
                     parentBindingId={null}
+                    invalidStageIds={invalidStageIds}
+                    invalidDetailIds={invalidDetailIds}
+                    invalidBindingIds={invalidBindingIds}
                   />
                 )}
                 
