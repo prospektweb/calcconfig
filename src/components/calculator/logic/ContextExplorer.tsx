@@ -847,6 +847,7 @@ export function ContextExplorer({
                     section="stage"
                     subsection="Operation"
                     index={stageElements.operationIndex}
+                    basePath={currentStage ? `stage_${currentStage.id}.operation` : undefined}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -874,6 +875,7 @@ export function ContextExplorer({
                     section="stage"
                     subsection="Equipment"
                     index={stageElements.equipmentIndex}
+                    basePath={currentStage ? `stage_${currentStage.id}.equipment` : undefined}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -887,6 +889,7 @@ export function ContextExplorer({
                     section="stage"
                     subsection="Material"
                     index={stageElements.materialIndex}
+                    basePath={currentStage ? `stage_${currentStage.id}.material` : undefined}
                     initPayload={initPayload}
                     onAddInput={onAddInput}
                   />
@@ -1000,6 +1003,7 @@ export function ContextExplorer({
                               section="prevStage"
                               subsection="Operation"
                               index={operationIndex}
+                              basePath={`stage_${prevStage.stageId}.operation`}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -1025,6 +1029,7 @@ export function ContextExplorer({
                               section="prevStage"
                               subsection="Equipment"
                               index={equipmentIndex}
+                              basePath={`stage_${prevStage.stageId}.equipment`}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />
@@ -1037,6 +1042,7 @@ export function ContextExplorer({
                               section="prevStage"
                               subsection="Material"
                               index={materialIndex}
+                              basePath={`stage_${prevStage.stageId}.material`}
                               initPayload={initPayload}
                               onAddInput={onAddInput}
                             />

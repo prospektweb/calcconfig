@@ -797,8 +797,47 @@ export function buildCalculationContext(
         const targetStageId = Number(stagePathMatch[1])
         const remainder = String(stagePathMatch[2] || '')
         const isOutputAlias = remainder.startsWith('outputVar.') || remainder.startsWith('outputSlug.')
+        const isOperationAlias = remainder.startsWith('operation.')
+        const isEquipmentAlias = remainder.startsWith('equipment.')
+        const isMaterialAlias = remainder.startsWith('material.')
 
         if (!isOutputAlias) {
+          if (isOperationAlias || isEquipmentAlias || isMaterialAlias) {
+            const targetStage = initPayload?.elementsStore?.CALC_STAGES?.find(
+              (stage: any) => Number(stage?.id) === targetStageId
+            ) ?? null
+
+            const aliasType = isOperationAlias ? 'operation' : isEquipmentAlias ? 'equipment' : 'material'
+            const tailPath = remainder.replace(/^(operation|equipment|material)\.?/, '')
+
+            const operationVariantId = Number(targetStage?.properties?.OPERATION_VARIANT?.VALUE ?? 0) || null
+            const materialVariantId = Number(targetStage?.properties?.MATERIAL_VARIANT?.VALUE ?? 0) || null
+            const equipmentId = Number(targetStage?.properties?.EQUIPMENT?.VALUE ?? 0) || null
+
+            const operationVariant = operationVariantId
+              ? initPayload?.elementsStore?.CALC_OPERATIONS_VARIANTS?.find((v: any) => Number(v?.id) === operationVariantId)
+              : null
+            const materialVariant = materialVariantId
+              ? initPayload?.elementsStore?.CALC_MATERIALS_VARIANTS?.find((v: any) => Number(v?.id) === materialVariantId)
+              : null
+
+            const operation = operationVariant?.productId
+              ? initPayload?.elementsStore?.CALC_OPERATIONS?.find((op: any) => Number(op?.id) === Number(operationVariant.productId))
+              : null
+            const material = materialVariant?.productId
+              ? initPayload?.elementsStore?.CALC_MATERIALS?.find((mat: any) => Number(mat?.id) === Number(materialVariant.productId))
+              : null
+            const equipment = equipmentId
+              ? initPayload?.elementsStore?.CALC_EQUIPMENT?.find((eq: any) => Number(eq?.id) === equipmentId)
+              : null
+
+            const aliasEntity = isOperationAlias ? operation : isEquipmentAlias ? equipment : material
+            const aliasValue = tailPath ? getValueByPath(aliasEntity, tailPath) : aliasEntity
+            context[wiring.paramName] = aliasValue
+            console.log('[CALC] Wired input:', wiring.paramName, '=', aliasValue, 'from', wiring.sourcePath)
+            continue
+          }
+
           const targetStage = initPayload?.elementsStore?.CALC_STAGES?.find(
             (stage: any) => Number(stage?.id) === targetStageId
           ) ?? null
