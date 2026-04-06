@@ -64,36 +64,46 @@ function parseInputSourceForUi(rawSourcePath: unknown): {
 function migrateLegacyInputSourcePath(rawSourcePath: string, initPayload: InitPayload | null | undefined): string {
   const sourcePath = String(rawSourcePath || '')
   const legacyMatch = sourcePath.match(/elementsStore\.CALC_STAGES\[(\d+)\]\.properties\.OUTPUTS\.(VALUE|DESCRIPTION)\[(\d+)\]/)
-  if (!legacyMatch) {
-    return sourcePath
+  if (legacyMatch) {
+    const stageIndex = Number(legacyMatch[1])
+    const sourceKind = legacyMatch[2]
+    const outputIndex = Number(legacyMatch[3])
+    const stageElement = initPayload?.elementsStore?.CALC_STAGES?.[stageIndex]
+    if (!stageElement?.id) {
+      return sourcePath
+    }
+
+    const stageId = Number(stageElement.id)
+    const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION
+    const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE
+
+    const varName = Array.isArray(outputsDesc) ? String(outputsDesc[outputIndex] || '').trim() : ''
+    if (varName) {
+      return `stage_${stageId}.outputVar.${varName}`
+    }
+
+    const valueEntry = Array.isArray(outputsValue) ? String(outputsValue[outputIndex] || '') : ''
+    const [slug] = valueEntry.split('|')
+    if (slug) {
+      return `stage_${stageId}.outputSlug.${slug}`
+    }
+
+    return sourceKind === 'VALUE'
+      ? `stage_${stageId}.outputSlug.output_${outputIndex}`
+      : sourcePath
   }
 
-  const stageIndex = Number(legacyMatch[1])
-  const sourceKind = legacyMatch[2]
-  const outputIndex = Number(legacyMatch[3])
-  const stageElement = initPayload?.elementsStore?.CALC_STAGES?.[stageIndex]
-  if (!stageElement?.id) {
-    return sourcePath
+  const legacyStagePathMatch = sourcePath.match(/^elementsStore\.CALC_STAGES\[(\d+)\](\..+)?$/)
+  if (legacyStagePathMatch) {
+    const stageIndex = Number(legacyStagePathMatch[1])
+    const suffix = legacyStagePathMatch[2] || ''
+    const stageElement = initPayload?.elementsStore?.CALC_STAGES?.[stageIndex]
+    if (stageElement?.id) {
+      return `stage_${stageElement.id}${suffix}`
+    }
   }
 
-  const stageId = Number(stageElement.id)
-  const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION
-  const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE
-
-  const varName = Array.isArray(outputsDesc) ? String(outputsDesc[outputIndex] || '').trim() : ''
-  if (varName) {
-    return `stage_${stageId}.outputVar.${varName}`
-  }
-
-  const valueEntry = Array.isArray(outputsValue) ? String(outputsValue[outputIndex] || '') : ''
-  const [slug] = valueEntry.split('|')
-  if (slug) {
-    return `stage_${stageId}.outputSlug.${slug}`
-  }
-
-  return sourceKind === 'VALUE'
-    ? `stage_${stageId}.outputSlug.output_${outputIndex}`
-    : sourcePath
+  return sourcePath
 }
 
 function normalizeInputDescriptions(

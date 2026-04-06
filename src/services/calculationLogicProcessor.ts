@@ -792,6 +792,25 @@ export function buildCalculationContext(
         continue
       }
 
+      const stagePathMatch = wiring.sourcePath.match(/^stage_(\d+)(?:\.(.+))?$/)
+      if (stagePathMatch) {
+        const targetStageId = Number(stagePathMatch[1])
+        const remainder = String(stagePathMatch[2] || '')
+        const isOutputAlias = remainder.startsWith('outputVar.') || remainder.startsWith('outputSlug.')
+
+        if (!isOutputAlias) {
+          const targetStage = initPayload?.elementsStore?.CALC_STAGES?.find(
+            (stage: any) => Number(stage?.id) === targetStageId
+          ) ?? null
+          const aliasValue = remainder
+            ? getValueByPath(targetStage, remainder)
+            : targetStage
+          context[wiring.paramName] = aliasValue
+          console.log('[CALC] Wired input:', wiring.paramName, '=', aliasValue, 'from', wiring.sourcePath)
+          continue
+        }
+      }
+
       const aliasOutputValue = resolveStageOutputAlias(wiring.sourcePath)
       const runtimeValue = aliasOutputValue !== undefined
         ? aliasOutputValue
