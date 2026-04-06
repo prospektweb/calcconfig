@@ -695,6 +695,50 @@ export function buildCalculationContext(
   inputWirings: InputWiring[],
   currentStageId: number
 ): Record<string, any> {
+  const resolveStageOutputAlias = (sourcePath: string): any | undefined => {
+    if (!sourcePath) return undefined
+
+    const byVarMatch = sourcePath.match(/^stage_(\d+)\.outputVar\.(.+)$/)
+    const bySlugMatch = sourcePath.match(/^stage_(\d+)\.outputSlug\.([^.\]]+)$/)
+    if (!byVarMatch && !bySlugMatch) {
+      return undefined
+    }
+
+    const targetStageId = Number((byVarMatch || bySlugMatch)?.[1])
+    const targetStage = initPayload?.elementsStore?.CALC_STAGES?.find(
+      (stage: any) => Number(stage?.id) === targetStageId
+    )
+    if (!targetStage) return undefined
+
+    const runtimeOutputs = Array.isArray(targetStage?.properties?.OUTPUTS_RUNTIME)
+      ? targetStage.properties.OUTPUTS_RUNTIME
+      : []
+
+    if (byVarMatch) {
+      const targetVarName = String(byVarMatch[2] || '').trim()
+      if (!targetVarName) return undefined
+
+      const descriptions = targetStage?.properties?.OUTPUTS?.DESCRIPTION
+      if (!Array.isArray(descriptions)) return undefined
+
+      const outputIndex = descriptions.findIndex((desc: any) => String(desc) === targetVarName)
+      if (outputIndex < 0) return undefined
+      return runtimeOutputs[outputIndex]?.VALUE
+    }
+
+    const targetSlug = String(bySlugMatch?.[2] || '').trim()
+    if (!targetSlug) return undefined
+
+    const outputsValueRaw = targetStage?.properties?.OUTPUTS?.VALUE
+    const outputsValue = Array.isArray(outputsValueRaw) ? outputsValueRaw : []
+    const outputIndex = outputsValue.findIndex((entry: any) => {
+      const [slugPart] = String(entry || '').split('|')
+      return slugPart === targetSlug
+    })
+    if (outputIndex < 0) return undefined
+    return runtimeOutputs[outputIndex]?.VALUE
+  }
+
   const getRuntimePrevStageValue = (sourcePath: string): any | undefined => {
     if (!sourcePath) return undefined
 
@@ -748,7 +792,10 @@ export function buildCalculationContext(
         continue
       }
 
-      const runtimeValue = getRuntimePrevStageValue(wiring.sourcePath)
+      const aliasOutputValue = resolveStageOutputAlias(wiring.sourcePath)
+      const runtimeValue = aliasOutputValue !== undefined
+        ? aliasOutputValue
+        : getRuntimePrevStageValue(wiring.sourcePath)
       const value = runtimeValue !== undefined
         ? runtimeValue
         : getValueByPath(initPayload, wiring.sourcePath)
