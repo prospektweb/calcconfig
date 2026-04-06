@@ -554,6 +554,9 @@ function SettingsSection({
   const tagItems: TagItem[] = []
   
   const prefix = isPrevStage ? 'prevStage' : 'stage'
+  const stageBasePath = stage?.id
+    ? `stage_${stage.id}`
+    : `elementsStore.CALC_STAGES[${stageIndex}]`
   
   // 1. Количество операций
   if (stage.properties?.OPERATION_QUANTITY) {
@@ -561,7 +564,7 @@ function SettingsSection({
       code: 'OPERATION_QUANTITY',
       label: 'Количество операций',
       name: `${prefix}SettingsOPERATION_QUANTITY`,
-      path: `elementsStore.CALC_STAGES[${stageIndex}].properties.OPERATION_QUANTITY.VALUE`,
+      path: `${stageBasePath}.properties.OPERATION_QUANTITY.VALUE`,
       type: 'number'
     })
   }
@@ -572,7 +575,7 @@ function SettingsSection({
       code: 'MATERIAL_QUANTITY',
       label: 'Количество материалов',
       name: `${prefix}SettingsMATERIAL_QUANTITY`,
-      path: `elementsStore.CALC_STAGES[${stageIndex}].properties.MATERIAL_QUANTITY.VALUE`,
+      path: `${stageBasePath}.properties.MATERIAL_QUANTITY.VALUE`,
       type: 'number'
     })
   }
@@ -602,7 +605,7 @@ function SettingsSection({
             code: code,
             label: customField.name || code,
             name: isPrevStage ? `prevStage${code}` : code,
-            path: `elementsStore.CALC_STAGES[${stageIndex}].properties.CUSTOM_FIELDS_VALUE.DESCRIPTION[${findIndex}]`,
+            path: `${stageBasePath}.properties.CUSTOM_FIELDS_VALUE.DESCRIPTION[${findIndex}]`,
             type: valueType
           })
         }
@@ -1122,11 +1125,15 @@ export function ContextExplorer({
                                         // Get type from vars map, default to 'unknown'
                                         const varType = varName && varsMap.has(varName) ? varsMap.get(varName)! : 'unknown'
                                         
+                                        const resultPath = varName
+                                          ? `stage_${prevStage.stageId}.outputVar.${varName}`
+                                          : `stage_${prevStage.stageId}.outputSlug.${slug}`
+
                                         resultsTagItems.push({
                                           code: slug,
                                           label: label,
                                           name: paramName,
-                                          path: `elementsStore.CALC_STAGES[${prevStage.stageIndex}].properties.OUTPUTS.DESCRIPTION[${outputIndex}]`,
+                                          path: resultPath,
                                           type: varType
                                         })
                                       })

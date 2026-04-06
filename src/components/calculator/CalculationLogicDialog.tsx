@@ -61,6 +61,62 @@ function parseInputSourceForUi(rawSourcePath: unknown): {
   }
 }
 
+function migrateLegacyInputSourcePath(rawSourcePath: string, initPayload: InitPayload | null | undefined): string {
+  const sourcePath = String(rawSourcePath || '')
+  const legacyMatch = sourcePath.match(/elementsStore\.CALC_STAGES\[(\d+)\]\.properties\.OUTPUTS\.(VALUE|DESCRIPTION)\[(\d+)\]/)
+  if (legacyMatch) {
+    const stageIndex = Number(legacyMatch[1])
+    const sourceKind = legacyMatch[2]
+    const outputIndex = Number(legacyMatch[3])
+    const stageElement = initPayload?.elementsStore?.CALC_STAGES?.[stageIndex]
+    if (!stageElement?.id) {
+      return sourcePath
+    }
+
+    const stageId = Number(stageElement.id)
+    const outputsDesc = stageElement?.properties?.OUTPUTS?.DESCRIPTION
+    const outputsValue = stageElement?.properties?.OUTPUTS?.VALUE
+
+    const varName = Array.isArray(outputsDesc) ? String(outputsDesc[outputIndex] || '').trim() : ''
+    if (varName) {
+      return `stage_${stageId}.outputVar.${varName}`
+    }
+
+    const valueEntry = Array.isArray(outputsValue) ? String(outputsValue[outputIndex] || '') : ''
+    const [slug] = valueEntry.split('|')
+    if (slug) {
+      return `stage_${stageId}.outputSlug.${slug}`
+    }
+
+    return sourceKind === 'VALUE'
+      ? `stage_${stageId}.outputSlug.output_${outputIndex}`
+      : sourcePath
+  }
+
+  const legacyStagePathMatch = sourcePath.match(/^elementsStore\.CALC_STAGES\[(\d+)\](\..+)?$/)
+  if (legacyStagePathMatch) {
+    const stageIndex = Number(legacyStagePathMatch[1])
+    const suffix = legacyStagePathMatch[2] || ''
+    const stageElement = initPayload?.elementsStore?.CALC_STAGES?.[stageIndex]
+    if (stageElement?.id) {
+      return `stage_${stageElement.id}${suffix}`
+    }
+  }
+
+  return sourcePath
+}
+
+function normalizeInputDescriptions(
+  inputsDesc: string[] | undefined,
+  initPayload: InitPayload | null | undefined
+): string[] | undefined {
+  if (!Array.isArray(inputsDesc)) {
+    return inputsDesc
+  }
+
+  return inputsDesc.map(source => migrateLegacyInputSourcePath(source, initPayload))
+}
+
 // Helper to create empty ResultsHL
 function createEmptyResultsHL(): ResultsHL {
   return {
@@ -864,7 +920,10 @@ export function CalculationLogicDialog({
       const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
       const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
       const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
-      const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+      const inputsDesc = normalizeInputDescriptions(
+        stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined,
+        initPayload
+      )
       savedInputs = sanitizeInputs(
         buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc),
         'init inputs'
@@ -1030,7 +1089,10 @@ export function CalculationLogicDialog({
         const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
         const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
         const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
-        const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+        const inputsDesc = normalizeInputDescriptions(
+          stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined,
+          initPayload
+        )
         const savedInputs = sanitizeInputs(
           buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc),
           'init inputs'
@@ -1390,7 +1452,10 @@ export function CalculationLogicDialog({
     const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
     const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
     const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
-    const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+    const inputsDesc = normalizeInputDescriptions(
+      stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined,
+      initPayload
+    )
     const savedInputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
     
     const logicJsonProp = settingsElement?.properties?.LOGIC_JSON
@@ -1892,7 +1957,10 @@ export function CalculationLogicDialog({
       const paramsValue = settingsElement?.properties?.PARAMS?.VALUE as string[] | undefined
       const paramsDesc = settingsElement?.properties?.PARAMS?.DESCRIPTION as string[] | undefined
       const inputsValue = stageElement?.properties?.INPUTS?.VALUE as string[] | undefined
-      const inputsDesc = stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined
+      const inputsDesc = normalizeInputDescriptions(
+        stageElement?.properties?.INPUTS?.DESCRIPTION as string[] | undefined,
+        initPayload
+      )
       const inputs = buildInputsFromInit(paramsValue, paramsDesc, inputsValue, inputsDesc)
       
       // Build vars from LOGIC_JSON
