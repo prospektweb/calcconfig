@@ -117,6 +117,33 @@ function normalizeInputDescriptions(
   return inputsDesc.map(source => migrateLegacyInputSourcePath(source, initPayload))
 }
 
+function normalizeDraftInputs(
+  rawInputs: any[],
+  initPayload: InitPayload | null | undefined
+): any[] {
+  if (!Array.isArray(rawInputs)) {
+    return []
+  }
+
+  return rawInputs.map(input => {
+    if (!input || typeof input !== 'object') {
+      return input
+    }
+
+    const sourceKind = String((input as any).sourceKind || 'context')
+    const sourcePath = String((input as any).sourcePath || '')
+
+    if (sourceKind === 'literal') {
+      return input
+    }
+
+    return {
+      ...input,
+      sourcePath: migrateLegacyInputSourcePath(sourcePath, initPayload),
+    }
+  })
+}
+
 // Helper to create empty ResultsHL
 function createEmptyResultsHL(): ResultsHL {
   return {
@@ -956,7 +983,10 @@ export function CalculationLogicDialog({
     if (draftJson) {
       try {
         const parsed = JSON.parse(draftJson)
-        const rawDraftInputs = Array.isArray(parsed?.inputs) ? parsed.inputs : []
+        const rawDraftInputs = normalizeDraftInputs(
+          Array.isArray(parsed?.inputs) ? parsed.inputs : [],
+          initPayload
+        )
         const rawDraftVars = Array.isArray(parsed?.vars) ? parsed.vars : []
         const rawDraftResultsHL = parsed?.resultsHL || createEmptyResultsHL()
         const rawDraftAdditionalResults = Array.isArray(parsed?.additionalResults) ? parsed.additionalResults : []
